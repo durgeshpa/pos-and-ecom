@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, Page, PageVersion
+from ...models import Application, Card, CardVersion, Page, PageVersion
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -117,6 +117,50 @@ class CardView(APIView, PaginationHandlerMixin):
             error_logger.error(serializer.errors)
             info_logger.error(f"Failed To Create New Card")
             return Response(message, status=status.HTTP_400_BAD_REQUEST)
+        
+    
+    def patch(self, request):
+
+        data = request.data
+        card_id = data.get("card_id")
+        card_data_data = data.pop("card_data")
+        card_details_data = data.pop("card_details")
+
+        print(card_data_data)
+        print(card_details_data)
+
+        try:
+            card = Card.objects.get(id=card_id)
+        except:
+            raise ValidationError("Card with id {id} not found")
+
+        card_version = CardVersion.objects.filter(card=card).last()
+        card_data = card_version.card_data
+
+        card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
+        card_serializer = CardSerializer(card, data=card_details_data, partial=True)
+
+
+        message = {
+            "is_success": True,
+            "error": []
+        }
+        if(card_data_serializer.is_valid()):
+            card_data_serializer.save()
+        else:
+            message["is_success"]=False
+            message["error"].push(card_data_serializer.errors)
+        
+
+        if(card_serializer.is_valid()):
+            card_serializer.save()
+        else:
+            message["is_success"]=False
+            message["error"].push(card_serializer.errors)
+        
+        
+        
+        return Response(message)
 
 
 class CardDetailView(RetrieveAPIView):

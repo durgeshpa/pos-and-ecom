@@ -98,7 +98,6 @@ class CardDataSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         data = request.data
         app_id = data.get("app_id")
-        card_id = data.get("card_id")
         items = validated_data.pop("items")
         new_card_data = CardData.objects.create(**validated_data)
         for item in items:
@@ -111,33 +110,20 @@ class CardDataSerializer(serializers.ModelSerializer):
             raise ValidationError(f"app with id {app_id} not found, please check if you have provided valid app_id")
 
 
-        # if card_id is provided that means we need to update an existing card
-        if(card_id):
-            try:
-                card = Card.objects.get(id=card_id)
-            except:
-                raise ValidationError(f"card with id {card_id} not found, please check if you have provided valid card_id")
-            print("CARD FOUND", card)
-
-            if card:
-                latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
-                CardVersion.objects.create(version_number=latest_version,
-                                                                card=card,
-                                                                card_data=new_card_data,
-                                                                )
-                info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
-
-        # if card_id is not provided it means we need to create a new card
-        else:
-            print("CARD NOT FOUND")
-            new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
-            CardVersion.objects.create(version_number=1,
-                                                            card=new_card,
-                                                            card_data=new_card_data,
-                                                            )
-            info_logger.info(f"Created New Card with ID {new_card.id}")
+       
+        new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+        CardVersion.objects.create(version_number=1,
+                                                        card=new_card,
+                                                        card_data=new_card_data,
+                                                        )
+        info_logger.info(f"Created New Card with ID {new_card.id}")
         
         return new_card_data
+    
+    # def update(self, instance, validated_data):
+    #     instance.header = validated_data.get('header', instance.header)
+    #     instance.save()
+    #     return  instance
 
 class CardSerializer(serializers.ModelSerializer):
     """Serializer for Card"""
