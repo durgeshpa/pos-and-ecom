@@ -10,8 +10,8 @@ from dateutil.relativedelta import relativedelta
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
-from django.core.exceptions import ValidationError
-from django.db.models import Q, Count, FloatField
+from django.core.exceptions import ValidationError, FieldError
+from django.db.models import Q, Count, FloatField, Avg
 from django.db.models import F, Sum, OuterRef, Subquery, IntegerField
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
@@ -27,7 +27,7 @@ from global_config.models import GlobalConfig
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_backend.utils import time_diff_days_hours_mins_secs
+from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_seconds
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
@@ -2032,6 +2032,21 @@ class SQCount(Subquery):
     output_field = IntegerField()
 
 
+class SQSum(Subquery):
+    """
+    Subclass of subquery get the sum
+    """
+    template = '(SELECT SUM(%(field)s) FROM (%(subquery)s) _sum)'
+
+    def as_sql(self, compiler, connection, template=None, **extra_context):
+        if 'field' not in extra_context and 'field' not in self.extra:
+            if len(self.queryset._fields) > 1:
+                raise FieldError('You must provide the field name, or have a single column')
+            extra_context['field'] = self.queryset._fields[0]
+        return super(SQSum, self).as_sql(
+            compiler, connection, template=template, **extra_context
+        )
+
 class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
@@ -2115,42 +2130,83 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
 
 
-# class PickerPerformanceDashboard(admin.ModelAdmin):
-#     """
-#     Admin class for representing Delivery Performance Dashboard
-#     """
-#     change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
-#     list_per_page = FIFTY
-#
-#     def has_add_permission(self, request):
-#         return False
-#
-#     def changelist_view(self, request, extra_context=None):
-#         response = super().changelist_view(
-#             request,
-#             extra_context=extra_context,
-#         )
-#
-#         try:
-#             current_month = datetime.datetime.now().month
-#             current_year = datetime.datetime.now().year
-#             qs = response.context_data['cl'].queryset
-#             qs = qs.filter(groups__name='Picker Boy', picker_user__created_at__month=current_month,
-#                            picker_user__created_at__year=current_year)
-#         except (AttributeError, KeyError):
-#             return response
-#
-#         response.context_data['summary'] = list(
-#             qs.annotate(assigned_cnt=Count('picker_user'),
-#                         order_amt=Sum(F('picker_user__order__order_amount')),
-#                         invoice_amt=Sum(F('picker_user__order__rt_order_order_product__invoice__invoice_amount'),
-#                                         output_field=FloatField()),
-#                         picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),)
-#         ))
-#         return response
-#
-#     def order_count_subquery(self):
-#         return PickerDashboard.objects.filter(picker_boy=OuterRef('pk')).values('pk')
+class PickerPerformancePickerBoyFilter(InputFilter):
+    title = 'Picker Boy'
+    parameter_name = 'phone_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(
+                  Q(picker_user__picker_boy__phone_number=value)
+                )
+        return queryset
+
+class PickerPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
+    date_hierarchy = 'picker_user__created_at'
+    list_filter = [PickerPerformancePickerBoyFilter,]
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(
+            request,
+            extra_context=extra_context,
+        )
+
+        try:
+            qs = response.context_data['cl'].queryset
+            qs = qs.filter(groups__name='Picker Boy')
+            q_year = datetime.datetime.now().year
+            q_month = datetime.datetime.now().month
+            if request.GET:
+                if request.GET.get('picker_user__created_at__year'):
+                    q_year = request.GET.get('picker_user__created_at__year')
+                if request.GET.get('picker_user__created_at__month'):
+                    q_month = request.GET.get('picker_user__created_at__month')
+                qs = qs.filter(picker_user__created_at__month=q_month, picker_user__created_at__year=q_year)
+            else:
+                qs = qs.filter(picker_user__created_at__month=q_month, picker_user__created_at__year=q_year)
+
+        except (AttributeError, KeyError):
+            return response
+        subquery = Pickup.objects.filter(pickup_type_id=OuterRef('picker_user__order__order_no'))\
+                                 .values('pickup_quantity')
+
+        response.context_data['summary'] = list(
+            qs.order_by().annotate(assigned_cnt=Count('picker_user'),
+                                    order_amt=Sum(F('picker_user__order__order_amount'), output_field=FloatField()),
+                                   invoice_amt=Sum(
+                                       F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price') *
+                                       F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
+                                       output_field=FloatField()),
+                                    picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),),
+                                    picked_sku_cnt=Sum(self.sku_count_subquery(), output_field=IntegerField()),
+                                    picked_sku_pieces_cnt = Sum(SQSum(subquery, IntegerField()), output_field=IntegerField())
+                                   )\
+                         .values('phone_number', 'first_name','assigned_cnt','order_amt', 'invoice_amt','picked_order_cnt',
+                                 'picked_sku_cnt','picked_sku_pieces_cnt'))
+        response.context_data['summary_total'] = dict(
+            qs.aggregate(assigned_cnt=Count('picker_user'),
+                                   order_amt=Sum(F('picker_user__order__order_amount')),
+                                   invoice_amt=Sum(
+                                       F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')*
+                                       F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'), output_field=FloatField()),
+                                   picked_order_cnt=Count('picker_user',
+                                                          filter=Q(picker_user__picking_status='picking_complete'), ),
+                                   picked_sku_cnt=Sum(self.sku_count_subquery()),
+                                   picked_sku_pieces_cnt=Sum(SQSum(subquery, IntegerField()))
+                         )
+        )
+        return response
+
+    def sku_count_subquery(self):
+        return SQCount(Pickup.objects.filter(pickup_type_id=OuterRef('picker_user__order__order_no')).values('pk'))
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
@@ -2167,4 +2223,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
-#admin.site.register(PickerPerformance, PickerPerformanceDashboard)
+admin.site.register(PickerPerformance, PickerPerformanceDashboard)

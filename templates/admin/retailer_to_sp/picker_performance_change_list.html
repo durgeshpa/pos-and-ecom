@@ -76,15 +76,28 @@
 <tbody>
 <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
         </tr>
+<tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
+        <td> Total </td>
+        <td> -- </td>
+        <td> {{ summary_total.assigned_cnt | intcomma }} </td>
+        <td> {{ summary_total.order_amt | intcomma }} </td>
+        <td> {{ summary_total.invoice_amt | intcomma }} </td>
+        <td> {% percentof summary_total.invoice_amt summary_total.order_amt %} </td>
+        <td> {{ summary_total.picked_order_cnt | intcomma }} </td>
+        <td> {{ summary_total.picked_sku_cnt | intcomma }} </td>
+        <td> {{ summary_total.picked_sku_pieces_cnt | intcomma }} </td>
+        </tr>
       {% for row in summary %}
       <tr class="{% cycle 'row1' 'row2' %}">
         <td> {{ row.phone_number }} </td>
-        <td> {{ row.get_full_name }} </td>
+        <td> {{ row.first_name }} </td>
         <td> {{ row.assigned_cnt | intcomma }} </td>
         <td> {{ row.order_amt | intcomma }} </td>
         <td> {{ row.invoice_amt | intcomma }} </td>
         <td> {% percentof row.invoice_amt row.order_amt %} </td>
         <td> {{ row.picked_order_cnt | intcomma }} </td>
+        <td> {{ row.picked_sku_cnt | intcomma }} </td>
+        <td> {{ row.picked_sku_pieces_cnt | intcomma }} </td>
 
       </tr>
       {% endfor %}
