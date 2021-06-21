@@ -3,6 +3,7 @@ from datetime import datetime
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ErrorDetail, ValidationError
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
@@ -97,21 +98,38 @@ class CardDataSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         data = request.data
         app_id = data.get("app_id")
+        card_id = data.get("card_id")
         items = validated_data.pop("items")
         new_card_data = CardData.objects.create(**validated_data)
         for item in items:
             print(item)
             CardItem.objects.create(card_data=new_card_data,**item)
-        app = get_object_or_404(Application, id=app_id)
-        card = Card.objects.filter(name=data.get("name")).first()
-        if card:
-            latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
-            CardVersion.objects.create(version_number=latest_version,
-                                                            card=card,
-                                                            card_data=new_card_data,
-                                                            )
-            info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
+
+        try:
+            app = Application.objects.get(id=app_id)
+        except:
+            raise ValidationError(f"app with id {app_id} not found, please check if you have provided valid app_id")
+
+
+        # if card_id is provided that means we need to update an existing card
+        if(card_id):
+            try:
+                card = Card.objects.get(id=card_id)
+            except:
+                raise ValidationError(f"card with id {card_id} not found, please check if you have provided valid card_id")
+            print("CARD FOUND", card)
+
+            if card:
+                latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
+                CardVersion.objects.create(version_number=latest_version,
+                                                                card=card,
+                                                                card_data=new_card_data,
+                                                                )
+                info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
+
+        # if card_id is not provided it means we need to create a new card
         else:
+            print("CARD NOT FOUND")
             new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
