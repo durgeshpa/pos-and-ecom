@@ -335,6 +335,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     This is Serializer to ger Report for Sales Executive
     """
     executive_name = serializers.SerializerMethodField()
+    executive_contact_number = serializers.SerializerMethodField()
     shop_mapped = serializers.SerializerMethodField()
     shop_visited = serializers.SerializerMethodField()
     productivity = serializers.SerializerMethodField()
@@ -348,6 +349,14 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :return: executive first name
         """
         return obj.employee.first_name
+
+    def get_executive_contact_number(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: executive contact_number
+        """
+        return obj.employee.phone_number
 
     def get_shop_mapped(self, obj):
         """
@@ -542,8 +551,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order',
-                  'order_amount')
+        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """

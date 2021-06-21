@@ -391,67 +391,6 @@ class TeamListView(generics.ListAPIView):
                              created_at__date__gte=last_day).values('ordered_by').annotate(
             buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
 
-    # def list(self, request, *args, **kwargs):
-    #     days_diff = int(self.request.query_params.get('day', 1))
-    #     to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
-    #     if days_diff == 1:
-    #         from_date = to_date - timedelta(days=days_diff)
-    #     elif days_diff == 30:
-    #         from_date = datetime.now() - relativedelta(months=+1)
-    #     else:
-    #         from_date = datetime.now() - timedelta(days=days_diff)
-    #     employee_list = self.get_employee_list()
-    #     if not employee_list.exists():
-    #         msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': None}
-    #         return Response(msg, status=status.HTTP_200_OK)
-    #     shops_list = self.get_shops()
-    #     data = []
-    #     data_total = []
-    #     order_obj = self.ger_order(shops_list, to_date, from_date)
-    #     buyer_order_obj = self.get_buyer_shop(shops_list, to_date, from_date)
-    #     buyer_order_map = {i['ordered_by']: (i['buyer_shop_count'],) for i in buyer_order_obj}
-    #
-    #     order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
-    #     i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
-    #
-    #     ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
-    #     for emp in employee_list:
-    #         store_added = emp.employee.shop_created_by.filter(created_at__date__lte=to_date, created_at__date__gte=from_date).count()
-    #         rt = {
-    #             'ordered_sku_pieces': order_map[emp.employee.id][1] if emp.employee.id in order_map else 0,
-    #             'ordered_amount': round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0,
-    #             'delivered_amount': 0,
-    #             'store_added': store_added,
-    #             'unique_calls_made': 0,
-    #             'avg_order_val': round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
-    #             'avg_order_line_items': round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
-    #             'sales_person_name': emp.employee.get_full_name(),
-    #             'no_of_ordered_sku': order_map[emp.employee.id][0] if emp.employee.id in order_map else 0,
-    #             'shops_ordered': order_map[emp.employee.id][5] if emp.employee.id in order_map else 0,
-    #         }
-    #         data.append(rt)
-    #         ordered_sku_pieces_total += order_map[emp.employee.id][1] if emp.employee.id in order_map else 0
-    #         ordered_amount_total += round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0
-    #         store_added_total += store_added
-    #         no_of_ordered_sku_total += order_map[emp.employee.id][0] if emp.employee.id in order_map else 0
-    #         avg_order_total += round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
-    #         avg_order_line_items_total += round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
-    #
-    #         dt ={
-    #             'ordered_sku_pieces': ordered_sku_pieces_total,
-    #             'ordered_amount': ordered_amount_total,
-    #             'delivered_amount': 0,
-    #             'store_added': store_added_total,
-    #             'avg_order_val': avg_order_total,
-    #             'avg_order_line_items': avg_order_line_items_total,
-    #             'unique_calls_made': 0,
-    #             'no_of_ordered_sku': no_of_ordered_sku_total,
-    #         }
-    #     data_total.append(dt)
-    #     data = SmallOffsetPagination().paginate_queryset(data, self.request)
-    #     msg = {'is_success': True, 'message': [""],'response_data': data,'response_data_total':data_total}
-    #     return Response(msg,status=status.HTTP_200_OK)
-
     def list(self, request, *args, **kwargs):
         days_diff = int(self.request.query_params.get('day', 1))
         to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
@@ -511,14 +450,21 @@ class TeamListView(generics.ListAPIView):
                 'avg_order_val': avg_order_val,
                 'avg_order_line_items': avg_order_line_items,
                 'sales_person_name': emp.get_full_name(),
+                'executive_contact_number': emp.phone_number,
                 'no_of_ordered_sku': no_of_ordered_sku,
                 'shops_ordered': shops_ordered
             }
             data.append(rt)
             store_added_total += store_added
             shops_considered += buyer_shops
-        avg_order_total = round(ordered_amount_total/shops_ordered_total, 2)
-        avg_order_line_items_total = round(no_of_ordered_sku_total/shops_ordered_total, 2)
+        try:
+            avg_order_total = round(ordered_amount_total/shops_ordered_total, 2)
+        except:
+            avg_order_total = 0
+        try:
+            avg_order_line_items_total = round(no_of_ordered_sku_total/shops_ordered_total, 2)
+        except:
+            avg_order_line_items_total = 0
         dt = {
             'ordered_sku_pieces': ordered_sku_pieces_total,
             'ordered_amount': ordered_amount_total,
@@ -638,7 +584,7 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name','shop__shop_owner__phone_number').order_by('shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -656,6 +602,7 @@ class SellerShopOrder(generics.ListAPIView):
         for shop in shop_list:
             rt = {
                 'name': shop['shop__shop_name'],
+                'shop_contact_number': shop['shop__shop_owner__phone_number'],
                 'no_of_order': buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
                 'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
                 'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
@@ -728,7 +675,7 @@ class SellerShopProfile(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name','shop__shop_owner__phone_number').order_by('shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)
@@ -753,6 +700,7 @@ class SellerShopProfile(generics.ListAPIView):
                 order_value = 0
             rt = {
                 'name': shop['shop__shop_name'],
+                'shop_contact_number':shop['shop__shop_owner__phone_number'],
                 'last_order_date': order_map[shop['shop']][3].strftime('%d-%m-%Y %H:%M') if shop['shop'] in order_map else 0,
                 'last_order_value': order_value,
                 'ordered_amount': avg_order_map[shop['shop']][1] if shop['shop'] in buyer_order_map else 0,
@@ -965,7 +913,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                         return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
                                          'is_success': False},
                                         status=status.HTTP_200_OK)
-                    return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": [],
                                      'is_success': True},
                                     status=status.HTTP_200_OK)
                 else:
