@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 import logging
 import json
@@ -9,7 +10,8 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
-from django.db.models import Q
+from django.db.models import Q, Sum, F
+from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView
@@ -19,6 +21,7 @@ from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
+from retailer_to_sp.models import OrderedProduct, Order
 
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
@@ -29,7 +32,8 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
-                          InventoryReportSerializer, InventoryLogReportSerializer)
+                          InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
+                          SalesReportSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -553,3 +557,133 @@ class InventoryLogReport(GenericAPIView):
         data['product_inventory'] = inv_data
         data['logs'] = logs_data
         return api_response("Inventory Report Fetched Successfully!", data, status.HTTP_200_OK, True)
+
+
+class SalesReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+        Get Sales Report for a POS shop
+        """
+        # Validate input
+        serializer = SalesReportSerializer(data=request.GET)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
+
+        # Generate daily, monthly OR Invoice wise report
+        request_data, shop = serializer.data, kwargs['shop']
+        report_type = request_data['report_type']
+
+        if report_type == 'daily':
+            return self.daily_report(shop, report_type, request_data)
+        elif report_type == 'monthly':
+            return self.monthly_report(shop, report_type, request_data)
+        else:
+            return self.invoice_report(shop, report_type, request_data)
+
+    def invoice_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = OrderedProduct.objects.select_related('order', 'invoice').prefetch_related(
+            'order__rt_return_order').filter(order__seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date.date, created_at__date__lte=end_date.date)
+
+        # Sale, returns, effective sale for all orders
+        qs = qs.annotate(sale=F('order__order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns'), invoice_no=F('invoice__invoice_no'))
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date', 'invoice_no')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    def daily_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Sale, returns, effective sale for all days
+        qs = qs.values('created_at__date').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__date')
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    def monthly_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__month__gte=start_date.month, created_at__month__lte=end_date.month)
+
+        # Sale, returns, effective sale for all months
+        qs = qs.values('created_at__month').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__month')
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__month', 'created_at__year')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    @staticmethod
+    def filter_by_date_filter(date_filter, invoices):
+        date_today = datetime.datetime.today()
+        if date_filter == 'today':
+            invoices = invoices.filter(created_at__date=date_today)
+        elif date_filter == 'yesterday':
+            date_yesterday = date_today - datetime.timedelta(days=1)
+            invoices = invoices.filter(created_at__date=date_yesterday)
+        elif date_filter == 'this_week':
+            invoices = invoices.filter(created_at__week=date_today.isocalendar()[1])
+        elif date_filter == 'last_week':
+            last_week = date_today - datetime.timedelta(weeks=1)
+            invoices = invoices.filter(created_at__week=last_week.isocalendar()[1])
+        elif date_filter == 'this_month':
+            invoices = invoices.filter(created_at__month=date_today.month)
+        elif date_filter == 'last_month':
+            last_month = date_today - datetime.timedelta(days=30)
+            invoices = invoices.filter(created_at__month=last_month.month)
+        elif date_filter == 'this_year':
+            invoices = invoices.filter(created_at__year=date_today.year)
+        return invoices
+
+    @staticmethod
+    def sort(sort_by, sort_order, invoices):
+        sort_by = '-' + sort_by if sort_order == -1 else sort_by
+        return invoices.order_by(sort_by)
+
+    def get_response(self, report_type, data, sort_by, sort_order):
+        # Sort
+        data = self.sort(sort_by, sort_order, data)
+        # Paginate
+        data = self.pagination_class().paginate_queryset(data, self.request)
+        # Serialize
+        data = SalesReportResponseSerializer(data, many=True).data
+        # Return HTTP Response
+        report_type = report_type.capitalize()
+        msg = report_type + ' Sales Report Fetched Successfully!' if data else 'No Sales Found For Selected Filters!'
+        return api_response(msg, data, status.HTTP_200_OK, True)

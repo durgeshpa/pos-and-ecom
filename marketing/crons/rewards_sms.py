@@ -13,8 +13,8 @@ from marketing.sms import SendSms
 
 cron_logger = logging.getLogger('cron_log')
 
-def rewards_notify_users():
 
+def rewards_notify_users():
     cron_name = CronRunLog.CRON_CHOICE.MARKETING_REWARDS_NOTIFY
     if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
         cron_logger.info("{} already running".format(cron_name))
@@ -41,19 +41,21 @@ def rewards_notify_users():
 
 
 def notify():
-
     cron_logger.info('rewards notification marketing started')
 
     date_config = GlobalConfig.objects.filter(key='rewards_last_notification_time').last()
 
     now_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    if not date_config:
+        return
+
     if date_config:
         last_date = date_config.value
         rewards = RewardLog.objects.filter(created_at__gte=last_date, created_at__lt=now_date,
-                                 transaction_type__in=['direct_reward', 'indirect_reward']).values('reward_user').distinct()
-    else:
-        rewards = RewardLog.objects.filter(created_at__lt=now_date, transaction_type__in=['direct_reward',
-                                                                                          'indirect_reward']).values('reward_user').distinct()
+                                           transaction_type__in=['direct_reward', 'indirect_reward',
+                                                                 'order_direct_credit', 'order_direct_debit']).values(
+            'reward_user').distinct()
     with transaction.atomic():
 
         for user in rewards:
@@ -70,15 +72,9 @@ def notify():
                                   body="Congratulations, you have won {} reward points because {} friends"
                                        " shopped using your referral code! Shop at PepperTap store and avail discounts"
                                        " upto {} INR"
-                                  .format(total_points, n_users, int(total_points / used_reward_factor)))
+                                  .format(total_points, n_users, round(total_points / used_reward_factor, 2)))
 
                 message.send()
 
-        if date_config:
-            date_config.value = now_date
-            date_config.save()
-        else:
-            GlobalConfig.objects.create(key='rewards_last_notification_time', value=now_date)
-
-
-
+        date_config.value = now_date
+        date_config.save()

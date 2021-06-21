@@ -1,5 +1,6 @@
 from decimal import Decimal
 import datetime
+import calendar
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -669,7 +670,8 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
     def get_current_amount(self, obj):
         return round(obj.order_amount + self.get_redeem_points_value(obj) - self.get_refunded_amount(
-            obj) - self.get_refunded_points_value(obj) - self.get_refund_amount(obj) - self.get_refund_points_value(obj), 2)
+            obj) - self.get_refunded_points_value(obj) - self.get_refund_amount(obj) - self.get_refund_points_value(
+            obj), 2)
 
     def get_refunded_amount(self, obj):
         previous_refund = 0
@@ -1076,3 +1078,51 @@ class InventoryLogReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosInventoryChange
         fields = ('created_at', 'transaction_type', 'transaction_id', 'quantity')
+
+
+class SalesReportSerializer(serializers.Serializer):
+    report_type = serializers.ChoiceField(choices=('daily', 'monthly', 'invoice'), default='daily')
+    date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
+                                                   'last_month', 'this_year'), required=False, allow_null=True,
+                                          allow_blank=True)
+    start_date = serializers.DateField(required=False, default=datetime.date.today)
+    end_date = serializers.DateField(required=False, default=datetime.date.today)
+    sort_by = serializers.ChoiceField(choices=('date', 'month', 'sale', 'returns', 'effective_sale'), default=None)
+    sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
+
+    def validate(self, attrs):
+        date_filter = attrs.get('date_filter')
+        sort_by = attrs.get('sort_by')
+
+        if attrs.get('report_type') == 'monthly':
+            if date_filter and date_filter not in ['this_month', 'last_month', 'this_year']:
+                raise serializers.ValidationError("Invalid Date Filter For Monthly Reports!")
+            sort_by = sort_by if sort_by else 'month'
+            if sort_by == 'date':
+                raise serializers.ValidationError("Invalid Sort Field For Monthly Reports!")
+        else:
+            sort_by = sort_by if sort_by else 'date'
+
+        attrs['sort_by'] = 'created_at__' + sort_by if sort_by in ['date', 'month'] else sort_by
+
+        if attrs['start_date'] > attrs['end_date']:
+            raise serializers.ValidationError("End Date Must Be Greater Than Start Date")
+        return attrs
+
+
+class SalesReportResponseSerializer(serializers.Serializer):
+    date = serializers.SerializerMethodField()
+    month = serializers.SerializerMethodField()
+    sale = serializers.FloatField(read_only=True)
+    returns = serializers.FloatField(read_only=True)
+    effective_sale = serializers.FloatField(read_only=True)
+    invoice_no = serializers.CharField(read_only=True)
+
+    @staticmethod
+    def get_date(obj):
+        return obj['created_at__date'].strftime("%b %d, %Y") if 'created_at__date' in obj else None
+
+    @staticmethod
+    def get_month(obj):
+        return calendar.month_name[obj['created_at__month']] + ', ' + str(
+            obj['created_at__year']) if 'created_at__month' in obj else None

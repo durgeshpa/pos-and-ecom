@@ -152,6 +152,7 @@ class PosInventoryCls(object):
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         PosInventoryCls.qty_transaction(pid, f_state_obj, qty, transaction_id)
         # Record inventory change
+        qty = qty * -1 if i_state == PosInventoryState.AVAILABLE else qty
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
                                                 user)
 
