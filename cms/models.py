@@ -45,7 +45,7 @@ class CardItem(models.Model):
     """Card Item Model"""
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
-    content = models.TextField()
+    content = models.TextField(null=True, blank=True)
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
     row = models.IntegerField(default=1)
