@@ -1075,6 +1075,17 @@ class InventoryReportSerializer(serializers.ModelSerializer):
 
 
 class InventoryLogReportSerializer(serializers.ModelSerializer):
+    created_at = serializers.SerializerMethodField()
+    transaction_type = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_created_at(obj):
+        return obj.created_at.strftime("%b %d, %Y")
+
+    @staticmethod
+    def get_transaction_type(obj):
+        return obj.transaction_type.replace('_', ' ').title()
+
     class Meta:
         model = PosInventoryChange
         fields = ('created_at', 'transaction_type', 'transaction_id', 'quantity')

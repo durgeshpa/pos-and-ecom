@@ -504,12 +504,18 @@ class InventoryReport(GenericAPIView):
             Get Products Available Inventory report for shop
         """
         shop = kwargs['shop']
+        if request.GET.get('product_id'):
+            return self.product_inventory_log(shop, request.GET.get('search_text'), request.GET.get('product_id'))
+        else:
+            return self.inventory_list(shop, request.GET.get('search_text'))
+
+    def inventory_list(self, shop, search_text):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         inv = PosInventory.objects.filter(product__shop=shop, inventory_state=inv_available)
 
         # Search by product name
-        if request.GET.get('search_text'):
-            inv = inv.filter(product__name__icontains=request.GET.get('search_text'))
+        if search_text:
+            inv = inv.filter(product__name__icontains=search_text)
 
         inv = inv.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(inv, self.request)
@@ -517,24 +523,10 @@ class InventoryReport(GenericAPIView):
         msg = "Inventory Report Fetched Successfully!" if data else "No Product Inventory Found For This Shop!"
         return api_response(msg, data, status.HTTP_200_OK, True)
 
-
-class InventoryLogReport(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-    pagination_class = SmallOffsetPagination
-
-    @check_pos_shop
-    def get(self, request, *args, **kwargs):
-        """
-            Get inventory logs for a product
-        """
-        shop = kwargs['shop']
-        # Validate product id w.r.t. shop
-        if 'pk' not in kwargs:
-            return api_response("Please provide a Product Id to fetch inventory log for")
-        pk = kwargs['pk']
+    def product_inventory_log(self, shop, search_text, pk):
+        # Validate product
         try:
-            product = RetailerProduct.objects.get(pk=kwargs['pk'], shop=shop)
+            product = RetailerProduct.objects.get(pk=pk, shop=shop)
         except ObjectDoesNotExist:
             return api_response("Product Id Invalid")
 
@@ -545,7 +537,8 @@ class InventoryLogReport(GenericAPIView):
 
         # Inventory Logs
         logs = PosInventoryChange.objects.filter(product_id=pk)
-        search_text = request.GET.get('search_text')
+
+        # Search
         if search_text:
             logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text))
         logs = logs.order_by('-modified_at')
@@ -556,7 +549,7 @@ class InventoryLogReport(GenericAPIView):
         data = dict()
         data['product_inventory'] = inv_data
         data['logs'] = logs_data
-        return api_response("Inventory Report Fetched Successfully!", data, status.HTTP_200_OK, True)
+        return api_response("Inventory Log Report Fetched Successfully!", data, status.HTTP_200_OK, True)
 
 
 class SalesReport(GenericAPIView):
@@ -687,3 +680,16 @@ class SalesReport(GenericAPIView):
         report_type = report_type.capitalize()
         msg = report_type + ' Sales Report Fetched Successfully!' if data else 'No Sales Found For Selected Filters!'
         return api_response(msg, data, status.HTTP_200_OK, True)
+
+
+class CustomerReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+        Get Customer Report for a POS shop
+        """
+        pass
