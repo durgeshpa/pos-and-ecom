@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.utils.text import slugify
+from collections import OrderedDict
 
 from rest_framework import serializers
 from brand.models import Brand, BrandPosition, BrandData, Vendor
@@ -85,6 +86,14 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         fields = ('product_name', 'product_vendor_mapping', )
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if not representation['product_vendor_mapping']:
+            representation = None
+        else:
+            representation
+        return representation
+
 
 class BrandCrudSerializers(serializers.ModelSerializer):
     brand_parent = ParentBrandSerializers(read_only=True)
@@ -142,6 +151,3 @@ class ProductVendorMapSerializers(serializers.ModelSerializer):
     class Meta:
         model = ParentProduct
         fields = ('parent_brand', 'product_parent_product',)
-
-
-
