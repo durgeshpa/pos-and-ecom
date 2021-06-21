@@ -80,7 +80,7 @@ class CardItemSerializer(serializers.ModelSerializer):
 class CardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData"""
 
-    items = CardItemSerializer(many=True)
+    items = CardItemSerializer(many=True, required=False)
     class Meta:
         model = CardData
         fields = '__all__'
@@ -133,7 +133,6 @@ class CardSerializer(serializers.ModelSerializer):
 
     def getCardData(self, card):
         """custom serializer method to get cardData"""
-
         latest_version = card.versions.all().order_by('-version_number').first()
         card_data = latest_version.card_data
         card_data = CardDataSerializer(card_data)

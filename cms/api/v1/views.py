@@ -126,16 +126,20 @@ class CardView(APIView, PaginationHandlerMixin):
         card_data_data = data.pop("card_data")
         card_details_data = data.pop("card_details")
 
-        print(card_data_data)
-        print(card_details_data)
 
         try:
             card = Card.objects.get(id=card_id)
         except:
             raise ValidationError("Card with id {id} not found")
 
+
         card_version = CardVersion.objects.filter(card=card).last()
         card_data = card_version.card_data
+
+        # cloning model instance
+        card_data.pk = None
+        card_data.save()
+
 
         card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
         card_serializer = CardSerializer(card, data=card_details_data, partial=True)
@@ -145,6 +149,7 @@ class CardView(APIView, PaginationHandlerMixin):
             "is_success": True,
             "error": []
         }
+
         if(card_data_serializer.is_valid()):
             card_data_serializer.save()
         else:
@@ -158,7 +163,13 @@ class CardView(APIView, PaginationHandlerMixin):
             message["is_success"]=False
             message["error"].push(card_serializer.errors)
         
-        
+        # create a new version
+        new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
+        card=card,
+        card_data=card_data)
+
+
+
         
         return Response(message)
 
