@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
+from .serializers import CardDataSerializer, CardItemSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion
 
@@ -123,8 +123,16 @@ class CardView(APIView, PaginationHandlerMixin):
 
         data = request.data
         card_id = data.get("card_id")
-        card_data_data = data.pop("card_data")
-        card_details_data = data.pop("card_details")
+        try:
+            card_data_data = data.pop("card_data")
+        except:
+            raise ValidationError("field card_data is required")
+
+
+        try:
+            card_details_data = data.pop("card_details")
+        except:
+            raise ValidationError("field card_details is required")
 
 
         try:
@@ -144,6 +152,8 @@ class CardView(APIView, PaginationHandlerMixin):
         card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
         card_serializer = CardSerializer(card, data=card_details_data, partial=True)
 
+        # TODO 
+        # copy all items to new card_data
 
         message = {
             "is_success": True,
@@ -168,11 +178,44 @@ class CardView(APIView, PaginationHandlerMixin):
         card=card,
         card_data=card_data)
 
-
-
-        
         return Response(message)
 
+
+class ItemsView(APIView):
+
+
+    def post(self, request):
+
+        data = request.data
+        try:
+            card_id = data.pop("card_id")
+        except:
+            raise ValidationError("field card_id is required")
+
+
+        serializer = CardItemSerializer(data=data, context={"card_id": card_id})
+
+        message = {
+            "is_success": True,
+            "errors": []
+        }
+
+        if(serializer.is_valid()):
+            serializer.save()
+
+        else:
+            message["is_success"] = False,
+            message["errors"].push(serializer.errors)
+
+
+        return Response(message)
+
+
+    def update(self, request):
+        pass
+
+    def delete(self, request):
+        pass
 
 class CardDetailView(RetrieveAPIView):
     """Get card by id"""

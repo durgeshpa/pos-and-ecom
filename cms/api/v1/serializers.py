@@ -75,6 +75,16 @@ class CardItemSerializer(serializers.ModelSerializer):
         model = CardItem
         # fields = "__all__"
         exclude = ('card_data',)
+    
+    def create(self, validated_data):
+        card_id = self.context.get("card_id")
+        latest_version = CardVersion.objects.filter(card__id=card_id).last()
+        card_data = latest_version.card_data
+        new_card_item = CardItem.objects.create(
+            card_data=card_data,
+            **validated_data
+        )
+        return new_card_item
 
 
 class CardDataSerializer(serializers.ModelSerializer):
