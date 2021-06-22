@@ -142,9 +142,13 @@ class CardView(APIView, PaginationHandlerMixin):
         card_version = CardVersion.objects.filter(card=card).last()
         card_data = card_version.card_data
 
+        old_card_items = card_data.items.all()
+
+
+
         # cloning model instance
-        # card_data.pk = None
-        # card_data.save()
+        card_data.pk = None
+        card_data.save()
 
         message = {
             "is_success": True,
@@ -153,7 +157,9 @@ class CardView(APIView, PaginationHandlerMixin):
 
 
         if(card_data_data):
+
             card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
+
             if(card_data_serializer.is_valid()):
                         card_data_serializer.save()
             else:
@@ -170,21 +176,30 @@ class CardView(APIView, PaginationHandlerMixin):
                 message["error"].push(card_serializer.errors)
         
 
-        # TODO 
         # copy all items to new card_data
+        for item in old_card_items:
+            # create a copy of item objectc
+            item.pk = None
+            item.save()
+
+            item.card_data = card_data
+            item.save()
 
       
+        
+        # create a new version
+        new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
+        card=card,
+        card_data=card_data)
+
+
+
         cache.delete('cards')
         info_logger.info("-----------CARDS CACHE INVALIDATED  @PATCH cards/-----------")
 
        
         
 
-        
-        # create a new version
-        # new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
-        # card=card,
-        # card_data=card_data)
 
         return Response(message)
 
