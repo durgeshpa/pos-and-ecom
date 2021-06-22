@@ -12,17 +12,18 @@ from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
     ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
-    ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog
+    ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog, BulkUploadForProductAttributes
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
-    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
+    get_validate_images, get_validate_categorys, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, \
     get_validate_packing_material, get_destination_product_repack, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
+from categories.common_validators import get_validate_category
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -187,7 +188,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
         data['product_hsn'] = product_hsn_val['product_hsn']
 
-        category_val = get_validate_category(self.initial_data['parent_product_pro_category'])
+        category_val = get_validate_categorys(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
             raise serializers.ValidationError(_(category_val["error"]))
 
@@ -202,7 +203,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'product_images',
-                  'parent_product_pro_image', 'product_parent_product',  'parent_product_log')
+                  'parent_product_pro_image', 'product_parent_product', 'parent_product_log')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -506,7 +507,9 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
-                                       updated_by=validated_data['updated_by'], updated_at=timezone.now())
+                                                                                 updated_by=validated_data[
+                                                                                     'updated_by'],
+                                                                                 updated_at=timezone.now())
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -770,10 +773,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
-    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), write_only=True)
+    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
+                                           write_only=True)
     source_product_pro = ProductSourceMappingSerializers(many=True, write_only=True, required=False)
     packing_material_rt = ProductPackingMappingSerializers(many=True, write_only=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True,
+                                                                                   required=False)
 
     class Meta:
         model = Product
@@ -993,3 +998,26 @@ class TaxCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(f'child_product not found for id {id}')
 
         return data
+
+
+class UploadMasterDataAdminSerializers(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload Master Data', required=True)
+    select_an_option = serializers.IntegerField(required=True)
+
+    class Meta:
+        model = BulkUploadForProductAttributes
+        fields = ('file', 'select_an_option')
+
+    def validate(self, data):
+        if not 'category_id' in self.initial_data or not self.initial_data['category_id']:
+            raise serializers.ValidationError(_('category_id is required'))
+
+        category_val = get_validate_category(self.initial_data['category_id'])
+        if 'error' in category_val:
+            raise serializers.ValidationError(_(category_val["error"]))
+
+        return data
+
+    def create(self, validated_data):
+        
+        return validated_data

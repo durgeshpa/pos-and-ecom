@@ -15,10 +15,10 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, UploadMasterDataAdminSerializers
 
 from products.common_function import get_response, serializer_error
-from products.common_validators import validate_id, validate_data_format
+from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search
 from categories.models import Category
@@ -714,8 +714,30 @@ class ProductVendorMappingView(GenericAPIView):
 
 class BulkUploadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
-    serializer_class = ProductVendorMappingSerializers
+    queryset = Category.objects.values('id', 'category_name')
+    serializer_class = UploadMasterDataAdminSerializers
+
+    def post(self, request):
+        """
+            This function will be used for following operations:
+            a)Set the Status to "Deactivated" for a Product
+            b)Mapping of "Sub Brand" to "Brand"
+            c)Mapping of "Sub Category" to "Category"
+            d)Set the data for "Parent SKU"
+            e)Mapping of Child SKU to Parent SKU
+            f)Set the Child SKU Data
+            After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
+        """
+
+        modified_data = validate_bulk_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.get_serializer(data=modified_data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('data uploaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
 
 

@@ -50,7 +50,7 @@ def get_validate_product_hsn(product_hsn):
     return {'product_hsn': product_hsn}
 
 
-def get_validate_category(parent_product_pro_category):
+def get_validate_categorys(parent_product_pro_category):
     """ validate ids that belong to a Category model also
     checking category shouldn't repeat else through error """
     cat_list = []
@@ -244,3 +244,16 @@ def product_image(obj):
         return "{}".format(obj.parent_product_pro_image.last().image.url)
     else:
         return '-'
+
+
+def validate_bulk_data_format(request):
+    # Validate product data
+    try:
+        data = json.loads(request.data["data"])
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    if request.FILES.getlist('file'):
+        data['file'] = request.FILES['file']
+
+    return data
