@@ -93,7 +93,6 @@ class CardView(APIView, PaginationHandlerMixin):
         has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
         data = request.data
-        # data._mutable = True
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
         if serializer.is_valid(raise_exception=True):
@@ -128,16 +127,10 @@ class CardView(APIView, PaginationHandlerMixin):
         except:
             raise ValidationError("field card_id is required")
 
-        try:
-            card_data_data = data.pop("card_data")
-        except:
-            raise ValidationError("field card_data is required")
+        card_data_data = data.get("card_data")
 
 
-        try:
-            card_details_data = data.pop("card_details")
-        except:
-            raise ValidationError("field card_details is required")
+        card_details_data = data.get("card_details")
 
 
         try:
@@ -153,33 +146,40 @@ class CardView(APIView, PaginationHandlerMixin):
         # card_data.pk = None
         # card_data.save()
 
-
-        card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
-        card_serializer = CardSerializer(card, data=card_details_data, partial=True)
-
-        # TODO 
-        # copy all items to new card_data
-
         message = {
             "is_success": True,
             "error": []
         }
 
+
+        if(card_data_data):
+            card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
+            if(card_data_serializer.is_valid()):
+                        card_data_serializer.save()
+            else:
+                message["is_success"]=False
+                message["error"].push(card_data_serializer.errors)
+
+
+        if(card_details_data):
+            card_serializer = CardSerializer(card, data=card_details_data, partial=True)
+            if(card_serializer.is_valid()):
+                card_serializer.save()
+            else:
+                message["is_success"]=False
+                message["error"].push(card_serializer.errors)
+        
+
+        # TODO 
+        # copy all items to new card_data
+
+      
         cache.delete('cards')
         info_logger.info("-----------CARDS CACHE INVALIDATED  @PATCH cards/-----------")
 
-        if(card_data_serializer.is_valid()):
-            card_data_serializer.save()
-        else:
-            message["is_success"]=False
-            message["error"].push(card_data_serializer.errors)
+       
         
 
-        if(card_serializer.is_valid()):
-            card_serializer.save()
-        else:
-            message["is_success"]=False
-            message["error"].push(card_serializer.errors)
         
         # create a new version
         # new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
@@ -210,6 +210,7 @@ class ItemsView(APIView):
 
         if(serializer.is_valid()):
             serializer.save()
+            info_logger.info(f"-----------CARD ITEM CREATED-----------")
             cache.delete('cards')
             info_logger.info("-----------CARDS CACHE INVALIDATED  @POST items/-----------")
 
@@ -242,6 +243,7 @@ class ItemsView(APIView):
 
         if(serializer.is_valid()):
             serializer.save()
+            info_logger.info(f"-----------CARD ITEM with id {item_id} updated-----------")
             cache.delete('cards')
             info_logger.info("-----------CARDS CACHE INVALIDATED  @PATCH items/-----------")
 
@@ -266,6 +268,8 @@ class ItemsView(APIView):
         
         try:
             item.delete()
+            info_logger.info(f"-----------CARD ITEM with id {item_id} deleted-----------")
+
         except:
             raise ValidationError(f"Error while deleting Item")
 

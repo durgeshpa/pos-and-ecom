@@ -95,6 +95,9 @@ class CardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData"""
 
     items = CardItemSerializer(many=True, required=False)
+    image = Base64ImageField(
+        max_length=None, use_url=True,required=False
+    )
     class Meta:
         model = CardData
         fields = '__all__'
