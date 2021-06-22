@@ -51,7 +51,7 @@ def rewards_account(sales_obj):
     if sales_obj.phone_number and sales_obj.phone_number != '':
         sales_user = User.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
-            order_loyalty_points(sales_obj.amount, sales_user.id, sales_obj.id, 'purchase_reward', 'direct_reward',
+            order_loyalty_points(sales_obj.amount, 0, sales_user.id, sales_obj.id, 'purchase_reward', 'direct_reward',
                                  'indirect_reward')
             return True
     return False
