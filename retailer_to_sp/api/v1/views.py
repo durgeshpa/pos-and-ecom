@@ -1389,7 +1389,7 @@ class CartCentral(GenericAPIView):
         cart_mapping, created = CartProductMapping.objects.get_or_create(cart=cart,
                                                                          cart_product=product)
         cart_mapping.qty = qty
-        available_qty = shop_products_dict[int(product.id)] // int(cart_mapping.cart_product.product_inner_case_size)
+        available_qty = shop_products_dict.get(int(product.id), 0) // int(cart_mapping.cart_product.product_inner_case_size)
         if int(qty) <= available_qty:
             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
             cart_mapping.capping_error_msg = ''
@@ -2338,14 +2338,14 @@ class OrderCentral(APIView):
                                                 order.order_no, PosInventoryChange.CANCELLED)
             # Refund redeemed loyalty points
             # Deduct loyalty points awarded on order
-            RewardCls.adjust_points_on_return_cancel(order.ordered_cart.redeem_points, order.buyer, order.order_no,
-                                                     'order_cancel_credit', 'order_cancel_debit', self.request.user,
-                                                     0, order.order_no)
+            points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
+                order.ordered_cart.redeem_points, order.buyer, order.order_no, 'order_cancel_credit',
+                'order_cancel_debit', self.request.user, 0, order.order_no)
             order_number = order.order_no
             shop_name = order.seller_shop.shop_name
             phone_number = order.buyer.phone_number
             # whatsapp api call for order cancellation
-            whatsapp_order_cancel.delay(order_number, shop_name, phone_number)
+            whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit, net_points)
             return api_response("Order cancelled successfully!", None, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -2939,8 +2939,9 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
-        order_loyalty_points.delay(order.order_amount, order.buyer.id, order.order_no, 'order_credit',
-                                   'order_direct_credit', 'order_indirect_credit', self.request.user.id)
+        order_loyalty_points.delay(order.order_amount, redeem_points, order.buyer.id, order.order_no, 'order_credit',
+                                   'order_direct_credit', 'order_indirect_credit', self.request.user.id,
+                                   order.seller_shop.id)
 
 
 # class CreateOrder(APIView):
@@ -4009,9 +4010,9 @@ class OrderReturnComplete(APIView):
                 return_ids += [ret.id]
                 refund_amount += ret.refund_amount
             new_paid_amount = order.order_amount - refund_amount
-            RewardCls.adjust_points_on_return_cancel(order_return.refund_points, order.buyer, order_return.id,
-                                                     'order_return_credit', 'order_return_debit', self.request.user,
-                                                     new_paid_amount, order.order_no, return_ids)
+            points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
+                order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
+                self.request.user, new_paid_amount, order.order_no, return_ids)
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:
@@ -4027,7 +4028,8 @@ class OrderReturnComplete(APIView):
             order_status = order.order_status
             phone_number = order.buyer.phone_number
             refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount)
+            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, points_credit,
+                                        points_debit, net_points)
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 

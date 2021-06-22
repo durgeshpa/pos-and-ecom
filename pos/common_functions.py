@@ -214,7 +214,7 @@ def create_user_shop_mapping(user, shop_id):
        while registration of user, store
        shop_id of seller shop with user in UserMappedShop
     """
-    if not UserMappedShop.objects.filter(user=user).exists():
+    if not UserMappedShop.objects.filter(user=user, shop_id=shop_id).exists():
         UserMappedShop.objects.create(user=user, shop_id=shop_id)
 
 
@@ -244,8 +244,7 @@ def validate_data_format(request):
 
 def update_pos_customer(ph_no, shop_id, email, name, is_whatsapp):
     customer, created = User.objects.get_or_create(phone_number=ph_no)
-    if created:
-        create_user_shop_mapping(customer, shop_id)
+    create_user_shop_mapping(customer, shop_id)
     customer.email = email if email and not customer.email else customer.email
     customer.first_name = name if name and not customer.first_name else customer.first_name
     customer.is_whatsapp = True if is_whatsapp else False
@@ -296,7 +295,7 @@ class RewardCls(object):
         points = RewardCls.get_loyalty_points(amount, 'self_reward_percent')
 
         if not points:
-            return
+            return 0
         # Add to user direct reward points
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         if reward_obj:
@@ -307,6 +306,7 @@ class RewardCls(object):
 
         # Log transaction
         RewardCls.create_reward_log(user, t_type, tid, points, changed_by)
+        return points
 
     @classmethod
     def order_direct_referrer_points(cls, amount, user, tid, t_type, count_considered, changed_by=None):
@@ -438,6 +438,10 @@ class RewardCls(object):
 
             # Log transaction
             RewardCls.create_reward_log(user, t_type_debit, tid, points_debit * -1, changed_by)
+
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        net_available = reward_obj.direct_earned + reward_obj.indirect_earned - reward_obj.points_used if reward_obj else 0
+        return points_credit, points_debit, net_available
 
 
 def filter_pos_shop(user):

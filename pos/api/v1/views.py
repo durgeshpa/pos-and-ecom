@@ -10,7 +10,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Prefetch, Count
 from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
@@ -21,9 +21,9 @@ from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
-from retailer_to_sp.models import OrderedProduct, Order
+from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, UserMappedShop
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
 
@@ -33,7 +33,7 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
-                          SalesReportSerializer)
+                          SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -504,12 +504,18 @@ class InventoryReport(GenericAPIView):
             Get Products Available Inventory report for shop
         """
         shop = kwargs['shop']
+        if request.GET.get('product_id'):
+            return self.product_inventory_log(shop, request.GET.get('search_text'), request.GET.get('product_id'))
+        else:
+            return self.inventory_list(shop, request.GET.get('search_text'))
+
+    def inventory_list(self, shop, search_text):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         inv = PosInventory.objects.filter(product__shop=shop, inventory_state=inv_available)
 
         # Search by product name
-        if request.GET.get('search_text'):
-            inv = inv.filter(product__name__icontains=request.GET.get('search_text'))
+        if search_text:
+            inv = inv.filter(product__name__icontains=search_text)
 
         inv = inv.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(inv, self.request)
@@ -517,24 +523,10 @@ class InventoryReport(GenericAPIView):
         msg = "Inventory Report Fetched Successfully!" if data else "No Product Inventory Found For This Shop!"
         return api_response(msg, data, status.HTTP_200_OK, True)
 
-
-class InventoryLogReport(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-    pagination_class = SmallOffsetPagination
-
-    @check_pos_shop
-    def get(self, request, *args, **kwargs):
-        """
-            Get inventory logs for a product
-        """
-        shop = kwargs['shop']
-        # Validate product id w.r.t. shop
-        if 'pk' not in kwargs:
-            return api_response("Please provide a Product Id to fetch inventory log for")
-        pk = kwargs['pk']
+    def product_inventory_log(self, shop, search_text, pk):
+        # Validate product
         try:
-            product = RetailerProduct.objects.get(pk=kwargs['pk'], shop=shop)
+            product = RetailerProduct.objects.get(pk=pk, shop=shop)
         except ObjectDoesNotExist:
             return api_response("Product Id Invalid")
 
@@ -545,7 +537,8 @@ class InventoryLogReport(GenericAPIView):
 
         # Inventory Logs
         logs = PosInventoryChange.objects.filter(product_id=pk)
-        search_text = request.GET.get('search_text')
+
+        # Search
         if search_text:
             logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text))
         logs = logs.order_by('-modified_at')
@@ -556,7 +549,7 @@ class InventoryLogReport(GenericAPIView):
         data = dict()
         data['product_inventory'] = inv_data
         data['logs'] = logs_data
-        return api_response("Inventory Report Fetched Successfully!", data, status.HTTP_200_OK, True)
+        return api_response("Inventory Log Report Fetched Successfully!", data, status.HTTP_200_OK, True)
 
 
 class SalesReport(GenericAPIView):
@@ -650,26 +643,26 @@ class SalesReport(GenericAPIView):
         return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
 
     @staticmethod
-    def filter_by_date_filter(date_filter, invoices):
+    def filter_by_date_filter(date_filter, qs):
         date_today = datetime.datetime.today()
         if date_filter == 'today':
-            invoices = invoices.filter(created_at__date=date_today)
+            qs = qs.filter(created_at__date=date_today)
         elif date_filter == 'yesterday':
             date_yesterday = date_today - datetime.timedelta(days=1)
-            invoices = invoices.filter(created_at__date=date_yesterday)
+            qs = qs.filter(created_at__date=date_yesterday)
         elif date_filter == 'this_week':
-            invoices = invoices.filter(created_at__week=date_today.isocalendar()[1])
+            qs = qs.filter(created_at__week=date_today.isocalendar()[1])
         elif date_filter == 'last_week':
             last_week = date_today - datetime.timedelta(weeks=1)
-            invoices = invoices.filter(created_at__week=last_week.isocalendar()[1])
+            qs = qs.filter(created_at__week=last_week.isocalendar()[1])
         elif date_filter == 'this_month':
-            invoices = invoices.filter(created_at__month=date_today.month)
+            qs = qs.filter(created_at__month=date_today.month)
         elif date_filter == 'last_month':
             last_month = date_today - datetime.timedelta(days=30)
-            invoices = invoices.filter(created_at__month=last_month.month)
+            qs = qs.filter(created_at__month=last_month.month)
         elif date_filter == 'this_year':
-            invoices = invoices.filter(created_at__year=date_today.year)
-        return invoices
+            qs = qs.filter(created_at__year=date_today.year)
+        return qs
 
     @staticmethod
     def sort(sort_by, sort_order, invoices):
@@ -687,3 +680,109 @@ class SalesReport(GenericAPIView):
         report_type = report_type.capitalize()
         msg = report_type + ' Sales Report Fetched Successfully!' if data else 'No Sales Found For Selected Filters!'
         return api_response(msg, data, status.HTTP_200_OK, True)
+
+
+class CustomerReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+        Get Customer Report for a POS shop
+        """
+        # Validate input
+        serializer = CustomerReportSerializer(data=request.GET)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
+
+        request_data, shop = serializer.data, kwargs['shop']
+        if request.GET.get('phone_number'):
+            return self.customer_order_log(shop, request.GET.get('search_text'), request.GET.get('phone_number'),
+                                           request_data)
+        else:
+            return self.customer_list(shop, request.GET.get('search_text'), request_data)
+
+    def customer_order_log(self, shop, search_text, phone_no, request_data):
+        # Validate customer
+        try:
+            shop_user_map = UserMappedShop.objects.get(user__phone_number=phone_no, shop=shop)
+        except ObjectDoesNotExist:
+            return api_response("Phone Number Invalid For This Shop!")
+
+        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+
+
+    def customer_list(self, shop, search_text, request_data):
+        # Shop Filter
+        qs = UserMappedShop.objects.filter(shop=shop).prefetch_related(
+            'user__reward_user_mlm', Prefetch('user__rt_buyer_order', queryset=Order.objects.filter(seller_shop=shop)),
+            Prefetch('user__rt_buyer_order__rt_return_order', queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Loyalty points, sale, returns, effective sale for all users for shop
+        qs = qs.annotate(loyalty_points=Coalesce(F('user__reward_user_mlm__direct_earned') - F(
+            'user__reward_user_mlm__indirect_earned') - F('user__reward_user_mlm__points_used'), 0))
+        qs = qs.annotate(order_count=Coalesce(Count('user__rt_buyer_order'), 0))
+        qs = qs.annotate(sale=Coalesce(Sum('user__rt_buyer_order__order_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns'))
+        qs = qs.values('sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points', 'user__first_name',
+                       'user__last_name', 'order_count', phone_number=F('user__phone_number'), date=F('created_at'))
+
+        # Search
+        if search_text:
+            qs = qs.filter(Q(user__first_name__icontains=search_text) | Q(user__first_name__icontains=search_text) |
+                           Q(phone_number__icontains=search_text))
+
+        # Sort
+        sort_by = '-' + request_data['sort_by'] if request_data['sort_order'] == -1 else request_data['sort_by']
+        qs = qs.order_by(sort_by)
+
+        # Paginate
+        data = self.pagination_class().paginate_queryset(qs, self.request)
+        # Serialize
+        data = CustomerReportResponseSerializer(data, many=True).data
+        msg = 'Customer Sales Report Fetched Successfully!' if data else 'No Customers Added For Selected Filters!'
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+    @staticmethod
+    def filter_by_date_filter(date_filter, qs):
+        date_today = datetime.datetime.today()
+        if date_filter == 'today':
+            qs = qs.filter(created_at__date=date_today)
+        elif date_filter == 'yesterday':
+            date_yesterday = date_today - datetime.timedelta(days=1)
+            qs = qs.filter(created_at__date=date_yesterday)
+        elif date_filter == 'this_week':
+            qs = qs.filter(created_at__week=date_today.isocalendar()[1])
+        elif date_filter == 'last_week':
+            last_week = date_today - datetime.timedelta(weeks=1)
+            qs = qs.filter(created_at__week=last_week.isocalendar()[1])
+        elif date_filter == 'this_month':
+            qs = qs.filter(created_at__month=date_today.month)
+        elif date_filter == 'last_month':
+            last_month = date_today - datetime.timedelta(days=30)
+            qs = qs.filter(created_at__month=last_month.month)
+        elif date_filter == 'this_year':
+            qs = qs.filter(created_at__year=date_today.year)
+        return qs
