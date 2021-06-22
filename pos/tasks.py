@@ -103,8 +103,7 @@ def order_loyalty_points(amount, points_debit, user_id, tid, t_type_b, t_type_d,
 
             if shop_id:
                 shops_str = GlobalConfig.objects.get(key='order_loyalty_active_shops').value
-                shops = shops_str.split(',')
-                if shops_str not in [None, ''] and shop_id not in shops:
+                if shops_str not in [None, ''] and shop_id not in shops_str.split(','):
                     if points_debit and t_type_b != 'purchase_reward':
                         whatsapp_order_loyalty_pts(user, tid, 0, points_debit)
                     return
