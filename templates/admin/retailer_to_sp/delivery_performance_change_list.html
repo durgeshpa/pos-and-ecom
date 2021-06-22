@@ -114,26 +114,11 @@
     </thead>
 
     <tbody>
-
-      <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
-            <td> Total </td>
-            <td> -- </td>
-            <td> {{ summary_total.delivered_tot | intcomma }} </td>
-            <td> {{ summary_total.returned_tot | default:0 }} </td>
-            <td> {{ summary_total.pending_tot | intcomma }} </td>
-            <td> {{ summary_total.rescheduled_tot | default:0 }} </td>
-            <td> {{ summary_total.grand_total_shipments | intcomma }} </td>
-            <td> {% percentof summary_total.delivered_tot summary_total.grand_total_shipments %} </td>
-            <td> {% percentof summary_total.returned_tot summary_total.grand_total_shipments %} </td>
-            <td> {% percentof summary_total.rescheduled_tot summary_total.grand_total_shipments %} </td>
-            <td> {{ summary_total.invoice_amount | default:0 | intcomma }} </td>
-            <td> {{ summary_total.delivered_amount | default:0 | intcomma }} </td>
-            <td> {% percentof summary_total.delivered_amount summary_total.invoice_amount %}<td>
-        </tr>
       {% for row in summary %}
 
       <tr class="{% cycle 'row1' 'row2' %}">
-        <td> {{ row.dispatch_no }} </td>
+
+        <td> <a href='/admin/retailer_to_sp/cart/trip-planning/{{row.pk}}/change/'>{{ row.dispatch_no}} </a> </td>
         <td> {{ row.delivery_boy }} </td>
         <td> {{ row.delivered_cnt | intcomma }} </td>
         <td> {{ row.returned_cnt | intcomma }} </td>
@@ -150,7 +135,7 @@
         <td> {{ row.completed_at }} </td>
         <td> {{ row.opening_kms }} </td>
         <td> {{ row.closing_kms }} </td>
-        <td> {{ row.closing_kms|sub:row.opening_kms }} </td>
+        <td> {% subtract row.closing_kms row.opening_kms %} </td>
       </tr>
       {% endfor %}
     </tbody>

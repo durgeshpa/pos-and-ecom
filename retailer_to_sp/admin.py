@@ -25,7 +25,7 @@ from django.shortcuts import redirect
 from global_config.models import GlobalConfig
 
 # app imports
-from rangefilter.filter import DateTimeRangeFilter
+from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 from retailer_backend.admin import InputFilter
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
@@ -2040,10 +2040,9 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
     """
-    date_hierarchy = 'created_at'
     change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
     list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
-
+    # actions = ['download_as_csv']
     def has_add_permission(self, request):
         return False
 
@@ -2054,17 +2053,9 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         )
         try:
             qs = response.context_data['cl'].queryset
-            if request.GET:
-                if request.GET.get('created_at__year'):
-                    q_year = request.GET.get('created_at__year')
-                    qs = qs.filter(created_at__year=q_year)
-                if request.GET.get('created_at__month'):
-                    q_month = request.GET.get('created_at__month')
-                    qs = qs.filter(created_at__month=q_month)
-            else:
-                q_month = datetime.datetime.now().month
-                q_year = datetime.datetime.now().year
-                qs = qs.filter(created_at__month=q_month, created_at__year=q_year)
+            today = datetime.datetime.now().date()
+            start_from = today-datetime.timedelta(days=30)
+            qs = qs.filter(created_at__gte=start_from)
         except (AttributeError, KeyError):
             return response
 
@@ -2081,26 +2072,15 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                                 'FULLY_RETURNED_AND_CLOSED']
         pending_status_list = ['OUT_FOR_DELIVERY']
 
-        sum_total = dict(qs.aggregate(**metrics))
         qs = qs.annotate(**metrics,
                          delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
                          returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
                          pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
                          rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
                          total_shipments=SQCount(self.invoice_count_subquery()),
-                         ).order_by('-id')
+                         ).order_by('-id').prefetch_related('delivery_boy')
 
         response.context_data['summary'] = list(qs)
-
-        sum_total.update(dict(
-            qs.aggregate(delivered_tot=Sum('delivered_cnt'),
-                        returned_tot=Sum('returned_cnt'),
-                        pending_tot=Sum('pending_cnt'),
-                        rescheduled_tot=Sum('rescheduled_cnt'),
-                        grand_total_shipments=Sum('total_shipments'),
-                        )
-        ))
-        response.context_data['summary_total'] = sum_total
         return response
 
     def invoice_count_subquery(self, status_list=None):
