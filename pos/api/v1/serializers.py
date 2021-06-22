@@ -1137,3 +1137,35 @@ class SalesReportResponseSerializer(serializers.Serializer):
     def get_month(obj):
         return calendar.month_name[obj['created_at__month']] + ', ' + str(
             obj['created_at__year']) if 'created_at__month' in obj else None
+
+
+class CustomerReportSerializer(serializers.Serializer):
+    date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
+                                                   'last_month', 'this_year'), required=False, allow_null=True,
+                                          allow_blank=True)
+    start_date = serializers.DateField(required=False, default=datetime.date.today)
+    end_date = serializers.DateField(required=False, default=datetime.date.today)
+    sort_by = serializers.ChoiceField(choices=('date', 'order_count', 'sale', 'returns', 'effective_sale'), default='date')
+    sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
+
+
+class CustomerReportResponseSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(read_only=True)
+    name = serializers.SerializerMethodField()
+    date_added = serializers.SerializerMethodField()
+    loyalty_points = serializers.IntegerField(read_only=True)
+    order_count = serializers.IntegerField(read_only=True)
+    sale = serializers.FloatField(read_only=True)
+    returns = serializers.FloatField(read_only=True)
+    effective_sale = serializers.FloatField(read_only=True)
+
+    @staticmethod
+    def get_date_added(obj):
+        return obj['created_at'].strftime("%b %d, %Y") if 'created_at' in obj else None
+
+    @staticmethod
+    def get_name(obj):
+        first_name, last_name = obj['user__first_name'], obj['user__last_name']
+        if first_name:
+            return first_name + ' ' + last_name if last_name else first_name
+        return None
