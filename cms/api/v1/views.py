@@ -164,7 +164,7 @@ class CardView(APIView, PaginationHandlerMixin):
                         card_data_serializer.save()
             else:
                 message["is_success"]=False
-                message["error"].push(card_data_serializer.errors)
+                message["error"].append(card_data_serializer.errors)
 
 
         if(card_details_data):
@@ -173,7 +173,7 @@ class CardView(APIView, PaginationHandlerMixin):
                 card_serializer.save()
             else:
                 message["is_success"]=False
-                message["error"].push(card_serializer.errors)
+                message["error"].append(card_serializer.errors)
         
 
         # copy all items to new card_data
@@ -231,7 +231,7 @@ class ItemsView(APIView):
 
         else:
             message["is_success"] = False,
-            message["errors"].push(serializer.errors)
+            message["errors"].append(serializer.errors)
 
 
         return Response(message)
@@ -264,7 +264,7 @@ class ItemsView(APIView):
 
         else:
             message["is_success"] = False,
-            message["errors"].push(serializer.errors)
+            message["errors"].append(serializer.errors)
 
 
         return Response(message)
