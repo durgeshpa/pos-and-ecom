@@ -522,7 +522,7 @@ class ActiveDeactiveSelectedParentProductView(UpdateAPIView):
             id__in=request.data['parent_product_id_list']), data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            return get_response('parent product updated successfully!', None)
+            return get_response('parent product updated successfully!', True)
         return get_response(serializer_error(serializer), None)
 
 
@@ -539,7 +539,7 @@ class ActiveDeactiveSelectedChildProductView(UpdateAPIView):
             id__in=request.data['child_product_id_list']), data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            return get_response('child product updated successfully!', None)
+            return get_response('child product updated successfully!', True)
         return get_response(serializer_error(serializer), None)
 
 

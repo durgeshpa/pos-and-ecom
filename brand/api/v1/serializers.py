@@ -25,7 +25,6 @@ class BrandSerializer(serializers.ModelSerializer):
 
 
 class BrandPositionSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = BrandPosition
         fields = '__all__'
@@ -62,7 +61,6 @@ class ParentBrandSerializers(serializers.ModelSerializer):
 
 
 class VendorSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = Vendor
 
@@ -84,14 +82,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
 
-        fields = ('product_name', 'product_vendor_mapping', )
+        fields = ('product_vendor_mapping',)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if not representation['product_vendor_mapping']:
             representation = None
-        else:
-            representation
         return representation
 
 
@@ -150,4 +146,11 @@ class ProductVendorMapSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'product_parent_product',)
+        fields = ('product_parent_product',)
+
+    def to_representation(self, instance):
+        result = super().to_representation(instance)
+        if result['product_parent_product'] == [None]:
+            result
+
+        return result
