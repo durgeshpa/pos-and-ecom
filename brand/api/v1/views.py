@@ -211,5 +211,6 @@ class BrandVendorMappingView(GenericAPIView):
         """ validation only ids that belong to a selected related model """
         if not queryset.filter(parent_brand=brand_id).exists():
             return {'error': 'please provide a valid brand id'}
-        return {'data': queryset.filter(parent_brand=brand_id)}
+        uniq_data = queryset.filter(parent_brand=brand_id).order_by('-id').distinct()
+        return {'data': uniq_data}
 

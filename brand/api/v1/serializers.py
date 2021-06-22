@@ -65,6 +65,7 @@ class VendorSerializers(serializers.ModelSerializer):
         model = Vendor
 
         fields = ('id', 'vendor_name', 'mobile')
+        distinct = ('id',)
 
 
 class BrandVendorMappingSerializers(serializers.ModelSerializer):
@@ -74,6 +75,7 @@ class BrandVendorMappingSerializers(serializers.ModelSerializer):
         model = ProductVendorMapping
 
         fields = ('vendor',)
+        distinct = ('vendor',)
 
 
 class ChildProductSerializers(serializers.ModelSerializer):
@@ -85,9 +87,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
         fields = ('product_vendor_mapping',)
 
     def to_representation(self, instance):
+
         representation = super().to_representation(instance)
-        if not representation['product_vendor_mapping']:
-            representation = None
+        if representation['product_vendor_mapping']:
+            representation
+        else:
+            pass
         return representation
 
 
@@ -148,9 +153,8 @@ class ProductVendorMapSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('product_parent_product',)
 
-    def to_representation(self, instance):
-        result = super().to_representation(instance)
-        if result['product_parent_product'] == [None]:
-            result
-
-        return result
+    def to_representation(self, data):
+        result = super().to_representation(data)
+        if result['product_parent_product'] is None:
+            pass
+        return result['product_parent_product']
