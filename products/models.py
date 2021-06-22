@@ -931,14 +931,12 @@ class ProductCapping(models.Model):
     status = models.BooleanField(default=True)
 
 
-class BulkProductTaxUpdate(models.Model):
+class BulkProductTaxUpdate(BaseTimeModel):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
-        get_user_model(), related_name='bulk_product_tax_update',
+        get_user_model(), null=True, related_name='bulk_product_tax_update',
         on_delete=models.DO_NOTHING
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Bulk Product Tax Update'
@@ -950,6 +948,10 @@ class BulkProductTaxUpdate(models.Model):
 
 class BulkUploadForGSTChange(BaseTimeModel):
     file = models.FileField(upload_to='products/producttaxmapping/')
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='bulk_product_gst_update',
+        on_delete=models.DO_NOTHING
+    )
 
     class Meta:
         verbose_name_plural = 'Bulk Upload For GST Change'
@@ -960,6 +962,10 @@ class BulkUploadForGSTChange(BaseTimeModel):
 
 class BulkUploadForProductAttributes(BaseTimeModel):
     file = models.FileField(upload_to='products/product_attributes/')
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='bulk_product_attr_update',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
