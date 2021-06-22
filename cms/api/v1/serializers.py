@@ -78,6 +78,10 @@ class CardItemSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
+        try:
+            Card.objects.get(id=card_id)
+        except:
+            raise ValidationError(f"card with id {card_id} not found")
         latest_version = CardVersion.objects.filter(card__id=card_id).last()
         card_data = latest_version.card_data
         new_card_item = CardItem.objects.create(

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from .serializers import CardDataSerializer, CardItemSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, CardVersion, Page, PageVersion
+from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -122,7 +122,12 @@ class CardView(APIView, PaginationHandlerMixin):
     def patch(self, request):
 
         data = request.data
-        card_id = data.get("card_id")
+        
+        try:
+            card_id = data.pop("card_id")
+        except:
+            raise ValidationError("field card_id is required")
+
         try:
             card_data_data = data.pop("card_data")
         except:
@@ -145,8 +150,8 @@ class CardView(APIView, PaginationHandlerMixin):
         card_data = card_version.card_data
 
         # cloning model instance
-        card_data.pk = None
-        card_data.save()
+        # card_data.pk = None
+        # card_data.save()
 
 
         card_data_serializer = CardDataSerializer(card_data, data=card_data_data, partial=True)
@@ -159,6 +164,9 @@ class CardView(APIView, PaginationHandlerMixin):
             "is_success": True,
             "error": []
         }
+
+        cache.delete('cards')
+        info_logger.info("-----------CARDS CACHE INVALIDATED  @PATCH cards/-----------")
 
         if(card_data_serializer.is_valid()):
             card_data_serializer.save()
@@ -174,9 +182,9 @@ class CardView(APIView, PaginationHandlerMixin):
             message["error"].push(card_serializer.errors)
         
         # create a new version
-        new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
-        card=card,
-        card_data=card_data)
+        # new_version = CardVersion.objects.create(version_number=card_version.version_number+1,
+        # card=card,
+        # card_data=card_data)
 
         return Response(message)
 
@@ -202,6 +210,8 @@ class ItemsView(APIView):
 
         if(serializer.is_valid()):
             serializer.save()
+            cache.delete('cards')
+            info_logger.info("-----------CARDS CACHE INVALIDATED  @POST items/-----------")
 
         else:
             message["is_success"] = False,
@@ -211,11 +221,63 @@ class ItemsView(APIView):
         return Response(message)
 
 
-    def update(self, request):
-        pass
+    def patch(self, request):
+        data = request.data
+        try:
+            item_id = data.pop("item_id")
+        except:
+            raise ValidationError("field item_id is required")
+
+        try:
+            item = CardItem.objects.get(id=item_id)
+        except:
+            raise ValidationError("CardItem with id {item_id} not found")
+
+        serializer = CardItemSerializer(item, data=data, partial=True)
+
+        message = {
+            "is_success": True,
+            "errors": []
+        }
+
+        if(serializer.is_valid()):
+            serializer.save()
+            cache.delete('cards')
+            info_logger.info("-----------CARDS CACHE INVALIDATED  @PATCH items/-----------")
+
+        else:
+            message["is_success"] = False,
+            message["errors"].push(serializer.errors)
+
+
+        return Response(message)
 
     def delete(self, request):
-        pass
+        data = request.data
+        try:
+            item_id = data.pop("item_id")
+        except:
+            raise ValidationError("field item_id is required")
+        
+        try:
+            item = CardItem.objects.get(id=item_id)
+        except:
+            raise ValidationError(f"CardItem with id {item_id} not found.")
+        
+        try:
+            item.delete()
+        except:
+            raise ValidationError(f"Error while deleting Item")
+
+        cache.delete('cards')
+        info_logger.info("-----------CARDS CACHE INVALIDATED  @DELETE items/-----------")
+        
+        message = {
+
+            "is_success": True,
+            "errors": []
+        }
+        return Response(message) 
 
 class CardDetailView(RetrieveAPIView):
     """Get card by id"""
