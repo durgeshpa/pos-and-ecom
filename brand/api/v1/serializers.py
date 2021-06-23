@@ -177,7 +177,7 @@ class BrandExportAsCSVSerializers(serializers.ModelSerializer):
         if len(data.get('brand_id_list')) == 0:
             raise serializers.ValidationError(_('Atleast one brand id must be selected '))
 
-        for c_id in data.get('category_id_list'):
+        for c_id in data.get('brand_id_list'):
             try:
                 Brand.objects.get(id=c_id)
             except ObjectDoesNotExist:
@@ -195,7 +195,7 @@ class BrandExportAsCSVSerializers(serializers.ModelSerializer):
 
         writer = csv.writer(response)
         writer.writerow(field_names)
-        queryset = Brand.objects.filter(id__in=validated_data['category_id_list'])
+        queryset = Brand.objects.filter(id__in=validated_data['brand_id_list'])
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
