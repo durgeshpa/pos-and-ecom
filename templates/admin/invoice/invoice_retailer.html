@@ -143,6 +143,18 @@
                                 <strong>₹ {{discount| intcomma}}/- </strong>
                             </td>
                         </tr>
+                        {% if reward_value != 0 %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Reward Value Used</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{reward_value| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        {% endif %}
                         <tr class="text-center" style="text-align:center;">
                             <td class="no-line"></td>
                             <td class="no-line"></td>

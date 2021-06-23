@@ -30,7 +30,7 @@ from .utils import import_callable
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from pos.common_functions import get_shop_id_from_token
+from pos.common_functions import filter_pos_shop
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -134,10 +134,39 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class OtpLoginSerializer(serializers.Serializer):
-    """
-    Serializer for login with phone number and OTP
-    """
+class MlmOtpLoginSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        number = attrs.get('username')
+
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user or (user and not ReferralCode.is_marketing_user(user)):
+            raise serializers.ValidationError("You are not registered for rewards. Please register first.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTP()
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
+        attrs['user'] = user
+        return attrs
+
+
+class PosOtpLoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     username = serializers.CharField(
         validators=[phone_regex],
@@ -152,25 +181,22 @@ class OtpLoginSerializer(serializers.Serializer):
         """
         Verify entered otp and user for login
         """
+
         number = attrs.get('username')
-        otp = attrs.get('otp')
         user = UserModel.objects.filter(phone_number=number).last()
         if not user:
-            raise serializers.ValidationError("User does not exist. Please sign up!")
-        if attrs.get('app_type') == 2:
-            shop_id = get_shop_id_from_token(user)
-            if not type(shop_id) == int:
-                raise serializers.ValidationError(shop_id)
+            raise serializers.ValidationError("You are not registered on GramFactory.")
+        # Check Shop
+        qs = filter_pos_shop(user)
+        if not qs.exists():
+            raise serializers.ValidationError("You do not have any shop registered for GramFactory POS.")
 
-        phone_otps = PhoneOTP.objects.filter(phone_number=number)
-        if phone_otps.exists():
-            phone_otp = phone_otps.last()
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
             # verify if entered otp was sent to the user
             to_verify_otp = ValidateOTP()
-            msg, status_code = to_verify_otp.verify(otp, phone_otp)
-            if status_code == 200:
-                pass
-            else:
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
                 message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
                 raise serializers.ValidationError(message)
         else:
@@ -197,16 +223,6 @@ class MlmResponseSerializer(serializers.Serializer):
 
     @staticmethod
     def get_referral_code(obj):
-        user_referral_code = ReferralCode.generate_user_referral_code(obj['user'])
-        Profile.objects.get_or_create(profile_user=obj['user'])
-        if obj['action'] == 0:
-            # welcome reward for new user
-            referral_code = obj['referral_code']
-            referred = 1 if obj['referral_code'] != '' else 0
-            RewardPoint.welcome_reward(obj['user'], referred)
-            # add parent referrer if referral code provided
-            if referral_code != '':
-                Referral.store_parent_referral_user(referral_code, user_referral_code)
         referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
         return referral_code_obj.referral_code if referral_code_obj else ''
 
@@ -277,51 +293,45 @@ class RetailUserDetailsSerializer(serializers.ModelSerializer):
     def get_shop_name(self, obj):
         """
         obj:-User object
-        return:- shop name otherwise None
+        return:- shop name
         """
-        shop_name = None
         shop = self.context.get('shop')
-        if shop:
-            shop_name = shop.shop_name
-        return shop_name
+        return shop.shop_name
 
     def get_shop_image(self, obj):
         """
         obj:-User object
-        return:- shop image otherwise None
+        return:- shop image
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.shop_name_photos.all()[0].shop_photo.url
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.shop_name_photos.all()[0].shop_photo.url
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     def get_shop_owner_name(self, obj):
         """
         obj:-User object
-        return:- owner name otherwise None
+        return:- owner name
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     def get_shop_shipping_address(self, obj):
         """
         obj:-User object
-        return:- shipping address otherwise None
+        return:- shipping address
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.get_shop_shipping_address
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.get_shop_shipping_address
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     class Meta:

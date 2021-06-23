@@ -224,7 +224,7 @@ def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
 
 
 @task()
-def whatsapp_order_cancel(order_number, shop_name, phone_number):
+def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, points_debit, net_points):
     """
     request param:- order number
     request param:- shop_name
@@ -249,7 +249,8 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number):
 
 
 @task()
-def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount):
+def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit, points_debit,
+                          net_points):
     """
     request param:- order number
     request param:- order_status

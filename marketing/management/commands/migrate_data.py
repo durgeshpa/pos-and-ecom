@@ -56,8 +56,9 @@ class Command(BaseCommand):
                     create_user_shop_mapping(user, phone_shop_map[mlmuser.phone_number])
 
                 # referral code store in different model
-                ref_obj, created = ReferralCode.objects.get_or_create(user=user)
+                ref_obj, created = ReferralCode.objects.get_or_create(user=user, added_by=user)
                 ref_obj.referral_code = mlmuser.referral_code
+                ref_obj.created_at = mlmuser.created_at
                 ref_obj.save()
 
                 # Profile

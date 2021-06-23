@@ -44,22 +44,40 @@ class ReferralCode(models.Model):
     """
     user = models.OneToOneField(get_user_model(), related_name='referral_code_user', on_delete=models.CASCADE)
     referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     @classmethod
-    def generate_user_referral_code(cls, user):
+    def generate_user_referral_code(cls, user, added_by):
         """
             This Method Will Generate Referral Code & Map To User
         """
         user_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
-        if not ReferralCode.objects.filter(user=user).exists():
-            ReferralCode.objects.create(user=user, referral_code=user_referral_code)
+        while ReferralCode.objects.filter(referral_code=user_referral_code).exists():
+            user_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
+        ReferralCode.objects.create(user=user, referral_code=user_referral_code, added_by=added_by)
+        Profile.objects.get_or_create(profile_user=user)
         return user_referral_code
 
+    @classmethod
+    def register_user_for_mlm(cls, user, added_by, used_referral_code=None):
+        with transaction.atomic():
+            if not ReferralCode.is_marketing_user(user):
+                user_referral_code = ReferralCode.generate_user_referral_code(user, added_by)
+                if used_referral_code:
+                    Referral.store_parent_referral_user(used_referral_code, user_referral_code)
+                RewardPoint.welcome_reward(user, used_referral_code, added_by)
+
+    @classmethod
+    def is_marketing_user(cls, user):
+        return True if ReferralCode.objects.filter(user=user).exists() else False
+
     def __str__(self):
-        return 'User'
+        return ''
 
     class Meta:
-        verbose_name = "MlmUser"
+        verbose_name = "   User"
 
 
 class Profile(models.Model):
@@ -67,7 +85,7 @@ class Profile(models.Model):
         Mlm User Profile
     """
     user = models.OneToOneField(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
-    profile_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    profile_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile', null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
@@ -82,6 +100,7 @@ class Referral(models.Model):
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     referral_by_user = models.ForeignKey(User, related_name="referral_by_user", on_delete=models.CASCADE, null=True, blank=True)
     referral_to_user = models.ForeignKey(User, related_name="referral_to_user", on_delete=models.CASCADE, null=True, blank=True)
+    user_count_considered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -102,19 +121,19 @@ class RewardPoint(models.Model):
     """
     user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.OneToOneField(User, related_name="reward_user_mlm", on_delete=models.CASCADE, null=True, blank=True)
-    direct_users = models.IntegerField(default=0)
-    indirect_users = models.IntegerField(default=0)
-    direct_earned = models.IntegerField(default=0)
-    indirect_earned = models.IntegerField(default=0)
-    points_used = models.IntegerField(default=0)
+    direct_users = models.PositiveIntegerField(default=0)
+    indirect_users = models.PositiveIntegerField(default=0)
+    direct_earned = models.PositiveIntegerField(default=0)
+    indirect_earned = models.PositiveIntegerField(default=0)
+    points_used = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name_plural = "Rewards Dashboard"
+        verbose_name_plural = "  Rewards Dashboard"
 
     @staticmethod
-    def welcome_reward(user, referred=0):
+    def welcome_reward(user, referred=None, changed_by=None):
         """
             Reward On User Registration
         """
@@ -135,7 +154,7 @@ class RewardPoint(models.Model):
             reward_obj.direct_earned += points
             reward_obj.save()
             RewardLog.objects.create(reward_user=user, transaction_type='welcome_reward', transaction_id=user.id,
-                                     points=points)
+                                     points=points, changed_by=changed_by)
         # Send SMS To User For Discount That Can be Availed Using Welcome Rewards credited
         try:
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
@@ -151,7 +170,7 @@ class RewardPoint(models.Model):
         message.send()
 
     def __str__(self):
-        return "Reward Points For - {}".format(self.user)
+        return "Reward Points For - {}".format(self.reward_user)
 
 
 class RewardLog(models.Model):
@@ -159,11 +178,18 @@ class RewardLog(models.Model):
         Logs For Credited/Used Rewards Transactions
     """
     TRANSACTION_CHOICES = (
-        ('welcome_reward', "Welcome Reward"),
-        ('used_reward', 'Used Reward'),
-        ('direct_reward', 'Direct Reward'),
-        ('indirect_reward', 'Indirect Reward'),
-        ('purchase_reward', 'Purchase Reward')
+        ('welcome_reward', "Welcome Credit"),
+        ('order_credit', 'Order Credit'),
+        ('order_debit', 'Order Debit'),
+        ('order_return_credit', 'Order Return Credit'),
+        ('order_return_debit', 'Order Return Debit'),
+        ('order_cancel_credit', 'Order Cancel Credit'),
+        ('order_cancel_debit', 'Order Cancel Debit'),
+        ('order_indirect_credit', 'Order Indirect Credit'),
+        ('used_reward', 'Purchase Debit (Admin)'),
+        ('direct_reward', 'Hdpos Sales - Direct Credit'),
+        ('indirect_reward', 'Hdpos Sales - Indirect Credit'),
+        ('purchase_reward', 'Hdpos Sales - Purchase Credit'),
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
@@ -177,6 +203,9 @@ class RewardLog(models.Model):
 
     def __str__(self):
         return "{} - {}".format(self.user, self.transaction_type)
+
+    class Meta:
+        verbose_name_plural = " Reward Logs"
 
 
 class PhoneOTP(models.Model):

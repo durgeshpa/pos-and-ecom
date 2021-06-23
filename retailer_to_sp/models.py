@@ -173,6 +173,8 @@ class Cart(models.Model):
         max_length=50, choices=CART_TYPES, null=True, default=RETAIL)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    redeem_points = models.IntegerField(default=0)
+    redeem_factor = models.IntegerField(default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -185,7 +187,7 @@ class Cart(models.Model):
         try:
             if self.cart_type == 'BASIC':
                 return round(self.rt_cart_list.aggregate(
-                    subtotal_sum=Sum(F('selling_price') * F('no_of_pieces'),
+                    subtotal_sum=Sum(F('selling_price') * F('qty'),
                                      output_field=FloatField()))['subtotal_sum'], 2)
             else:
                 return round(self.rt_cart_list.aggregate(
@@ -195,15 +197,38 @@ class Cart(models.Model):
             return None
 
     @property
+    def redeem_points_value(self):
+        redeem_points_value = 0
+        if self.redeem_factor:
+            redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
+        return redeem_points_value
+
+    @property
+    def offer_discount(self):
+        return round(float(self.subtotal) - float(self.order_amount) - float(self.redeem_points_value), 2)
+
+    @property
+    def order_amount_after_discount(self):
+        item_effective_total = 0
+        for m in self.rt_cart_list.all():
+            item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+        order_amount = round(float(item_effective_total), 2)
+        return order_amount
+
+    @property
     def order_amount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
             item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+        redeem_points_value = 0
+        if self.redeem_factor:
+            redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
         # else:
         #     for m in self.rt_cart_list.all():
         #         if m.cart_product_price:
         #             item_effective_total += (m.cart_product_price.price_to_retailer * m.no_of_pieces)
-        return round(item_effective_total, 2)
+        order_amount = round(float(item_effective_total) - float(redeem_points_value), 2)
+        return order_amount
 
     @property
     def mrp_subtotal(self):
@@ -2660,6 +2685,8 @@ class OrderReturn(models.Model):
         null=True, blank=True, verbose_name='Reason for Return',
     )
     refund_amount = models.FloatField(default=0)
+    refund_points = models.IntegerField(default=0)
+    new_order_total = models.FloatField(default=0)
     refund_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)

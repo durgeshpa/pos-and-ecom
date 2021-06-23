@@ -22,13 +22,13 @@ from otp.sms import SendSms
 from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
 from shops.models import Shop
-from pos.common_functions import get_pos_shop
+from pos.common_functions import filter_pos_shop, check_pos_shop
 
 from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
-from .serializers import (PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer,
+from .serializers import (PasswordResetValidateSerializer, MlmOtpLoginSerializer, MlmResponseSerializer,
                           LoginResponseSerializer, PosLoginResponseSerializer, RetailUserDetailsSerializer,
-                          api_serializer_errors)
+                          api_serializer_errors, PosOtpLoginSerializer)
 from .models import TokenModel
 from .utils import jwt_encode
 
@@ -42,8 +42,8 @@ sensitive_post_parameters_m = method_decorator(
 
 APPLICATION_LOGIN_SERIALIZERS_MAP = {
     '0': LoginSerializer,
-    '1': OtpLoginSerializer,
-    '2': OtpLoginSerializer
+    '1': MlmOtpLoginSerializer,
+    '2': PosOtpLoginSerializer
 }
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
     '0': LoginResponseSerializer,
@@ -100,8 +100,7 @@ class LoginView(GenericAPIView):
         General Login Process
         """
         user = serializer.validated_data['user']
-        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user,
-                                                                                               serializer)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             django_login(self.request, user)
         return user, token
@@ -112,7 +111,10 @@ class LoginView(GenericAPIView):
         """
         token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
         app_type = self.request.data.get('app_type', 0)
-        shop_object = get_pos_shop(user) if app_type == '2' else None
+        shop_object = None
+        if app_type == '2':
+            qs = filter_pos_shop(user)
+            shop_object = qs.last()
 
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
@@ -412,6 +414,7 @@ class RetailerUserDetailsView(GenericAPIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    @check_pos_shop
     def get(self, request, *args, **kwargs):
         """
         request:- request object
@@ -419,5 +422,5 @@ class RetailerUserDetailsView(GenericAPIView):
         **kwargs:- keyword argument
         """
         user = self.request.user
-        serializer = self.serializer_class(user, context={'shop': get_pos_shop(user)})
+        serializer = self.serializer_class(user, context={'shop': kwargs['shop']})
         return Response(serializer.data)

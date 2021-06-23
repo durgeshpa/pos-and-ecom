@@ -63,6 +63,9 @@ class RetailerProduct(models.Model):
     def save(self, *args, **kwargs):
         super(RetailerProduct, self).save(*args, **kwargs)
 
+    class Meta:
+        verbose_name = 'Product'
+
 
 class RetailerProductImage(models.Model):
     product = models.ForeignKey(RetailerProduct, related_name='retailer_product_image', on_delete=models.CASCADE)
@@ -82,12 +85,18 @@ class RetailerProductImage(models.Model):
     def __str__(self):
         return self.product.sku + " - " + self.product.name
 
+    class Meta:
+        verbose_name = 'Product Image'
 
-class UserMappedShop(models.Model):
+
+class ShopCustomerMap(models.Model):
     user = models.ForeignKey(User, related_name='registered_user', null=True, blank=True, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='registered_shop', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Shop User Mapping'
 
 
 class Payment(models.Model):

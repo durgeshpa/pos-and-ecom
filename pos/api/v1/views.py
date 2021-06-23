@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 import logging
 import json
@@ -9,27 +10,30 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
+from django.db.models import Q, Sum, F, Prefetch, Count
+from django.db.models.functions import Coalesce
 
-from rest_framework import status, authentication
+from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 
 from retailer_backend.utils import SmallOffsetPagination
 from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from wms.models import PosInventoryChange, PosInventoryState
+from wms.models import PosInventoryChange, PosInventoryState, PosInventory
+from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage
-from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
-                                  validate_data_format, PosInventoryCls)
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap
+from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
+                                  check_pos_shop)
 
 from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
-                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer)
+                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
+                          InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
+                          SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -51,96 +55,84 @@ OFFER_UPDATE_SERIALIZERS_MAP = {
 
 class PosProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
 
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Create Product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            modified_data = self.validate_create(shop_id)
-            if 'error' in modified_data:
-                return api_response(modified_data['error'])
-            serializer = RetailerProductCreateSerializer(data=modified_data)
-            if serializer.is_valid():
-                data = serializer.data
-                name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
-                    'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
-                                                                             'description'], data['stock_qty']
-                with transaction.atomic():
-                    # Decide sku_type 2 = using GF product, 1 = new product
-                    sku_type = 2 if linked_pid else 1
-                    # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
-                    # Create product
-                    product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
-                                                                         description, ean)
-                    # Upload images
-                    if 'images' in modified_data:
-                        RetailerProductCls.create_images(product, modified_data['images'])
-                    product.save()
-                    # Add Inventory
-                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
-                                                    stock_qty, self.request.user, product.sku,
-                                                    PosInventoryChange.STOCK_ADD)
-                    serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
-                                        True)
-            else:
-                return api_response(serializer_error(serializer))
+        shop = kwargs['shop']
+        modified_data = self.validate_create(shop.id)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        serializer = RetailerProductCreateSerializer(data=modified_data)
+        if serializer.is_valid():
+            data = serializer.data
+            name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
+                'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
+                                                                         'description'], data['stock_qty']
+            with transaction.atomic():
+                # Decide sku_type 2 = using GF product, 1 = new product
+                sku_type = 2 if linked_pid else 1
+                # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
+                # Create product
+                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
+                                                                     description, ean)
+                # Upload images
+                if 'images' in modified_data:
+                    RetailerProductCls.create_images(product, modified_data['images'])
+                product.save()
+                # Add Inventory
+                PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                                                stock_qty, self.request.user, product.sku,
+                                                PosInventoryChange.STOCK_ADD)
+                serializer = RetailerProductResponseSerializer(product)
+                return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
+                                    True)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
+    @check_pos_shop
     def put(self, request, *args, **kwargs):
         """
             Update product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            modified_data, success_msg = self.validate_update(shop_id)
-            if 'error' in modified_data:
-                return api_response(modified_data['error'])
-            serializer = RetailerProductUpdateSerializer(data=modified_data)
-            if serializer.is_valid():
-                data = serializer.data
-                product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
-                name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
-                    'mrp'], data['selling_price'], data['description'], data['stock_qty']
+        shop = kwargs['shop']
+        modified_data, success_msg = self.validate_update(shop.id)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        serializer = RetailerProductUpdateSerializer(data=modified_data)
+        if serializer.is_valid():
+            data = serializer.data
+            product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
+            name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
+                'mrp'], data['selling_price'], data['description'], data['stock_qty']
 
-                with transaction.atomic():
-                    # Update product
-                    product.product_ean_code = ean if ean else product.product_ean_code
-                    product.mrp = mrp if mrp else product.mrp
-                    product.name = name if name else product.name
-                    # product.sku_type = self.get_sku_type(product.mrp, product.name, product.product_ean_code,
-                    #                                      product.linked_product.id if product.linked_product else None)
-                    product.selling_price = sp if sp else product.selling_price
-                    product.status = data['status'] if data['status'] else product.status
-                    product.description = description if description else product.description
-                    # Update images
-                    if 'image_ids' in modified_data:
-                        RetailerProductImage.objects.filter(product=product).exclude(
-                            id__in=modified_data['image_ids']).delete()
-                    if 'images' in modified_data:
-                        RetailerProductCls.update_images(product, modified_data['images'])
-                    product.save()
-                    if 'stock_qty' in modified_data:
-                        # Update Inventory
-                        PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
-                                                        PosInventoryState.AVAILABLE, stock_qty, self.request.user,
-                                                        product.sku, PosInventoryChange.STOCK_UPDATE)
-                    serializer = RetailerProductResponseSerializer(product)
-                    return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
-            else:
-                return api_response(serializer_error(serializer))
+            with transaction.atomic():
+                # Update product
+                product.product_ean_code = ean if ean else product.product_ean_code
+                product.mrp = mrp if mrp else product.mrp
+                product.name = name if name else product.name
+                product.selling_price = sp if sp else product.selling_price
+                product.status = data['status'] if data['status'] else product.status
+                product.description = description if description else product.description
+                # Update images
+                if 'image_ids' in modified_data:
+                    RetailerProductImage.objects.filter(product=product).exclude(
+                        id__in=modified_data['image_ids']).delete()
+                if 'images' in modified_data:
+                    RetailerProductCls.update_images(product, modified_data['images'])
+                product.save()
+                if 'stock_qty' in modified_data:
+                    # Update Inventory
+                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                                                    PosInventoryState.AVAILABLE, stock_qty, self.request.user,
+                                                    product.sku, PosInventoryChange.STOCK_UPDATE)
+                serializer = RetailerProductResponseSerializer(product)
+                return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
     def validate_create(self, shop_id):
         # Validate product data
@@ -212,62 +204,48 @@ class PosProductView(GenericAPIView):
 
 class CouponOfferCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
+    @check_pos_shop
     def get(self, request, *args, **kwargs):
         """
             Get Offer / Offers List
         """
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            coupon_id = request.GET.get('id')
-            if coupon_id:
-                serializer = OfferGetSerializer(data={'id': coupon_id, 'shop_id': shop_id})
-                if serializer.is_valid():
-                    return self.get_offer(coupon_id)
-                else:
-                    return api_response(serializer_error(serializer))
+        shop, coupon_id = kwargs['shop'], request.GET.get('id')
+        if coupon_id:
+            serializer = OfferGetSerializer(data={'id': coupon_id, 'shop_id': shop.id})
+            if serializer.is_valid():
+                return self.get_offer(coupon_id)
             else:
-                return self.get_offers_list(request, shop_id)
+                return api_response(serializer_error(serializer))
         else:
-            return api_response(shop_id)
+            return self.get_offers_list(request, shop.id)
 
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Create Any Offer
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            serializer = OfferCreateSerializer(data=request.data)
-            if serializer.is_valid():
-                return self.create_offer(serializer.data, shop_id)
-            else:
-                return api_response(serializer_error(serializer))
+        serializer = OfferCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            return self.create_offer(serializer.data, kwargs['shop'].id)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
+    @check_pos_shop
     def put(self, request, *args, **kwargs):
         """
            Update Any Offer
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            data = request.data
-            data['shop_id'] = shop_id
-            serializer = OfferUpdateSerializer(data=data)
-            if serializer.is_valid():
-                return self.update_offer(serializer.data, shop_id)
-            else:
-                return api_response(serializer_error(serializer))
+        shop = kwargs['shop']
+        data = request.data
+        data['shop_id'] = shop.id
+        serializer = OfferUpdateSerializer(data=data)
+        if serializer.is_valid():
+            return self.update_offer(serializer.data, shop.id)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
     def create_offer(self, data, shop_id):
         offer_type = data['offer_type']
@@ -310,8 +288,7 @@ class CouponOfferCreation(GenericAPIView):
         coupon = CouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
         coupon.update(coupon['details'])
         coupon.pop('details')
-        msg = {"is_success": True, "message": "Offer", "response_data": coupon}
-        return Response(msg, status=200)
+        return api_response("Offers", coupon, status.HTTP_200_OK, True)
 
     def get_offers_list(self, request, shop_id):
         """
@@ -326,8 +303,7 @@ class CouponOfferCreation(GenericAPIView):
         for coupon in data:
             coupon.update(coupon['details'])
             coupon.pop('details')
-        msg = {"is_success": True, "message": "Offers List", "response_data": data}
-        return Response(msg, status=200)
+        return api_response("Offers List", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_coupon(data, shop_id):
@@ -515,3 +491,298 @@ class CouponOfferCreation(GenericAPIView):
         rule.save()
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
+
+
+class InventoryReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+            Get Products Available Inventory report for shop
+        """
+        shop = kwargs['shop']
+        if request.GET.get('product_id'):
+            return self.product_inventory_log(shop, request.GET.get('search_text'), request.GET.get('product_id'))
+        else:
+            return self.inventory_list(shop, request.GET.get('search_text'))
+
+    def inventory_list(self, shop, search_text):
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        inv = PosInventory.objects.filter(product__shop=shop, inventory_state=inv_available)
+
+        # Search by product name
+        if search_text:
+            inv = inv.filter(product__name__icontains=search_text)
+
+        inv = inv.order_by('-modified_at')
+        objects = self.pagination_class().paginate_queryset(inv, self.request)
+        data = InventoryReportSerializer(objects, many=True).data
+        msg = "Inventory Report Fetched Successfully!" if data else "No Product Inventory Found For This Shop!"
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+    def product_inventory_log(self, shop, search_text, pk):
+        # Validate product
+        try:
+            product = RetailerProduct.objects.get(pk=pk, shop=shop)
+        except ObjectDoesNotExist:
+            return api_response("Product Id Invalid")
+
+        # Inventory
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
+        inv_data = InventoryReportSerializer(inv).data
+
+        # Inventory Logs
+        logs = PosInventoryChange.objects.filter(product_id=pk)
+
+        # Search
+        if search_text:
+            logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text))
+        logs = logs.order_by('-modified_at')
+        objects = self.pagination_class().paginate_queryset(logs, self.request)
+        logs_data = InventoryLogReportSerializer(objects, many=True).data
+
+        # Merge data
+        data = dict()
+        data['product_inventory'] = inv_data
+        data['logs'] = logs_data
+        return api_response("Inventory Log Report Fetched Successfully!", data, status.HTTP_200_OK, True)
+
+
+class SalesReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+        Get Sales Report for a POS shop
+        """
+        # Validate input
+        serializer = SalesReportSerializer(data=request.GET)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
+
+        # Generate daily, monthly OR Invoice wise report
+        request_data, shop = serializer.data, kwargs['shop']
+        report_type = request_data['report_type']
+
+        if report_type == 'daily':
+            return self.daily_report(shop, report_type, request_data)
+        elif report_type == 'monthly':
+            return self.monthly_report(shop, report_type, request_data)
+        else:
+            return self.invoice_report(shop, report_type, request_data)
+
+    def invoice_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = OrderedProduct.objects.select_related('order', 'invoice').prefetch_related(
+            'order__rt_return_order').filter(order__seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date.date, created_at__date__lte=end_date.date)
+
+        # Sale, returns, effective sale for all orders
+        qs = qs.annotate(sale=F('order__order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns'), invoice_no=F('invoice__invoice_no'))
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date', 'invoice_no')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    def daily_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Sale, returns, effective sale for all days
+        qs = qs.values('created_at__date').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__date')
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    def monthly_report(self, shop, report_type, request_data):
+        # Shop Filter
+        qs = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__month__gte=start_date.month, created_at__month__lte=end_date.month)
+
+        # Sale, returns, effective sale for all months
+        qs = qs.values('created_at__month').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__month')
+        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__month', 'created_at__year')
+
+        return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
+
+    @staticmethod
+    def filter_by_date_filter(date_filter, qs):
+        date_today = datetime.datetime.today()
+        if date_filter == 'today':
+            qs = qs.filter(created_at__date=date_today)
+        elif date_filter == 'yesterday':
+            date_yesterday = date_today - datetime.timedelta(days=1)
+            qs = qs.filter(created_at__date=date_yesterday)
+        elif date_filter == 'this_week':
+            qs = qs.filter(created_at__week=date_today.isocalendar()[1])
+        elif date_filter == 'last_week':
+            last_week = date_today - datetime.timedelta(weeks=1)
+            qs = qs.filter(created_at__week=last_week.isocalendar()[1])
+        elif date_filter == 'this_month':
+            qs = qs.filter(created_at__month=date_today.month)
+        elif date_filter == 'last_month':
+            last_month = date_today - datetime.timedelta(days=30)
+            qs = qs.filter(created_at__month=last_month.month)
+        elif date_filter == 'this_year':
+            qs = qs.filter(created_at__year=date_today.year)
+        return qs
+
+    @staticmethod
+    def sort(sort_by, sort_order, invoices):
+        sort_by = '-' + sort_by if sort_order == -1 else sort_by
+        return invoices.order_by(sort_by)
+
+    def get_response(self, report_type, data, sort_by, sort_order):
+        # Sort
+        data = self.sort(sort_by, sort_order, data)
+        # Paginate
+        data = self.pagination_class().paginate_queryset(data, self.request)
+        # Serialize
+        data = SalesReportResponseSerializer(data, many=True).data
+        # Return HTTP Response
+        report_type = report_type.capitalize()
+        msg = report_type + ' Sales Report Fetched Successfully!' if data else 'No Sales Found For Selected Filters!'
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+
+class CustomerReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+        Get Customer Report for a POS shop
+        """
+        # Validate input
+        serializer = CustomerReportSerializer(data=request.GET)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
+
+        request_data, shop = serializer.data, kwargs['shop']
+        if request.GET.get('phone_number'):
+            return self.customer_order_log(shop, request.GET.get('search_text'), request.GET.get('phone_number'),
+                                           request_data)
+        else:
+            return self.customer_list(shop, request.GET.get('search_text'), request_data)
+
+    def customer_order_log(self, shop, search_text, phone_no, request_data):
+        # Validate customer
+        try:
+            shop_user_map = ShopCustomerMap.objects.get(user__phone_number=phone_no, shop=shop)
+        except ObjectDoesNotExist:
+            return api_response("Phone Number Invalid For This Shop!")
+
+        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id)
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+
+
+    def customer_list(self, shop, search_text, request_data):
+        # Shop Filter
+        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related(
+            'user__reward_user_mlm', Prefetch('user__rt_buyer_order', queryset=Order.objects.filter(seller_shop=shop)),
+            Prefetch('user__rt_buyer_order__rt_return_order', queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
+
+        # Date / Date Range Filter
+        date_filter = request_data['date_filter']
+        if date_filter:
+            qs = self.filter_by_date_filter(date_filter, qs)
+        else:
+            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Loyalty points, sale, returns, effective sale for all users for shop
+        qs = qs.annotate(loyalty_points=Coalesce(F('user__reward_user_mlm__direct_earned') - F(
+            'user__reward_user_mlm__indirect_earned') - F('user__reward_user_mlm__points_used'), 0))
+        qs = qs.annotate(order_count=Coalesce(Count('user__rt_buyer_order'), 0))
+        qs = qs.annotate(sale=Coalesce(Sum('user__rt_buyer_order__order_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns'))
+        qs = qs.values('sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points', 'user__first_name',
+                       'user__last_name', 'order_count', phone_number=F('user__phone_number'), date=F('created_at'))
+
+        # Search
+        if search_text:
+            qs = qs.filter(Q(user__first_name__icontains=search_text) | Q(user__first_name__icontains=search_text) |
+                           Q(phone_number__icontains=search_text))
+
+        # Sort
+        sort_by = '-' + request_data['sort_by'] if request_data['sort_order'] == -1 else request_data['sort_by']
+        qs = qs.order_by(sort_by)
+
+        # Paginate
+        data = self.pagination_class().paginate_queryset(qs, self.request)
+        # Serialize
+        data = CustomerReportResponseSerializer(data, many=True).data
+        msg = 'Customer Sales Report Fetched Successfully!' if data else 'No Customers Added For Selected Filters!'
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+    @staticmethod
+    def filter_by_date_filter(date_filter, qs):
+        date_today = datetime.datetime.today()
+        if date_filter == 'today':
+            qs = qs.filter(created_at__date=date_today)
+        elif date_filter == 'yesterday':
+            date_yesterday = date_today - datetime.timedelta(days=1)
+            qs = qs.filter(created_at__date=date_yesterday)
+        elif date_filter == 'this_week':
+            qs = qs.filter(created_at__week=date_today.isocalendar()[1])
+        elif date_filter == 'last_week':
+            last_week = date_today - datetime.timedelta(weeks=1)
+            qs = qs.filter(created_at__week=last_week.isocalendar()[1])
+        elif date_filter == 'this_month':
+            qs = qs.filter(created_at__month=date_today.month)
+        elif date_filter == 'last_month':
+            last_month = date_today - datetime.timedelta(days=30)
+            qs = qs.filter(created_at__month=last_month.month)
+        elif date_filter == 'this_year':
+            qs = qs.filter(created_at__year=date_today.year)
+        return qs

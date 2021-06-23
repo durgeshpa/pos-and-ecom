@@ -1,21 +1,26 @@
 from decimal import Decimal
 import datetime
+import calendar
+import re
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
-from django.db.models import Q, Sum
+from django.db.models import Q
+from django.core import validators
 
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer
-from pos.common_functions import get_invoice_and_link
+from pos.common_functions import get_invoice_and_link, RewardCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
-from wms.models import PosInventory, PosInventoryState
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from marketing.models import ReferralCode
+from accounts.models import User
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -90,7 +95,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     product_id = serializers.IntegerField(required=True, min_value=1)
     product_ean_code = serializers.CharField(required=False, default=None, max_length=100)
-    product_name = serializers.CharField(required=False, validators=[ProductNameValidator], default=None, max_length=100)
+    product_name = serializers.CharField(required=False, validators=[ProductNameValidator], default=None,
+                                         max_length=100)
     mrp = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01)
     selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                              min_value=0.01)
@@ -190,13 +196,11 @@ class BasicCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_dt')
     total_quantity = serializers.SerializerMethodField('total_quantity_dt')
     total_amount = serializers.SerializerMethodField('total_amount_dt')
-    total_discount = serializers.SerializerMethodField()
-    sub_total = serializers.SerializerMethodField('sub_total_dt')
 
     class Meta:
         model = Cart
         fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
-                  'total_discount', 'sub_total', 'created_at', 'modified_at')
+                  'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
         """
@@ -285,25 +289,6 @@ class BasicCartSerializer(serializers.ModelSerializer):
             total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
-    def get_total_discount(self, obj):
-        """
-            Discount on cart
-        """
-        discount = 0
-        offers = obj.offers
-        if offers:
-            array = list(filter(lambda d: d['type'] in ['discount'], offers))
-            for i in array:
-                discount += i['discount_value']
-        return round(discount, 2)
-
-    def sub_total_dt(self, obj):
-        """
-            Final To be paid amount
-        """
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        return round(sub_total, 2)
-
 
 class CheckoutSerializer(serializers.ModelSerializer):
     """
@@ -311,8 +296,21 @@ class CheckoutSerializer(serializers.ModelSerializer):
     """
     total_discount = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
+    redeem_points_value = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+    reward_detail = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_redeem_points_value(obj):
+        redeem_points_value = 0
+        if obj.redeem_factor:
+            redeem_points_value = round(obj.redeem_points / obj.redeem_factor, 2)
+        return redeem_points_value
+
+    @staticmethod
+    def get_reward_detail(obj):
+        return RewardCls.reward_detail_cart(obj, obj.redeem_points)
 
     def get_total_amount(self, obj):
         """
@@ -339,12 +337,14 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
             Get Payable amount - (Total - Discount)
         """
-        sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj)
+        sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
+            self.get_redeem_points_value(obj))
         return round(sub_total, 2)
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'amount_payable', 'buyer')
+        fields = ('id', 'total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
+                  'reward_detail')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
@@ -372,13 +372,13 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     buyer = PosUserSerializer()
     created_at = serializers.SerializerMethodField()
-    # total_discount = serializers.SerializerMethodField()
-    # sub_total = serializers.SerializerMethodField('sub_total_dt')
 
-    def get_created_at(self, obj):
+    @staticmethod
+    def get_created_at(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
-    def total_amount_dt(self, obj):
+    @staticmethod
+    def total_amount_dt(obj):
         """
             Total Amount For all Products
         """
@@ -388,7 +388,8 @@ class BasicCartListSerializer(serializers.ModelSerializer):
             total_amount += Decimal(selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
-    def get_total_discount(self, obj):
+    @staticmethod
+    def get_total_discount(obj):
         """
             Discount on cart
         """
@@ -399,13 +400,6 @@ class BasicCartListSerializer(serializers.ModelSerializer):
             for i in array:
                 discount += i['discount_value'] if 'discount_value' in i else 0
         return round(discount, 2)
-
-    def sub_total_dt(self, obj):
-        """
-            Final To be paid amount
-        """
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        return round(sub_total, 2)
 
     class Meta:
         model = Cart
@@ -442,10 +436,19 @@ class OrderReturnSerializer(serializers.ModelSerializer):
     """
         Return for an order
     """
+    refund_points_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_refund_points_value(obj):
+        refund_points_value = 0
+        redeem_factor = obj.order.ordered_cart.redeem_factor
+        if redeem_factor:
+            refund_points_value = round(obj.refund_points / redeem_factor, 2)
+        return refund_points_value
 
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_reason', 'refund_amount', 'status')
+        fields = ('id', 'return_reason', 'refund_amount', 'refund_points', 'refund_points_value', 'status')
 
 
 class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -486,24 +489,13 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
         Pos Order detail
     """
-    # buyer = PosUserSerializer()
-    # total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
-    # refunded_amount = serializers.SerializerMethodField('refunded_amount_dt')
     products = serializers.SerializerMethodField()
-    # invoice = serializers.SerializerMethodField('invoice_dt')
     ongoing_return = serializers.SerializerMethodField('ongoing_return_dt')
 
-    def ongoing_return_dt(self, obj):
+    @staticmethod
+    def ongoing_return_dt(obj):
         ongoing_ret = obj.rt_return_order.filter(status='created').last()
         return OrderReturnSerializer(ongoing_ret).data if ongoing_ret else {}
-
-    def refunded_amount_dt(self, obj):
-        previous_refund = 0
-        if obj.order_status == Order.PARTIALLY_RETURNED:
-            previous_returns = obj.rt_return_order.filter(status='completed')
-            for ret in previous_returns:
-                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
-        return round(previous_refund, 2)
 
     def get_products(self, obj):
         """
@@ -558,14 +550,15 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                         product['already_returned_qty'] = product['already_returned_qty'] + return_item[
                             'return_qty'] if 'return_qty' in product else return_item['return_qty']
                     if 'new_sp' in product:
-                        if return_item['new_sp'] < product['new_sp']:
-                            product['new_sp'] = return_item['new_sp']
+                        if float(return_item['new_sp']) < float(product['new_sp']):
+                            product['new_sp'] = float(return_item['new_sp'])
                     else:
-                        product['new_sp'] = return_item['new_sp']
+                        product['new_sp'] = float(return_item['new_sp'])
             product['display_text'] = ''
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
-                free_prod_info = self.get_free_product_text(product_offer_map, return_item_ongoing, return_item_map, return_summary, product)
+                free_prod_info = self.get_free_product_text(product_offer_map, return_item_ongoing, return_item_map,
+                                                            return_summary, product)
                 if free_prod_info:
                     product.update(free_prod_info)
 
@@ -621,8 +614,6 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        # fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'refunded_amount', 'buyer',
-        #           'products', 'invoice', 'created_at', 'modified_at', 'ongoing_return')
         fields = ('id', 'order_no', 'products', 'ongoing_return')
 
 
@@ -630,16 +621,119 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     """
         Get refund amount on checkout
     """
-    order_total = serializers.SerializerMethodField()
-    discount_amount = serializers.SerializerMethodField()
-    received_amount = serializers.SerializerMethodField()
-    refunded_amount = serializers.SerializerMethodField()
-    current_amount = serializers.SerializerMethodField()
-    refund_amount = serializers.SerializerMethodField()
+    # order_total = serializers.SerializerMethodField()
+    # discount_amount = serializers.SerializerMethodField()
+    # redeem_points = serializers.SerializerMethodField()
+    # redeem_points_value = serializers.SerializerMethodField()
+    # received_amount = serializers.SerializerMethodField()
+    # returned_total = serializers.SerializerMethodField()
+    # refunded_amount = serializers.SerializerMethodField()
+    # refunded_points = serializers.SerializerMethodField()
+    # refunded_points_value = serializers.SerializerMethodField()
+    # discount_already_adjusted = serializers.SerializerMethodField()
+    # current_amount = serializers.SerializerMethodField()
+    # return_total = serializers.SerializerMethodField()
+    # refund_amount = serializers.SerializerMethodField()
+    # refund_points = serializers.SerializerMethodField()
+    # refund_points_value = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+    return_info = serializers.SerializerMethodField()
+
+    def get_return_info(self, obj):
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        if not ongoing_return:
+            return []
+        block = dict()
+        cb = 1
+        block[cb] = dict()
+        block[cb][1] = "Paid Amount: " + str(self.get_order_total(obj)).rstrip('0').rstrip('.')
+        discount = self.get_discount_amount(obj)
+        redeem_points_value = self.get_redeem_points_value(obj)
+        if discount and redeem_points_value:
+            block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip('0').rstrip('.') + ') = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
+        elif discount:
+            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon)'
+        elif redeem_points_value:
+            block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+
+        refunded_amount = self.get_refunded_amount(obj)
+        if refunded_amount:
+            cb += 1
+            block[cb] = dict()
+            block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(self.get_returned_total(obj)).rstrip('0').rstrip('.') + '.'
+            block[cb][2] += ' Rs.' + str(discount).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount else ')'
+
+        cb += 1
+        block[cb] = dict()
+        block[cb][1] = 'Amount to be returned: Rs.' + str(self.get_refund_amount(obj)).rstrip('0').rstrip('.')
+
+        block_array = []
+        for b in block:
+            lines_dict = block[b]
+            lines_array = []
+            for key in lines_dict:
+                lines_array.append(lines_dict[key])
+            block_array.append(lines_array)
+        return block_array
+
+    def get_discount_already_adjusted(self, obj):
+        last_return = obj.rt_return_order.filter(status='completed').last()
+        if last_return and last_return.refund_amount < 0:
+            discount_adjusted = last_return.refund_amount * -1
+        else:
+            discount_adjusted = self.get_discount_amount(obj)
+        return discount_adjusted
+
+    def get_returned_total(self, obj):
+        ret_total = 0
+        last_return = obj.rt_return_order.filter(status='completed').last()
+        if last_return:
+            ret_total = round(self.get_order_total(obj) - last_return.new_order_total, 2)
+        return ret_total
+
+    def get_return_total(self, obj):
+        ret_total = 0
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        if ongoing_return:
+            last_return = obj.rt_return_order.filter(status='completed').last()
+            if last_return:
+                ret_total = round(last_return.new_order_total - ongoing_return.new_order_total)
+            else:
+                ret_total = round(self.get_order_total(obj) - ongoing_return.new_order_total, 2)
+        return ret_total
+
+    @staticmethod
+    def get_refund_points(obj):
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        return round(ongoing_return.refund_points, 2) if ongoing_return else 0
+
+    @staticmethod
+    def get_redeem_points(obj):
+        return obj.ordered_cart.redeem_points
+
+    @staticmethod
+    def get_refunded_points(obj):
+        previous_refund_pts = 0
+        redeem_factor = obj.ordered_cart.redeem_factor
+        if redeem_factor:
+            if obj.order_status == Order.PARTIALLY_RETURNED:
+                previous_returns = obj.rt_return_order.filter(status='completed')
+                for ret in previous_returns:
+                    previous_refund_pts += ret.refund_points
+        return previous_refund_pts
+
+    @staticmethod
+    def get_redeem_points_value(obj):
+        redeem_points_value = 0
+        if obj.ordered_cart.redeem_factor:
+            redeem_points_value = round(obj.ordered_cart.redeem_points / obj.ordered_cart.redeem_factor, 2)
+        return redeem_points_value
 
     def get_order_total(self, obj):
-        return round(obj.order_amount + self.get_discount_amount(obj), 2)
+        return round(obj.order_amount + self.get_discount_amount(obj) + self.get_redeem_points_value(obj), 2)
 
     def get_discount_amount(self, obj):
         discount = 0
@@ -649,7 +743,9 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_current_amount(self, obj):
-        return round(obj.order_amount - self.get_refunded_amount(obj) - self.get_refund_amount(obj), 2)
+        return round(obj.order_amount + self.get_redeem_points_value(obj) - self.get_refunded_amount(
+            obj) - self.get_refunded_points_value(obj) - self.get_refund_amount(obj) - self.get_refund_points_value(
+            obj), 2)
 
     def get_refunded_amount(self, obj):
         previous_refund = 0
@@ -658,6 +754,13 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             for ret in previous_returns:
                 previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
         return round(previous_refund, 2)
+
+    def get_refunded_points_value(self, obj):
+        previous_refund = 0
+        redeem_factor = obj.ordered_cart.redeem_factor
+        if redeem_factor:
+            previous_refund = round(self.get_refunded_points(obj) / redeem_factor, 2)
+        return previous_refund
 
     def get_cart_offers(self, obj):
         """
@@ -683,10 +786,24 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         ongoing_return = obj.rt_return_order.filter(status='created').last()
         return round(ongoing_return.refund_amount, 2) if ongoing_return else 0
 
+    def get_refund_points_value(self, obj):
+        """
+            refund points value
+        """
+        refund_points_value = 0
+        redeem_factor = obj.ordered_cart.redeem_factor
+        if redeem_factor:
+            ongoing_return = obj.rt_return_order.filter(status='created').last()
+            if ongoing_return:
+                refund_points_value = round(ongoing_return.refund_points / redeem_factor, 2)
+        return refund_points_value
+
     class Meta:
         model = Order
-        fields = ('id', 'order_total', 'discount_amount', 'received_amount', 'refunded_amount',
-                  'current_amount', 'refund_amount', 'buyer', 'order_status')
+        # fields = ('id', 'order_total', 'discount_amount', 'redeem_points', 'redeem_points_value', 'received_amount',
+        #           'refunded_amount', 'refunded_points', 'refunded_points_value', 'current_amount', 'refund_amount',
+        #           'refund_points', 'refund_points_value', 'buyer', 'order_status')
+        fields = ('id', 'return_info', 'order_status', 'buyer')
 
 
 def coupon_name_validation(coupon_name):
@@ -993,6 +1110,162 @@ class CouponListSerializer(serializers.ModelSerializer):
 
 
 class PosShopSerializer(serializers.ModelSerializer):
+    shop_id = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shop_id(obj):
+        return obj.id
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('shop_id', 'shop_name')
+
+
+class BasicCartUserViewSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    is_mlm = serializers.BooleanField(default=False)
+    referral_code = serializers.CharField(required=False, allow_null=True, allow_blank=True, default=None)
+
+    def validate(self, attrs):
+        phone_number, email, referral_code, shop_id = attrs.get('phone_number'), attrs.get('email'),\
+                                                      attrs.get('referral_code'), attrs.get('shop_id')
+
+        if not phone_number:
+            raise serializers.ValidationError("Please provide phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_number):
+            raise serializers.ValidationError("Please provide a valid phone number")
+
+        user = User.objects.filter(phone_number=phone_number).last()
+        if user and ReferralCode.is_marketing_user(user) and attrs.get('is_mlm'):
+            raise serializers.ValidationError("User is already registered for rewards.")
+
+        if referral_code:
+            if not ReferralCode.objects.filter(referral_code=referral_code).exists():
+                raise serializers.ValidationError("Referral Code Invalid!")
+
+        return attrs
+
+
+class InventoryReportSerializer(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    stock_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_id(obj):
+        return obj.product.id
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.product.name
+
+    @staticmethod
+    def get_stock(obj):
+        return obj.quantity
+
+    @staticmethod
+    def get_stock_value(obj):
+        sp = obj.product.selling_price
+        return round(float(obj.quantity) * float(sp), 2) if obj.quantity > 0 else 0
+
+    class Meta:
+        model = PosInventory
+        fields = ('product_id', 'product_name', 'stock', 'stock_value')
+
+
+class InventoryLogReportSerializer(serializers.ModelSerializer):
+    created_at = serializers.SerializerMethodField()
+    transaction_type = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_created_at(obj):
+        return obj.created_at.strftime("%b %d, %Y")
+
+    @staticmethod
+    def get_transaction_type(obj):
+        return obj.transaction_type.replace('_', ' ').title()
+
+    class Meta:
+        model = PosInventoryChange
+        fields = ('created_at', 'transaction_type', 'transaction_id', 'quantity')
+
+
+class SalesReportSerializer(serializers.Serializer):
+    report_type = serializers.ChoiceField(choices=('daily', 'monthly', 'invoice'), default='daily')
+    date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
+                                                   'last_month', 'this_year'), required=False, allow_null=True,
+                                          allow_blank=True)
+    start_date = serializers.DateField(required=False, default=datetime.date.today)
+    end_date = serializers.DateField(required=False, default=datetime.date.today)
+    sort_by = serializers.ChoiceField(choices=('date', 'month', 'sale', 'returns', 'effective_sale'), default=None)
+    sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
+
+    def validate(self, attrs):
+        date_filter = attrs.get('date_filter')
+        sort_by = attrs.get('sort_by')
+
+        if attrs.get('report_type') == 'monthly':
+            if date_filter and date_filter not in ['this_month', 'last_month', 'this_year']:
+                raise serializers.ValidationError("Invalid Date Filter For Monthly Reports!")
+            sort_by = sort_by if sort_by else 'month'
+            if sort_by == 'date':
+                raise serializers.ValidationError("Invalid Sort Field For Monthly Reports!")
+        else:
+            sort_by = sort_by if sort_by else 'date'
+
+        attrs['sort_by'] = 'created_at__' + sort_by if sort_by in ['date', 'month'] else sort_by
+
+        if attrs['start_date'] > attrs['end_date']:
+            raise serializers.ValidationError("End Date Must Be Greater Than Start Date")
+        return attrs
+
+
+class SalesReportResponseSerializer(serializers.Serializer):
+    date = serializers.SerializerMethodField()
+    month = serializers.SerializerMethodField()
+    sale = serializers.FloatField(read_only=True)
+    returns = serializers.FloatField(read_only=True)
+    effective_sale = serializers.FloatField(read_only=True)
+    invoice_no = serializers.CharField(read_only=True)
+
+    @staticmethod
+    def get_date(obj):
+        return obj['created_at__date'].strftime("%b %d, %Y") if 'created_at__date' in obj else None
+
+    @staticmethod
+    def get_month(obj):
+        return calendar.month_name[obj['created_at__month']] + ', ' + str(
+            obj['created_at__year']) if 'created_at__month' in obj else None
+
+
+class CustomerReportSerializer(serializers.Serializer):
+    date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
+                                                   'last_month', 'this_year'), required=False, allow_null=True,
+                                          allow_blank=True)
+    start_date = serializers.DateField(required=False, default=datetime.date.today)
+    end_date = serializers.DateField(required=False, default=datetime.date.today)
+    sort_by = serializers.ChoiceField(choices=('date', 'order_count', 'sale', 'returns', 'effective_sale'), default='date')
+    sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
+
+
+class CustomerReportResponseSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(read_only=True)
+    name = serializers.SerializerMethodField()
+    date_added = serializers.SerializerMethodField()
+    loyalty_points = serializers.IntegerField(read_only=True)
+    order_count = serializers.IntegerField(read_only=True)
+    sale = serializers.FloatField(read_only=True)
+    returns = serializers.FloatField(read_only=True)
+    effective_sale = serializers.FloatField(read_only=True)
+
+    @staticmethod
+    def get_date_added(obj):
+        return obj['created_at'].strftime("%b %d, %Y") if 'created_at' in obj else None
+
+    @staticmethod
+    def get_name(obj):
+        first_name, last_name = obj['user__first_name'], obj['user__last_name']
+        if first_name:
+            return first_name + ' ' + last_name if last_name else first_name
+        return None

@@ -1,36 +1,47 @@
 from coupon.models import Coupon, RuleSetProductMapping, CouponRuleSet
-from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, Order
-from wms.models import PosInventory, PosInventoryChange, PosInventoryState
+from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping
 
 
 class RetailerCouponRuleSet(CouponRuleSet):
     class Meta:
         proxy = True
+        verbose_name = 'Coupon Ruleset'
 
 
 class RetailerRuleSetProductMapping(RuleSetProductMapping):
     class Meta:
         proxy = True
+        verbose_name = 'Coupon Ruleset Product Mapping'
 
 
 class RetailerCoupon(Coupon):
     class Meta:
         proxy = True
+        verbose_name = 'Coupon'
 
 
 class RetailerCart(Cart):
     class Meta:
         proxy = True
+        verbose_name = 'Cart'
+
+
+class RetailerCartProductMapping(CartProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Cart Product Mapping'
 
 
 class RetailerOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
+        verbose_name = 'Order'
 
 
 class RetailerOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
+        verbose_name = 'Ordered Product Mapping'
 
 
 # class InventoryStatePos(PosInventoryState):

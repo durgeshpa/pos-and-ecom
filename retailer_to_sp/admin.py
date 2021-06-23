@@ -305,7 +305,7 @@ class BuyerShopFilter(AutocompleteFilter):
 
 class OrderIDFilter(InputFilter):
     parameter_name = 'order_id'
-    title = 'order_id'
+    title = 'Order ID'
 
     def queryset(self, request, queryset):
         if self.value() is not None:

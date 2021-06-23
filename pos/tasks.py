@@ -1,13 +1,20 @@
 import logging
+import sys
 from celery.task import task
 from elasticsearch import Elasticsearch
+
+from django.db import transaction
 
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 from pos.models import RetailerProduct
 from wms.models import PosInventory, PosInventoryState
+from marketing.models import RewardPoint, Referral
+from accounts.models import User
+from pos.common_functions import RewardCls
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 
 def create_es_index(index):
@@ -81,3 +88,32 @@ def update_es(products, shop_id):
             'stock_qty': stock_qty
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
+
+
+def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop_id=None):
+    """
+        Loyalty points to buyer, user who referred buyer and ancestor referrers of user who referred buyer
+    """
+    try:
+        with transaction.atomic():
+            user = User.objects.get(id=user_id)
+
+            if changed_by:
+                changed_by = User.objects.get(id=changed_by)
+            # Buyer Rewards
+            points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by)
+
+            # Reward Referrer Direct and Indirect
+            referral_obj = Referral.objects.filter(referral_to_user=user).last()
+            if referral_obj:
+                parent_referrer = referral_obj.referral_by_user
+                # direct reward to user who referred buyer
+                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i, referral_obj.user_count_considered,
+                                                       changed_by)
+
+                # indirect reward to ancestor referrers
+                RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                         referral_obj.user_count_considered, changed_by)
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        error_logger.error("Rewards not processed for order {} exception {} Line No {}".format(tid, e, exc_tb.tb_lineno))
