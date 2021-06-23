@@ -2078,7 +2078,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         return self.get_percent(obj.delivered_amount, obj.invoice_amount)
 
     def km_run(self, obj):
-        return obj.closing_kms-obj.opening_kms if obj.closing_kms else 0
+        return obj.closing_kms-obj.opening_kms if obj.closing_kms and obj.opening_kms else 0
 
     def has_add_permission(self, request):
         return False
