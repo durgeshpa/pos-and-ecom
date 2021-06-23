@@ -111,11 +111,11 @@ class ExportCsvMixin:
         meta = self.model._meta
         exclude_fields = ['created_at', 'modified_at']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
-        field_names.extend(['is_ptr_applicable', 'ptr_type','ptr_percent'])
+        field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        if self.model._meta.db_table=='products_product':
+        if self.model._meta.db_table == 'products_product':
             field_names_temp = field_names.copy()
             cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                            'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']

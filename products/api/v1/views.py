@@ -488,7 +488,7 @@ class ParentProductExportAsCSVView(CreateAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
-            info_logger.info("Parent Product CSVExpored successfully ")
+            info_logger.info("Parent Product CSVExported successfully ")
             return response
         return get_response(serializer_error(serializer), False)
 
@@ -504,7 +504,7 @@ class ChildProductExportAsCSVView(CreateAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
-            info_logger.info("Parent Product CSVExpored successfully ")
+            info_logger.info("Parent Product CSVExported successfully ")
             return response
         return get_response(serializer_error(serializer), False)
 

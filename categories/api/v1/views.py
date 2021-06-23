@@ -4,13 +4,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, CreateAPIView
 from retailer_backend.utils import SmallOffsetPagination
 
 from shops.models import Shop, ParentRetailerMapping
 from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer, CategoryDataSerializer, BrandSerializer, AllCategorySerializer, \
-    SubbCategorySerializer, CategoryCrudSerializers
+    SubbCategorySerializer, CategoryCrudSerializers, CategoryExportAsCSVSerializers
 from categories.models import Category, CategoryData, CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -197,3 +197,19 @@ class CategoryView(GenericAPIView):
             self.queryset = self.queryset.filter(status=cat_status)
 
         return self.queryset
+
+
+class CategoryExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = CategoryExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Category CSV """
+
+        info_logger.info("Category ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Category CSVExported successfully ")
+            return response
+        return get_response(serializer_error(serializer), False)

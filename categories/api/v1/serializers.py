@@ -1,5 +1,9 @@
+import csv
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.utils.text import slugify
+from django.utils.translation import gettext_lazy as _
+from django.http import HttpResponse
 
 from rest_framework import serializers
 from categories.models import Category,CategoryPosation,CategoryData
@@ -129,4 +133,54 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
         
         return category
 
+
+class CategoryExportAsCSVSerializers(serializers.ModelSerializer):
+    category_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Category
+        fields = ('category_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('category_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one category id must be selected '))
+
+        for p_id in data.get('category_id_list'):
+            try:
+                Category.objects.get(id=p_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'category_id not found for id {p_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Category._meta
+        field_names = [
+            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
+            'product_surcharge', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
+            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory'
+        ]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for p_id in validated_data['parent_product_id_list']:
+            obj = Category.objects.filter(id=p_id).last()
+            row = []
+            for field in field_names:
+                try:
+                    val = getattr(obj, field)
+                    if field == 'ptr_type':
+                        val = getattr(obj, 'ptr_type_text')
+                except:
+                    val = eval("{}(obj)".format(field))
+                finally:
+                    row.append(val)
+            writer.writerow(row)
+        return response
 

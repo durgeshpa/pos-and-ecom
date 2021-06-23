@@ -1,4 +1,5 @@
 import logging
+from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -165,6 +166,24 @@ class BrandView(GenericAPIView):
             info_logger.info("brand Updated Successfully.")
             return get_response('brand updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Brand """
+
+        info_logger.info("Brand DELETE api called.")
+        if not request.data.get('brand_ids'):
+            return get_response('please provide brand_id', False)
+        try:
+            for b_id in request.data.get('brand_ids'):
+                brand_id = self.queryset.get(id=int(b_id))
+                try:
+                    brand_id.delete()
+                except:
+                    return get_response(f'can not delete brand_id {brand_id.name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid brand {b_id}', False)
+        return get_response('brand were deleted successfully!', True)
 
     def search_filter_brand(self):
 
