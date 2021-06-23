@@ -1,6 +1,8 @@
 import logging
 from django.core.exceptions import ObjectDoesNotExist
 
+from django.http import HttpResponse
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
@@ -211,5 +213,5 @@ class CategoryExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("Category CSVExported successfully ")
-            return response
+            return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

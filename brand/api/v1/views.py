@@ -1,13 +1,16 @@
 import logging
 from django.core.exceptions import ObjectDoesNotExist
 
+from django.http import HttpResponse
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
-from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers
+from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, \
+    ProductVendorMapSerializers, BrandExportAsCSVSerializers
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
 from shops.models import Shop, ParentRetailerMapping
@@ -179,7 +182,7 @@ class BrandView(GenericAPIView):
                 try:
                     brand_id.delete()
                 except:
-                    return get_response(f'can not delete brand_id {brand_id.brand_name}', False)
+                    return get_response(f'can not delete brand {brand_id.brand_name}', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid brand {b_id}', False)
@@ -233,3 +236,18 @@ class BrandVendorMappingView(GenericAPIView):
         uniq_data = queryset.filter(parent_brand=brand_id).order_by('-id').distinct()
         return {'data': uniq_data}
 
+
+class BrandExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BrandExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Brand CSV """
+
+        info_logger.info("Brand ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Brand CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

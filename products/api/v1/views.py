@@ -1,6 +1,7 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import HttpResponse
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -489,7 +490,7 @@ class ParentProductExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("Parent Product CSVExported successfully ")
-            return response
+            return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
 
 
@@ -505,7 +506,7 @@ class ChildProductExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("Parent Product CSVExported successfully ")
-            return response
+            return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
 
 

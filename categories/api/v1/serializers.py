@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 
 from rest_framework import serializers
-from categories.models import Category,CategoryPosation,CategoryData
+from categories.models import Category, CategoryPosation, CategoryData
 from brand.models import Brand
 from categories.models import Category
 from products.api.v1.serializers import UserSerializers, LogSerializers
@@ -148,39 +148,26 @@ class CategoryExportAsCSVSerializers(serializers.ModelSerializer):
         if len(data.get('category_id_list')) == 0:
             raise serializers.ValidationError(_('Atleast one category id must be selected '))
 
-        for p_id in data.get('category_id_list'):
+        for c_id in data.get('category_id_list'):
             try:
-                Category.objects.get(id=p_id)
+                Category.objects.get(id=c_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'category_id not found for id {p_id}')
+                raise serializers.ValidationError(f'category not found for id {c_id}')
 
         return data
 
     def create(self, validated_data):
         meta = Category._meta
-        field_names = [
-            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
-            'product_surcharge', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
-            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory'
-        ]
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
 
         writer = csv.writer(response)
         writer.writerow(field_names)
-        for p_id in validated_data['parent_product_id_list']:
-            obj = Category.objects.filter(id=p_id).last()
-            row = []
-            for field in field_names:
-                try:
-                    val = getattr(obj, field)
-                    if field == 'ptr_type':
-                        val = getattr(obj, 'ptr_type_text')
-                except:
-                    val = eval("{}(obj)".format(field))
-                finally:
-                    row.append(val)
-            writer.writerow(row)
+        queryset = Category.objects.filter(id__in=validated_data['category_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
         return response
 

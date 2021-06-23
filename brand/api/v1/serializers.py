@@ -1,6 +1,9 @@
+import csv
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.utils.text import slugify
-from collections import OrderedDict
+from django.utils.translation import gettext_lazy as _
+from django.http import HttpResponse
 
 from rest_framework import serializers
 from brand.models import Brand, BrandPosition, BrandData, Vendor
@@ -158,3 +161,41 @@ class ProductVendorMapSerializers(serializers.ModelSerializer):
         if result['product_parent_product'] is None:
             pass
         return result['product_parent_product']
+
+
+class BrandExportAsCSVSerializers(serializers.ModelSerializer):
+    brand_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Brand
+        fields = ('brand_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('brand_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one brand id must be selected '))
+
+        for c_id in data.get('category_id_list'):
+            try:
+                Brand.objects.get(id=c_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'brand not found for id {c_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Brand._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = Brand.objects.filter(id__in=validated_data['category_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response

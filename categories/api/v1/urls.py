@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 
 from .views import (GetAllSubCategoryListView, GetCategoryListBySlot, GetcategoryBrandListView,
-                    GetSubCategoriesListView, GetAllCategoryListView, CategoryView)
+                    GetSubCategoriesListView, GetAllCategoryListView, CategoryView, CategoryExportAsCSVView)
 
 urlpatterns = [
     # URLs that do not require a session or valid token
@@ -12,4 +12,6 @@ urlpatterns = [
     url(r'^get-sub-categories/(?P<category>[-\w]+)/$', GetSubCategoriesListView.as_view(), name='get_subcategories'),
     url(r'^get-all-categories/$', GetAllCategoryListView.as_view(), name='get_all_category_subcategory'),
     url(r'^category/$', CategoryView.as_view(), name='category'),
+    url(r'^export-csv-category/$', CategoryExportAsCSVView.as_view(), name='export-csv-category'),
+
 ]

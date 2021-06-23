@@ -64,8 +64,8 @@ info_logger = logging.getLogger('file-info')
 
 
 class ProductFilter(AutocompleteFilter):
-    title = 'Product Name' # display title
-    field_name = 'product' # name of the foreign key field
+    title = 'Product Name'  # display title
+    field_name = 'product'  # name of the foreign key field
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -75,8 +75,8 @@ class ProductFilter(AutocompleteFilter):
 
 
 class ShopFilter(AutocompleteFilter):
-    title = 'Seller Shop' # display title
-    field_name = 'seller_shop' # name of the foreign key field
+    title = 'Seller Shop'  # display title
+    field_name = 'seller_shop'  # name of the foreign key field
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -88,8 +88,8 @@ class ShopFilter(AutocompleteFilter):
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
     search_fields = ['image', 'image_name']
-    list_display = ('product','image', 'image_name')
-    list_filter = [ProductFilter,]
+    list_display = ('product', 'image', 'image_name')
+    list_filter = [ProductFilter, ]
 
     class Media:
         pass
@@ -153,6 +153,7 @@ class ExportCsvMixin:
                         items.append('-')
             row = writer.writerow(items)
         return response
+
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
 
@@ -251,14 +252,14 @@ class ParentIDFilter(InputFilter):
 
 
 class VendorFilter(AutocompleteFilter):
-    title = 'Vendor Name' # display title
-    field_name = 'vendor' # name of the foreign key field
+    title = 'Vendor Name'  # display title
+    field_name = 'vendor'  # name of the foreign key field
 
 
 class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
-        list_display = ('vendor', 'product', 'product_price', 'product_mrp','case_size','created_at','status')
+        list_display = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', 'created_at', 'status')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -267,34 +268,37 @@ class ExportProductVendor:
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
+
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
 
 
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
-  
-    actions = ["export_as_csv_product_vendormapping",]
-    fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size', 'is_default')
+    actions = ["export_as_csv_product_vendormapping", ]
+    fields = ('vendor', 'product', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'is_default')
 
-    list_display = ('vendor', 'product','product_price','product_price_pack', 'mrp','case_size','created_at','status','product_status')
-    list_filter = [VendorFilter,ProductFilter,'product__status','status']
+    list_display = (
+    'vendor', 'product', 'product_price', 'product_price_pack', 'mrp', 'case_size', 'created_at', 'status',
+    'product_status')
+    list_filter = [VendorFilter, ProductFilter, 'product__status', 'status']
     form = ProductVendorMappingForm
-    readonly_fields = ['brand_to_gram_price_unit',]
+    readonly_fields = ['brand_to_gram_price_unit', ]
     change_list_template = 'admin/products/bulk_product_vendor_mapping_change_list.html'
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductVendorMappingAdmin, self).get_urls()
         urls = [
-            url(
-                r'^vendor-autocomplete/$',
-                self.admin_site.admin_view(VendorAutocomplete.as_view()),
-                name="vendor-autocomplete"
-            ),
-            url(
-                r'^product-vendor-csv-upload/$',
-                self.admin_site.admin_view(bulk_product_vendor_csv_upload_view),
-                name="product-vendor-csv-upload"
-            ),
-        ] + urls
+                   url(
+                       r'^vendor-autocomplete/$',
+                       self.admin_site.admin_view(VendorAutocomplete.as_view()),
+                       name="vendor-autocomplete"
+                   ),
+                   url(
+                       r'^product-vendor-csv-upload/$',
+                       self.admin_site.admin_view(bulk_product_vendor_csv_upload_view),
+                       name="product-vendor-csv-upload"
+                   ),
+               ] + urls
         return urls
 
     def product_status(self, obj):
@@ -310,6 +314,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
             '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/product_vendor_mapping_form.js'
         )
+
 
 class PackageSizeAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = PackageSizeResource
@@ -400,22 +405,23 @@ class ProductImageAdmin(admin.TabularInline):
 
 
 class ProductTaxInlineFormSet(BaseInlineFormSet):
-   def clean(self):
-      super(ProductTaxInlineFormSet, self).clean()
-      tax_list_type=[]
-      for form in self.forms:
-          if form.is_valid() and form.cleaned_data.get('tax'):
-              if form.cleaned_data.get('tax').tax_type in tax_list_type:
-                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
-              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
-      if 'gst' not in tax_list_type:
-          raise ValidationError('Please fill the GST tax value')
+    def clean(self):
+        super(ProductTaxInlineFormSet, self).clean()
+        tax_list_type = []
+        for form in self.forms:
+            if form.is_valid() and form.cleaned_data.get('tax'):
+                if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                    raise ValidationError(
+                        '{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+                tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+        if 'gst' not in tax_list_type:
+            raise ValidationError('Please fill the GST tax value')
 
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
     extra = 6
-    formset=ProductTaxInlineFormSet
+    formset = ProductTaxInlineFormSet
     max_num = 6
     autocomplete_fields = ['tax']
 
@@ -425,7 +431,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
-    autocomplete_fields = ['category',]
+    autocomplete_fields = ['category', ]
     formset = RequiredInlineFormSet  # or AtLeastOneFormSet
 
 
@@ -499,16 +505,17 @@ class ParentProductImageAdmin(admin.TabularInline):
 
 
 class ParentProductTaxInlineFormSet(BaseInlineFormSet):
-   def clean(self):
-      super(ParentProductTaxInlineFormSet, self).clean()
-      tax_list_type = []
-      for form in self.forms:
-          if form.is_valid() and form.cleaned_data.get('tax'):
-              if form.cleaned_data.get('tax').tax_type in tax_list_type:
-                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
-              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
-      if 'gst' not in tax_list_type:
-          raise ValidationError('Please fill the GST tax value')
+    def clean(self):
+        super(ParentProductTaxInlineFormSet, self).clean()
+        tax_list_type = []
+        for form in self.forms:
+            if form.is_valid() and form.cleaned_data.get('tax'):
+                if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                    raise ValidationError(
+                        '{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+                tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+        if 'gst' not in tax_list_type:
+            raise ValidationError('Please fill the GST tax value')
 
 
 class ParentProductTaxMappingAdmin(admin.TabularInline):
@@ -528,7 +535,7 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/child_product_form.js',
             'admin/js/parent_product_form.js',
         )
@@ -553,20 +560,26 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     def product_gst(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').last().tax.tax_percentage)
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='gst').last().tax.tax_percentage)
         return ''
+
     product_gst.short_description = 'Product GST'
 
     def product_cess(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').last().tax.tax_percentage)
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='cess').last().tax.tax_percentage)
         return ''
+
     product_cess.short_description = 'Product CESS'
 
     def product_surcharge(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').last().tax.tax_percentage)
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='surcharge').last().tax.tax_percentage)
         return ''
+
     product_surcharge.short_description = 'Product Surcharge'
 
     def product_category(self, obj):
@@ -577,6 +590,7 @@ class ParentProductAdmin(admin.ModelAdmin):
             return ''
         except:
             return ''
+
     product_category.short_description = 'Product Category'
 
     def product_image(self, obj):
@@ -589,7 +603,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         return '-'
 
     def ptrtype(self, obj):
-        if obj.is_ptr_applicable :
+        if obj.is_ptr_applicable:
             return obj.ptr_type_text
 
     def ptrpercent(self, obj):
@@ -626,28 +640,29 @@ class ParentProductAdmin(admin.ModelAdmin):
                     row.append(val)
             writer.writerow(row)
         return response
+
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ParentProductAdmin, self).get_urls()
         urls = [
-            url(
-                r'^parent-product-upload-csv/$',
-                self.admin_site.admin_view(parent_product_upload),
-                name="parent-product-upload"
-            ),
-            url(
-                r'^parent-products-download-sample-csv/$',
-                self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
-                name="parent-products-download-sample-csv"
-            ),
-            url(
-                r'^parent-product-multiple-photos-upload/$',
-                self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
-                name='parent_product_multiple_photos_upload'
-            ),
-        ] + urls
+                   url(
+                       r'^parent-product-upload-csv/$',
+                       self.admin_site.admin_view(parent_product_upload),
+                       name="parent-product-upload"
+                   ),
+                   url(
+                       r'^parent-products-download-sample-csv/$',
+                       self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
+                       name="parent-products-download-sample-csv"
+                   ),
+                   url(
+                       r'^parent-product-multiple-photos-upload/$',
+                       self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
+                       name='parent_product_multiple_photos_upload'
+                   ),
+               ] + urls
         return urls
 
 
@@ -690,7 +705,8 @@ def approve_selected_child_products(modeladmin, request, queryset):
 
     if price_fail != '':
         price_fail = price_fail.strip(',')
-        modeladmin.message_user(request, "Products" + price_fail + " were not be approved due to non existent active Product Price",
+        modeladmin.message_user(request,
+                                "Products" + price_fail + " were not be approved due to non existent active Product Price",
                                 level=messages.ERROR)
 
 
@@ -707,12 +723,12 @@ class ProductSourceMappingAdmin(admin.TabularInline):
         from django.conf.urls import url
         urls = super(ProductSourceMappingAdmin, self).get_urls()
         urls = [
-            url(
-                r'^source-product-autocomplete/$',
-                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
-                name='source-product-autocomplete',
-            ),
-        ] + urls
+                   url(
+                       r'^source-product-autocomplete/$',
+                       self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
+                       name='source-product-autocomplete',
+                   ),
+               ] + urls
         return urls
 
 
@@ -751,7 +767,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/child_product_form.js'
         )
 
@@ -764,238 +780,239 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         from django.conf.urls import url
         urls = super(ProductAdmin, self).get_urls()
         urls = [
-            url(
-                r'^productsfilter/$',
-                self.admin_site.admin_view(products_filter_view),
-                name="productsfilter"
-            ),
-            url(
-                r'^productscsvupload/$',
-                self.admin_site.admin_view(products_csv_upload_view),
-                name="productscsvupload"
-            ),
-            url(
-                r'^productspricefilter/$',
-                self.admin_site.admin_view(products_price_filter_view),
-                name="productspricefilter"
-            ),
-            url(
-                r'^productsuploadsample/$',
-                self.admin_site.admin_view(ProductsUploadSample),
-                name="productsuploadsample"
-            ),
-            url(
-                r'^sp-sr-productprice/$',
-                self.admin_site.admin_view(SpSrProductPrice.as_view()),
-                name="sp_sr_productprice"
-            ),
-            url(
-                r'^gf-productprice/$',
-                self.admin_site.admin_view(gf_product_price),
-                name="gf_productprice"
-            ),
-            url(
-                r'^ajax/load-cities/$',
-                self.admin_site.admin_view(load_cities),
-                name='ajax_load_cities'
-            ),
-            url(
-                r'^ajax/load-sp-sr/$',
-                self.admin_site.admin_view(load_sp_sr),
-                name='ajax_load_sp_sr'
-            ),
-            url(
-                r'^products-export/$',
-                self.admin_site.admin_view(export),
-                name='products-export'
-            ),
-            url(
-                r'^ajax/load-brands/$',
-                self.admin_site.admin_view(load_brands),
-                name='ajax_load_brands'
-            ),
-            url(
-                r'^ajax/load-gf/$',
-                self.admin_site.admin_view(load_gf),
-                name='ajax_load_gf'
-            ),
-            url(
-                r'^products-export-for-vendor/+(?P<id>\d+)?',
-                self.admin_site.admin_view(products_export_for_vendor),
-                name='products_export_for_vendor'
-            ),
-             url(
-                r'^all-product-mapped-to-vendor/+(?P<id>\d+)?',
-                self.admin_site.admin_view(all_product_mapped_to_vendor),
-                name='all_product_mapped_to_vendor'
-            ),
-            url(
-                r'^multiple-photos-upload/$',
-                self.admin_site.admin_view(MultiPhotoUploadView.as_view()),
-                name='multiple_photos_upload'
-            ),
-            url(
-                r'^products-vendor-mapping/(?P<pk>\d+)/$',
-                self.admin_site.admin_view(products_vendor_mapping),
-                name='products_vendor_mapping'
-            ),
-            url(
-                r'^cart-products-mapping/(?P<pk>\d+)/$',
-                self.admin_site.admin_view(cart_products_mapping),
-                name='cart_products_mapping'
-            ),
-            url(
-                r'^cart-products-list/(?P<order_status_info>(.*))/$',
-                self.admin_site.admin_view(cart_product_list_status),
-                name='cart_products_list_status'
-            ),
-            url(
-                r'^product-price-autocomplete/$',
-                self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
-                name="product-price-autocomplete"
-            ),
-            url(
-                r'^product-category-autocomplete/$',
-                self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
-                name="product-category-autocomplete"
-            ),
-            url(
-                r'^download-all-products/$',
-                self.admin_site.admin_view(download_all_products),
-                name="download-all-products"
-            ),
-            url(
-                r'^product-category-mapping/$',
-                self.admin_site.admin_view(ProductCategoryMapping.as_view()),
-                name="product-category-mapping"
-            ),
-            url(
-                r'^product-category-mapping-sample/$',
-                self.admin_site.admin_view(product_category_mapping_sample),
-                name="product-category-mapping-sample"
-            ),
-            url(
-                r'^city-autocomplete/$',
-                self.admin_site.admin_view(CityAutocomplete.as_view()),
-                name="city_autocomplete"
-            ),
-            url(
-                r'^retailer-autocomplete/$',
-                self.admin_site.admin_view(RetailerAutocomplete.as_view()),
-                name="retailer_autocomplete"
-            ),
-            url(
-                r'^seller-shop-autocomplete/$',
-                self.admin_site.admin_view(SellerShopAutocomplete.as_view()),
-                name="seller_shop_autocomplete"
-            ),
-            url(
-                r'^product-autocomplete/$',
-                self.admin_site.admin_view(ProductAutocomplete.as_view()),
-                name="product_autocomplete"
-            ),
-            url(
-                r'^pincode-autocomplete/$',
-                self.admin_site.admin_view(PincodeAutocomplete.as_view()),
-                name="pincode_autocomplete"
-            ),
-            url(
-                r'^product-shop-autocomplete/$',
-                self.admin_site.admin_view(ProductShopAutocomplete.as_view()),
-                name="product-shop-autocomplete"
-            ),
-            url(
-                r'^destination-product-autocomplete/$',
-                self.admin_site.admin_view(DestinationProductAutocomplete.as_view()),
-                name="destination-product-autocomplete"
-            ),
-            url(
-                r'^source-repackage-detail/$',
-                self.admin_site.admin_view(SourceRepackageDetail.as_view()),
-                name="source-repackage-detail"
-            ),
-            url(
-                r'^product-csv-upload/$',
-                self.admin_site.admin_view(product_csv_upload),
-                name="product-csv-upload"
-            ),
-            url(
-                r'^upload-master-data/$',
-                self.admin_site.admin_view(upload_master_data_view),
-                name="upload-master-data"
-            ),
-            url(
-               r'^category-sub-category-mapping/$',
-               self.admin_site.admin_view(category_sub_category_mapping_sample_excel_file),
-               name="category-sub-category-mapping"
-            ),
-            url(
-                r'^brand-sub-brand-mapping/$',
-                self.admin_site.admin_view(brand_sub_brand_mapping_sample_excel_file),
-                name="brand-sub-brand-mapping"
-            ),
-            url(
-                r'^chld-products-download-sample-csv/$',
-                self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
-                name="child-products-download-sample-csv"
-            ),
-            url(
-                r'^upload-master-data-sample-excel-file/$',
-                self.admin_site.admin_view(UploadMasterDataSampleExcelFile),
-                name="upload-master-data-sample-excel-file"
-            ),
-            url(
-               r'^parent-data-sample-excel-file/$',
-               self.admin_site.admin_view(set_parent_data_sample_excel_file),
-               name="parent-data-sample-excel-file"
-            ),
-            url(
-               r'^child-data-sample-excel-file/$',
-               self.admin_site.admin_view(set_child_data_sample_excel_file),
-               name="child-data-sample-excel-file"
-            ),
-            url(
-               r'^parent-child-mapping-sample-excel-file/$',
-               self.admin_site.admin_view(set_child_with_parent_sample_excel_file),
-               name="parent-child-mapping-sample-excel-file"
-            ),
-            url(
-               r'^set-inactive-status-sample-file/$',
-               self.admin_site.admin_view(set_inactive_status_sample_excel_file),
-               name="set-inactive-status-sample-file"
-            ),
-            url(
-                r'^parent-product-autocomplete/$',
-                self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
-                name='parent-product-autocomplete',
-            ),
-            url(
-                r'^parent-product-list-filter-autocomplete/$',
-                self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
-                name='parent-product-list-filter-autocomplete',
-            ),
-            url(
-                r'^packing-material-check/$',
-                self.admin_site.admin_view(PackingMaterialCheck.as_view()),
-                name="packing-material-check"
-            ),
-            # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
-            #      name='custom_search'),
-        ] + urls
+                   url(
+                       r'^productsfilter/$',
+                       self.admin_site.admin_view(products_filter_view),
+                       name="productsfilter"
+                   ),
+                   url(
+                       r'^productscsvupload/$',
+                       self.admin_site.admin_view(products_csv_upload_view),
+                       name="productscsvupload"
+                   ),
+                   url(
+                       r'^productspricefilter/$',
+                       self.admin_site.admin_view(products_price_filter_view),
+                       name="productspricefilter"
+                   ),
+                   url(
+                       r'^productsuploadsample/$',
+                       self.admin_site.admin_view(ProductsUploadSample),
+                       name="productsuploadsample"
+                   ),
+                   url(
+                       r'^sp-sr-productprice/$',
+                       self.admin_site.admin_view(SpSrProductPrice.as_view()),
+                       name="sp_sr_productprice"
+                   ),
+                   url(
+                       r'^gf-productprice/$',
+                       self.admin_site.admin_view(gf_product_price),
+                       name="gf_productprice"
+                   ),
+                   url(
+                       r'^ajax/load-cities/$',
+                       self.admin_site.admin_view(load_cities),
+                       name='ajax_load_cities'
+                   ),
+                   url(
+                       r'^ajax/load-sp-sr/$',
+                       self.admin_site.admin_view(load_sp_sr),
+                       name='ajax_load_sp_sr'
+                   ),
+                   url(
+                       r'^products-export/$',
+                       self.admin_site.admin_view(export),
+                       name='products-export'
+                   ),
+                   url(
+                       r'^ajax/load-brands/$',
+                       self.admin_site.admin_view(load_brands),
+                       name='ajax_load_brands'
+                   ),
+                   url(
+                       r'^ajax/load-gf/$',
+                       self.admin_site.admin_view(load_gf),
+                       name='ajax_load_gf'
+                   ),
+                   url(
+                       r'^products-export-for-vendor/+(?P<id>\d+)?',
+                       self.admin_site.admin_view(products_export_for_vendor),
+                       name='products_export_for_vendor'
+                   ),
+                   url(
+                       r'^all-product-mapped-to-vendor/+(?P<id>\d+)?',
+                       self.admin_site.admin_view(all_product_mapped_to_vendor),
+                       name='all_product_mapped_to_vendor'
+                   ),
+                   url(
+                       r'^multiple-photos-upload/$',
+                       self.admin_site.admin_view(MultiPhotoUploadView.as_view()),
+                       name='multiple_photos_upload'
+                   ),
+                   url(
+                       r'^products-vendor-mapping/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(products_vendor_mapping),
+                       name='products_vendor_mapping'
+                   ),
+                   url(
+                       r'^cart-products-mapping/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(cart_products_mapping),
+                       name='cart_products_mapping'
+                   ),
+                   url(
+                       r'^cart-products-list/(?P<order_status_info>(.*))/$',
+                       self.admin_site.admin_view(cart_product_list_status),
+                       name='cart_products_list_status'
+                   ),
+                   url(
+                       r'^product-price-autocomplete/$',
+                       self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
+                       name="product-price-autocomplete"
+                   ),
+                   url(
+                       r'^product-category-autocomplete/$',
+                       self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
+                       name="product-category-autocomplete"
+                   ),
+                   url(
+                       r'^download-all-products/$',
+                       self.admin_site.admin_view(download_all_products),
+                       name="download-all-products"
+                   ),
+                   url(
+                       r'^product-category-mapping/$',
+                       self.admin_site.admin_view(ProductCategoryMapping.as_view()),
+                       name="product-category-mapping"
+                   ),
+                   url(
+                       r'^product-category-mapping-sample/$',
+                       self.admin_site.admin_view(product_category_mapping_sample),
+                       name="product-category-mapping-sample"
+                   ),
+                   url(
+                       r'^city-autocomplete/$',
+                       self.admin_site.admin_view(CityAutocomplete.as_view()),
+                       name="city_autocomplete"
+                   ),
+                   url(
+                       r'^retailer-autocomplete/$',
+                       self.admin_site.admin_view(RetailerAutocomplete.as_view()),
+                       name="retailer_autocomplete"
+                   ),
+                   url(
+                       r'^seller-shop-autocomplete/$',
+                       self.admin_site.admin_view(SellerShopAutocomplete.as_view()),
+                       name="seller_shop_autocomplete"
+                   ),
+                   url(
+                       r'^product-autocomplete/$',
+                       self.admin_site.admin_view(ProductAutocomplete.as_view()),
+                       name="product_autocomplete"
+                   ),
+                   url(
+                       r'^pincode-autocomplete/$',
+                       self.admin_site.admin_view(PincodeAutocomplete.as_view()),
+                       name="pincode_autocomplete"
+                   ),
+                   url(
+                       r'^product-shop-autocomplete/$',
+                       self.admin_site.admin_view(ProductShopAutocomplete.as_view()),
+                       name="product-shop-autocomplete"
+                   ),
+                   url(
+                       r'^destination-product-autocomplete/$',
+                       self.admin_site.admin_view(DestinationProductAutocomplete.as_view()),
+                       name="destination-product-autocomplete"
+                   ),
+                   url(
+                       r'^source-repackage-detail/$',
+                       self.admin_site.admin_view(SourceRepackageDetail.as_view()),
+                       name="source-repackage-detail"
+                   ),
+                   url(
+                       r'^product-csv-upload/$',
+                       self.admin_site.admin_view(product_csv_upload),
+                       name="product-csv-upload"
+                   ),
+                   url(
+                       r'^upload-master-data/$',
+                       self.admin_site.admin_view(upload_master_data_view),
+                       name="upload-master-data"
+                   ),
+                   url(
+                       r'^category-sub-category-mapping/$',
+                       self.admin_site.admin_view(category_sub_category_mapping_sample_excel_file),
+                       name="category-sub-category-mapping"
+                   ),
+                   url(
+                       r'^brand-sub-brand-mapping/$',
+                       self.admin_site.admin_view(brand_sub_brand_mapping_sample_excel_file),
+                       name="brand-sub-brand-mapping"
+                   ),
+                   url(
+                       r'^chld-products-download-sample-csv/$',
+                       self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
+                       name="child-products-download-sample-csv"
+                   ),
+                   url(
+                       r'^upload-master-data-sample-excel-file/$',
+                       self.admin_site.admin_view(UploadMasterDataSampleExcelFile),
+                       name="upload-master-data-sample-excel-file"
+                   ),
+                   url(
+                       r'^parent-data-sample-excel-file/$',
+                       self.admin_site.admin_view(set_parent_data_sample_excel_file),
+                       name="parent-data-sample-excel-file"
+                   ),
+                   url(
+                       r'^child-data-sample-excel-file/$',
+                       self.admin_site.admin_view(set_child_data_sample_excel_file),
+                       name="child-data-sample-excel-file"
+                   ),
+                   url(
+                       r'^parent-child-mapping-sample-excel-file/$',
+                       self.admin_site.admin_view(set_child_with_parent_sample_excel_file),
+                       name="parent-child-mapping-sample-excel-file"
+                   ),
+                   url(
+                       r'^set-inactive-status-sample-file/$',
+                       self.admin_site.admin_view(set_inactive_status_sample_excel_file),
+                       name="set-inactive-status-sample-file"
+                   ),
+                   url(
+                       r'^parent-product-autocomplete/$',
+                       self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
+                       name='parent-product-autocomplete',
+                   ),
+                   url(
+                       r'^parent-product-list-filter-autocomplete/$',
+                       self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
+                       name='parent-product-list-filter-autocomplete',
+                   ),
+                   url(
+                       r'^packing-material-check/$',
+                       self.admin_site.admin_view(PackingMaterialCheck.as_view()),
+                       name="packing-material-check"
+                   ),
+                   # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
+                   #      name='custom_search'),
+               ] + urls
         return urls
 
     actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'products_image', 'status'
+        'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'products_image', 'status'
     ]
 
     search_fields = ['product_name', 'id']
     list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
     list_per_page = 50
 
-    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin, DestinationRepackagingCostMappingAdmin]
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
+               DestinationRepackagingCostMappingAdmin]
 
     autocomplete_fields = ['parent_product']
 
@@ -1032,6 +1049,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         if obj.product_gst is not None:
             return "{} %".format(obj.product_gst)
         return ''
+
     product_gst.short_description = 'Product GST'
 
     def is_ptr_applicable(self, obj):
@@ -1051,6 +1069,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             return ''
         except:
             return ''
+
     product_category.short_description = 'Product Category'
 
     def get_changeform_initial_data(self, request):
@@ -1064,7 +1083,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.repackaging_type != 'none':
             if obj.repackaging_type == 'packing_material':
-                return self.readonly_fields + ('repackaging_type', 'weight_value', 'weight_unit', )
+                return self.readonly_fields + ('repackaging_type', 'weight_value', 'weight_unit',)
             return self.readonly_fields + ('repackaging_type',)
         return self.readonly_fields
 
@@ -1135,6 +1154,7 @@ class ExportProductPrice:
                 row[-2] = 'Deactivated'
             writer.writerow(row)
         return response
+
     export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
 
 
@@ -1257,6 +1277,7 @@ class ProductCappingAdmin(admin.ModelAdmin):
         ProductSKUSearch, ProductFilter, ShopFilter,
         'status']
     readonly_fields = ('buyer_shop', 'city', 'pincode')
+
     class Media:
         pass
 
@@ -1279,12 +1300,12 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         urls = [
-            url(
-                r'^sample-file/$',
-                self.admin_site.admin_view(self.form.sample_file),
-                name="bulk-tax-update-sample-file"
-            )
-        ] + urls
+                   url(
+                       r'^sample-file/$',
+                       self.admin_site.admin_view(self.form.sample_file),
+                       name="bulk-tax-update-sample-file"
+                   )
+               ] + urls
         return urls
 
     def get_readonly_fields(self, request, obj=None):
@@ -1298,6 +1319,7 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
             "<a href= '%s' >bulk_product_tax_update_sample.csv</a>" %
             (reverse('admin:bulk-tax-update-sample-file'))
         )
+
     download_sample_file.short_description = 'Download Sample File'
 
     def has_delete_permission(self, request, obj=None):
@@ -1316,18 +1338,18 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
 class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     form = BulkUploadForGSTChangeForm
     list_display = ('file',)
-    fields = ('download_sample_file', 'file', )
-    readonly_fields = ('download_sample_file', )
+    fields = ('download_sample_file', 'file',)
+    readonly_fields = ('download_sample_file',)
 
     def get_urls(self):
         urls = super().get_urls()
         urls = [
-            url(
-                r'^sample-file1/$',
-                self.admin_site.admin_view(self.form.sample_file1),
-                name="bulk-upload-for-gst-change-sample-file"
-            )
-        ] + urls
+                   url(
+                       r'^sample-file1/$',
+                       self.admin_site.admin_view(self.form.sample_file1),
+                       name="bulk-upload-for-gst-change-sample-file"
+                   )
+               ] + urls
         return urls
 
     def get_readonly_fields(self, request, obj=None):
@@ -1341,11 +1363,12 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
             "<a href= '%s' >bulk_upload_for_gst_change_sample.csv</a>" %
             (reverse('admin:bulk-upload-for-gst-change-sample-file'))
         )
+
     download_sample_file.short_description = 'Download Sample File'
 
 
 class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-    list_display = ( 'file',)
+    list_display = ('file',)
     fields = ('file',)
     readonly_fields = ('file',)
 
@@ -1386,6 +1409,7 @@ class ExportRepackaging:
             items = items + [getattr(obj, 'created_at').strftime("%b. %d, %Y, %-I:%M %p")]
             writer.writerow(items)
         return response
+
     export_as_csv_products_repackaging.short_description = "Download CSV of Selected Repackaging"
 
 
@@ -1441,6 +1465,7 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                     "available_source_weight", "available_source_quantity", "source_picking_status"] + add_f
         else:
             return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date', 'source_picking_status']
+
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
                    ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
@@ -1452,16 +1477,19 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
             if outs.exists():
                 for out_obj in outs:
                     if out_obj.batch_id:
-                        grn_order_pro = obj.source_sku.product_grn_order_product.filter(batch_id=out_obj.batch_id).last()
+                        grn_order_pro = obj.source_sku.product_grn_order_product.filter(
+                            batch_id=out_obj.batch_id).last()
                         if grn_order_pro is not None:
                             if grn_order_pro.barcode_id is None:
                                 product_id = str(grn_order_pro.product_id).zfill(5)
-                                expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime(
+                                expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date),
+                                                                         '%Y-%m-%d').strftime(
                                     '%d%m%y')
                                 barcode_id = str("2" + product_id + str(expiry_date))
                             else:
                                 barcode_id = grn_order_pro.barcode_id
-                            html_ret += "<a href= '{0}' >{1}</a><br>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
+                            html_ret += "<a href= '{0}' >{1}</a><br>".format(
+                                reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
                         else:
                             html_ret += '{0}<br>'.format(out_obj.batch_id);
                     else:
@@ -1493,14 +1521,14 @@ class PriceSlabAdmin(TabularInline):
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
             return self.readonly_fields
-        return self.readonly_fields + ('start_value', 'end_value','selling_price', 'offer_price',
+        return self.readonly_fields + ('start_value', 'end_value', 'selling_price', 'offer_price',
                                        'offer_price_start_date', 'offer_price_end_date')
+
     class Media:
         pass
 
 
 class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
-
     """
     This class is used to create Slabbed Product Price from admin panel
     """
@@ -1530,17 +1558,17 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         fieldsets = super(ProductSlabPriceAdmin, self).get_fieldsets(request, obj)
         if obj is None:
             fieldsets = (
-                            ('Basic', {
-                                'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
-                                'classes': ('required',)})
-                            ,
-                            ('Slab Price Applicable', {
-                                'fields': ('slab_price_applicable',),
-                                'classes': ('slab_applicable',)}),
-                            ('Price Details', {
-                                'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
-                                'classes': ('single_slab',)
-                            })
+                ('Basic', {
+                    'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
+                    'classes': ('required',)})
+                ,
+                ('Slab Price Applicable', {
+                    'fields': ('slab_price_applicable',),
+                    'classes': ('slab_applicable',)}),
+                ('Price Details', {
+                    'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
+                    'classes': ('single_slab',)
+                })
             )
         return fieldsets
 
@@ -1550,8 +1578,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         if not request.user.is_superuser:
             return self.readonly_fields + (
                 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
-        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode')
-
+        return self.readonly_fields + ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode')
 
     def slab1_details(self, obj):
         first_slab = obj.price_slabs.filter(start_value=0).last()
@@ -1588,14 +1615,14 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             if product.buyer_shop or product.pincode or product.city:
                 product.approval_status = ProductPrice.DEACTIVATED
                 product.save()
-                success_counter+=1
+                success_counter += 1
             else:
-                failed_counter+=1
-        if success_counter>0:
+                failed_counter += 1
+        if success_counter > 0:
             self.message_user(request, '{} prices were deactivated.'.format(success_counter), level=messages.SUCCESS)
-        if failed_counter>0:
-            self.message_user(request, '{} warehouse level prices were not deactivated.'.format(failed_counter), level=messages.ERROR)
-
+        if failed_counter > 0:
+            self.message_user(request, '{} warehouse level prices were not deactivated.'.format(failed_counter),
+                              level=messages.ERROR)
 
     approve_product_price.short_description = "Approve Selected Products Prices"
     approve_product_price.allowed_permissions = ('change',)
@@ -1611,7 +1638,6 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         else:
             kwargs['form'] = ProductPriceSlabForm
         return super().get_form(request, obj, **kwargs)
-
 
     def get_queryset(self, request):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
@@ -1647,15 +1673,16 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     def export_as_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "is_ptr_applicable", "ptr_type", "ptr_percent",
-                         "Slab 1 Qty", "Selling Price 1", "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
-                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+        writer.writerow(
+            ["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "is_ptr_applicable", "ptr_type", "ptr_percent",
+             "Slab 1 Qty", "Selling Price 1", "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+             "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
         for query in queryset:
             obj = SlabProductPrice.objects.get(id=query.id)
             try:
                 row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
                        obj.mrp, obj.product.is_ptr_applicable, obj.product.ptr_type, obj.product.ptr_percent]
-                first_slab=True
+                first_slab = True
                 for slab in obj.price_slabs.all().order_by('start_value'):
                     if first_slab:
                         row.append(slab.end_value)
