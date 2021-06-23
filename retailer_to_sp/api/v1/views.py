@@ -68,19 +68,20 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
     PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_pos_customer, PosInventoryCls, RewardCls, filter_pos_shop
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer
+    PosShopSerializer, BasicCartUserViewSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
 from retailer_backend.settings import AWS_MEDIA_URL
-from pos.tasks import update_es, order_loyalty_points
+from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from global_config.models import GlobalConfig
 from elasticsearch import Elasticsearch
 from pos.common_functions import check_pos_shop
+from marketing.models import ReferralCode
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -1535,55 +1536,83 @@ class CartUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
-    def put(self, request, *args, **kwargs):
-        """
-            Update buyer in cart
-        """
-        cart_type = request.data.get('cart_type', '1')
-        if cart_type == '2':
-            # Input validation
-            initial_validation = self.put_basic_validate(kwargs['pk'], kwargs['shop'])
-            if 'error' in initial_validation:
-                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-                extra_params = {'error_code': e_code} if e_code else {}
-                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
-                                    extra_params)
-            cart = initial_validation['cart']
-            customer = update_pos_customer(self.request.data.get('phone_number'), cart.seller_shop.id,
-                                           self.request.data.get('email'), self.request.data.get('name'),
-                                           self.request.data.get('is_whatsapp'))
-            cart.buyer = customer
-            cart.last_modified_by = self.request.user
-            cart.save()
-            data = PosUserSerializer(customer).data
-            # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0)
-            # Reward detail for customer
-            data['reward_detail'] = RewardCls.reward_detail_cart(cart, 0)
-            return api_response('Customer Detail Success', data, status.HTTP_200_OK, True)
-        else:
-            return api_response('Provide a valid cart_type')
+    def get(self, request, *args, **kwargs):
+        # Validate number
+        serializer = BasicCartUserViewSerializer(data=self.request.GET)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
 
-    def put_basic_validate(self, cart_id, shop):
+        # Validate cart id
+        initial_validation = self.cart_id_validate(kwargs['pk'], kwargs['shop'])
+        if 'error' in initial_validation:
+            extra_params = {'error_code': initial_validation['error_code']} if initial_validation['error_code'] else {}
+            return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+        cart = initial_validation['cart']
+
+        # Create / update customer
+        customer = update_customer_pos_cart(self.request.GET.get('phone_number'), cart.seller_shop.id, self.request.user)
+
+        # add customer to cart
+        cart.buyer = customer
+        cart.last_modified_by = self.request.user
+        cart.save()
+
+        # Reset redeem points on cart
+        RewardCls.checkout_redeem_points(cart, 0)
+
+        # Serialize
+        data = PosUserSerializer(customer).data
+        # Reward detail for customer
+        data['reward_detail'] = RewardCls.reward_detail_cart(cart, 0)
+        return api_response('Customer Detail Success', data, status.HTTP_200_OK, True)
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        # Validate number
+        serializer = BasicCartUserViewSerializer(data=self.request.data)
+        if not serializer.is_valid():
+            return api_response(serializer_error(serializer))
+
+        # Validate cart id
+        initial_validation = self.cart_id_validate(kwargs['pk'], kwargs['shop'])
+        if 'error' in initial_validation:
+            extra_params = {'error_code': initial_validation['error_code']} if initial_validation['error_code'] else {}
+            return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+        cart = initial_validation['cart']
+
+        # Create / update customer
+        serializer_data = serializer.data
+        customer = update_customer_pos_cart(serializer_data['phone_number'], cart.seller_shop.id, self.request.user,
+                                            None, None, None, serializer_data['is_mlm'], serializer_data['referral_code'])
+
+        # add customer to cart
+        cart.buyer = customer
+        cart.last_modified_by = self.request.user
+        cart.save()
+
+        # Reset redeem points on cart
+        RewardCls.checkout_redeem_points(cart, 0)
+
+        # Serialize
+        data = PosUserSerializer(customer).data
+        # Reward detail for customer
+        data['reward_detail'] = RewardCls.reward_detail_cart(cart, 0)
+        return api_response('Customer Detail Success', data, status.HTTP_200_OK, True)
+
+    def cart_id_validate(self, cart_id, shop):
         """
-            Add To Cart
-            Input validation for add to cart for cart type 'basic'
+            Cart Customer Get Validate
         """
         # Check cart
         cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
         if not cart:
-            return {'error': "Cart Doesn't Exist!"}
+            return {'error': "Cart Doesn't Exist!", 'error_code': None}
         elif cart.cart_status == Cart.ORDERED:
             return {'error': "Order already placed on this cart!", 'error_code': error_code.CART_NOT_ACTIVE}
         elif cart.cart_status == Cart.DELETED:
             return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
         elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
-            return {'error': "Active Cart Doesn't Exist!"}
-        phone_no = self.request.data.get('phone_number')
-        if not phone_no:
-            return api_response("Please provide phone number")
-        if not re.match(r'^[6-9]\d{9}$', phone_no):
-            return api_response("Please provide a valid phone number")
+            return {'error': "Active Cart Doesn't Exist!", 'error_code': None}
         return {'cart': cart}
 
 
@@ -2610,6 +2639,9 @@ class OrderCentral(APIView):
             return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
         elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
             return {'error': "Active Cart Doesn't Exist!"}
+        # check buyer
+        if not cart.buyer:
+            return {'error': "Buyer not found in cart!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
@@ -2618,12 +2650,6 @@ class OrderCentral(APIView):
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
             return {'error': 'Please provide a valid payment method'}
-        # check customer phone_number
-        phone_no = self.request.data.get('phone_number')
-        if not phone_no:
-            return {'error': "Please provide customer phone number"}
-        if not re.match(r'^[6-9]\d{9}$', phone_no):
-            return {'error': "Please provide a valid customer phone number"}
         email = self.request.data.get('email')
         if email:
             try:
@@ -2691,9 +2717,9 @@ class OrderCentral(APIView):
             For basic cart
         """
         # Check Customer - Update Or Create
-        customer = update_pos_customer(self.request.data.get('phone_number'), cart.seller_shop.id,
-                                       self.request.data.get('email'), self.request.data.get('name'),
-                                       self.request.data.get('is_whatsapp'))
+        customer = update_customer_pos_cart(cart.buyer.phone_number, cart.seller_shop.id, self.request.user,
+                                            self.request.data.get('email'), self.request.data.get('name'),
+                                            self.request.data.get('is_whatsapp'))
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.cart_status = 'ordered'
@@ -2881,6 +2907,13 @@ class OrderCentral(APIView):
         redeem_points = order.ordered_cart.redeem_points
         if redeem_points:
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user, order.order_no)
+        # Loyalty points credit
+        shops_str = GlobalConfig.objects.get(key='order_loyalty_active_shops').value
+        if shops_str == 'all' or (shops_str and order.seller_shop.id in shops_str.split(',')):
+            if ReferralCode.is_marketing_user(order.buyer):
+                order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no, 'order_credit',
+                                            'order_direct_credit', 'order_indirect_credit', self.request.user.id,
+                                            order.seller_shop.id)
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -2939,9 +2972,6 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
-        order_loyalty_points.delay(order.order_amount, redeem_points, order.buyer.id, order.order_no, 'order_credit',
-                                   'order_direct_credit', 'order_indirect_credit', self.request.user.id,
-                                   order.seller_shop.id)
 
 
 # class CreateOrder(APIView):

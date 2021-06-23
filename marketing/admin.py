@@ -7,6 +7,7 @@ from franchise.models import FranchiseSales
 from global_config.models import GlobalConfig
 from accounts.models import User
 from retailer_to_sp.models import Order, OrderedProduct, OrderReturn
+from rest_auth.utils import AutoUser
 
 from .models import Referral, RewardPoint, Profile, RewardLog, ReferralCode
 from .forms import RewardPointForm, MLMUserForm
@@ -26,15 +27,10 @@ class MLMUserAdmin(admin.ModelAdmin):
         return obj.user.email if obj.user.email else '-'
 
     def save_model(self, request, obj, form, change):
-        user_obj = User.objects.create_user(phone_number=form.cleaned_data.get('phone_number'),
-                                            email=form.cleaned_data.get('email'),
-                                            first_name=form.cleaned_data.get('name'))
-        ReferralCode.generate_user_referral_code(user_obj)
-        if form.cleaned_data.get('referral_code'):
-            user_referral_code = ReferralCode.objects.get(user=user_obj).referral_code
-            Referral.store_parent_referral_user(form.cleaned_data.get('referral_code'), user_referral_code)
-        referred = 1 if form.cleaned_data.get('referral_code') else 0
-        RewardPoint.welcome_reward(user_obj, referred, request.user)
+        user_obj = AutoUser.create_update_user(form.cleaned_data.get('phone_number'),
+                                               form.cleaned_data.get('email'),
+                                               form.cleaned_data.get('name'))
+        ReferralCode.register_user_for_mlm(user_obj, request.user, form.cleaned_data.get('referral_code'))
 
     def has_change_permission(self, request, obj=None):
         return False

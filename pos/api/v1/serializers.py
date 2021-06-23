@@ -1,12 +1,14 @@
 from decimal import Decimal
 import datetime
 import calendar
+import re
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 from django.db.models import Q
+from django.core import validators
 
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, UserMappedShop
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer
@@ -17,6 +19,7 @@ from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, Discount
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from marketing.models import ReferralCode
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -1044,6 +1047,27 @@ class PosShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('shop_id', 'shop_name')
+
+
+class BasicCartUserViewSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    is_mlm = serializers.BooleanField(default=False)
+    referral_code = serializers.CharField(required=False, allow_null=True, allow_blank=True, default=None)
+
+    def validate(self, attrs):
+        phone_number, email, referral_code, shop_id = attrs.get('phone_number'), attrs.get('email'),\
+                                                      attrs.get('referral_code'), attrs.get('shop_id')
+
+        if not phone_number:
+            raise serializers.ValidationError("Please provide phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_number):
+            raise serializers.ValidationError("Please provide a valid phone number")
+
+        if referral_code:
+            if not ReferralCode.objects.filter(referral_code=referral_code).exists():
+                raise serializers.ValidationError("Referral Code Invalid!")
+
+        return attrs
 
 
 class InventoryReportSerializer(serializers.ModelSerializer):

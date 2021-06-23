@@ -5,6 +5,7 @@ from rest_framework import status
 
 from .models import PhoneOTP
 from pos.common_functions import filter_pos_shop
+from marketing.models import ReferralCode
 
 UserModel = get_user_model()
 
@@ -28,8 +29,8 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         model = PhoneOTP
         fields = ('phone_number', 'action', 'app_type')
 
-    action = serializers.IntegerField(required=False)
-    app_type = serializers.IntegerField(required=False)
+    action = serializers.IntegerField(default=0)
+    app_type = serializers.IntegerField(default=0)
 
     def validate(self, attrs):
         """
@@ -39,20 +40,37 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         action = attrs.get('action')
         app_type = attrs.get('app_type')
         user = UserModel.objects.filter(phone_number=number).last()
-        # If registration specific otp
-        if action != 1:
-            # If user already exists
-            if user:
-                raise serializers.ValidationError("User already exists! Please login")
-        # If login specific otp and user does not exists
-        elif not user:
-            raise serializers.ValidationError("User does not exists! Please Register")
-        # If user exists and pos login request
+
+        # Marketing
+        if app_type == 1:
+            # Registering
+            if action == 0 and user and ReferralCode.is_marketing_user(user):
+                raise serializers.ValidationError("You are already registered for rewards! Please login.")
+            # Login
+            elif action == 1 and (not user or not ReferralCode.is_marketing_user(user)):
+                raise serializers.ValidationError("You are not registered for rewards. Please register first.")
+
+        # POS Login
         elif app_type == 2:
-            # check shop for pos login
-            qs = filter_pos_shop(user)
-            if not qs.exists():
-                raise serializers.ValidationError("No Approved Franchise Shop Found For This User!")
+            # Registering
+            if action == 0:
+                pass
+            # Login
+            elif action == 1:
+                if not user:
+                    raise serializers.ValidationError("You are not registered on GramFactory.")
+                # Check Shop
+                qs = filter_pos_shop(user)
+                if not qs.exists():
+                    raise serializers.ValidationError("You do not have any shop registered for GramFactory POS.")
+        # Retailer App
+        elif app_type == 0:
+            # Registering
+            if action == 0 and user:
+                raise serializers.ValidationError("User already registered! Please login.")
+            # Login
+            elif action == 1 and not user:
+                raise serializers.ValidationError("User not registered. Please register first.")
         return attrs
 
 

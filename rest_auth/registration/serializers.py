@@ -237,47 +237,42 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
-class OtpRegisterSerializer(serializers.Serializer):
+class MlmOtpRegisterSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=get_username_max_length(),
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=allauth_settings.USERNAME_REQUIRED
     )
-    otp = serializers.CharField(required=True, max_length=10)
-    referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    shop_id = serializers.IntegerField(required=False)
-
-    def validate_username(self, username):
-        username = get_adapter().clean_username(username)
-        return username
+    user_exists = serializers.CharField(default=False)
+    otp = serializers.CharField(required=True, max_length=6, min_length=6)
+    referral_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, default=None)
 
     def validate(self, data):
-        """
-        Verify OTP
-        """
-        phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
-        if phone_otps.exists():
-            phone_otp = phone_otps.last()
+        data['user_exists'] = False
+        existing_user = UserModel.objects.filter(phone_number=data['username']).last()
+        if existing_user:
+            data['user_exists'] = True
+            if ReferralCode.is_marketing_user(existing_user):
+                raise serializers.ValidationError("You are already registered for rewards! Please login.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
+        if phone_otp:
             to_verify_otp = ValidateOTP()
             msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
             if status_code != 200:
-                message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
                 raise serializers.ValidationError(message)
         else:
             raise serializers.ValidationError("Invalid OTP")
-
-        if 'referral_code' in data and data['referral_code'] not in ['', None]:
-            user_ref_code = ReferralCode.objects.filter(referral_code=data['referral_code'])
-            if not user_ref_code:
-                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
-
-        if 'shop_id' in data and data['shop_id'] not in ['', None]:
-            # map a user for specific shop with shop_id
-            Shop_id = Shop.objects.filter(id=data['shop_id'])
-            if not Shop_id:
-                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Shop_id'])
         return data
 
+    @staticmethod
+    def validate_referral_code(value):
+        if value:
+            user_ref_code = ReferralCode.objects.filter(referral_code=value).last()
+            if not user_ref_code:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
+        return value
 
     def get_cleaned_data(self):
         return {
@@ -290,11 +285,15 @@ class OtpRegisterSerializer(serializers.Serializer):
         }
 
     def save(self, request):
-        adapter = get_adapter()
-        user = adapter.new_user(request)
-        self.cleaned_data = self.get_cleaned_data()
-        adapter.save_user(request, user, self)
-        setup_user_email(request, user, [])
+        user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
+        if not user:
+            adapter = get_adapter()
+            user = adapter.new_user(request)
+            self.cleaned_data = self.get_cleaned_data()
+            adapter.save_user(request, user, self)
+            setup_user_email(request, user, [])
+
+        ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
         return user
 
 

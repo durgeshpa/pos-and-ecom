@@ -6,13 +6,11 @@ from elasticsearch import Elasticsearch
 from django.db import transaction
 
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from common.common_utils import whatsapp_order_place_loyalty_points
 from pos.models import RetailerProduct
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import RewardPoint, Referral
 from accounts.models import User
 from pos.common_functions import RewardCls
-from global_config.models import GlobalConfig
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -92,8 +90,7 @@ def update_es(products, shop_id):
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 
-@task()
-def order_loyalty_points(amount, points_debit, user_id, tid, t_type_b, t_type_d, t_type_i, changed_by=None, shop_id=None):
+def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_d, t_type_i, changed_by=None, shop_id=None):
     """
         Loyalty points to buyer, user who referred buyer and ancestor referrers of user who referred buyer
     """
@@ -101,17 +98,8 @@ def order_loyalty_points(amount, points_debit, user_id, tid, t_type_b, t_type_d,
         with transaction.atomic():
             user = User.objects.get(id=user_id)
 
-            if shop_id:
-                shops_str = GlobalConfig.objects.get(key='order_loyalty_active_shops').value
-                if shops_str not in [None, ''] and shop_id not in shops_str.split(','):
-                    if points_debit and t_type_b != 'purchase_reward':
-                        whatsapp_order_loyalty_pts(user, tid, 0, points_debit)
-                    return
-
             if changed_by:
                 changed_by = User.objects.get(id=changed_by)
-            # Check and award welcome reward points
-            RewardPoint.welcome_reward(user, 0, changed_by)
             # Buyer Rewards
             points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by)
 
@@ -126,15 +114,6 @@ def order_loyalty_points(amount, points_debit, user_id, tid, t_type_b, t_type_d,
                 # indirect reward to ancestor referrers
                 RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
                                                          referral_obj.user_count_considered, changed_by)
-
-            if (points_credit or points_debit) and t_type_b != 'purchase_reward':
-                whatsapp_order_loyalty_pts(user, tid, points_credit, points_debit)
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         error_logger.error("Rewards not processed for order {} exception {} Line No {}".format(tid, e, exc_tb.tb_lineno))
-
-
-def whatsapp_order_loyalty_pts(user, tid, points_credit, points_debit):
-    reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
-    net_available = reward_obj.direct_earned + reward_obj.indirect_earned - reward_obj.points_used if reward_obj else 0
-    whatsapp_order_place_loyalty_points.delay(tid, user.phone_number, points_credit, points_debit, net_available)

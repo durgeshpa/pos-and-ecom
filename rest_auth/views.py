@@ -26,9 +26,9 @@ from pos.common_functions import filter_pos_shop, check_pos_shop
 
 from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
-from .serializers import (PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer,
+from .serializers import (PasswordResetValidateSerializer, MlmOtpLoginSerializer, MlmResponseSerializer,
                           LoginResponseSerializer, PosLoginResponseSerializer, RetailUserDetailsSerializer,
-                          api_serializer_errors)
+                          api_serializer_errors, PosOtpLoginSerializer)
 from .models import TokenModel
 from .utils import jwt_encode
 
@@ -42,8 +42,8 @@ sensitive_post_parameters_m = method_decorator(
 
 APPLICATION_LOGIN_SERIALIZERS_MAP = {
     '0': LoginSerializer,
-    '1': OtpLoginSerializer,
-    '2': OtpLoginSerializer
+    '1': MlmOtpLoginSerializer,
+    '2': PosOtpLoginSerializer
 }
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
     '0': LoginResponseSerializer,
@@ -100,8 +100,7 @@ class LoginView(GenericAPIView):
         General Login Process
         """
         user = serializer.validated_data['user']
-        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user,
-                                                                                               serializer)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             django_login(self.request, user)
         return user, token
