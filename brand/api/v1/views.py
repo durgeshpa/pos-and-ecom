@@ -110,8 +110,9 @@ class BrandView(GenericAPIView):
         Update Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log',).only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug','brand_logo', 'status').order_by('-id')
+    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log',).\
+        only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',
+             'brand_logo', 'status').order_by('-id')
 
     serializer_class = BrandCrudSerializers
 
@@ -166,7 +167,7 @@ class BrandView(GenericAPIView):
         serializer = self.serializer_class(instance=brand_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("brand Updated Successfully.")
+            info_logger.info("brand updated successfully.")
             return get_response('brand updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
