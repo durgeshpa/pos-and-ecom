@@ -776,16 +776,17 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
-    source_product_pro = ProductSourceMappingSerializers(many=True, required=False)
-    packing_material_rt = ProductPackingMappingSerializers(many=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
+    destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
+    packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
+                                                                                   required=False)
 
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'source_product_pro',
-                  'packing_material_rt', 'destination_product_repackaging', 'product_images', 'child_product_logs')
+                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'destination_product_pro',
+                  'packing_product_rt', 'destination_product_repackaging', 'product_images', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -825,7 +826,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError("Product cannot be made active until an active Product Price exists")
 
         if self.initial_data['repackaging_type'] == 'destination':
-            if not self.initial_data['source_product_pro'] or not self.initial_data['packing_material_rt'] \
+            if not self.initial_data['destination_product_pro'] or not self.initial_data['packing_product_rt'] \
                     or not self.initial_data['destination_product_repackaging']:
                 raise serializers.ValidationError(
                     _(f"Product Source Mapping, Package Material SKU & Destination Product Repackaging can not be empty."))
@@ -836,8 +837,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Child Product with image category & tax"""
         validated_data.pop('product_images', None)
-        source_product = validated_data.pop('source_product_pro', None)
-        packing_material = validated_data.pop('packing_material_rt', None)
+        source_product = validated_data.pop('destination_product_pro', None)
+        packing_material = validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             child_product = ProductCls.create_child_product(self.initial_data['parent_product'], **validated_data)
@@ -864,8 +865,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """ This method is used to update an instance of the Child Product's attribute."""
         validated_data.pop('product_images', None)
-        source_product = validated_data.pop('source_product_pro', None)
-        packing_material = validated_data.pop('packing_material_rt', None)
+        source_product = validated_data.pop('destination_product_pro', None)
+        packing_material = validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             # call super to save modified instance along with the validated data
