@@ -93,7 +93,6 @@ class CardView(APIView, PaginationHandlerMixin):
         has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
         data = request.data
-        # data._mutable = True
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
         if serializer.is_valid(raise_exception=True):

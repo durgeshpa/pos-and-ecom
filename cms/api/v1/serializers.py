@@ -3,6 +3,7 @@ from datetime import datetime
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import NotFound
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
@@ -96,14 +97,23 @@ class CardDataSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
         data = request.data
-        app_id = data.get("app_id")
         items = validated_data.pop("items")
         new_card_data = CardData.objects.create(**validated_data)
         for item in items:
-            print(item)
             CardItem.objects.create(card_data=new_card_data,**item)
-        app = get_object_or_404(Application, id=app_id)
-        card = Card.objects.filter(name=data.get("name")).first()
+
+        
+        
+
+        card = None
+        card_id = data.get("card_id")
+
+        if card_id:
+            try:
+                card = Card.objects.get(id=card_id)
+            except:
+                raise NotFound(detail=f"Card with id { card_id } not found")
+
         if card:
             latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
             CardVersion.objects.create(version_number=latest_version,
@@ -112,6 +122,12 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             )
             info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
         else:
+            app_id = data.get("app_id")
+            try:
+                app = Application.objects.get(id=app_id)
+            except:
+                raise NotFound(detail=f"App with id {app_id} not found")
+
             new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
