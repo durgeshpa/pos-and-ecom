@@ -451,6 +451,20 @@ class PageView(APIView):
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request):
+        """Change Page Data and create version"""
+
+        data = request.data
+        page_id = data.get('page_id', None)
+        if not page_id:
+            raise ValidationError({'message': "Page Id is required"})
+        try:
+            page = Page.objects.get(id = page_id)
+        except Exception:
+            raise ValidationError({'message': f"No pages exits with id {{page_id}}"})
+        
+
+
 
 class PageDetailView(APIView):
     """Specific Page Details"""
