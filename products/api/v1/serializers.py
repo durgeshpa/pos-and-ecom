@@ -847,7 +847,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if 'product_images' in self.initial_data or self.initial_data['product_images']:
+        if 'product_images' in self.initial_data and self.initial_data['product_images']:
             product_pro_image = None
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_images'],
                                                    product_pro_image)
@@ -878,7 +878,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if 'product_pro_image' in self.initial_data or 'product_images' in self.initial_data:
+        if 'product_pro_image' in self.initial_data and 'product_images' in self.initial_data:
             product_images = None
             product_pro_image = None
             if 'product_pro_image' in self.initial_data:
