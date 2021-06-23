@@ -74,10 +74,10 @@ class ReferralCode(models.Model):
         return True if ReferralCode.objects.filter(user=user).exists() else False
 
     def __str__(self):
-        return 'User'
+        return ''
 
     class Meta:
-        verbose_name = "MlmUser"
+        verbose_name = "   User"
 
 
 class Profile(models.Model):
@@ -85,7 +85,7 @@ class Profile(models.Model):
         Mlm User Profile
     """
     user = models.OneToOneField(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
-    profile_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    profile_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile', null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
@@ -130,7 +130,7 @@ class RewardPoint(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name_plural = "Rewards Dashboard"
+        verbose_name_plural = "  Rewards Dashboard"
 
     @staticmethod
     def welcome_reward(user, referred=None, changed_by=None):
@@ -170,7 +170,7 @@ class RewardPoint(models.Model):
         message.send()
 
     def __str__(self):
-        return "Reward Points For - {}".format(self.user)
+        return "Reward Points For - {}".format(self.reward_user)
 
 
 class RewardLog(models.Model):
@@ -178,19 +178,19 @@ class RewardLog(models.Model):
         Logs For Credited/Used Rewards Transactions
     """
     TRANSACTION_CHOICES = (
-        ('welcome_reward', "User - Welcome Credit"),
-        ('used_reward', 'Reward Point - Purchase Debit'),
+        ('welcome_reward', "Welcome Credit"),
+        ('order_credit', 'Order Credit'),
+        ('order_debit', 'Order Debit'),
+        ('order_return_credit', 'Order Return Credit'),
+        ('order_return_debit', 'Order Return Debit'),
+        ('order_cancel_credit', 'Order Cancel Credit'),
+        ('order_cancel_debit', 'Order Cancel Debit'),
+        ('order_direct_credit', 'Order Direct Credit'),
+        ('order_indirect_credit', 'Order Indirect Credit'),
+        ('used_reward', 'Purchase Debit (Admin)'),
         ('direct_reward', 'Hdpos Sales - Direct Credit'),
         ('indirect_reward', 'Hdpos Sales - Indirect Credit'),
         ('purchase_reward', 'Hdpos Sales - Purchase Credit'),
-        ('order_credit', 'Order Credit'),
-        ('order_direct_credit', 'Order Direct Credit'),
-        ('order_indirect_credit', 'Order Indirect Credit'),
-        ('order_debit', 'Order Debit'),
-        ('order_return_credit', 'Order Return Credit'),
-        ('order_cancel_credit', 'Order Cancel Credit'),
-        ('order_return_debit', 'Order Return Debit'),
-        ('order_cancel_debit', 'Order Cancel Debit')
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
@@ -204,6 +204,9 @@ class RewardLog(models.Model):
 
     def __str__(self):
         return "{} - {}".format(self.user, self.transaction_type)
+
+    class Meta:
+        verbose_name_plural = " Reward Logs"
 
 
 class PhoneOTP(models.Model):

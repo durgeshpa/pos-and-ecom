@@ -73,7 +73,7 @@ from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
     PosShopSerializer, BasicCartUserViewSerializer
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code

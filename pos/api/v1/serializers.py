@@ -8,7 +8,7 @@ from rest_framework import serializers
 from django.db.models import Q
 from django.core import validators
 
-from pos.models import RetailerProduct, RetailerProductImage, UserMappedShop
+from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer
@@ -1065,7 +1065,7 @@ class BasicCartUserViewSerializer(serializers.Serializer):
             raise serializers.ValidationError("Please provide a valid phone number")
 
         user = User.objects.filter(phone_number=phone_number).last()
-        if user and ReferralCode.is_marketing_user(user):
+        if user and ReferralCode.is_marketing_user(user) and attrs.get('is_mlm'):
             raise serializers.ValidationError("User is already registered for rewards.")
 
         if referral_code:

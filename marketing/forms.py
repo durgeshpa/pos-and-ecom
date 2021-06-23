@@ -23,8 +23,9 @@ class MLMUserForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if User.objects.filter(phone_number=self.data['phone_number']).exists():
-            raise forms.ValidationError("Mobile Number Already Exists.")
+        user = User.objects.filter(phone_number=self.data['phone_number']).last()
+        if user and ReferralCode.is_marketing_user(user):
+            raise forms.ValidationError("User is already registered for rewards.")
         if cleaned_data['referral_code']:
             try:
                 ReferralCode.objects.get(referral_code=cleaned_data['referral_code'])
