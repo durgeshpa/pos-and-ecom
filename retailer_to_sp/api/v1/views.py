@@ -2912,8 +2912,7 @@ class OrderCentral(APIView):
         if shops_str == 'all' or (shops_str and order.seller_shop.id in shops_str.split(',')):
             if ReferralCode.is_marketing_user(order.buyer):
                 order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no, 'order_credit',
-                                            'order_direct_credit', 'order_indirect_credit', self.request.user.id,
-                                            order.seller_shop.id)
+                                            'order_indirect_credit', self.request.user.id, order.seller_shop.id)
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -3645,6 +3644,7 @@ class OrderReturns(APIView):
 
         order_return.refund_amount = refund_amount
         order_return.refund_points = refund_points
+        order_return.new_order_total = round(new_cart_value, 2)
         order_return.save()
 
     @staticmethod

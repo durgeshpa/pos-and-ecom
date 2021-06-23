@@ -185,7 +185,6 @@ class RewardLog(models.Model):
         ('order_return_debit', 'Order Return Debit'),
         ('order_cancel_credit', 'Order Cancel Credit'),
         ('order_cancel_debit', 'Order Cancel Debit'),
-        ('order_direct_credit', 'Order Direct Credit'),
         ('order_indirect_credit', 'Order Indirect Credit'),
         ('used_reward', 'Purchase Debit (Admin)'),
         ('direct_reward', 'Hdpos Sales - Direct Credit'),

@@ -2686,6 +2686,7 @@ class OrderReturn(models.Model):
     )
     refund_amount = models.FloatField(default=0)
     refund_points = models.IntegerField(default=0)
+    new_order_total = models.FloatField(default=0)
     refund_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)
