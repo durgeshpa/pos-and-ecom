@@ -188,11 +188,8 @@ class ApplicationPageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """ Adding Page Version Details """
         data = super().to_representation(instance)
-        page_version = PageVersion.objects.filter(page=instance.id).order_by('-version_no').first()
-        data['latest_version'] = page_version.version_no
-        data['created_on'] = page_version.created_on
-        if page_version.published_on:
-            data['published_on'] = page_version.published_on
+        page_version = PageVersion.objects.filter(page=instance.id)
+        data['versions'] = PageVersionSerializer(page_version, many = True).data
         return data
 
 
@@ -271,33 +268,35 @@ class PageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         data = self.context.get("request").data
-        app_id = data.get("app_id")
-        cards = data.get("cards")
+        app_id = data.get("app_id", None)
+        cards = data.get("cards", None)
+
         # Get app details
-        app = get_object_or_404(Application, id = app_id)
-        # Checking page exist with name and app
-        app_page = ApplicationPage.objects.select_related('page').filter(app = app)
-        page = app_page.filter(page__name = data.get("name")).first()
-        if page:
-            page = page.page
-            latest_page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
-            if page.state == 'Draft':
-                PageCard.objects.filter(page_version = latest_page_version).delete()
-            else:
-                latest_page_version = PageVersion.objects.create(page = page, version_no = latest_page_version.version_no + 1)
-                page.state = "Draft"
-                page.save()
-        else:
-            # Create new Page
-            page = Page.objects.create(**validated_data)
-            # Mapping Page and Application
-            app = get_object_or_404(Application, id = app_id)
-            ApplicationPage.objects.create(app = app, page = page)
-            # Creating Page Version
-            latest_page_version = PageVersion.objects.create(page = page, version_no = 1)
+        try:
+            app = Application.objects.get(id = app_id)
+        except Exception:
+            raise ValidationError({'message': f"app with id {app_id} not found"})
+
+        # Checking cards version exist or not
+        for card in cards:
+            try:
+                card_version = CardVersion.objects.get(id = card['card_version_id'])
+            except Exception:
+                raise ValidationError({"message": f"card version with {card['card_version_id']} doesnot exist"})
+
+        # Create new Page
+        page = Page.objects.create(**validated_data)
+
+        # Mapping Page and Application
+        ApplicationPage.objects.create(app = app, page = page)
+
+        # Creating Page Version
+        latest_page_version = PageVersion.objects.create(page = page, version_no = 1)
+
         # Mapping Cards of Pages
         for card in cards:
            PageCard.objects.create(page_version = latest_page_version, **card)
+
         return page
 
 
