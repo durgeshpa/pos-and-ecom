@@ -2028,36 +2028,74 @@ class InvoiceAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-class SQCount(Subquery):
-    """
-    Subclass of subquery to count no of rows
-    """
-    template = "(SELECT count(*) FROM (%(subquery)s) _count)"
-    output_field = IntegerField()
-
 
 class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
     """
-    change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
+    # change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
+    list_display = ['dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                    'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                    'delivered_amount', 'delivered_value',
+                    'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
     list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
-    # actions = ['download_as_csv']
+    actions = ['export_as_csv']
+
+    def delivered_cnt(self, obj):
+        return obj.delivered_cnt
+
+    def returned_cnt(self, obj):
+        return obj.returned_cnt
+
+    def pending_cnt(self, obj):
+        return obj.pending_cnt
+
+    def rescheduled_cnt(self, obj):
+        return obj.rescheduled_cnt
+
+    def total_shipments(self, obj):
+        return obj.total_shipments
+
+    def invoice_amount(self, obj):
+        return obj.invoice_amount
+
+    def delivered_amount(self, obj):
+        return obj.delivered_amount
+
+    def delivery_percent(self, obj):
+        return self.get_percent(obj.delivered_cnt, obj.total_shipments)
+
+    def get_percent(self, part, whole):
+        return round(part / whole * 100) if whole and whole>0 else 0
+
+    def returned_percent(self, obj):
+        return self.get_percent(obj.returned_cnt, obj.total_shipments)
+
+    def rescheduled_percent(self, obj):
+        return self.get_percent(obj.rescheduled_cnt, obj.total_shipments)
+
+    def delivered_value(self, obj):
+        return self.get_percent(obj.delivered_amount, obj.invoice_amount)
+
+    def km_run(self, obj):
+        return obj.closing_kms-obj.opening_kms if obj.closing_kms else 0
+
     def has_add_permission(self, request):
         return False
 
-    def changelist_view(self, request, extra_context=None):
-        response = super().changelist_view(
-            request,
-            extra_context=extra_context,
-        )
-        try:
-            qs = response.context_data['cl'].queryset
-            today = datetime.datetime.now().date()
-            start_from = today-datetime.timedelta(days=30)
-            qs = qs.filter(created_at__gte=start_from)
-        except (AttributeError, KeyError):
-            return response
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def dispathces(self, obj):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (obj.pk,
+                                                                                                   obj.dispatch_no))
+
+    def get_queryset(self, request):
+
+        qs = super(DeliveryPerformanceDashboard, self).get_queryset(request)
+        today = datetime.datetime.now().date()
+        start_from = today-datetime.timedelta(days=60)
+        qs = qs.filter(created_at__gte=start_from)
 
         metrics = {
             'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
@@ -2073,30 +2111,31 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         pending_status_list = ['OUT_FOR_DELIVERY']
 
         qs = qs.annotate(**metrics,
-                         delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
-                         returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
-                         pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
-                         rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
-                         total_shipments=SQCount(self.invoice_count_subquery()),
+                         delivered_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=delivered_status_list)),
+                         returned_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=returned_status_list)),
+                         pending_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=pending_status_list)),
+                         rescheduled_cnt=Count('rescheduling_shipment_trip'),
+                         total_shipments=Count('rt_invoice_trip')
                          ).order_by('-id').prefetch_related('delivery_boy')
+        return qs
 
-        response.context_data['summary'] = list(qs)
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                        'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                        'delivered_amount', 'delivered_value',
+                        'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([obj.dispatch_no, obj.delivery_boy, obj.delivered_cnt, obj.returned_cnt,
+                             obj.rescheduled_cnt, obj.total_shipments, self.delivery_percent(obj),
+                             self.returned_percent(obj), self.rescheduled_percent(obj), obj.invoice_amount,
+                             obj.delivered_amount, self.delivered_value(obj), obj.starts_at, obj.completed_at,
+                             obj.opening_kms, obj.closing_kms, self.km_run(obj)])
         return response
-
-    def invoice_count_subquery(self, status_list=None):
-        """
-        Returns subquery for counting invoices by given trip id and statuses
-        """
-        query = OrderedProduct.objects.filter(trip=OuterRef('pk'))
-        if status_list is not None:
-            query = query.filter(shipment_status__in=status_list)
-        return query.values('pk')
-
-    def rescheduled_count_subquery(self):
-        """
-        Returns subquery for counting invoices rescheduled in a trip
-        """
-        return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
 
 
 admin.site.register(Cart, CartAdmin)
