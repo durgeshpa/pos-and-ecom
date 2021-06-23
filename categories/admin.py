@@ -1,6 +1,6 @@
 from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import Category,CategoryData,CategoryPosation
+from .models import Category, CategoryData, CategoryPosation
 from import_export.admin import ExportActionMixin
 from .resources import CategoryResource
 from retailer_backend.admin import InputFilter

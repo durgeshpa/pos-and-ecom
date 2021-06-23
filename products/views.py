@@ -1544,10 +1544,8 @@ def set_child_data_sample_excel_file(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    products = Product.objects.values('id', 'product_sku', 'product_name',
-                                              'product_ean_code', 'product_mrp',
-                                              'weight_unit', 'weight_value',
-                                              'status', 'repackaging_type')\
+    products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code',
+                                      'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type')\
         .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=category[0]['category_name']))
     for product in products:
         row = []

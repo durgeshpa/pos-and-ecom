@@ -1,4 +1,5 @@
 import logging
+from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -124,7 +125,8 @@ class CategoryView(GenericAPIView):
             category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
-        return get_response(msg, serializer.data)
+        data = serializer.data if serializer.data else []
+        return get_response(msg, data, True)
 
     def post(self, request):
         """ POST API for Category Creation """
@@ -163,6 +165,24 @@ class CategoryView(GenericAPIView):
             info_logger.info("category Updated Successfully.")
             return get_response('category updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Category """
+
+        info_logger.info("Category DELETE api called.")
+        if not request.data.get('category_ids'):
+            return get_response('please provide parent_product_id', False)
+        try:
+            for id in request.data.get('category_ids'):
+                category_id = self.queryset.get(id=int(id))
+                try:
+                    category_id.delete()
+                except:
+                    return get_response(f'can not delete category {category_id.name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid category {id}', False)
+        return get_response('category were deleted successfully!', True)
 
     def search_filter_category(self):
 
