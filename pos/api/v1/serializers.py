@@ -621,19 +621,89 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     """
         Get refund amount on checkout
     """
-    order_total = serializers.SerializerMethodField()
-    discount_amount = serializers.SerializerMethodField()
-    redeem_points = serializers.SerializerMethodField()
-    redeem_points_value = serializers.SerializerMethodField()
-    received_amount = serializers.SerializerMethodField()
-    refunded_amount = serializers.SerializerMethodField()
-    refunded_points = serializers.SerializerMethodField()
-    refunded_points_value = serializers.SerializerMethodField()
-    current_amount = serializers.SerializerMethodField()
-    refund_amount = serializers.SerializerMethodField()
-    refund_points = serializers.SerializerMethodField()
-    refund_points_value = serializers.SerializerMethodField()
+    # order_total = serializers.SerializerMethodField()
+    # discount_amount = serializers.SerializerMethodField()
+    # redeem_points = serializers.SerializerMethodField()
+    # redeem_points_value = serializers.SerializerMethodField()
+    # received_amount = serializers.SerializerMethodField()
+    # returned_total = serializers.SerializerMethodField()
+    # refunded_amount = serializers.SerializerMethodField()
+    # refunded_points = serializers.SerializerMethodField()
+    # refunded_points_value = serializers.SerializerMethodField()
+    # discount_already_adjusted = serializers.SerializerMethodField()
+    # current_amount = serializers.SerializerMethodField()
+    # return_total = serializers.SerializerMethodField()
+    # refund_amount = serializers.SerializerMethodField()
+    # refund_points = serializers.SerializerMethodField()
+    # refund_points_value = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+    return_info = serializers.SerializerMethodField()
+
+    def get_return_info(self, obj):
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        if not ongoing_return:
+            return []
+        block = dict()
+        cb = 1
+        block[cb] = dict()
+        block[cb][1] = "Paid Amount: " + str(self.get_order_total(obj)).rstrip('0').rstrip('.')
+        discount = self.get_discount_amount(obj)
+        redeem_points_value = self.get_redeem_points_value(obj)
+        if discount and redeem_points_value:
+            block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip('0').rstrip('.') + ') = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
+        elif discount:
+            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon)'
+        elif redeem_points_value:
+            block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+
+        refunded_amount = self.get_refunded_amount(obj)
+        if refunded_amount:
+            cb += 1
+            block[cb] = dict()
+            block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(self.get_returned_total(obj)).rstrip('0').rstrip('.') + '.'
+            block[cb][2] += ' Rs.' + str(discount).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount else ')'
+
+        cb += 1
+        block[cb] = dict()
+        block[cb][1] = 'Amount to be returned: Rs.' + str(self.get_refund_amount(obj)).rstrip('0').rstrip('.')
+
+        block_array = []
+        for b in block:
+            lines_dict = block[b]
+            lines_array = []
+            for key in lines_dict:
+                lines_array.append(lines_dict[key])
+            block_array.append(lines_array)
+        return block_array
+
+    def get_discount_already_adjusted(self, obj):
+        last_return = obj.rt_return_order.filter(status='completed').last()
+        if last_return and last_return.refund_amount < 0:
+            discount_adjusted = last_return.refund_amount * -1
+        else:
+            discount_adjusted = self.get_discount_amount(obj)
+        return discount_adjusted
+
+    def get_returned_total(self, obj):
+        ret_total = 0
+        last_return = obj.rt_return_order.filter(status='completed').last()
+        if last_return:
+            ret_total = round(self.get_order_total(obj) - last_return.new_order_total, 2)
+        return ret_total
+
+    def get_return_total(self, obj):
+        ret_total = 0
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        if ongoing_return:
+            last_return = obj.rt_return_order.filter(status='completed').last()
+            if last_return:
+                ret_total = round(last_return.new_order_total - ongoing_return.new_order_total)
+            else:
+                ret_total = round(self.get_order_total(obj) - ongoing_return.new_order_total, 2)
+        return ret_total
 
     @staticmethod
     def get_refund_points(obj):
@@ -730,9 +800,10 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_total', 'discount_amount', 'redeem_points', 'redeem_points_value', 'received_amount',
-                  'refunded_amount', 'refunded_points', 'refunded_points_value', 'current_amount', 'refund_amount',
-                  'refund_points', 'refund_points_value', 'buyer', 'order_status')
+        # fields = ('id', 'order_total', 'discount_amount', 'redeem_points', 'redeem_points_value', 'received_amount',
+        #           'refunded_amount', 'refunded_points', 'refunded_points_value', 'current_amount', 'refund_amount',
+        #           'refund_points', 'refund_points_value', 'buyer', 'order_status')
+        fields = ('id', 'return_info', 'order_status', 'buyer')
 
 
 def coupon_name_validation(coupon_name):
