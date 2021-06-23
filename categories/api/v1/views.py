@@ -177,7 +177,7 @@ class CategoryView(GenericAPIView):
                 try:
                     category_id.delete()
                 except:
-                    return get_response(f'can not delete category {category_id.name}', False)
+                    return get_response(f'can not delete category {category_id.category_name}', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid category {id}', False)

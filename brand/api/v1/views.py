@@ -179,7 +179,7 @@ class BrandView(GenericAPIView):
                 try:
                     brand_id.delete()
                 except:
-                    return get_response(f'can not delete brand_id {brand_id.name}', False)
+                    return get_response(f'can not delete brand_id {brand_id.brand_name}', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid brand {b_id}', False)
