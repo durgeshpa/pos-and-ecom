@@ -240,9 +240,6 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, 
         cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(cancel_order_api)
         if json.loads(response.text)['response']['status'] == 'success':
-            if points_credit or points_debit:
-                whatsapp_order_cancel_loyalty_points.delay(order_number, phone_number, points_credit, points_debit,
-                                                           net_points)
             return True
         else:
             return False
@@ -269,70 +266,6 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
         data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
         refund_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(refund_order_api)
-        if json.loads(response.text)['response']['status'] == 'success':
-            if points_credit or points_debit:
-                whatsapp_order_return_loyalty_points.delay(order_number, order_status, phone_number, points_credit,
-                                                           points_debit, net_points)
-            return True
-        else:
-            return False
-    except Exception as e:
-        error_logger.error(e)
-        return False
-
-
-@task()
-def whatsapp_order_cancel_loyalty_points(order_number, phone_number, debit_points, credit_points, net_points):
-    try:
-        return
-        api_end_point = WHATSAPP_API_ENDPOINT
-        whatsapp_user_id = WHATSAPP_API_USERID
-        whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! "
-        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
-        cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
-        response = requests.get(cancel_order_api)
-        if json.loads(response.text)['response']['status'] == 'success':
-            return True
-        else:
-            return False
-    except Exception as e:
-        error_logger.error(e)
-        return False
-
-
-@task()
-def whatsapp_order_return_loyalty_points(order_number, order_status, phone_number, points_credit, points_debit,
-                                         net_points):
-    try:
-        return
-        api_end_point = WHATSAPP_API_ENDPOINT
-        whatsapp_user_id = WHATSAPP_API_USERID
-        whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! "
-        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
-        cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
-        response = requests.get(cancel_order_api)
-        if json.loads(response.text)['response']['status'] == 'success':
-            return True
-        else:
-            return False
-    except Exception as e:
-        error_logger.error(e)
-        return False
-
-
-@task()
-def whatsapp_order_place_loyalty_points(order_number, phone_number, points_credit, points_debit, net_points):
-    try:
-        return
-        api_end_point = WHATSAPP_API_ENDPOINT
-        whatsapp_user_id = WHATSAPP_API_USERID
-        whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! "
-        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
-        cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
-        response = requests.get(cancel_order_api)
         if json.loads(response.text)['response']['status'] == 'success':
             return True
         else:

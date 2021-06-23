@@ -44,16 +44,34 @@ class ReferralCode(models.Model):
     """
     user = models.OneToOneField(get_user_model(), related_name='referral_code_user', on_delete=models.CASCADE)
     referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     @classmethod
-    def generate_user_referral_code(cls, user):
+    def generate_user_referral_code(cls, user, added_by):
         """
             This Method Will Generate Referral Code & Map To User
         """
         user_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
-        if not ReferralCode.objects.filter(user=user).exists():
-            ReferralCode.objects.create(user=user, referral_code=user_referral_code)
+        while ReferralCode.objects.filter(referral_code=user_referral_code).exists():
+            user_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
+        ReferralCode.objects.create(user=user, referral_code=user_referral_code, added_by=added_by)
+        Profile.objects.get_or_create(profile_user=user)
         return user_referral_code
+
+    @classmethod
+    def register_user_for_mlm(cls, user, added_by, used_referral_code=None):
+        with transaction.atomic():
+            if not ReferralCode.is_marketing_user(user):
+                user_referral_code = ReferralCode.generate_user_referral_code(user, added_by)
+                if used_referral_code:
+                    Referral.store_parent_referral_user(used_referral_code, user_referral_code)
+                RewardPoint.welcome_reward(user, used_referral_code, added_by)
+
+    @classmethod
+    def is_marketing_user(cls, user):
+        return True if ReferralCode.objects.filter(user=user).exists() else False
 
     def __str__(self):
         return 'User'
@@ -115,7 +133,7 @@ class RewardPoint(models.Model):
         verbose_name_plural = "Rewards Dashboard"
 
     @staticmethod
-    def welcome_reward(user, referred=0, changed_by=None):
+    def welcome_reward(user, referred=None, changed_by=None):
         """
             Reward On User Registration
         """
