@@ -747,7 +747,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSourceMapping
-        fields = ('id', 'source_sku',)
+        fields = ('source_sku',)
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
@@ -757,13 +757,13 @@ class ProductPackingMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPackingMapping
-        fields = ('id', 'packing_sku', 'packing_sku_weight_per_unit_sku',)
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku',)
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = DestinationRepackagingCostMapping
-        fields = ('id', 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+        fields = ('raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                   'secondary_pm_cost')
 
 
