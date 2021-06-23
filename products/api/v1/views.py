@@ -201,7 +201,8 @@ class ParentProductView(GenericAPIView):
         'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor', 'parent_product_log'). \
         only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code', 'updated_at',
-             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory').order_by('-id')
+             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory')\
+        .order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):

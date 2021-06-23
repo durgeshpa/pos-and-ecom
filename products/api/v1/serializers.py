@@ -776,10 +776,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
-    source_product_pro = ProductSourceMappingSerializers(many=True, write_only=True, required=False)
-    packing_material_rt = ProductPackingMappingSerializers(many=True, write_only=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True,
-                                                                                   required=False)
+    source_product_pro = ProductSourceMappingSerializers(many=True, required=False)
+    packing_material_rt = ProductPackingMappingSerializers(many=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
 
     class Meta:
         model = Product
