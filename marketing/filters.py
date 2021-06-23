@@ -3,13 +3,18 @@ from dal_admin_filters import AutocompleteFilter
 from django.db.models import Q
 
 from retailer_backend.admin import InputFilter
-
 from accounts.models import User
 
 
 class UserFilter(AutocompleteFilter):
     title = 'User'
     field_name = 'user'
+    autocomplete_url = 'mlm-user-autocomplete'
+
+
+class PosBuyerFilter(AutocompleteFilter):
+    title = 'Buyer'
+    field_name = 'buyer'
     autocomplete_url = 'mlm-user-autocomplete'
 
 

@@ -17,7 +17,7 @@ from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
 from rest_auth.utils import AutoUser
 
-from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -213,10 +213,10 @@ def serializer_error(serializer):
 def create_user_shop_mapping(user, shop_id):
     """
        while registration of user, store
-       shop_id of seller shop with user in UserMappedShop
+       shop_id of seller shop with user in ShopCustomerMap
     """
-    if not UserMappedShop.objects.filter(user=user, shop_id=shop_id).exists():
-        UserMappedShop.objects.create(user=user, shop_id=shop_id)
+    if not ShopCustomerMap.objects.filter(user=user, shop_id=shop_id).exists():
+        ShopCustomerMap.objects.create(user=user, shop_id=shop_id)
 
 
 def get_invoice_and_link(shipment, host):
@@ -271,18 +271,22 @@ class RewardCls(object):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
-                redeem_points = min(redeem_points, points)
+                redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0
         else:
             redeem_points = 0
-        Cart.objects.filter(id=cart.id).update(redeem_points=redeem_points, redeem_factor=value_factor)
+        cart.redeem_points = redeem_points
+        cart.redeem_factor = value_factor
+        cart.save()
 
     @classmethod
     def reward_detail_cart(cls, cart, points):
         data = dict()
         data['redeem_applied'] = 1 if points else 0
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
+        data['max_applicable_points'] = min(data['available_points'],
+                                            int(cart.order_amount_after_discount * data['value_factor']))
         data['cart_redeem_points'] = points
         return data
 

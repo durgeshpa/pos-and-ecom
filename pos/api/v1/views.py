@@ -23,7 +23,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, UserMappedShop
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
 
@@ -707,7 +707,7 @@ class CustomerReport(GenericAPIView):
     def customer_order_log(self, shop, search_text, phone_no, request_data):
         # Validate customer
         try:
-            shop_user_map = UserMappedShop.objects.get(user__phone_number=phone_no, shop=shop)
+            shop_user_map = ShopCustomerMap.objects.get(user__phone_number=phone_no, shop=shop)
         except ObjectDoesNotExist:
             return api_response("Phone Number Invalid For This Shop!")
 
@@ -726,7 +726,7 @@ class CustomerReport(GenericAPIView):
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
-        qs = UserMappedShop.objects.filter(shop=shop).prefetch_related(
+        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related(
             'user__reward_user_mlm', Prefetch('user__rt_buyer_order', queryset=Order.objects.filter(seller_shop=shop)),
             Prefetch('user__rt_buyer_order__rt_return_order', queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
 
