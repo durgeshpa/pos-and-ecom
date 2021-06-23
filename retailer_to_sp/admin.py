@@ -2047,7 +2047,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     # change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
     list_display = ['dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
                     'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
-                    'delivered_amount', 'delivered_value',
+                    'delivered_amount', 'delivered_value_percent',
                     'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
     list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
     actions = ['export_as_csv']
@@ -2085,11 +2085,11 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     def rescheduled_percent(self, obj):
         return self.get_percent(obj.rescheduled_cnt, obj.total_shipments)
 
-    def delivered_value(self, obj):
+    def delivered_value_percent(self, obj):
         return self.get_percent(obj.delivered_amount, obj.invoice_amount)
 
     def km_run(self, obj):
-        return obj.closing_kms-obj.opening_kms if obj.closing_kms else 0
+        return obj.closing_kms-obj.opening_kms if obj.closing_kms and obj.opening_kms else 0
 
     def has_add_permission(self, request):
         return False
