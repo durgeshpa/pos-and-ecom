@@ -2036,7 +2036,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     # change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
     list_display = ['dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
                     'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
-                    'delivered_amount', 'delivered_value',
+                    'delivered_amount', 'delivered_value_percent',
                     'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
     list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
     actions = ['export_as_csv']
