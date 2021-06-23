@@ -2074,7 +2074,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     def rescheduled_percent(self, obj):
         return self.get_percent(obj.rescheduled_cnt, obj.total_shipments)
 
-    def delivered_value(self, obj):
+    def delivered_value_percent(self, obj):
         return self.get_percent(obj.delivered_amount, obj.invoice_amount)
 
     def km_run(self, obj):
