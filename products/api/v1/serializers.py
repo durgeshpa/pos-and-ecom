@@ -2,7 +2,6 @@ import codecs
 import csv
 import re
 import datetime
-from pyexcel_xlsx import get_data as xlsx_get
 
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse

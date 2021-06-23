@@ -125,8 +125,7 @@ class CategoryView(GenericAPIView):
             category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
-        data = serializer.data if serializer.data else []
-        return get_response(msg, data, True)
+        return get_response(msg, serializer.data, True)
 
     def post(self, request):
         """ POST API for Category Creation """

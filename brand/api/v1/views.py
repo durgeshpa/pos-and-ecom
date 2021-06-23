@@ -126,7 +126,7 @@ class BrandView(GenericAPIView):
             brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(brand, many=True)
         msg = "" if brand else "no brand found"
-        return get_response(msg, serializer.data)
+        return get_response(msg, serializer.data, True)
 
     def post(self, request):
         """ POST API for Brand Creation """
@@ -202,7 +202,7 @@ class BrandVendorMappingView(GenericAPIView):
             brand = id_validation['data']
             serializer = self.serializer_class(brand, many=True)
             msg = "" if brand else "no brand found"
-            return get_response(msg, serializer.data)
+            return get_response(msg, serializer.data, True)
         else:
             msg = "please provide brand id"
             return get_response(msg, None)
