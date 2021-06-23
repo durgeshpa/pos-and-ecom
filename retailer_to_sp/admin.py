@@ -25,7 +25,7 @@ from django.shortcuts import redirect
 from global_config.models import GlobalConfig
 
 # app imports
-from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
+from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
