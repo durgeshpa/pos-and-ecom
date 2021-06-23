@@ -53,8 +53,8 @@ def notify():
     if date_config:
         last_date = date_config.value
         rewards = RewardLog.objects.filter(created_at__gte=last_date, created_at__lt=now_date,
-                                           transaction_type__in=['direct_reward', 'indirect_reward',
-                                                                 'order_direct_credit', 'order_direct_debit']).values(
+                                           transaction_type__in=['indirect_reward',
+                                                                 'order_indirect_credit']).values(
             'reward_user').distinct()
     with transaction.atomic():
 

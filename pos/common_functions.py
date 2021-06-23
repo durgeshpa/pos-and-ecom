@@ -296,7 +296,7 @@ class RewardCls(object):
             Loyalty points to buyer on placing order
         """
         # Calculate number of points
-        points = RewardCls.get_loyalty_points(amount, 'self_reward_percent')
+        points = RewardCls.get_loyalty_points(amount, 'direct_reward_percent')
 
         if not points:
             return 0
@@ -315,7 +315,7 @@ class RewardCls(object):
             Loyalty points to user who referred buyer
         """
         # Calculate number of points
-        points = RewardCls.get_loyalty_points(amount, 'direct_reward_percent')
+        points = RewardCls.get_loyalty_points_indirect(amount, 'indirect_reward_percent')
 
         if not points:
             return
@@ -324,7 +324,7 @@ class RewardCls(object):
         if reward_obj:
             if not count_considered:
                 reward_obj.direct_users = 1
-            reward_obj.direct_earned += points
+            reward_obj.indirect_earned += points
             reward_obj.save()
             # Log transaction
             RewardCls.create_reward_log(user, t_type, tid, points, changed_by)
@@ -336,7 +336,7 @@ class RewardCls(object):
             user: user who referred buyer
         """
         # Calculate number of points
-        points = RewardCls.get_loyalty_points(amount, 'indirect_reward_percent')
+        points = RewardCls.get_loyalty_points_indirect(amount, 'indirect_reward_percent')
 
         if not points:
             return
@@ -369,6 +369,14 @@ class RewardCls(object):
             Loyalty points for an amount based on percentage (key)
         """
         factor = GlobalConfig.objects.get(key=key).value / 100
+        return int(float(amount) * factor)
+
+    @classmethod
+    def get_loyalty_points_indirect(cls, amount, key):
+        """
+            Loyalty points for an amount based on percentage (key)
+        """
+        factor = GlobalConfig.objects.get(key=key).value / 200
         return int(float(amount) * factor)
 
     @classmethod
@@ -408,7 +416,7 @@ class RewardCls(object):
         points_debit = credit_log.points if credit_log else 0
 
         if t_type_debit == 'order_return_debit' and points_debit:
-            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'self_reward_percent')
+            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'direct_reward_percent')
 
             points_already_debited = 0
             points_already_debited_log = RewardLog.objects.filter(transaction_id__in=return_ids,

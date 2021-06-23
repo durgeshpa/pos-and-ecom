@@ -90,7 +90,7 @@ def update_es(products, shop_id):
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 
-def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_d, t_type_i, changed_by=None, shop_id=None):
+def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop_id=None):
     """
         Loyalty points to buyer, user who referred buyer and ancestor referrers of user who referred buyer
     """
@@ -108,7 +108,7 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_d, t_type
             if referral_obj:
                 parent_referrer = referral_obj.referral_by_user
                 # direct reward to user who referred buyer
-                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_d, referral_obj.user_count_considered,
+                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i, referral_obj.user_count_considered,
                                                        changed_by)
 
                 # indirect reward to ancestor referrers
