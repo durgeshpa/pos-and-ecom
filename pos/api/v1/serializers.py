@@ -20,6 +20,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
+from accounts.models import User
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -1062,6 +1063,10 @@ class BasicCartUserViewSerializer(serializers.Serializer):
             raise serializers.ValidationError("Please provide phone number")
         if not re.match(r'^[6-9]\d{9}$', phone_number):
             raise serializers.ValidationError("Please provide a valid phone number")
+
+        user = User.objects.filter(phone_number=phone_number).last()
+        if user and ReferralCode.is_marketing_user(user):
+            raise serializers.ValidationError("User is already registered for rewards.")
 
         if referral_code:
             if not ReferralCode.objects.filter(referral_code=referral_code).exists():
