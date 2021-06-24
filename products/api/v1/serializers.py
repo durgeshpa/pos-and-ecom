@@ -261,7 +261,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'product_images' in self.initial_data and self.initial_data['product_images']:
             product_images = self.initial_data['product_images']
 
-        ParentProductCls.upload_parent_product_images(parent_product, parent_product_pro_image, product_images)
+        image_upload = ParentProductCls.upload_parent_product_images(parent_product, parent_product_pro_image, product_images)
+        if 'error' in image_upload:
+            raise serializers.ValidationError(_(image_upload["error"]))
+
         ParentProductCls.create_parent_product_category(parent_product,
                                                         self.initial_data['parent_product_pro_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])

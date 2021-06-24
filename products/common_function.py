@@ -27,6 +27,10 @@ class ParentProductCls(object):
         ids = []
         if parent_product_pro_image:
             for image in parent_product_pro_image:
+                try:
+                    ParentProductImage.objects.filter(parent_product=parent_product, id=image['id'])
+                except:
+                    return {'error': '{} image not found'.format(image['id'])}
                 ids.append(image['id'])
 
         ParentProductImage.objects.filter(parent_product=parent_product).exclude(
