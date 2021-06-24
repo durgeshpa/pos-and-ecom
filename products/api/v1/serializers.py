@@ -137,7 +137,7 @@ class LogSerializers(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if not representation['update_at']:
-            representation['update_at'] = datetime.strptime(representation['update_at'], "%Y-%m-%d %H:%M:%S").date()
+            representation['update_at'] = representation['update_at'].strftime("%Y-%m-%d %H:%M:%S")
         return representation
 
 
