@@ -106,7 +106,7 @@ def get_validate_image_ids(product, img_ids):
     """ validate parent product id that belong to a ParentProduct model"""
     for img_id in img_ids:
         try:
-            validated_image = ParentProductImage.objects.get(parent_product=product, id=img_id)
+            validated_image = ParentProductImage.objects.get(parent_product=product, id=img_id['id'])
         except Exception as e:
             logger.error(e)
             return {'error': 'please provide a valid parent_product_pro_image id'}
