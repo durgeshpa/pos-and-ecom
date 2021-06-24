@@ -102,6 +102,17 @@ def is_ptr_applicable_validation(data):
     return data
 
 
+def get_validate_image_ids(product, img_ids):
+    """ validate parent product id that belong to a ParentProduct model"""
+    for img_id in img_ids:
+        try:
+            validated_image = ParentProductImage.objects.get(parent_product=product, id=img_id)
+        except Exception as e:
+            logger.error(e)
+            return {'error': 'please provide a valid parent_product_pro_image id'}
+    return {'image': validated_image}
+
+
 def get_validate_parent_product(product):
     """ validate parent product id that belong to a ParentProduct model"""
     try:
@@ -239,3 +250,4 @@ def validate_bulk_data_format(request):
         data['file'] = request.FILES['file']
 
     return data
+
