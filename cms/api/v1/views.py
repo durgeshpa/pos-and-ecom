@@ -312,7 +312,13 @@ class ApplicationView(APIView):
 
     def get(self, request, format = None):
         """GET Application data"""
+
         apps = Application.objects.all()
+
+        query_params = request.query_params
+        if query_params.get('name'):
+            apps = apps.filter(name__icontains = query_params.get('name'))
+        
         serializer = self.serializer_class(apps, many = True)
         message = {
             "is_success":True,
