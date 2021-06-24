@@ -1,10 +1,11 @@
 import logging
+from django.core.checks import messages
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status
+from rest_framework import serializers, status
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, Page, PageVersion
@@ -132,7 +133,13 @@ class ApplicationView(APIView):
 
     def get(self, request, format = None):
         """GET Application data"""
+        
         apps = Application.objects.all()
+
+        query_params = request.query_params
+        if query_params.get('name'):
+            apps = apps.filter(name__icontains = query_params.get('name'))
+
         serializer = self.serializer_class(apps, many = True)
         message = {
             "is_success":True,
@@ -252,6 +259,32 @@ class PageView(APIView):
             cache.delete('pages')
             info_logger.info("-----------PAGES CACHE INVALIDATED  @POST pages/-----------")
 
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        """Changing Page Card mapping"""
+        data = request.data
+        page_id = data.get('page_id', None)
+        if not page_id:
+            raise ValidationError({"message": "page_id is required"})
+        try:
+            page = Page.objects.get(id = page_id)
+        except Exception:
+            raise ValidationError({"message": f"No pages exists with id {{page_id}}"})
+        serializer = self.serializer_class(data=data, instance=page, context = {'request':request} ,partial=True)
+        if serializer.is_valid():
+            serializer.save()
             message = {
                 "is_success": True,
                 "message": "OK",
