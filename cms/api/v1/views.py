@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from .serializers import CardDataSerializer, CardItemSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
 
@@ -312,7 +312,6 @@ class ApplicationView(APIView):
 
     def get(self, request, format = None):
         """GET Application data"""
-
         apps = Application.objects.all()
 
         query_params = request.query_params
@@ -452,18 +451,30 @@ class PageView(APIView):
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request):
-        """Change Page Data and create version"""
-
+        """Changing Page Card mapping"""
         data = request.data
         page_id = data.get('page_id', None)
         if not page_id:
-            raise ValidationError({'message': "Page Id is required"})
+            raise ValidationError({"message": "page_id is required"})
         try:
             page = Page.objects.get(id = page_id)
         except Exception:
-            raise ValidationError({'message': f"No pages exits with id {{page_id}}"})
-        
-
+            raise ValidationError({"message": f"No pages exists with id {{page_id}}"})
+        serializer = self.serializer_class(data=data, instance=page, context = {'request':request} ,partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
 
 class PageDetailView(APIView):

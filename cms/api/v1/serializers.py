@@ -3,7 +3,8 @@ from datetime import datetime
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from rest_framework.exceptions import ErrorDetail, ValidationError
+from django.core.exceptions import ValidationError
+from rest_framework.exceptions import NotFound
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
@@ -114,26 +115,41 @@ class CardDataSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
         data = request.data
-        app_id = data.get("app_id")
         items = validated_data.pop("items")
         new_card_data = CardData.objects.create(**validated_data)
         for item in items:
-            print(item)
             CardItem.objects.create(card_data=new_card_data,**item)
 
-        try:
-            app = Application.objects.get(id=app_id)
-        except:
-            raise ValidationError(f"app with id {app_id} not found, please check if you have provided valid app_id")
+        
+        card = None
+        card_id = data.get("card_id")
 
+        if card_id:
+            try:
+                card = Card.objects.get(id=card_id)
+            except:
+                raise NotFound(detail=f"Card with id { card_id } not found")
 
-       
-        new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
-        CardVersion.objects.create(version_number=1,
-                                                        card=new_card,
-                                                        card_data=new_card_data,
-                                                        )
-        info_logger.info(f"Created New Card with ID {new_card.id}")
+        if card:
+            latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
+            CardVersion.objects.create(version_number=latest_version,
+                                                            card=card,
+                                                            card_data=new_card_data,
+                                                            )
+            info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
+        else:
+            app_id = data.get("app_id")
+            try:
+                app = Application.objects.get(id=app_id)
+            except:
+                raise NotFound(detail=f"App with id {app_id} not found")
+
+            new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            CardVersion.objects.create(version_number=1,
+                                                            card=new_card,
+                                                            card_data=new_card_data,
+                                                            )
+            info_logger.info(f"Created New Card with ID {new_card.id}")
         
         return new_card_data
     
@@ -298,6 +314,32 @@ class PageSerializer(serializers.ModelSerializer):
            PageCard.objects.create(page_version = latest_page_version, **card)
 
         return page
+
+    def update(self, instance, validated_data):
+        data = self.context.get("request").data
+        cards = data.get("cards", None)
+
+        # Checking cards version exist or not
+        for card in cards:
+            try:
+                card_version = CardVersion.objects.get(id = card['card_version_id'])
+            except Exception:
+                raise ValidationError({"message": f"card version with {card['card_version_id']} doesnot exist"})
+        
+        latest_version = PageVersion.objects.filter(page = instance).order_by('-version_no').first()
+
+        if instance.state == "Draft":
+            page_card = PageCard.objects.filter(page_version = latest_version)
+            page_card.delete()
+        else:
+            latest_version = PageVersion.objects.create(page = instance, version_no = latest_version.version_no + 1)
+            instance.status = "Draft"
+        
+        # Mapping Cards of Pages
+        for card in cards:
+           PageCard.objects.create(page_version = latest_version, **card)
+
+        return super().update(instance, validated_data)
 
 
 class PageDetailSerializer(serializers.ModelSerializer):
