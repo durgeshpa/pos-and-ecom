@@ -3,7 +3,7 @@ import json
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage
 from categories.models import Category
 from shops.models import Shop
 
@@ -102,7 +102,7 @@ def is_ptr_applicable_validation(data):
     return data
 
 
-def get_validate_image_ids(product, img_ids):
+def get_validate_parent_product_image_ids(product, img_ids):
     """ validate parent product id that belong to a ParentProduct model"""
     for img_id in img_ids:
         try:
@@ -110,6 +110,17 @@ def get_validate_image_ids(product, img_ids):
         except Exception as e:
             logger.error(e)
             return {'error': 'please provide a valid parent_product_pro_image id'}
+    return {'image': validated_image}
+
+
+def get_validate_child_product_image_ids(product, img_ids):
+    """ validate parent product id that belong to a ParentProduct model"""
+    for img_id in img_ids:
+        try:
+            validated_image = ProductImage.objects.get(product=product, id=img_id['id'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': 'please provide a valid product_pro_image id'}
     return {'image': validated_image}
 
 

@@ -20,7 +20,8 @@ from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categorys, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
-    product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_image_ids
+    product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
+    get_validate_child_product_image_ids
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
 from categories.common_validators import get_validate_category
@@ -157,7 +158,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_('product_images is required'))
 
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
-            image_val = get_validate_image_ids(self.initial_data['id'], self.initial_data['parent_product_pro_image'])
+            image_val = get_validate_parent_product_image_ids(self.initial_data['id'], self.initial_data['parent_product_pro_image'])
             if 'error' in image_val:
                 raise serializers.ValidationError(_(image_val["error"]))
 
@@ -821,6 +822,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         if 'product_images' in self.initial_data:
             image_val = get_validate_images(self.initial_data['product_images'])
+            if 'error' in image_val:
+                raise serializers.ValidationError(_(image_val["error"]))
+
+        if 'product_pro_image' in self.initial_data and self.initial_data['product_pro_image']:
+            image_val = get_validate_child_product_image_ids(self.initial_data['id'],
+                                                             self.initial_data['product_pro_image'])
             if 'error' in image_val:
                 raise serializers.ValidationError(_(image_val["error"]))
 
