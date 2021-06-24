@@ -131,7 +131,7 @@ class ProductCls(object):
             Create Packing Material Product Mapping
         """
         for source_sku_data in packing_material_rt:
-            ProductPackingMapping.objects.create(sku_id=child_product.id, **source_sku_data)
+            ProductPackingMapping.objects.create(sku=child_product, **source_sku_data)
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):

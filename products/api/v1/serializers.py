@@ -747,7 +747,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSourceMapping
-        fields = ('source_sku',)
+        fields = ('id', 'source_sku',)
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
@@ -757,7 +757,7 @@ class ProductPackingMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPackingMapping
-        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku',)
+        fields = ('id', 'packing_sku', 'packing_sku_weight_per_unit_sku',)
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
@@ -890,9 +890,21 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.update_weight_inventory(child_product)
 
         if child_product.repackaging_type == 'destination':
-            ProductCls.create_source_product_mapping(child_product, source_product)
-            ProductCls.packing_material_product_mapping(child_product, packing_material)
-            ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
+            try:
+                ProductCls.create_source_product_mapping(child_product, source_product)
+            except Exception as e:
+                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+                raise serializers.ValidationError(error)
+            try:
+                ProductCls.packing_material_product_mapping(child_product, packing_material)
+            except Exception as e:
+                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+                raise serializers.ValidationError(error)
+            try:
+                ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
+            except Exception as e:
+                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+                raise serializers.ValidationError(error)
 
         ProductCls.create_child_product_log(child_product)
         return child_product
