@@ -2166,8 +2166,8 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     Admin class for representing Delivery Performance Dashboard
     """
     list_filter = [PickerPerformancePickerBoyFilter]
-    list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
-                    'picked_order_count', 'picked_sku_count','picked_pieces_count')
+    list_display = ('picker_number', 'full_name', 'assigned_order_count', 'order_amount', 'invoice_amount', 'fill_rate',
+                    'picked_order_count', 'picked_sku_count', 'picked_pieces_count',)
     actions = ['export_as_csv']
 
     def has_add_permission(self, request):
@@ -2196,9 +2196,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     def assigned_order_count(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            return PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                                   picker_assigned_date__date__gte=from_date,
-                                                  picker_assigned_date__date__lte=to_date).count()
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).count()
         except Exception as e:
             logger.exception(e)
             return 0
@@ -2206,9 +2204,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     def order_amount(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            qs = PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                                   picker_assigned_date__date__gte=from_date, picker_assigned_date__date__lte=to_date).aggregate(Sum('order__order_amount'))
-            return qs['order__order_amount__sum']
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
         except Exception as e:
             logger.exception(e)
             return 0
@@ -2216,16 +2212,12 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     def invoice_amount(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            qs = PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                           picker_assigned_date__date__gte=from_date,
-                                                picker_assigned_date__date__lte=to_date)
-            invoice_amount = qs.aggregate(inv_amount=Sum(
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(inv_amount=Sum(
                 F('order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')
                 *
                 F('order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
-                output_field=FloatField())),
+                output_field=FloatField()))['inv_amount']
 
-            return invoice_amount[0]['inv_amount']
         except Exception as e:
             logger.exception(e)
             return 0
@@ -2243,10 +2235,9 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     def picked_order_count(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            return PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                                   picker_assigned_date__date__gte=from_date,
-                                                  picker_assigned_date__date__lte=to_date,
-                                                  picking_status='picking_complete').count()
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
+                                              picker_assigned_date__date__lte=to_date,
+                                              picking_status='picking_complete').count()
         except Exception as e:
             logger.exception(e)
             return 0
@@ -2254,35 +2245,39 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     def picked_sku_count(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            qs = PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                                picker_assigned_date__date__gte=from_date,
-                                                picker_assigned_date__date__lte=to_date,
-                                                picking_status='picking_complete')
-            sku_count = 0
-            for q in qs:
-                picked_count = Pickup.objects.filter(pickup_type_id=q.order.order_no).count()
-                sku_count +=picked_count
-            return sku_count
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date, picking_status='picking_complete')
+            picked_count = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)).count()
+            return picked_count
         except:
             return 0
 
     def picked_pieces_count(self, obj):
         try:
             to_date, from_date = self.get_date(obj)
-            qs = PickerDashboard.objects.filter(picker_boy=obj.picker_boy,
-                                                picker_assigned_date__date__gte=from_date,
-                                                picker_assigned_date__date__lte=to_date,
-                                                picking_status='picking_complete')
-            quantity=0
-            for q in qs:
-                picked_object = Pickup.objects.filter(pickup_type_id=q.order.order_no)
-                for picked in picked_object:
-                    quantity += picked.pickup_quantity
-            return quantity
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
+                                                   picker_assigned_date__date__lte=to_date,
+                                                   picking_status='picking_complete')
+
+            picked_quantity = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)
+                                                  ).aggregate(Sum('pickup_quantity'))['pickup_quantity__sum']
+            return picked_quantity
 
         except Exception as e:
             logger.exception(e)
             return 0
+
+    def completed_at(self, obj):
+        """
+        Returns the time when picking was completed
+        return completed_at if completed_at is set in  else fetch the completed_at from Pickup table
+        """
+        if obj.completed_at:
+            return obj.completed_at
+        if obj.order:
+            if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
+                return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
+                                             status='picking_complete').last().completed_at
+
 
     def get_queryset(self, request):
         """
@@ -2293,8 +2288,9 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
         to_date, from_date = self.get_date(request)
         qs = super(PickerPerformanceDashboard, self).get_queryset(request)
         queryset = qs.filter(
-            created_at__lte=to_date, created_at__gte=from_date).order_by(
-            'picker_boy').distinct('picker_boy')
+            picker_assigned_date__date__lte=to_date, picker_assigned_date__date__gte=from_date).order_by(
+            'picker_boy').distinct('picker_boy').select_related('order').prefetch_related('order__rt_order_order_product',
+                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user')
         return queryset
 
     def get_date(self, request):
