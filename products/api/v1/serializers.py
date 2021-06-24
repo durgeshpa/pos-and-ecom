@@ -69,7 +69,7 @@ class ParentProductCategorySerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductCategory
-        fields = ('category',)
+        fields = ('id', 'category',)
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
@@ -103,7 +103,7 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductTaxMapping
-        fields = ('tax',)
+        fields = ('id', 'tax')
 
 
 class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
@@ -750,7 +750,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 class ProductSourceSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('id', 'product_name', 'product_sku')
+        fields = ('product_name', 'product_sku')
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
@@ -758,7 +758,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSourceMapping
-        fields = ('source_sku',)
+        fields = ('id', 'source_sku',)
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
@@ -766,7 +766,7 @@ class ProductPackingMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPackingMapping
-        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku',)
+        fields = ('id', 'packing_sku', 'packing_sku_weight_per_unit_sku',)
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
