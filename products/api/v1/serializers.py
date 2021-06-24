@@ -786,8 +786,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'destination_product_pro',
-                  'packing_product_rt', 'destination_product_repackaging', 'product_images', 'child_product_logs')
+                  'product_pro_image', 'parent_product', 'destination_product_pro', 'destination_product_repackaging',
+                  'packing_product_rt', 'product_vendor_mapping', 'product_images', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
