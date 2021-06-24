@@ -19,8 +19,7 @@ from brand.models import Brand, Vendor
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categorys, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
-    get_validate_seller_shop, check_active_capping, \
-    get_validate_packing_material, get_destination_product_repack, get_source_product, product_category, product_gst, \
+    get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
@@ -741,9 +740,14 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
         return product_vendor_map
 
 
+class ProductSourceSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('product_name', 'product_sku')
+
+
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
-    source_sku = serializers.SlugRelatedField(queryset=Product.objects.filter(repackaging_type='source'),
-                                              slug_field='id')
+    source_sku = ProductSourceSerializers(read_only=True)
 
     class Meta:
         model = ProductSourceMapping
@@ -751,9 +755,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
-    packing_sku = serializers.SlugRelatedField(queryset=Product.objects.filter(repackaging_type='packing_material'),
-                                               slug_field='id')
-    packing_sku_weight_per_unit_sku = serializers.DecimalField(max_digits=10, decimal_places=2)
+    packing_sku = ProductSourceSerializers(read_only=True)
 
     class Meta:
         model = ProductPackingMapping
@@ -763,7 +765,7 @@ class ProductPackingMappingSerializers(serializers.ModelSerializer):
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = DestinationRepackagingCostMapping
-        fields = ('raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+        fields = ('id', 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                   'secondary_pm_cost')
 
 
@@ -776,10 +778,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
-    destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
-    packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
-                                                                                   required=False)
+    destination_product_pro = ProductSourceMappingSerializers(many=True)
+    packing_product_rt = ProductPackingMappingSerializers(many=True)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
 
     class Meta:
         model = Product
@@ -831,6 +832,14 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     _(f"Product Source Mapping, Package Material SKU & Destination Product Repackaging can not be empty."))
 
+            destination_product = get_source_product(self.initial_data['destination_product_pro'])
+            if 'error' in destination_product:
+                raise serializers.ValidationError(_(destination_product["error"]))
+
+            packing_product = get_validate_packing_material(self.initial_data['packing_product_rt'])
+            if 'error' in packing_product:
+                raise serializers.ValidationError(_(packing_product["error"]))
+
         return data
 
     @transaction.atomic
@@ -855,8 +864,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.update_weight_inventory(child_product)
 
         if child_product.repackaging_type == 'destination':
-            ProductCls.create_source_product_mapping(child_product, source_product)
-            ProductCls.packing_material_product_mapping(child_product, packing_material)
+            ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
+            ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
             ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
         return child_product

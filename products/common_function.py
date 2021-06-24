@@ -123,7 +123,8 @@ class ProductCls(object):
             Create Source Product Mapping
         """
         for source_sku_data in source_sku:
-            ProductSourceMapping.objects.create(destination_sku=child_product, **source_sku_data)
+            source_sku_id = Product.objects.get(id=source_sku_data['source_sku'])
+            ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=source_sku_id)
 
     @classmethod
     def packing_material_product_mapping(cls, child_product, packing_material_rt):
@@ -131,7 +132,9 @@ class ProductCls(object):
             Create Packing Material Product Mapping
         """
         for source_sku_data in packing_material_rt:
-            ProductPackingMapping.objects.create(sku=child_product, **source_sku_data)
+            pack_sku_id = Product.objects.get(id=source_sku_data['packing_sku'])
+            ProductPackingMapping.objects.create(sku=child_product, packing_sku=pack_sku_id,
+                packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):

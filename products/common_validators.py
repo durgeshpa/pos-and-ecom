@@ -176,42 +176,24 @@ def get_validate_packing_material(packing_material):
     """ validate id that belong to a ProductPackingMapping model """
     for pack_mat_data in packing_material:
         try:
-            product = Product.objects.get(id=pack_mat_data['id'], repackaging_type='packing_material')
+            product = Product.objects.get(id=pack_mat_data['packing_sku'], repackaging_type='packing_material')
         except Exception as e:
             logger.error(e)
             return {'error': '{} product not found'.format(pack_mat_data['product'])}
 
-    return {'product': product}
+    return {'packing_material_product': product}
 
 
 def get_source_product(source_product_pro):
     """ validate id that belong to a ProductPackingMapping model """
-    cat_list = []
-    for cat_data in source_product_pro:
+    for pack_mat_data in source_product_pro:
         try:
-            category = Category.objects.get(id=cat_data['category'])
+            product = Product.objects.get(id=pack_mat_data['source_sku'], repackaging_type='source')
         except Exception as e:
             logger.error(e)
-            return {'error': '{} category not found'.format(cat_data['category'])}
-        if category in cat_list:
-            return {'error': '{} do not repeat same category for one product'.format(category)}
-        cat_list.append(category)
-    return {'category': source_product_pro}
+            return {'error': '{} product not found'.format(pack_mat_data['product'])}
 
-
-def get_destination_product_repack(destination_product_repack):
-    """ validate id that belong to a ProductPackingMapping model """
-    cat_list = []
-    for cat_data in destination_product_repack:
-        try:
-            category = Category.objects.get(id=cat_data['category'])
-        except Exception as e:
-            logger.error(e)
-            return {'error': '{} category not found'.format(cat_data['category'])}
-        if category in cat_list:
-            return {'error': '{} do not repeat same category for one product'.format(category)}
-        cat_list.append(category)
-    return {'category': destination_product_repack}
+    return {'source_product': product}
 
 
 def product_category(obj):
