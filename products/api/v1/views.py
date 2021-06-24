@@ -354,13 +354,14 @@ class ChildProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('parent_product').prefetch_related('product_pro_image',
-        'product_vendor_mapping', 'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category',
-        'parent_product__parent_product_pro_category__category', 'parent_product__product_parent_product__product_vendor_mapping',
-        'destination_product_pro', 'destination_product_pro__source_sku', 'destination_product_repackaging', 'parent_product__parent_product_pro_tax',
-        'packing_product_rt', 'packing_product_rt__packing_sku', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
-        'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping', 'child_product_log',
+        'product_vendor_mapping', 'parent_product__parent_product_pro_image', 'child_product_log',
+        'parent_product__parent_product_pro_category__category', 'parent_product__parent_product_pro_category',
+        'destination_product_pro', 'destination_product_pro__source_sku', 'destination_product_repackaging',
+        'packing_product_rt', 'packing_product_rt__packing_sku', 'parent_product__parent_product_pro_tax__tax',
+        'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
         'parent_product__parent_product_log', 'parent_product__product_parent_product__product_vendor_mapping__vendor',
-        'product_vendor_mapping__vendor').order_by('-id')
+        'product_vendor_mapping__vendor', 'parent_product__product_parent_product__product_vendor_mapping',
+        'parent_product__parent_brand',  'parent_product__parent_product_pro_tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
 
