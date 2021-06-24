@@ -16,7 +16,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers, UploadMasterDataAdminSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -715,34 +715,3 @@ class ProductVendorMappingView(GenericAPIView):
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
         return self.queryset
-
-
-class BulkUploadProductAttributes(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name')
-    serializer_class = UploadMasterDataAdminSerializers
-
-    def post(self, request):
-        """
-            This function will be used for following operations:
-            a)Set the Status to "Deactivated" for a Product
-            b)Mapping of "Sub Brand" to "Brand"
-            c)Mapping of "Sub Category" to "Category"
-            d)Set the data for "Parent SKU"
-            e)Mapping of Child SKU to Parent SKU
-            f)Set the Child SKU Data
-            After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
-        """
-
-        modified_data = validate_bulk_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        serializer = self.get_serializer(data=modified_data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('data uploaded successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-
-
