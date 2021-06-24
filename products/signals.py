@@ -105,7 +105,6 @@ def update_parent_product_elasticsearch(sender, instance=None, created=False, **
             product_images = [
                 {
                     "image_name": p_i.image_name,
-                    "image_alt": p_i.image_alt_text,
                     "image_url": p_i.image.url
                 }
                 for p_i in instance.parent_product_pro_image.all()
