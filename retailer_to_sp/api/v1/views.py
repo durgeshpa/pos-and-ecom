@@ -3724,7 +3724,9 @@ class OrderReturns(APIView):
         """
             Create/update retun for an order
         """
-        order_return, _ = OrderReturn.objects.get_or_create(order=order, status='created', new_order_total=0)
+        order_return = OrderReturn.objects.filter(order=order, status='created').last()
+        if not order_return:
+            order_return = OrderReturn.objects.create(order=order, status='created', new_order_total=0)
         order_return.processed_by = self.request.user
         order_return.return_reason = return_reason
         order_return.save()
