@@ -750,7 +750,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 class ProductSourceSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('product_name', 'product_sku')
+        fields = ('id', 'product_name', 'product_sku')
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
