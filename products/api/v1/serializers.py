@@ -134,12 +134,6 @@ class LogSerializers(serializers.ModelSerializer):
         model = CentralLog
         fields = ('update_at', 'updated_by',)
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        if not representation['update_at']:
-            representation['update_at'] = representation['update_at'].strftime("%Y-%m-%d %H:%M:%S")
-        return representation
-
 
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
