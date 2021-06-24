@@ -9,8 +9,6 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from categories.models import Category
 
-from rest_framework.permissions import AllowAny
-
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -39,7 +37,7 @@ class BulkUploadProductAttributes(GenericAPIView):
             return get_response(modified_data['error'])
 
         serializer = self.get_serializer(data=modified_data)
-        if serializer.is_valid():
+        if serializer.is_valid(updated_by=request.user):
             serializer.save()
             return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)

@@ -9,6 +9,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
+from brand.models import Brand
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -242,3 +243,55 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+class BulkMasterUploadCls(object):
+
+    @classmethod
+    def set_sub_brand_and_brand(cls, validated_data):
+        """
+            Updating Brand & Sub Brand
+        """
+        try:
+            count = 0
+            row_num = 1
+            sub_brand = []
+            info_logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
+            for row in validated_data:
+                count += 1
+                row_num += 1
+                try:
+                    if 'sub_brand_id' in row.keys():
+                        if row['sub_brand_id'] == row['brand_id']:
+                            continue
+                        else:
+                            if row['sub_brand_id'] == '':
+                                continue
+                            else:
+                                Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
+                except:
+                    sub_brand.append(str(row_num))
+            info_logger.info("Total row executed :" + str(count))
+            info_logger.info("Sub brand is not updated in these row :" + str(sub_brand))
+            info_logger.info("Method complete to set the Sub-Brand to Brand mapping from csv file")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Set Sub Brand and Brand Functionality' + {str(e)}")
+
+
+def get_excel_file_data(excel_file):
+    headers = excel_file.pop(0)  # headers of the uploaded excel file
+    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
+
+    uploaded_data_by_user_list = []
+    excel_dict = {}
+    count = 0
+    for row in excel_file:
+        for ele in row:
+            excel_dict[excelFile_headers[count]] = ele
+            count += 1
+        uploaded_data_by_user_list.append(excel_dict)
+        excel_dict = {}
+        count = 0
+
+    return uploaded_data_by_user_list, excelFile_headers

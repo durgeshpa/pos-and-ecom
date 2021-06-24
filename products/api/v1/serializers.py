@@ -129,6 +129,8 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class LogSerializers(serializers.ModelSerializer):
+    updated_by = UserSerializers(read_only=True)
+
     class Meta:
         model = CentralLog
 
@@ -860,8 +862,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Child Product with image category & tax"""
         validated_data.pop('product_images', None)
-        source_product = validated_data.pop('destination_product_pro', None)
-        packing_material = validated_data.pop('packing_product_rt', None)
+        validated_data.pop('destination_product_pro', None)
+        validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             child_product = ProductCls.create_child_product(self.initial_data['parent_product'], **validated_data)
