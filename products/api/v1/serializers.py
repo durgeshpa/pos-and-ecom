@@ -787,7 +787,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
                                            write_only=True)
     destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
     packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
+                                                                                   required=False)
 
     class Meta:
         model = Product

@@ -24,6 +24,8 @@ from products.services import parent_product_search, child_product_search, produ
     category_search, brand_search, parent_product_name_search
 from categories.models import Category
 
+from rest_framework.permissions import AllowAny
+
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -350,12 +352,12 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.prefetch_related('product_pro_image',
-        'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
-        'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
-        'parent_product__parent_product_pro_category__category', 'destination_product_repackaging',
-        'parent_product__product_parent_product__product_vendor_mapping', 'source_product_pro',
-        'packing_material_rt', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
+    permission_classes = (AllowAny,)
+    queryset = ChildProduct.objects.select_related('parent_product').prefetch_related('product_pro_image',
+        'product_vendor_mapping', 'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category',
+        'parent_product__parent_product_pro_category__category', 'parent_product__product_parent_product__product_vendor_mapping',
+        'destination_product_pro', 'destination_product_pro__source_sku', 'destination_product_repackaging', 'parent_product__parent_product_pro_tax',
+        'packing_product_rt', 'packing_product_rt__packing_sku', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
         'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping', 'child_product_log',
         'parent_product__parent_product_log', 'parent_product__product_parent_product__product_vendor_mapping__vendor',
         'product_vendor_mapping__vendor').order_by('-id')
