@@ -2134,7 +2134,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         meta = self.model._meta
         list_display = ('dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
                         'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
-                        'delivered_amount', 'delivered_value',
+                        'delivered_amount', 'delivered_value_percent',
                         'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -2144,7 +2144,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
             writer.writerow([obj.dispatch_no, obj.delivery_boy, obj.delivered_cnt, obj.returned_cnt,
                              obj.rescheduled_cnt, obj.total_shipments, self.delivery_percent(obj),
                              self.returned_percent(obj), self.rescheduled_percent(obj), obj.invoice_amount,
-                             obj.delivered_amount, self.delivered_value(obj), obj.starts_at, obj.completed_at,
+                             obj.delivered_amount, self.delivered_value_percent(obj), obj.starts_at, obj.completed_at,
                              obj.opening_kms, obj.closing_kms, self.km_run(obj)])
         return response
 
