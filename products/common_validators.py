@@ -201,7 +201,7 @@ def get_validate_packing_material(packing_material):
             product = Product.objects.get(id=pack_mat_data['packing_sku'], repackaging_type='packing_material')
         except Exception as e:
             logger.error(e)
-            return {'error': '{} product not found'.format(pack_mat_data['packing_sku'])}
+            return {'error': '{} packing_sku not found'.format(pack_mat_data['packing_sku'])}
 
     return {'packing_material_product': product}
 
@@ -213,7 +213,7 @@ def get_source_product(source_product_pro):
             product = Product.objects.get(id=pack_mat_data['source_sku'], repackaging_type='source')
         except Exception as e:
             logger.error(e)
-            return {'error': '{} product not found'.format(pack_mat_data['source_sku'])}
+            return {'error': '{} source_sku not found'.format(pack_mat_data['source_sku'])}
 
     return {'source_product': product}
 
