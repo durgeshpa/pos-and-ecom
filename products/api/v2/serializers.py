@@ -13,16 +13,17 @@ from products.models import Product, ParentProductTaxMapping, ParentProduct, Par
 from categories.models import Category
 from brand.models import Brand, Vendor
 from categories.common_validators import get_validate_category
-from products.common_function import BulkMasterUploadCls, get_excel_file_data
+from products.common_function import BulkMasterUploadCls, get_excel_file_data, create_master_data
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Master Data', required=True)
-    select_an_option = serializers.IntegerField(required=True)
+    select_an_option = serializers.CharField(required=True, write_only=True)
 
     class Meta:
         model = BulkUploadForProductAttributes
         fields = ('file', 'select_an_option',)
+
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':
@@ -486,7 +487,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         Template Validation (Checking, whether the excel file uploaded by user is correct or not!)
         """
         # Checking the headers of the excel file
-        if upload_master_data == 0:
+        if upload_master_data == "master_data":
             required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
                                     'weight_unit', 'weight_value', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
@@ -499,35 +500,35 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 1:
+        if upload_master_data == "inactive_status":
             required_header_list = ['sku_id', 'sku_name', 'mrp', 'status']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 2:
+        if upload_master_data == "sub_brand_with_brand":
             required_header_list = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 3:
+        if upload_master_data == "sub_category_with_category":
             required_header_list = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 4:
+        if upload_master_data == "child_parent":
             required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 5:
+        if upload_master_data == "child_data":
             required_header_list = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
                                     'status', 'repackaging_type', 'source_sku_id', 'source_sku_name',
                                     'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
@@ -537,7 +538,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
 
-        if upload_master_data == 6:
+        if upload_master_data == "parent_data":
             required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                     'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
                                     'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
@@ -557,15 +558,15 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        excel_file_data = xlsx_get(validated_data['file'])['Users']
-        uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
-        if validated_data['select_an_option'] == 0:
-            pass
-        if validated_data['select_an_option'] == 1:
-            pass
-        if validated_data['select_an_option'] == 2:
-            BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
-
-        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'])
+        create_master_data(validated_data)
+        attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
+        if attribute_id:
+            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+        else:
+            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
+        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
+                                                                          updated_by=validated_data['updated_by'])
 
         return product_attribute
+
+

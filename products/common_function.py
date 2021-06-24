@@ -1,4 +1,6 @@
 import logging
+from pyexcel_xlsx import get_data as xlsx_get
+
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -245,6 +247,44 @@ def serializer_error(serializer):
     return errors[0]
 
 
+def get_excel_file_data(excel_file):
+    headers = excel_file.pop(0)  # headers of the uploaded excel file
+    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
+
+    uploaded_data_by_user_list = []
+    excel_dict = {}
+    count = 0
+    for row in excel_file:
+        for ele in row:
+            excel_dict[excelFile_headers[count]] = ele
+            count += 1
+        uploaded_data_by_user_list.append(excel_dict)
+        excel_dict = {}
+        count = 0
+
+    return uploaded_data_by_user_list, excelFile_headers
+
+
+def create_master_data(validated_data):
+    excel_file_data = xlsx_get(validated_data['file'])['Users']
+    uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
+
+    if validated_data['select_an_option'] == "master_data":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "inactive_status":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "sub_brand_with_brand":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "sub_category_with_category":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "child_parent":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "child_data":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+    if validated_data['select_an_option'] == "parent_data":
+        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+
+
 class BulkMasterUploadCls(object):
 
     @classmethod
@@ -279,19 +319,3 @@ class BulkMasterUploadCls(object):
                 f"Something went wrong, while working with 'Set Sub Brand and Brand Functionality' + {str(e)}")
 
 
-def get_excel_file_data(excel_file):
-    headers = excel_file.pop(0)  # headers of the uploaded excel file
-    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
-
-    uploaded_data_by_user_list = []
-    excel_dict = {}
-    count = 0
-    for row in excel_file:
-        for ele in row:
-            excel_dict[excelFile_headers[count]] = ele
-            count += 1
-        uploaded_data_by_user_list.append(excel_dict)
-        excel_dict = {}
-        count = 0
-
-    return uploaded_data_by_user_list, excelFile_headers
