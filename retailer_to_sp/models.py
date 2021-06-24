@@ -2858,7 +2858,7 @@ class DeliveryData(Trip):
         verbose_name_plural = 'Delivery Performance Dashboard'
 
 
-class PickerPerformance(UserWithName):
+class PickerPerformance(PickerDashboard):
     class Meta:
         proxy = True
         verbose_name = 'Picker Performance Dashboard'
