@@ -37,8 +37,8 @@ class BulkUploadProductAttributes(GenericAPIView):
             return get_response(modified_data['error'])
 
         serializer = self.get_serializer(data=modified_data)
-        if serializer.is_valid(updated_by=request.user):
-            serializer.save()
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
             return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 

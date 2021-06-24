@@ -24,7 +24,6 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_child_product_image_ids
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
-from categories.common_validators import get_validate_category
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -133,8 +132,13 @@ class LogSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = CentralLog
-
         fields = ('update_at', 'updated_by',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if not representation['update_at']:
+            representation['update_at'] = datetime.strptime(representation['update_at'], "%H:%M:%S %d/%m/%Y").date()
+        return representation
 
 
 class ParentProductSerializers(serializers.ModelSerializer):

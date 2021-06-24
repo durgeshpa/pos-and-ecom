@@ -2,6 +2,7 @@ import re
 import json
 
 from pyexcel_xlsx import get_data as xlsx_get
+from django.db import transaction
 
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
@@ -554,6 +555,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Please add some data below the headers to upload it!")
 
+    @transaction.atomic
     def create(self, validated_data):
         excel_file_data = xlsx_get(validated_data['file'])['Users']
         uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
@@ -563,4 +565,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             pass
         if validated_data['select_an_option'] == 2:
             BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
-        return validated_data
+
+        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'])
+
+        return product_attribute
