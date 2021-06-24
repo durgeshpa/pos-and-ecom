@@ -24,7 +24,9 @@ class BasicCartOffers(object):
             # Add/Remove/Update combo offers on all products
             offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
             offers_list = BasicCartOffers.basic_cart_offers_check(cart, offers_list, cart.seller_shop.id)
-            Cart.objects.filter(pk=cart.id).update(offers=offers_list)
+            cart.offers = offers_list
+            cart.save()
+            # Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             # Get nearest cart offer over cart value
             offer = BasicCartOffers.get_cart_nearest_offer(cart, cart_products)
         return offer
@@ -46,7 +48,9 @@ class BasicCartOffers(object):
             # Check already applied cart offer
             offers_list = BasicCartOffers.refresh_basic_cart_offers(cart, float(cart_value),
                                                                     offers_list, auto_apply, coupon_id)
-            Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
+            cart.offers = offers_list['offers_list']
+            cart.save()
+            # Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
         return offers_list
 
     @classmethod
@@ -489,7 +493,9 @@ class BasicCartOffers(object):
             if discount_value <= cart_value:
                 offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
                 offers = BasicCartOffers.update_cart_offer(cart.offers, cart_value, offer)
-                Cart.objects.filter(pk=cart.id).update(offers=offers)
+                cart.offers = offers
+                cart.save()
+                # Cart.objects.filter(pk=cart.id).update(offers=offers)
                 return {'applied': True, 'offers_list': offers}
             else:
                 return {'error': 'Please Provide Spot Discount Less Than Cart Value', 'code': 406}

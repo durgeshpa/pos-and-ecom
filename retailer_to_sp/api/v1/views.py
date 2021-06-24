@@ -1697,7 +1697,9 @@ class CartCheckout(APIView):
             cart_value += product_map.selling_price * product_map.qty
         with transaction.atomic():
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
-            Cart.objects.filter(pk=cart.id).update(offers=offers_list)
+            cart.offers = offers_list
+            cart.save()
+            # Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
 
     def post_validate(self, shop):
