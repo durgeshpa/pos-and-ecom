@@ -250,7 +250,7 @@ class ParentProductView(GenericAPIView):
         if 'error' in modified_data:
             return get_response(modified_data['error'])
 
-        if not modified_data['id']:
+        if 'id' not in modified_data:
             return get_response('please provide id to update parent product', False)
 
         # validations for input id
@@ -409,7 +409,7 @@ class ChildProductView(GenericAPIView):
         if 'error' in modified_data:
             return get_response(modified_data['error'])
 
-        if not modified_data['id']:
+        if 'id' not in modified_data:
             return get_response('please provide id to update child product', False)
 
         # validations for input id
