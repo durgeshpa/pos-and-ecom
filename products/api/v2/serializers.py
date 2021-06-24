@@ -16,14 +16,32 @@ from categories.common_validators import get_validate_category
 from products.common_function import BulkMasterUploadCls, get_excel_file_data, create_master_data
 
 
+DATA_TYPE_CHOICES = (
+    ('master_data', 'master_data'),
+    ('inactive_status', 'inactive_status'),
+    ('sub_brand_with_brand', 'sub_brand_with_brand'),
+    ('sub_category_with_category', 'sub_category_with_category'),
+    ('child_parent', 'child_parent'),
+    ('child_data', 'child_data'),
+    ('parent_data', 'parent_data'),
+)
+
+
+class ChoiceField(serializers.ChoiceField):
+    def to_internal_value(self, data):
+        for key, val in self._choices.items():
+            if val == data:
+                return key
+        self.fail('invalid_choice', input=data)
+
+
 class UploadMasterDataSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Master Data', required=True)
-    select_an_option = serializers.CharField(required=True, write_only=True)
+    select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
 
     class Meta:
         model = BulkUploadForProductAttributes
         fields = ('file', 'select_an_option',)
-
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':
@@ -40,7 +58,6 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             self.initial_data['category_id'] = None
 
         # Checking, whether excel file is empty or not!
-
         if excel_file_data:
             self.read_file(excel_file_data, self.initial_data['select_an_option'], self.initial_data['category_id'])
         else:
