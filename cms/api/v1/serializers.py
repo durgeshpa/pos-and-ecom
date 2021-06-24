@@ -3,8 +3,7 @@ from datetime import datetime
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
@@ -120,6 +119,7 @@ class CardDataSerializer(serializers.ModelSerializer):
         for item in items:
             CardItem.objects.create(card_data=new_card_data,**item)
 
+        
         
         card = None
         card_id = data.get("card_id")
