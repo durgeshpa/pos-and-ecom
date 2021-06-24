@@ -2168,6 +2168,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     list_filter = [PickerPerformancePickerBoyFilter]
     list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
                     'picked_order_count', 'picked_sku_count','picked_pieces_count')
+    actions = ['export_as_csv']
 
     def has_add_permission(self, request):
         return False
@@ -2230,7 +2231,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
             return 0
 
     def get_percent(self, part, whole):
-        return round(part / whole * 100) if whole and whole>0 else 0
+        return "{:.2f}".format((1-(part / whole))*100) if whole and whole>0 else 0
 
     def fill_rate(self, obj):
         try:
@@ -2301,6 +2302,20 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
         from_date = to_date + relativedelta(days=-(1))
         return to_date, from_date
 
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
+                    'picked_order_count', 'picked_sku_count','picked_pieces_count')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([self.picker_number(obj), self.full_name(obj), self.assigned_order_count(obj),
+                             self.order_amount(obj), self.invoice_amount(obj), self.fill_rate(obj),
+                             self.picked_order_count(obj), self.picked_sku_count(obj),
+                             self.picked_pieces_count(obj)])
+        return response
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
