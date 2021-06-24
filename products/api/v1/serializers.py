@@ -778,8 +778,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
-    destination_product_pro = ProductSourceMappingSerializers(many=True)
-    packing_product_rt = ProductPackingMappingSerializers(many=True)
+    destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
+    packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
     destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
 
     class Meta:
@@ -864,9 +864,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.update_weight_inventory(child_product)
 
         if child_product.repackaging_type == 'destination':
-            ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
-            ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
-            ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
+            self.create_source_packing_material_destination_product(child_product,
+                                                                            destination_product_repack)
 
         return child_product
 
@@ -874,8 +873,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """ This method is used to update an instance of the Child Product's attribute."""
         validated_data.pop('product_images', None)
-        source_product = validated_data.pop('destination_product_pro', None)
-        packing_material = validated_data.pop('packing_product_rt', None)
+        validated_data.pop('destination_product_pro', None)
+        validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             # call super to save modified instance along with the validated data
@@ -899,24 +898,15 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.update_weight_inventory(child_product)
 
         if child_product.repackaging_type == 'destination':
-            try:
-                ProductCls.create_source_product_mapping(child_product, source_product)
-            except Exception as e:
-                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-                raise serializers.ValidationError(error)
-            try:
-                ProductCls.packing_material_product_mapping(child_product, packing_material)
-            except Exception as e:
-                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-                raise serializers.ValidationError(error)
-            try:
-                ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
-            except Exception as e:
-                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-                raise serializers.ValidationError(error)
-
+            self.create_source_packing_material_destination_product(child_product,
+                                                                    destination_product_repack)
         ProductCls.create_child_product_log(child_product)
         return child_product
+
+    def create_source_packing_material_destination_product(self, child_product, destination_product_repack):
+        ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
+        ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
+        ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
 
 def only_int(value):

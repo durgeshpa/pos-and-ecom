@@ -122,6 +122,10 @@ class ProductCls(object):
         """
             Create Source Product Mapping
         """
+        source_pro_map = ProductSourceMapping.objects.filter(destination_sku=child_product)
+        if source_pro_map.exists():
+            source_pro_map.delete()
+
         for source_sku_data in source_sku:
             source_sku_id = Product.objects.get(id=source_sku_data['source_sku'])
             ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=source_sku_id)
@@ -131,16 +135,24 @@ class ProductCls(object):
         """
             Create Packing Material Product Mapping
         """
+        pro_pac_mat = ProductPackingMapping.objects.filter(sku=child_product)
+        if pro_pac_mat.exists():
+            pro_pac_mat.delete()
+
         for source_sku_data in packing_material_rt:
             pack_sku_id = Product.objects.get(id=source_sku_data['packing_sku'])
             ProductPackingMapping.objects.create(sku=child_product, packing_sku=pack_sku_id,
-                packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+                                                 packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
         """
             Create Destination Product Mapping
         """
+        dest_rep_cost_map = DestinationRepackagingCostMapping.objects.filter(destination=child_product)
+        if dest_rep_cost_map.exists():
+            dest_rep_cost_map.delete()
+
         for pro_des_data in destination_product_repackaging:
             DestinationRepackagingCostMapping.objects.create(destination=child_product, **pro_des_data)
 
