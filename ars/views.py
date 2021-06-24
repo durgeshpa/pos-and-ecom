@@ -170,11 +170,14 @@ def get_inventory_in_process(warehouse, parent_product):
     shop_mapping = ParentRetailerMapping.objects.filter(retailer_id=warehouse, status=True,
                                                         parent__shop_type__shop_type='gf')
     gf_shop = shop_mapping.last().parent
-    inventory_in_process = Cart.objects.filter(gf_billing_address__shop_name=gf_shop,
-                                               po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL],
-                                               cart_list__cart_product__parent_product=parent_product)\
-                                       .values('cart_list__cart_product__parent_product')\
-                                       .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
+    inventory_in_process = CartProductMapping.objects.filter(cart__gf_billing_address__shop_name=gf_shop,
+                                                            cart__po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL,
+                                                                                 Cart.PARTIAL_DELIVERED],
+                                                            cart__po_validity_date__gte=datetime.date.today(),
+                                                            cart_product__parent_product=parent_product,
+                                                            is_grn_done=False)\
+                                                     .values('cart_product__parent_product') \
+                                                     .annotate(no_of_pieces=Sum('no_of_pieces'))
     return inventory_in_process[0]['no_of_pieces'] if inventory_in_process.exists() else 0
 
 
