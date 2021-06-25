@@ -349,7 +349,6 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'status' in row.keys():
                     if row['sku_id'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
-
         if upload_master_data == "inactive_status":
             row_num = 1
             required_columns = ['sku_id', 'sku_name', 'status']
@@ -376,7 +375,6 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'sku_name' in row.keys():
                     if row['sku_name'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
-
         if upload_master_data == "sub_brand_with_brand":
             row_num = 1
             required_columns = ['brand_id', 'brand_name']

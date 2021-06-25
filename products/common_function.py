@@ -11,8 +11,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
-from brand.models import Brand
-from products.master import UploadMasterData
+from products.master_data import UploadMasterData
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -272,16 +271,16 @@ def create_master_data(validated_data):
     if validated_data['select_an_option'] == "master_data":
         UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "inactive_status":
-        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_inactive_status(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "sub_brand_with_brand":
         UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "sub_category_with_category":
-        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_category_and_category(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "child_parent":
-        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_child_parent(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "child_data":
-        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_child_parent(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "parent_data":
-        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_parent_data(uploaded_data_by_user_list)
 
 

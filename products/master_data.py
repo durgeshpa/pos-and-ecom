@@ -89,7 +89,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Sub Brand and Brand Functionality' + {str(e)}")
 
     @classmethod
-    def set_sub_category_and_category(cls, header_list, excel_file_data_list):
+    def set_sub_category_and_category(cls, excel_file_data_list):
         try:
             count = 0
             row_num = 1
@@ -118,7 +118,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Sub Category and Category Functionality' + {str(e)}")
 
     @classmethod
-    def set_parent_data(cls, header_list, excel_file_data_list):
+    def set_parent_data(cls, excel_file_data_list):
         try:
             count = 0
             row_num = 1
@@ -224,7 +224,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
 
     @classmethod
-    def set_child_parent(cls, header_list, excel_file_data_list):
+    def set_child_parent(cls, excel_file_data_list):
         try:
             info_logger.info("Method Start to set the Child to Parent mapping from excel file")
             count = 0
@@ -249,7 +249,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
 
     @classmethod
-    def set_child_data(cls, header_list, excel_file_data_list):
+    def set_child_data(cls, excel_file_data_list):
         try:
             info_logger.info("Method Start to set the Child data from excel file")
             count = 0
