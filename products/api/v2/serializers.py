@@ -243,7 +243,8 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                                                             f"'ptr_percent' is invalid"))
 
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys() and row['repackaging_type'] != '':
-                    if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
+                    repack_type = ['none', 'source', 'destination', 'packing_material']
+                    if row['repackaging_type'] not in repack_type:
                         raise serializers.ValidationError(
                             _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
                               f"'source', 'destination' or 'packing_material'!"))

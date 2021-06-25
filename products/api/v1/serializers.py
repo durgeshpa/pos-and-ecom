@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
-    ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
+    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
     ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog, BulkUploadForProductAttributes
 from categories.models import Category
 from brand.models import Brand, Vendor
@@ -102,6 +102,14 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductTaxMapping
+        fields = ('id', 'tax')
+
+
+class ProductTaxMappingSerializers(serializers.ModelSerializer):
+    tax = TaxSerializers(read_only=True)
+
+    class Meta:
+        model = ProductTaxMapping
         fields = ('id', 'tax')
 
 
@@ -784,6 +792,7 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
+    product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_logs = LogSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
@@ -799,7 +808,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'destination_product_pro', 'destination_product_repackaging',
+                  'product_pro_image', 'parent_product', 'product_pro_tax', 'product_pro_category', 'destination_product_pro', 'destination_product_repackaging',
                   'packing_product_rt', 'product_vendor_mapping', 'product_images', 'child_product_logs')
 
     def validate(self, data):

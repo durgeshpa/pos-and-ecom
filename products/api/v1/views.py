@@ -361,7 +361,8 @@ class ChildProductView(GenericAPIView):
         'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
         'parent_product__parent_product_log', 'parent_product__product_parent_product__product_vendor_mapping__vendor',
         'product_vendor_mapping__vendor', 'parent_product__product_parent_product__product_vendor_mapping',
-        'parent_product__parent_brand',  'parent_product__parent_product_pro_tax',).order_by('-id')
+        'parent_product__parent_brand',  'parent_product__parent_product_pro_tax', 'product_pro_tax',
+        'product_pro_tax__tax').order_by('-id')
 
     serializer_class = ChildProductSerializers
 

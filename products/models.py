@@ -43,7 +43,7 @@ WEIGHT_UNIT_CHOICES = (
     )
 
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
-                                   (2, 'MONTHLY', 'Monthly'))
+                               (2, 'MONTHLY', 'Monthly'))
 
 
 class Size(models.Model):
@@ -397,7 +397,6 @@ class Product(BaseTimestampUserStatusModel):
             return None
         return product_capping.last()
 
-
     def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
@@ -691,8 +690,8 @@ class PriceSlab(models.Model):
 
 
 class ProductCategory(models.Model):
-    product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_pro_category', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -703,8 +702,8 @@ class ProductCategory(models.Model):
 
 
 class ProductCategoryHistory(models.Model):
-    product = models.ForeignKey(Product, related_name='product_pro_cat_history',on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name='category_pro_cat_history',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_cat_history', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_pro_cat_history', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -757,7 +756,7 @@ class Tax(BaseTimestampUserStatusModel):
 
 
 class ProductTaxMapping(BaseTimeModel):
-    product = models.ForeignKey(Product, related_name='product_pro_tax',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_tax', on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_pro_tax', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
@@ -897,7 +896,8 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         cat_sku_code = parent_product_category.category_sku_part
         parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
         brand_sku_code = instance.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+                                                      brand_sku_code=brand_sku_code).last()
         if last_sku:
             last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
         else:
