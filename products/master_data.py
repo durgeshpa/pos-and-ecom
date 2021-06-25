@@ -54,8 +54,7 @@ class UploadMasterData(object):
             info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
             info_logger.info("Method Complete to set the Inactive status from excel file")
         except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
+            error_logger.info(f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
 
     @classmethod
     def set_sub_brand_and_brand(cls, validated_data):
@@ -71,14 +70,11 @@ class UploadMasterData(object):
                 count += 1
                 row_num += 1
                 try:
-                    if 'sub_brand_id' in row.keys():
+                    if 'sub_brand_id' in row.keys() and not row['sub_brand_id'] == '':
                         if row['sub_brand_id'] == row['brand_id']:
                             continue
                         else:
-                            if row['sub_brand_id'] == '':
-                                continue
-                            else:
-                                Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
+                            Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
                 except:
                     sub_brand.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -99,14 +95,11 @@ class UploadMasterData(object):
                 count += 1
                 row_num += 1
                 try:
-                    if 'sub_category_id' in row.keys():
+                    if 'sub_category_id' in row.keys() and not row['sub_category_id'] == '':
                         if row['sub_category_id'] == row['category_id']:
                             continue
                         else:
-                            if row['sub_category_id'] == '':
-                                continue
-                            else:
-                                Category.objects.filter(id=row['sub_category_id']).update(
+                            Category.objects.filter(id=row['sub_category_id']).update(
                                     category_parent=row['category_id'])
                 except:
                     sub_category.append(str(row_num))
