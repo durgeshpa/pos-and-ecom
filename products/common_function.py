@@ -279,7 +279,7 @@ def create_master_data(validated_data):
     if validated_data['select_an_option'] == "child_parent":
         UploadMasterData.set_child_parent(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "child_data":
-        UploadMasterData.set_child_parent(uploaded_data_by_user_list)
+        UploadMasterData.set_child_data(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "parent_data":
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
 
