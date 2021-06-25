@@ -12,7 +12,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
 from brand.models import Brand
-
+from products.master import UploadMasterData
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -270,76 +270,18 @@ def create_master_data(validated_data):
     uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
 
     if validated_data['select_an_option'] == "master_data":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "inactive_status":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "sub_brand_with_brand":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "sub_category_with_category":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "child_parent":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "child_data":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "parent_data":
-        BulkMasterUploadCls.set_sub_brand_and_brand(uploaded_data_by_user_list)
-
-
-class BulkMasterUploadCls(object):
-
-    @classmethod
-    def set_inactive_status(cls, validated_data):
-        try:
-            count = 0
-            info_logger.info("Method Start to set Inactive status from excel file")
-            for row in validated_data:
-                if row['status'] == 'deactivated':
-                    count += 1
-                    if 'mrp' in row.keys():
-                        if row['mrp'] == '':
-                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
-                        else:
-                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated',
-                                                                                     product_mrp=row['mrp'])
-                    else:
-                        Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
-                else:
-                    continue
-            info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
-            info_logger.info("Method Complete to set the Inactive status from excel file")
-        except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
-
-    @classmethod
-    def set_sub_brand_and_brand(cls, validated_data):
-        """
-            Updating Brand & Sub Brand
-        """
-        try:
-            count = 0
-            row_num = 1
-            sub_brand = []
-            info_logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
-            for row in validated_data:
-                count += 1
-                row_num += 1
-                try:
-                    if 'sub_brand_id' in row.keys():
-                        if row['sub_brand_id'] == row['brand_id']:
-                            continue
-                        else:
-                            if row['sub_brand_id'] == '':
-                                continue
-                            else:
-                                Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
-                except:
-                    sub_brand.append(str(row_num))
-            info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Sub brand is not updated in these row :" + str(sub_brand))
-            info_logger.info("Method complete to set the Sub-Brand to Brand mapping from csv file")
-        except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Sub Brand and Brand Functionality' + {str(e)}")
+        UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
 
 

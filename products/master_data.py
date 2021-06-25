@@ -17,12 +17,12 @@ class SetMasterData(object):
 
     @classmethod
     def set_master_data(cls, header_list, excel_file_data_list):
-        UploadMasterData.set_inactive_status(header_list, excel_file_data_list)
-        UploadMasterData.set_parent_data(header_list, excel_file_data_list)
-        UploadMasterData.set_child_parent(header_list, excel_file_data_list)
-        UploadMasterData.set_sub_brand_and_brand(header_list, excel_file_data_list)
-        UploadMasterData.set_sub_category_and_category(header_list, excel_file_data_list)
-        UploadMasterData.set_child_data(header_list, excel_file_data_list)
+        UploadMasterData.set_inactive_status(excel_file_data_list)
+        UploadMasterData.set_parent_data(excel_file_data_list)
+        UploadMasterData.set_child_parent(excel_file_data_list)
+        UploadMasterData.set_sub_brand_and_brand(excel_file_data_list)
+        UploadMasterData.set_sub_category_and_category(excel_file_data_list)
+        UploadMasterData.set_child_data(excel_file_data_list)
 
 
 class UploadMasterData(object):
@@ -37,21 +37,18 @@ class UploadMasterData(object):
     """
 
     @classmethod
-    def set_inactive_status(cls, header_list, excel_file_data_list):
+    def set_inactive_status(cls, validated_data):
         try:
             count = 0
-            logger.info("Method Start to set Inactive status from excel file")
-            for row in excel_file_data_list:
+            info_logger.info("Method Start to set Inactive status from excel file")
+            for row in validated_data:
                 if row['status'] == 'deactivated':
                     count += 1
-                    if 'mrp' in row.keys():
-                        if row['mrp'] == '':
-                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
-                        else:
-                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated',
-                                                                                     product_mrp=row['mrp'])
+                    product = Product.objects.filter(product_sku=row['sku_id'])
+                    if 'mrp' in row.keys() and not row['mrp'] == '':
+                        product.update(status='deactivated', product_mrp=row['mrp'])
                     else:
-                        Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
+                        product.update(status='deactivated')
                 else:
                     continue
             info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
@@ -61,13 +58,16 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
 
     @classmethod
-    def set_sub_brand_and_brand(cls, header_list, excel_file_data_list):
+    def set_sub_brand_and_brand(cls, validated_data):
+        """
+            Updating Brand & Sub Brand
+        """
         try:
             count = 0
             row_num = 1
             sub_brand = []
             info_logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
-            for row in excel_file_data_list:
+            for row in validated_data:
                 count += 1
                 row_num += 1
                 try:

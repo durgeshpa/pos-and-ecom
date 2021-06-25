@@ -1747,19 +1747,19 @@ def upload_master_data_view(request):
                 count = 0
 
             if request.POST['upload_master_data'] == 'master_data':
-                SetMasterData.set_master_data(excel_file_headers, excel_file_list)
+                SetMasterData.set_master_data(excel_file_list)
             if request.POST['upload_master_data'] == 'inactive_status':
-                UploadMasterData.set_inactive_status(excel_file_headers, excel_file_list)
+                UploadMasterData.set_inactive_status(excel_file_list)
             if request.POST['upload_master_data'] == 'sub_brand_with_brand':
-                UploadMasterData.set_sub_brand_and_brand(excel_file_headers, excel_file_list)
+                UploadMasterData.set_sub_brand_and_brand(excel_file_list)
             if request.POST['upload_master_data'] == 'sub_category_with_category':
-                UploadMasterData.set_sub_category_and_category(excel_file_headers, excel_file_list)
+                UploadMasterData.set_sub_category_and_category(excel_file_list)
             if request.POST['upload_master_data'] == 'child_parent':
-                UploadMasterData.set_child_parent(excel_file_headers, excel_file_list)
+                UploadMasterData.set_child_parent(excel_file_list)
             if request.POST['upload_master_data'] == 'child_data':
-                UploadMasterData.set_child_data(excel_file_headers, excel_file_list)
+                UploadMasterData.set_child_data(excel_file_list)
             if request.POST['upload_master_data'] == 'parent_data':
-                UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
+                UploadMasterData.set_parent_data(excel_file_list)
 
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
             if attribute_id:

@@ -13,7 +13,7 @@ from products.models import Product, ParentProductTaxMapping, ParentProduct, Par
 from categories.models import Category
 from brand.models import Brand, Vendor
 from categories.common_validators import get_validate_category
-from products.common_function import BulkMasterUploadCls, get_excel_file_data, create_master_data
+from products.common_function import get_excel_file_data, create_master_data
 
 
 DATA_TYPE_CHOICES = (
@@ -48,12 +48,17 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_('Sorry! Only excel(xlsx) file accepted.'))
         excel_file_data = xlsx_get(self.initial_data['file'])['Users']
 
-        if 'category_id' in self.initial_data:
-            category_val = get_validate_category(self.initial_data['category_id'])
-            if 'error' in category_val:
-                raise serializers.ValidationError(_(category_val["error"]))
-            self.initial_data['category_id'] = category_val['category']
+        if data['select_an_option'] == "master_data" or data['select_an_option'] == "inactive_status" or \
+                data['select_an_option'] == "child_parent" or data['select_an_option'] == "child_data" or \
+                data['select_an_option'] == "parent_data":
+            if not 'category_id' in self.initial_data:
+                raise serializers.ValidationError(_('Please Select One Category!'))
 
+            elif 'category_id' in self.initial_data and self.initial_data['category_id']:
+                category_val = get_validate_category(self.initial_data['category_id'])
+                if 'error' in category_val:
+                    raise serializers.ValidationError(_(category_val["error"]))
+                self.initial_data['category_id'] = category_val['category']
         else:
             self.initial_data['category_id'] = None
 
@@ -65,7 +70,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
         return data
 
-    def validate_row(self, uploaded_data_list, header_list, upload_master_data, category):
+    def validate_row(self, uploaded_data_list, header_list, category):
         """
         This method will check that Data uploaded by user is valid or not.
         """
@@ -79,12 +84,10 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                             raise serializers.ValidationError(
                                 _(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
                     product = Product.objects.filter(product_sku=row['sku_id'])
-                    categry = Category.objects.values('category_name').filter(id=int(category))
-                    if not Product.objects.filter(id=product[0].id,
-                                                  parent_product__parent_product_pro_category__category__category_name__icontains=
-                                                  categry[0]['category_name']).exists():
+                    if not Product.objects.filter(id=product[0].id, parent_product__parent_product_pro_category__category__category_name__icontains=
+                                                  category.category_name).exists():
                         raise serializers.ValidationError(_(f"Row {row_num} | Please upload Products of Category "
-                                                            f"({categry[0]['category_name']}) that you have "
+                                                            f"({category.category_name}) that you have "
                                                             f"selected in Dropdown Only! "))
                 if 'sku_name' in header_list and 'sku_name' in row.keys():
                     if row['sku_name'] != '':
@@ -491,7 +494,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                     if row['status'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
-        self.validate_row(uploaded_data_list, header_list, upload_master_data, category)
+        self.validate_row(uploaded_data_list, header_list, category)
 
     def check_headers(self, excel_file_headers, required_header_list):
         for head in excel_file_headers:
@@ -578,12 +581,11 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         create_master_data(validated_data)
         attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
         if attribute_id:
-            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(attribute_id['id'] + 1) + '.xlsx '
+            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(
+                attribute_id['id'] + 1) + '.xlsx '
         else:
             validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
         product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
                                                                           updated_by=validated_data['updated_by'])
 
         return product_attribute
-
-
