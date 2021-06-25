@@ -37,11 +37,11 @@ class UploadMasterData(object):
     """
 
     @classmethod
-    def set_inactive_status(cls, validated_data):
+    def set_inactive_status(cls, excel_file_data_list):
         try:
             count = 0
             info_logger.info("Method Start to set Inactive status from excel file")
-            for row in validated_data:
+            for row in excel_file_data_list:
                 if row['status'] == 'deactivated':
                     count += 1
                     product = Product.objects.filter(product_sku=row['sku_id'])
@@ -57,7 +57,7 @@ class UploadMasterData(object):
             error_logger.info(f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
 
     @classmethod
-    def set_sub_brand_and_brand(cls, validated_data):
+    def set_sub_brand_and_brand(cls, excel_file_data_list):
         """
             Updating Brand & Sub Brand
         """
@@ -66,7 +66,7 @@ class UploadMasterData(object):
             row_num = 1
             sub_brand = []
             info_logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
-            for row in validated_data:
+            for row in excel_file_data_list:
                 count += 1
                 row_num += 1
                 try:
@@ -99,8 +99,7 @@ class UploadMasterData(object):
                         if row['sub_category_id'] == row['category_id']:
                             continue
                         else:
-                            Category.objects.filter(id=row['sub_category_id']).update(
-                                    category_parent=row['category_id'])
+                            Category.objects.filter(id=row['sub_category_id']).update(category_parent=row['category_id'])
                 except:
                     sub_category.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
