@@ -169,7 +169,7 @@ table tr td,th,h4,span,address{
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.qty| intcomma}}</div>
 
-    								<td class="text-right">{{m.qty|mul:m.price}}/-</td>
+    								<td class="text-right">{{m.qty|mul:m.price | floatformat:2 | intcomma}}/-</td>
     							</tr>
 									{% endfor %}
 
