@@ -16,7 +16,7 @@ class SetMasterData(object):
     """
 
     @classmethod
-    def set_master_data(cls, header_list, excel_file_data_list):
+    def set_master_data(cls, excel_file_data_list):
         UploadMasterData.set_inactive_status(excel_file_data_list)
         UploadMasterData.set_parent_data(excel_file_data_list)
         UploadMasterData.set_child_parent(excel_file_data_list)
