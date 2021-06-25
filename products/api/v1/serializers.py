@@ -130,6 +130,11 @@ class UserSerializers(serializers.ModelSerializer):
 class LogSerializers(serializers.ModelSerializer):
     updated_by = UserSerializers(read_only=True)
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['update_at'] = instance.update_at.strftime("%b %d %Y %I:%M%p")
+        return representation
+
     class Meta:
         model = CentralLog
         fields = ('update_at', 'updated_by',)
