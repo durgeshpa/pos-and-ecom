@@ -2049,7 +2049,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                     'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
                     'delivered_amount', 'delivered_value_percent',
                     'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
-    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
+    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch, ('created_at', DateTimeRangeFilter)]
     actions = ['export_as_csv']
 
     def delivered_cnt(self, obj):
@@ -2104,9 +2104,10 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     def get_queryset(self, request):
 
         qs = super(DeliveryPerformanceDashboard, self).get_queryset(request)
-        today = datetime.datetime.now().date()
-        start_from = today-datetime.timedelta(days=60)
-        qs = qs.filter(created_at__gte=start_from)
+        #today = datetime.datetime.now().date()
+        #start_from = today-datetime.timedelta(days=60)
+        to_date, from_date = self.get_date(request)
+        qs = qs.filter(created_at__gte=from_date, created_at__lte=to_date)
 
         metrics = {
             'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
@@ -2129,6 +2130,23 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                          total_shipments=Count('rt_invoice_trip')
                          ).order_by('-id').prefetch_related('delivery_boy')
         return qs
+
+    def get_date(self, request):
+        try:
+            if request.GET['created_at__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['created_at__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['created_at__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['created_at__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
 
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
