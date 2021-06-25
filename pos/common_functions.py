@@ -424,7 +424,7 @@ class RewardCls(object):
             if points_already_debited_log:
                 points_already_debited = points_already_debited_log.aggregate(points=Sum('points'))['points']
 
-            points_debit -= points_already_debited
+            points_debit -= points_already_debited * -1
 
         if points_debit:
             # Deduct from user direct reward points
