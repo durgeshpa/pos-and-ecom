@@ -2266,19 +2266,6 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
             logger.exception(e)
             return 0
 
-    def completed_at(self, obj):
-        """
-        Returns the time when picking was completed
-        return completed_at if completed_at is set in  else fetch the completed_at from Pickup table
-        """
-        if obj.completed_at:
-            return obj.completed_at
-        if obj.order:
-            if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
-                return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
-                                             status='picking_complete').last().completed_at
-
-
     def get_queryset(self, request):
         """
         request object
