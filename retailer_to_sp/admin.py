@@ -12,7 +12,7 @@ from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
 from django.core.exceptions import ValidationError, FieldError
 from django.db.models import Q, Count, FloatField, Avg
-from django.db.models import F, Sum, OuterRef, Subquery, IntegerField
+from django.db.models import F, Sum, OuterRef, Subquery, IntegerField, CharField, Value
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
 from django.urls import reverse
@@ -48,7 +48,7 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformance)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2064,7 +2064,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                     'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
                     'delivered_amount', 'delivered_value_percent',
                     'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
-    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
+    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch, ('created_at', DateTimeRangeFilter)]
     actions = ['export_as_csv']
 
     def delivered_cnt(self, obj):
@@ -2119,9 +2119,10 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     def get_queryset(self, request):
 
         qs = super(DeliveryPerformanceDashboard, self).get_queryset(request)
-        today = datetime.datetime.now().date()
-        start_from = today-datetime.timedelta(days=60)
-        qs = qs.filter(created_at__gte=start_from)
+        #today = datetime.datetime.now().date()
+        #start_from = today-datetime.timedelta(days=60)
+        to_date, from_date = self.get_date(request)
+        qs = qs.filter(created_at__gte=from_date, created_at__lte=to_date)
 
         metrics = {
             'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
@@ -2144,6 +2145,23 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                          total_shipments=Count('rt_invoice_trip')
                          ).order_by('-id').prefetch_related('delivery_boy')
         return qs
+
+    def get_date(self, request):
+        try:
+            if request.GET['created_at__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['created_at__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['created_at__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['created_at__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
 
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
@@ -2180,7 +2198,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
     """
-    list_filter = [PickerPerformancePickerBoyFilter]
+    list_filter = [PickerPerformancePickerBoyFilter, ('picker_assigned_date', DateTimeRangeFilter)]
     list_display = ('picker_number', 'full_name', 'assigned_order_count', 'order_amount', 'invoice_amount', 'fill_rate',
                     'picked_order_count', 'picked_sku_count', 'picked_pieces_count',)
     actions = ['export_as_csv']
@@ -2210,24 +2228,21 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
 
     def assigned_order_count(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).count()
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).count()
         except Exception as e:
             logger.exception(e)
             return 0
 
     def order_amount(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
         except Exception as e:
             logger.exception(e)
             return 0
 
     def invoice_amount(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(inv_amount=Sum(
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(inv_amount=Sum(
                 F('order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')
                 *
                 F('order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
@@ -2249,9 +2264,8 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
 
     def picked_order_count(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
-                                              picker_assigned_date__date__lte=to_date,
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                              picker_assigned_date__date__lte=obj.to_date,
                                               picking_status='picking_complete').count()
         except Exception as e:
             logger.exception(e)
@@ -2259,8 +2273,7 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
 
     def picked_sku_count(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date, picking_status='picking_complete')
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date, picking_status='picking_complete')
             picked_count = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)).count()
             return picked_count
         except:
@@ -2268,9 +2281,8 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
 
     def picked_pieces_count(self, obj):
         try:
-            to_date, from_date = self.get_date(obj)
-            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
-                                                   picker_assigned_date__date__lte=to_date,
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                                   picker_assigned_date__date__lte=obj.to_date,
                                                    picking_status='picking_complete')
 
             picked_quantity = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)
@@ -2280,18 +2292,6 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
         except Exception as e:
             logger.exception(e)
             return 0
-
-    def completed_at(self, obj):
-        """
-        Returns the time when picking was completed
-        return completed_at if completed_at is set in  else fetch the completed_at from Pickup table
-        """
-        if obj.completed_at:
-            return obj.completed_at
-        if obj.order:
-            if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
-                return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
-                                             status='picking_complete').last().completed_at
 
 
     def get_queryset(self, request):
@@ -2305,12 +2305,24 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
         queryset = qs.filter(
             picker_assigned_date__date__lte=to_date, picker_assigned_date__date__gte=from_date).order_by(
             'picker_boy').distinct('picker_boy').select_related('order').prefetch_related('order__rt_order_order_product',
-                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user')
+                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user').annotate(to_date=Value(to_date, output_field=CharField()), from_date=Value(from_date, output_field=CharField()))
         return queryset
 
     def get_date(self, request):
-        to_date = datetime.date.today() + datetime.timedelta(days=1)
-        from_date = to_date + relativedelta(days=-(1))
+        try:
+            if request.GET['picker_assigned_date__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['picker_assigned_date__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['picker_assigned_date__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['picker_assigned_date__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
         return to_date, from_date
 
     def export_as_csv(self, request, queryset):
@@ -2343,4 +2355,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
-admin.site.register(PickerPerformance, PickerPerformanceDashboard)
+admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)
