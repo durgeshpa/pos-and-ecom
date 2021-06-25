@@ -288,6 +288,30 @@ def create_master_data(validated_data):
 class BulkMasterUploadCls(object):
 
     @classmethod
+    def set_inactive_status(cls, validated_data):
+        try:
+            count = 0
+            info_logger.info("Method Start to set Inactive status from excel file")
+            for row in validated_data:
+                if row['status'] == 'deactivated':
+                    count += 1
+                    if 'mrp' in row.keys():
+                        if row['mrp'] == '':
+                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
+                        else:
+                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated',
+                                                                                     product_mrp=row['mrp'])
+                    else:
+                        Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
+                else:
+                    continue
+            info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
+            info_logger.info("Method Complete to set the Inactive status from excel file")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
+
+    @classmethod
     def set_sub_brand_and_brand(cls, validated_data):
         """
             Updating Brand & Sub Brand

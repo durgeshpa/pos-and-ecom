@@ -310,7 +310,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         """
         Mandatory Columns Check as per condition of  "upload_master_data"
         """
-        if upload_master_data == 0:
+        if upload_master_data == "master_data":
             row_num = 1
             required_columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
             for ele in required_columns:
@@ -347,7 +347,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                     if row['sku_id'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
-        if upload_master_data == 1:
+        if upload_master_data == "inactive_status":
             row_num = 1
             required_columns = ['sku_id', 'sku_name', 'status']
             for ele in required_columns:
@@ -374,7 +374,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                     if row['sku_name'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
 
-        if upload_master_data == 2:
+        if upload_master_data == "sub_brand_with_brand":
             row_num = 1
             required_columns = ['brand_id', 'brand_name']
             for ele in required_columns:
@@ -393,7 +393,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'brand_name' in row.keys():
                     if row['brand_name'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Brand_Name' can't be empty"))
-        if upload_master_data == 3:
+        if upload_master_data == "sub_category_with_category":
             row_num = 1
             required_columns = ['category_id', 'category_name']
             for ele in required_columns:
@@ -412,7 +412,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'category_name' in row.keys():
                     if row['category_name'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Category_Name' can't be empty"))
-        if upload_master_data == 4:
+        if upload_master_data == "child_parent":
             row_num = 1
             required_columns = ['sku_id', 'parent_id', 'status']
             for ele in required_columns:
@@ -439,7 +439,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'status' in row.keys():
                     if row['sku_id'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
-        if upload_master_data == 5:
+        if upload_master_data == "child_data":
             required_columns = ['sku_id', 'sku_name', 'status']
             row_num = 1
             for ele in required_columns:
@@ -464,7 +464,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 if 'sku_name' in row.keys():
                     if row['sku_name'] == '':
                         raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
-        if upload_master_data == 6:
+        if upload_master_data == "parent_data":
             row_num = 1
             required_columns = ['parent_id', 'parent_name', 'status']
             for ele in required_columns:
@@ -578,7 +578,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         create_master_data(validated_data)
         attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
         if attribute_id:
-            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(attribute_id['id'] + 1) + '.xlsx '
         else:
             validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
         product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
