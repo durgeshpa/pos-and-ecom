@@ -2172,75 +2172,161 @@ class PickerPerformancePickerBoyFilter(InputFilter):
         value = self.value()
         if value :
             return queryset.filter(
-                  Q(picker_user__picker_boy__phone_number=value)
+                  Q(picker_boy__phone_number=value)
                 )
         return queryset
 
-# class PickerPerformanceDashboard(admin.ModelAdmin):
-#     """
-#     Admin class for representing Delivery Performance Dashboard
-#     """
-#     change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
-#     date_hierarchy = 'picker_user__created_at'
-#     list_filter = [PickerPerformancePickerBoyFilter,]
-#
-#     def has_add_permission(self, request):
-#         return False
-#
-#     def changelist_view(self, request, extra_context=None):
-#         response = super().changelist_view(
-#             request,
-#             extra_context=extra_context,
-#         )
-#
-#         try:
-#             qs = response.context_data['cl'].queryset
-#             qs = qs.filter(groups__name='Picker Boy')
-#             q_year = datetime.datetime.now().year
-#             q_month = datetime.datetime.now().month
-#             if request.GET:
-#                 if request.GET.get('picker_user__created_at__year'):
-#                     q_year = request.GET.get('picker_user__created_at__year')
-#                 if request.GET.get('picker_user__created_at__month'):
-#                     q_month = request.GET.get('picker_user__created_at__month')
-#                 qs = qs.filter(picker_user__created_at__month=q_month, picker_user__created_at__year=q_year)
-#             else:
-#                 qs = qs.filter(picker_user__created_at__month=q_month, picker_user__created_at__year=q_year)
-#
-#         except (AttributeError, KeyError):
-#             return response
-#         subquery = Pickup.objects.filter(pickup_type_id=OuterRef('picker_user__order__order_no'))\
-#                                  .values('pickup_quantity')
-#
-#         response.context_data['summary'] = list(
-#             qs.order_by().annotate(assigned_cnt=Count('picker_user'),
-#                                     order_amt=Sum(F('picker_user__order__order_amount'), output_field=FloatField()),
-#                                    invoice_amt=Sum(
-#                                        F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price') *
-#                                        F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
-#                                        output_field=FloatField()),
-#                                     picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),),
-#                                     picked_sku_cnt=Sum(self.sku_count_subquery(), output_field=IntegerField()),
-#                                     picked_sku_pieces_cnt = Sum(SQSum(subquery, IntegerField()), output_field=IntegerField())
-#                                    )\
-#                          .values('phone_number', 'first_name','assigned_cnt','order_amt', 'invoice_amt','picked_order_cnt',
-#                                  'picked_sku_cnt','picked_sku_pieces_cnt'))
-#         response.context_data['summary_total'] = dict(
-#             qs.aggregate(assigned_cnt=Count('picker_user'),
-#                                    order_amt=Sum(F('picker_user__order__order_amount')),
-#                                    invoice_amt=Sum(
-#                                        F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')*
-#                                        F('picker_user__order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'), output_field=FloatField()),
-#                                    picked_order_cnt=Count('picker_user',
-#                                                           filter=Q(picker_user__picking_status='picking_complete'), ),
-#                                    picked_sku_cnt=Sum(self.sku_count_subquery()),
-#                                    picked_sku_pieces_cnt=Sum(SQSum(subquery, IntegerField()))
-#                          )
-#         )
-#         return response
-#
-#     def sku_count_subquery(self):
-#         return SQCount(Pickup.objects.filter(pickup_type_id=OuterRef('picker_user__order__order_no')).values('pk'))
+class PickerPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    list_filter = [PickerPerformancePickerBoyFilter]
+    list_display = ('picker_number', 'full_name', 'assigned_order_count', 'order_amount', 'invoice_amount', 'fill_rate',
+                    'picked_order_count', 'picked_sku_count', 'picked_pieces_count',)
+    actions = ['export_as_csv']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @staticmethod
+    def picker_number(obj):
+        try:
+            return obj.picker_boy.phone_number
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+    @staticmethod
+    def full_name(obj):
+        try:
+            return obj.picker_boy.get_full_name()
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+
+    def assigned_order_count(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def order_amount(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def invoice_amount(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date).aggregate(inv_amount=Sum(
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')
+                *
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
+                output_field=FloatField()))['inv_amount']
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def get_percent(self, part, whole):
+        return "{:.2f}".format((1-(part / whole))*100) if whole and whole>0 else 0
+
+    def fill_rate(self, obj):
+        try:
+            fill_rate = self.get_percent(self.invoice_amount(obj), self.order_amount(obj))
+        except:
+            fill_rate = 0
+        return fill_rate
+
+    def picked_order_count(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
+                                              picker_assigned_date__date__lte=to_date,
+                                              picking_status='picking_complete').count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def picked_sku_count(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,picker_assigned_date__date__lte=to_date, picking_status='picking_complete')
+            picked_count = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)).count()
+            return picked_count
+        except:
+            return 0
+
+    def picked_pieces_count(self, obj):
+        try:
+            to_date, from_date = self.get_date(obj)
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=from_date,
+                                                   picker_assigned_date__date__lte=to_date,
+                                                   picking_status='picking_complete')
+
+            picked_quantity = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)
+                                                  ).aggregate(Sum('pickup_quantity'))['pickup_quantity__sum']
+            return picked_quantity
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def completed_at(self, obj):
+        """
+        Returns the time when picking was completed
+        return completed_at if completed_at is set in  else fetch the completed_at from Pickup table
+        """
+        if obj.completed_at:
+            return obj.completed_at
+        if obj.order:
+            if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
+                return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
+                                             status='picking_complete').last().completed_at
+
+
+    def get_queryset(self, request):
+        """
+        request object
+        return:-queryset
+        """
+
+        to_date, from_date = self.get_date(request)
+        qs = super(PickerPerformanceDashboard, self).get_queryset(request)
+        queryset = qs.filter(
+            picker_assigned_date__date__lte=to_date, picker_assigned_date__date__gte=from_date).order_by(
+            'picker_boy').distinct('picker_boy').select_related('order').prefetch_related('order__rt_order_order_product',
+                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user')
+        return queryset
+
+    def get_date(self, request):
+        to_date = datetime.date.today() + datetime.timedelta(days=1)
+        from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
+                    'picked_order_count', 'picked_sku_count','picked_pieces_count')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([self.picker_number(obj), self.full_name(obj), self.assigned_order_count(obj),
+                             self.order_amount(obj), self.invoice_amount(obj), self.fill_rate(obj),
+                             self.picked_order_count(obj), self.picked_sku_count(obj),
+                             self.picked_pieces_count(obj)])
+        return response
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
@@ -2257,4 +2343,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
-#admin.site.register(PickerPerformance, PickerPerformanceDashboard)
+admin.site.register(PickerPerformance, PickerPerformanceDashboard)
