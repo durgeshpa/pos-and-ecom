@@ -230,12 +230,12 @@ class UploadMasterData(object):
                 if not row['status'] == 'deactivated':
                     count += 1
                     try:
-                        Product.objects.filter(product_sku=row['sku_id']).update(
-                            parent_product=ParentProduct.objects.filter(parent_id=row['parent_id']).last())
+                        child_pro = Product.objects.filter(product_sku=row['sku_id'])
+                        parent_pro = ParentProduct.objects.filter(parent_id=row['parent_id']).last()
+                        child_pro.update(parent_product=parent_pro)
                     except:
                         set_child.append(str(row_num))
-                else:
-                    continue
+
             info_logger.info("Total row executed :" + str(count))
             info_logger.info("Child SKU is not exist in these row :" + str(set_child))
             info_logger.info("Method complete to set the Child to Parent mapping from excel file")

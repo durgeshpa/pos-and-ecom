@@ -417,22 +417,19 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
                 row_num += 1
                 if 'sku_id' not in row.keys():
                     raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
-                if 'sku_id' in row.keys():
-                    if row['sku_id'] == '':
-                        raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if 'sku_id' in row.keys() and row['sku_id'] == '':
+                    raise serializers.ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
                 if 'parent_id' not in row.keys():
                     raise serializers.ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
-                if 'parent_id' in row.keys():
-                    if row['parent_id'] == '':
-                        raise serializers.ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
+                if 'parent_id' in row.keys() and row['parent_id'] == '':
+                    raise serializers.ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
                 if 'status' not in row.keys():
                     raise serializers.ValidationError(
                         _(f"Row {row_num} | 'Status can either be 'Active', 'Pending Approval' "
                           f"or 'Deactivated'!" |
                           'Status cannot be empty'))
-                if 'status' in row.keys():
-                    if row['sku_id'] == '':
-                        raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
+                if 'status' in row.keys() and row['status'] == '':
+                    raise serializers.ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
         if upload_master_data == "child_data":
             required_columns = ['sku_id', 'sku_name', 'status']
             row_num = 1
