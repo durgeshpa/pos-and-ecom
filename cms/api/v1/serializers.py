@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from django.utils.six import indexbytes
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -247,7 +248,13 @@ class PageCardSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PageCard
-        fields = ('card_version', 'card_pos', 'card_priority')
+        fields = ('card_pos', 'card_priority',)
+        depth = 1
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['card_data'] = CardDataSerializer(instance.card_version.card_data).data
+        return data
 
 
 class PageVersionDetailSerializer(serializers.ModelSerializer):
@@ -291,14 +298,16 @@ class PageSerializer(serializers.ModelSerializer):
         try:
             app = Application.objects.get(id = app_id)
         except Exception:
-            raise ValidationError({'message': f"app with id {app_id} not found"})
+            raise NotFound({'message': f"app with id {app_id} not found"})
 
-        # Checking cards version exist or not
+        # Checking cards exist or not and card is of same app
         for card in cards:
             try:
-                card_version = CardVersion.objects.get(id = card['card_version_id'])
+                card_query = Card.objects.get(id = card['card_id'])
             except Exception:
-                raise ValidationError({"message": f"card version with {card['card_version_id']} doesnot exist"})
+                raise NotFound({"message": f"card with {card['card_id']} doesnot exist"})
+            if card_query.app != app:
+                raise ValidationError({"message": f"card id {card['card_id']} is not linked with app {app.id}."})
 
         # Create new Page
         page = Page.objects.create(**validated_data)
@@ -309,9 +318,12 @@ class PageSerializer(serializers.ModelSerializer):
         # Creating Page Version
         latest_page_version = PageVersion.objects.create(page = page, version_no = 1)
 
-        # Mapping Cards of Pages
+        # Mapping Card Versions and Page
         for card in cards:
-           PageCard.objects.create(page_version = latest_page_version, **card)
+            card_id = card.pop('card_id')
+            card_queryset = Card.objects.get(id = card_id)
+            card_version = CardVersion.objects.filter(card = card_queryset).order_by('-version_number').first()
+            PageCard.objects.create(page_version = latest_page_version, card_version = card_version, **card)
 
         return page
 
@@ -319,12 +331,17 @@ class PageSerializer(serializers.ModelSerializer):
         data = self.context.get("request").data
         cards = data.get("cards", None)
 
-        # Checking cards version exist or not
+        #Getting Page is linked with which app
+        app = ApplicationPage.objects.get(page = instance).app
+
+        # Checking cards version exist or not and card is of same app
         for card in cards:
             try:
-                card_version = CardVersion.objects.get(id = card['card_version_id'])
+                card_query = Card.objects.get(id = card['card_id'])
             except Exception:
-                raise ValidationError({"message": f"card version with {card['card_version_id']} doesnot exist"})
+                raise NotFound({"message": f"card with {card['card_id']} doesnot exist"})
+            if card_query.app != app:
+                raise ValidationError({"message": f"card id {card['card_id']} is not linked with app {app.id}."})
         
         latest_version = PageVersion.objects.filter(page = instance).order_by('-version_no').first()
 
@@ -333,11 +350,14 @@ class PageSerializer(serializers.ModelSerializer):
             page_card.delete()
         else:
             latest_version = PageVersion.objects.create(page = instance, version_no = latest_version.version_no + 1)
-            instance.status = "Draft"
+            instance.state = "Draft"
         
         # Mapping Cards of Pages
         for card in cards:
-           PageCard.objects.create(page_version = latest_version, **card)
+            card_id = card.pop('card_id')
+            card_queryset = Card.objects.get(id = card_id)
+            card_version = CardVersion.objects.filter(card = card_queryset).order_by('-version_number').first()
+            PageCard.objects.create(page_version = latest_version, card_version = card_version, **card)
 
         return super().update(instance, validated_data)
 
@@ -358,7 +378,7 @@ class PageDetailSerializer(serializers.ModelSerializer):
         else:
             page = PageVersion.objects.select_related('page')
             page_versions = page.filter(page_id = instance.id)
-            data['versions'] = PageVersionSerializer(page_versions, many = True).data
+            data['version'] = PageVersionSerializer(page_versions, many = True).data
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
@@ -366,15 +386,19 @@ class PageDetailSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         page = Page.objects.get(id = instance.id)
+        version_no = validated_data.pop('active_version_no')
         if validated_data.get('state'):
             state = validated_data.get('state')
             if state == "Published":
                 instance.state = "Published"
-                if validated_data.get('active_version_no'):
-                    instance.active_version_no = validated_data.get('active_version_no')
+                if version_no:
+                    try:
+                        page_version = PageVersion.objects.get(page = page, version_no = version_no)
+                    except Exception:
+                        raise NotFound({'message': f"Page with version number {version_no} does not exist"})
                 else:
                     page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
-                    page_version.published_on = datetime.now()
-                    page_version.save()
-                    instance.active_version_no = page_version.version_no
+                page_version.published_on = datetime.now()
+                page_version.save()
+                instance.active_version_no = page_version.version_no
         return super().update(instance, validated_data)

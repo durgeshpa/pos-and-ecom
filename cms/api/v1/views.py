@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
 
@@ -459,7 +459,7 @@ class PageView(APIView):
         try:
             page = Page.objects.get(id = page_id)
         except Exception:
-            raise ValidationError({"message": f"No pages exists with id {{page_id}}"})
+            raise NotFound({"message": f"No pages exists with id {page_id}"})
         serializer = self.serializer_class(data=data, instance=page, context = {'request':request} ,partial=True)
         if serializer.is_valid():
             serializer.save()
