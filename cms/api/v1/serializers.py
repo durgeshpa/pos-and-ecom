@@ -243,6 +243,28 @@ class PageApplicationSerializer(serializers.ModelSerializer):
         fields = ('id', 'name',) 
 
 
+class PageCardDataSerializer(serializers.ModelSerializer):
+    """Serializer for CardData of PageVersion"""
+
+    items = CardItemSerializer(many=True, required=False)
+    image = Base64ImageField(
+        max_length=None, use_url=True,required=False
+    )
+    class Meta:
+        model = CardData
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        """ Add card_id to data """
+        data = super().to_representation(instance)
+        card_version = CardVersion.objects.all().filter(card_data=instance).first()
+        data['card_id'] = card_version.card.id
+        data['card_name'] = card_version.card.name
+        data['card_type'] = card_version.card.type
+      
+        return data
+
+
 class PageCardSerializer(serializers.ModelSerializer):
     """ Serializer for Page Card Mapping"""
     
@@ -253,7 +275,7 @@ class PageCardSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['card_data'] = CardDataSerializer(instance.card_version.card_data).data
+        data['card_data'] = PageCardDataSerializer(instance.card_version.card_data).data
         return data
 
 
@@ -345,12 +367,11 @@ class PageSerializer(serializers.ModelSerializer):
         
         latest_version = PageVersion.objects.filter(page = instance).order_by('-version_no').first()
 
-        if instance.state == "Draft":
+        if not latest_version.published_on:
             page_card = PageCard.objects.filter(page_version = latest_version)
             page_card.delete()
         else:
             latest_version = PageVersion.objects.create(page = instance, version_no = latest_version.version_no + 1)
-            instance.state = "Draft"
         
         # Mapping Cards of Pages
         for card in cards:
@@ -372,7 +393,6 @@ class PageDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         if self.context.get('page_version'):
-            data.pop('active_version_no')
             data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
             pass
         else:
@@ -386,7 +406,9 @@ class PageDetailSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         page = Page.objects.get(id = instance.id)
-        version_no = validated_data.pop('active_version_no')
+        version_no = None
+        if validated_data.get('active_version_no'):
+            version_no = validated_data.pop('active_version_no')
         if validated_data.get('state'):
             state = validated_data.get('state')
             if state == "Published":
@@ -401,4 +423,9 @@ class PageDetailSerializer(serializers.ModelSerializer):
                 page_version.published_on = datetime.now()
                 page_version.save()
                 instance.active_version_no = page_version.version_no
+
+            elif state == "Draft":
+                instance.state = "Draft"
+                instance.active_version_no = None
+
         return super().update(instance, validated_data)
