@@ -220,7 +220,6 @@ class ProductCls(object):
             Create Tax Log
         """
         tax_log = CentralLog.objects.create(tax=log_obj, updated_by=log_obj.updated_by)
-
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
                      'tax': log_obj}
         info_logger.info("tax update info ", dict_data)

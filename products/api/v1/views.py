@@ -187,7 +187,6 @@ class TaxView(GenericAPIView):
         """ PUT API for Tax Updation """
 
         info_logger.info("Tax PUT api called.")
-
         if 'id' not in request.data:
             return get_response('please provide id to update tax', False)
 
@@ -197,7 +196,6 @@ class TaxView(GenericAPIView):
             return get_response(id_instance['error'])
 
         tax_instance = id_instance['data'].last()
-
         serializer = self.serializer_class(instance=tax_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
@@ -205,9 +203,27 @@ class TaxView(GenericAPIView):
             return get_response('tax updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def delete(self, request):
+        """ Delete Tax """
+
+        info_logger.info("Tax DELETE api called.")
+        if not request.data.get('tax_ids'):
+            return get_response('please provide tax_ids', False)
+        try:
+            for id in request.data.get('tax_ids'):
+                tax_id = self.queryset.get(id=int(id))
+                try:
+                    tax_id.delete()
+                except:
+                    return get_response(f'can not delete tax {tax_id.tax_name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid tax_id {id}', False)
+        return get_response('tax were deleted successfully!', True)
+
     def search_filter_product_tax(self):
         search_text = self.request.GET.get('search_text')
-        # search using tax_name based on criteria that matches
+        # search using tax_name and tax_type based on criteria that matches
         if search_text:
             self.queryset = tax_search(self.queryset, search_text)
         return self.queryset

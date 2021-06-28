@@ -736,7 +736,7 @@ class Tax(BaseTimestampUserStatusModel):
         )
 
     tax_name = models.CharField(max_length=255, validators=[ProductNameValidator])
-    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateField(null=True, blank=True)
     tax_end_at = models.DateField(null=True, blank=True)
