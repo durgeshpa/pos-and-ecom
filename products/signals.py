@@ -48,8 +48,8 @@ def update_elasticsearch_on_price_update(sender, instance=None, created=False, *
 
 @receiver(post_save, sender=PriceSlab)
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
-    product = Product.objects.filter(pk=instance.product.id).last()
-    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+    product = Product.objects.filter(pk=instance.product_price.product.id).last()
+    if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
         product.status = 'active'
         product.save()
     else:
