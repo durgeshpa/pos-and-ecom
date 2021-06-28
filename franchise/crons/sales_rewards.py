@@ -12,9 +12,12 @@ from marketing.models import ReferralCode
 
 
 def process_rewards_on_sales():
+    hdpos_shops_str = GlobalConfig.objects.get(key="hdpos_loyalty_shop_ids").value
+    hdpos_shops_str = str(hdpos_shops_str) if hdpos_shops_str else ''
 
-    hdpos_shops_str = GlobalConfig.objects.filter(key="hdpos_loyalty_shop_ids").last()
-    pos_shops_str = GlobalConfig.objects.get(key='order_loyalty_active_shops').value
+    pos_shops_str = GlobalConfig.objects.get(key='pos_loyalty_shop_ids').value
+    pos_shops_str = str(pos_shops_str) if pos_shops_str else ''
+
     sales_objs = FranchiseSales.objects.filter(rewards_status=0)
 
     if sales_objs.exists():
@@ -26,10 +29,11 @@ def process_rewards_on_sales():
                     if not shop_map:
                         update_sales_ret_obj(sales_obj, 2, 'shop mapping not found')
                         continue
-                    if pos_shops_str == 'all' or (pos_shops_str and shop_map.shop.id in pos_shops_str.split(',')):
-                        update_sales_ret_obj(sales_obj, 2, 'shop not eligible for reward')
+                    if pos_shops_str == 'all' or (pos_shops_str and str(shop_map.shop.id) in pos_shops_str.split(',')):
+                        update_sales_ret_obj(sales_obj, 2, 'shop already included for pos')
                         continue
-                    if not hdpos_shops_str or (hdpos_shops_str and shop_map.shop.id not in hdpos_shops_str.split(',')):
+                    if not hdpos_shops_str or (
+                            hdpos_shops_str and str(shop_map.shop.id) not in hdpos_shops_str.split(',')):
                         update_sales_ret_obj(sales_obj, 2, 'shop not eligible for reward')
                         continue
                     if not Product.objects.filter(product_sku=sales_obj.product_sku).exists():
