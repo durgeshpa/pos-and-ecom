@@ -108,6 +108,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                ] + urls
         return urls
 
+    class Media:
+        pass
+
 
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('order', 'payment_mode', 'paid_by', 'processed_by', 'created_at')
