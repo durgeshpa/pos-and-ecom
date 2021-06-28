@@ -344,17 +344,11 @@ class DownloadMasterData(object):
         row_num = 1
 
         columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
-        mandatory_columns = ['brand_id', 'brand_name']
 
         for col_num, column_title in enumerate(columns, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = column_title
-            if column_title in mandatory_columns:
-                ft = Font(color="000000FF", name="Arial", b=True)
-            else:
-                ft = Font(color="00000000", name="Arial", b=True)
-            cell.font = ft
-
+          
         brands = Brand.objects.values('id', 'brand_name', 'brand_parent_id', 'brand_parent__brand_name')
         for brand in brands:
             row = []
@@ -387,19 +381,12 @@ class DownloadMasterData(object):
         row_num = 1
 
         columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name', ]
-        mandatory_columns = ['category_id', 'category_name']
 
         for col_num, column_title in enumerate(columns, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = column_title
-            if column_title in mandatory_columns:
-                ft = Font(color="000000FF", name="Arial", b=True)
-            else:
-                ft = Font(color="00000000", name="Arial", b=True)
-            cell.font = ft
 
-        categories = Category.objects.values('id', 'category_name', 'category_parent_id',
-                                             'category_parent__category_name')
+        categories = Category.objects.values('id', 'category_name', 'category_parent_id', 'category_parent__category_name')
         for category in categories:
             row = []
             if category['category_parent_id']:
