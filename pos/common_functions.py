@@ -323,7 +323,7 @@ class RewardCls(object):
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         if reward_obj:
             if not count_considered:
-                reward_obj.direct_users = 1
+                reward_obj.direct_users += 1
             reward_obj.indirect_earned += points
             reward_obj.save()
             # Log transaction
@@ -353,6 +353,8 @@ class RewardCls(object):
         # Add to each ancestor's indirect reward points
         if total_users > 0:
             points_per_user = int(points / total_users)
+            if not points_per_user:
+                return
             for ancestor in users:
                 reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=ancestor).last()
                 if reward_obj:
