@@ -1,5 +1,15 @@
 import logging
 
+import datetime
+import openpyxl
+from openpyxl.styles import Font
+
+from pyexcel_xlsx import get_data as xlsx_get
+from django.db import transaction
+from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
+from django.db.models import Q
+
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
@@ -289,3 +299,136 @@ class UploadMasterData(object):
         except Exception as e:
             error_logger.info(
                 f"Something went wrong, while working with 'Set Child Data Functionality' + {str(e)}")
+
+
+class DownloadMasterData(object):
+    """
+        This function will be used for following operations:
+        a)return an Sample Excel File in xlsx format which can be used for uploading the master_data
+        b)return an Sample Excel File in xlsx format which can be used for Status to "Deactivated" for a Product
+        c)return an Sample Excel File in xlsx format which can be used for Mapping of "Sub Brand" to "Brand"
+        d)return an Sample Excel File in xlsx format which can be used for Mapping of "Sub Category" to "Category"
+        e)return an Sample Excel File in xlsx format which can be used for Set the data for "Parent SKU"
+        f)return an Sample Excel File in xlsx format which can be used for Mapping of Child SKU to Parent SKU
+        g)return an Sample Excel File in xlsx format which can be used for Set the Child SKU Data
+        """
+
+    def response_workbook(xlx_filename):
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response[
+            'Content-Disposition'] = 'attachment; filename={date}-{xlx_filename}.xlsx'.format(
+            date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'), xlx_filename=xlx_filename,
+        )
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Users'
+
+        return response, workbook, worksheet
+
+    @classmethod
+    def set_master_data_sample_excel_file(cls):
+        pass
+
+    @classmethod
+    def set_inactive_status_sample_excel_file(cls):
+        pass
+
+    @classmethod
+    def brand_sub_brand_mapping_sample_excel_file(cls):
+
+        response, workbook, worksheet = DownloadMasterData.response_workbook("subBrand-BrandMappingSample")
+        # Sheet header, first row
+        row_num = 1
+
+        columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
+        mandatory_columns = ['brand_id', 'brand_name']
+
+        for col_num, column_title in enumerate(columns, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = column_title
+            if column_title in mandatory_columns:
+                ft = Font(color="000000FF", name="Arial", b=True)
+            else:
+                ft = Font(color="00000000", name="Arial", b=True)
+            cell.font = ft
+
+        brands = Brand.objects.values('id', 'brand_name', 'brand_parent_id', 'brand_parent__brand_name')
+        for brand in brands:
+            row = []
+            if brand['brand_parent_id']:
+                row.append(brand['brand_parent_id'])
+                row.append(brand['brand_parent__brand_name'])
+                row.append(brand['id'])
+                row.append(brand['brand_name'])
+
+            else:
+                row.append(brand['id'])
+                row.append(brand['brand_name'])
+                row.append(brand['brand_parent_id'])
+                row.append(brand['brand_parent__brand_name'])
+
+            row_num += 1
+            for col_num, cell_value in enumerate(row, 1):
+                cell = worksheet.cell(row=row_num, column=col_num)
+                cell.value = cell_value
+
+        workbook.save(response)
+        info_logger.info("Brand and Sub Brand Mapping Sample Excel File has been Successfully Downloaded")
+        return response
+
+    @classmethod
+    def category_sub_category_mapping_sample_excel_file(cls):
+        response, workbook, worksheet = DownloadMasterData.response_workbook("subCategory-CategorySample")
+
+        # Sheet header, first row
+        row_num = 1
+
+        columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name', ]
+        mandatory_columns = ['category_id', 'category_name']
+
+        for col_num, column_title in enumerate(columns, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = column_title
+            if column_title in mandatory_columns:
+                ft = Font(color="000000FF", name="Arial", b=True)
+            else:
+                ft = Font(color="00000000", name="Arial", b=True)
+            cell.font = ft
+
+        categories = Category.objects.values('id', 'category_name', 'category_parent_id',
+                                             'category_parent__category_name')
+        for category in categories:
+            row = []
+            if category['category_parent_id']:
+                row.append(category['category_parent_id'])
+                row.append(category['category_parent__category_name'])
+                row.append(category['id'])
+                row.append(category['category_name'])
+            else:
+                row.append(category['id'])
+                row.append(category['category_name'])
+                row.append(category['category_parent_id'])
+                row.append(category['category_parent__category_name'])
+            row_num += 1
+            for col_num, cell_value in enumerate(row, 1):
+                cell = worksheet.cell(row=row_num, column=col_num)
+                cell.value = cell_value
+
+        workbook.save(response)
+        info_logger.info("Category and Sub Category Mapping Sample Excel File has been Successfully Downloaded")
+        return response
+
+    @classmethod
+    def set_child_with_parent_sample_excel_file(cls):
+        pass
+
+    @classmethod
+    def set_child_data_sample_excel_file(cls):
+        pass
+
+    @classmethod
+    def set_parent_data_sample_excel_file(cls):
+        pass

@@ -11,7 +11,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
-from products.master_data import SetMasterData, UploadMasterData
+from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -282,5 +282,25 @@ def create_master_data(validated_data):
         UploadMasterData.set_child_data(uploaded_data_by_user_list)
     if validated_data['select_an_option'] == "parent_data":
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
+
+
+def download_sample_file_master_data(validated_data):
+
+    if validated_data['select_an_option'] == "master_data":
+        response = DownloadMasterData.set_master_data_sample_excel_file()
+    if validated_data['select_an_option'] == "inactive_status":
+        response = DownloadMasterData.set_inactive_status_sample_excel_file()
+    if validated_data['select_an_option'] == "sub_brand_with_brand":
+        response = DownloadMasterData.brand_sub_brand_mapping_sample_excel_file()
+    if validated_data['select_an_option'] == "sub_category_with_category":
+        response = DownloadMasterData.category_sub_category_mapping_sample_excel_file()
+    if validated_data['select_an_option'] == "child_parent":
+        response = DownloadMasterData.set_child_with_parent_sample_excel_file()
+    if validated_data['select_an_option'] == "child_data":
+        response = DownloadMasterData.set_child_data_sample_excel_file()
+    if validated_data['select_an_option'] == "parent_data":
+        response = DownloadMasterData.set_parent_data_sample_excel_file()
+
+    return response
 
 

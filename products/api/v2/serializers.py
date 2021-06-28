@@ -1,20 +1,34 @@
 import re
 import json
+import logging
 
 from pyexcel_xlsx import get_data as xlsx_get
 from django.db import transaction
-
 from django.utils.translation import gettext_lazy as _
+
 from rest_framework import serializers
 
-from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
-    ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
-    ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog, BulkUploadForProductAttributes
+from products.models import (
+    Product, ProductCategory, ProductOption,
+    ProductTaxMapping, ProductVendorMapping,
+    ProductImage, ProductHSN, ProductPrice,
+    ParentProduct, ParentProductCategory,
+    ProductSourceMapping,
+    ParentProductTaxMapping, Tax, ParentProductImage,
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
+    ProductPackingMapping
+)
+
 from categories.models import Category
 from brand.models import Brand, Vendor
 from categories.common_validators import get_validate_category
-from products.common_function import get_excel_file_data, create_master_data
+from products.common_function import get_excel_file_data, create_master_data, download_sample_file_master_data
+# from products.ap.v1.serializers import UserSerializers
 
+logger = logging.getLogger(__name__)
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 DATA_TYPE_CHOICES = (
     ('master_data', 'master_data'),
@@ -37,6 +51,7 @@ class ChoiceField(serializers.ChoiceField):
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Master Data', required=True)
+    # updated_by = UserSerializers()
     select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
 
     class Meta:
@@ -566,14 +581,53 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        create_master_data(validated_data)
-        attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
-        if attribute_id:
-            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(
-                attribute_id['id'] + 1) + '.xlsx '
-        else:
-            validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
-        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
-                                                                          updated_by=validated_data['updated_by'])
+        try:
+            create_master_data(validated_data)
+            attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
+            if attribute_id:
+                validated_data['file'].name = validated_data['select_an_option'] + '-' + str(
+                    attribute_id['id'] + 1) + '.xlsx '
+            else:
+                validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
+            product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
+                                                                              updated_by=validated_data['updated_by'])
 
-        return product_attribute
+            return product_attribute
+
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+
+class DownloadMasterDataSerializers(serializers.ModelSerializer):
+    select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
+
+    class Meta:
+        model = BulkUploadForProductAttributes
+        fields = ('select_an_option',)
+
+    def validate(self, data):
+
+        if data['select_an_option'] == "master_data" or data['select_an_option'] == "inactive_status" or \
+                data['select_an_option'] == "child_parent" or data['select_an_option'] == "child_data" or \
+                data['select_an_option'] == "parent_data":
+            if not 'category_id' in self.initial_data:
+                raise serializers.ValidationError(_('Please Select One Category!'))
+
+            elif 'category_id' in self.initial_data and self.initial_data['category_id']:
+                category_val = get_validate_category(self.initial_data['category_id'])
+                if 'error' in category_val:
+                    raise serializers.ValidationError(_(category_val["error"]))
+                self.initial_data['category_id'] = category_val['category']
+        else:
+            self.initial_data['category_id'] = None
+
+        return data
+
+    def create(self, validated_data):
+        response = download_sample_file_master_data(validated_data)
+        return response
+
+
+
+

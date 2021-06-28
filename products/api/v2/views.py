@@ -3,7 +3,8 @@ import logging
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 
-from .serializers import UploadMasterDataSerializers
+from django.http import HttpResponse
+from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -43,4 +44,20 @@ class BulkUploadProductAttributes(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class BulkDownloadProductAttributes(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Category.objects.values('id', 'category_name')
+    serializer_class = DownloadMasterDataSerializers
 
+    def post(self, request):
+        """ POST API for Download Sample BulkDownloadProductAttributes """
+
+        info_logger.info("BulkDownloadProductAttributes POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("BulkDownloadProductAttributes Downloaded successfully")
+            return HttpResponse(response,
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+        return get_response(serializer_error(serializer), False)
