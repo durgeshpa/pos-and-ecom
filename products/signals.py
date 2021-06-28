@@ -24,29 +24,38 @@ from .tasks import approve_product_price
 
 @receiver(post_save, sender=ProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    update_shop_product_es(instance.seller_shop.id, instance.product.id)
-    visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
-    for prod_id, visibility in visibility_changes.items():
-        sibling_product = Product.objects.filter(pk=prod_id).last()
-        update_visibility(instance.seller_shop.id, sibling_product, visibility)
-        if prod_id == instance.product.id:
-            update_shop_product_es.delay(instance.seller_shop.id, prod_id)
-        else:
-            update_product_es.delay(instance.seller_shop.id, prod_id, visible=visibility)
+    product = Product.objects.filter(pk=instance.product.id).last()
+    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.seller_shop.id
+        product_id = instance.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 @receiver(post_save, sender=SlabProductPrice)
 def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
-    shop_id = instance.seller_shop.id
-    product_id = instance.product.id
-    update_product_visibility(product_id, shop_id)
+    product = Product.objects.filter(pk=instance.product.id).last()
+    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.seller_shop.id
+        product_id = instance.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 @receiver(post_save, sender=PriceSlab)
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
-    shop_id = instance.product_price.seller_shop.id
-    product_id = instance.product_price.product.id
-    update_product_visibility(product_id, shop_id)
+    product = Product.objects.filter(pk=instance.product_price.product.id).last()
+    if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.product_price.seller_shop.id
+        product_id = instance.product_price.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 def update_product_visibility(product_id, shop_id):

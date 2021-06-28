@@ -603,7 +603,7 @@ class BulkOrder(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.cart.order_id
+        return self.cart.rt_order_cart_mapping.order_no
 
     @property
     def cart_products_sample_file(self):
@@ -1004,6 +1004,7 @@ class Order(models.Model):
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    points_added = models.IntegerField(default=0, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2981,3 +2982,10 @@ class DeliveryData(Trip):
         proxy = True
         verbose_name = 'Delivery Performance Dashboard'
         verbose_name_plural = 'Delivery Performance Dashboard'
+
+
+class PickerPerformanceData(PickerDashboard):
+    class Meta:
+        proxy = True
+        verbose_name = 'Picker Performance Dashboard'
+        verbose_name_plural = 'Picker Performance Dashboard'

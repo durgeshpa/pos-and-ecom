@@ -10,9 +10,9 @@ from dateutil.relativedelta import relativedelta
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
-from django.core.exceptions import ValidationError
-from django.db.models import Q, Count, FloatField
-from django.db.models import F, Sum, OuterRef, Subquery, IntegerField
+from django.core.exceptions import ValidationError, FieldError
+from django.db.models import Q, Count, FloatField, Avg
+from django.db.models import F, Sum, OuterRef, Subquery, IntegerField, CharField, Value
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
 from django.urls import reverse
@@ -27,7 +27,7 @@ from global_config.models import GlobalConfig
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_backend.utils import time_diff_days_hours_mins_secs
+from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_seconds
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
@@ -48,7 +48,7 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2039,45 +2039,90 @@ class InvoiceAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-class SQCount(Subquery):
-    """
-    Subclass of subquery to count no of rows
-    """
-    template = "(SELECT count(*) FROM (%(subquery)s) _count)"
-    output_field = IntegerField()
 
+class SQSum(Subquery):
+    """
+    Subclass of subquery get the sum
+    """
+    template = '(SELECT SUM(%(field)s) FROM (%(subquery)s) _sum)'
+
+    def as_sql(self, compiler, connection, template=None, **extra_context):
+        if 'field' not in extra_context and 'field' not in self.extra:
+            if len(self.queryset._fields) > 1:
+                raise FieldError('You must provide the field name, or have a single column')
+            extra_context['field'] = self.queryset._fields[0]
+        return super(SQSum, self).as_sql(
+            compiler, connection, template=template, **extra_context
+        )
 
 class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
     """
-    date_hierarchy = 'created_at'
-    change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
-    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
+    # change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
+    list_display = ['dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                    'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                    'delivered_amount', 'delivered_value_percent',
+                    'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
+    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch, ('created_at', DateTimeRangeFilter)]
+    actions = ['export_as_csv']
+
+    def delivered_cnt(self, obj):
+        return obj.delivered_cnt
+
+    def returned_cnt(self, obj):
+        return obj.returned_cnt
+
+    def pending_cnt(self, obj):
+        return obj.pending_cnt
+
+    def rescheduled_cnt(self, obj):
+        return obj.rescheduled_cnt
+
+    def total_shipments(self, obj):
+        return obj.total_shipments
+
+    def invoice_amount(self, obj):
+        return obj.invoice_amount
+
+    def delivered_amount(self, obj):
+        return obj.delivered_amount
+
+    def delivery_percent(self, obj):
+        return self.get_percent(obj.delivered_cnt, obj.total_shipments)
+
+    def get_percent(self, part, whole):
+        return round(part / whole * 100) if whole and whole>0 else 0
+
+    def returned_percent(self, obj):
+        return self.get_percent(obj.returned_cnt, obj.total_shipments)
+
+    def rescheduled_percent(self, obj):
+        return self.get_percent(obj.rescheduled_cnt, obj.total_shipments)
+
+    def delivered_value_percent(self, obj):
+        return self.get_percent(obj.delivered_amount, obj.invoice_amount)
+
+    def km_run(self, obj):
+        return obj.closing_kms-obj.opening_kms if obj.closing_kms and obj.opening_kms else 0
 
     def has_add_permission(self, request):
         return False
 
-    def changelist_view(self, request, extra_context=None):
-        response = super().changelist_view(
-            request,
-            extra_context=extra_context,
-        )
-        try:
-            qs = response.context_data['cl'].queryset
-            if request.GET:
-                if request.GET.get('created_at__year'):
-                    q_year = request.GET.get('created_at__year')
-                    qs = qs.filter(created_at__year=q_year)
-                if request.GET.get('created_at__month'):
-                    q_month = request.GET.get('created_at__month')
-                    qs = qs.filter(created_at__month=q_month)
-            else:
-                q_month = datetime.datetime.now().month
-                q_year = datetime.datetime.now().year
-                qs = qs.filter(created_at__month=q_month, created_at__year=q_year)
-        except (AttributeError, KeyError):
-            return response
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def dispathces(self, obj):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (obj.pk,
+                                                                                                   obj.dispatch_no))
+
+    def get_queryset(self, request):
+
+        qs = super(DeliveryPerformanceDashboard, self).get_queryset(request)
+        #today = datetime.datetime.now().date()
+        #start_from = today-datetime.timedelta(days=60)
+        to_date, from_date = self.get_date(request)
+        qs = qs.filter(created_at__gte=from_date, created_at__lte=to_date)
 
         metrics = {
             'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
@@ -2092,43 +2137,208 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                                 'FULLY_RETURNED_AND_CLOSED']
         pending_status_list = ['OUT_FOR_DELIVERY']
 
-        sum_total = dict(qs.aggregate(**metrics))
         qs = qs.annotate(**metrics,
-                         delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
-                         returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
-                         pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
-                         rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
-                         total_shipments=SQCount(self.invoice_count_subquery()),
-                         ).order_by('-id')
+                         delivered_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=delivered_status_list)),
+                         returned_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=returned_status_list)),
+                         pending_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=pending_status_list)),
+                         rescheduled_cnt=Count('rescheduling_shipment_trip'),
+                         total_shipments=Count('rt_invoice_trip')
+                         ).order_by('-id').prefetch_related('delivery_boy')
+        return qs
 
-        response.context_data['summary'] = list(qs)
+    def get_date(self, request):
+        try:
+            if request.GET['created_at__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['created_at__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['created_at__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['created_at__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
 
-        sum_total.update(dict(
-            qs.aggregate(delivered_tot=Sum('delivered_cnt'),
-                        returned_tot=Sum('returned_cnt'),
-                        pending_tot=Sum('pending_cnt'),
-                        rescheduled_tot=Sum('rescheduled_cnt'),
-                        grand_total_shipments=Sum('total_shipments'),
-                        )
-        ))
-        response.context_data['summary_total'] = sum_total
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                        'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                        'delivered_amount', 'delivered_value_percent',
+                        'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([obj.dispatch_no, obj.delivery_boy, obj.delivered_cnt, obj.returned_cnt,
+                             obj.rescheduled_cnt, obj.total_shipments, self.delivery_percent(obj),
+                             self.returned_percent(obj), self.rescheduled_percent(obj), obj.invoice_amount,
+                             obj.delivered_amount, self.delivered_value_percent(obj), obj.starts_at, obj.completed_at,
+                             obj.opening_kms, obj.closing_kms, self.km_run(obj)])
         return response
 
-    def invoice_count_subquery(self, status_list=None):
-        """
-        Returns subquery for counting invoices by given trip id and statuses
-        """
-        query = OrderedProduct.objects.filter(trip=OuterRef('pk'))
-        if status_list is not None:
-            query = query.filter(shipment_status__in=status_list)
-        return query.values('pk')
 
-    def rescheduled_count_subquery(self):
-        """
-        Returns subquery for counting invoices rescheduled in a trip
-        """
-        return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
+class PickerPerformancePickerBoyFilter(InputFilter):
+    title = 'Picker Boy'
+    parameter_name = 'phone_no'
 
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(
+                  Q(picker_boy__phone_number=value)
+                )
+        return queryset
+
+class PickerPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    list_filter = [PickerPerformancePickerBoyFilter, ('picker_assigned_date', DateTimeRangeFilter)]
+    list_display = ('picker_number', 'full_name', 'assigned_order_count', 'order_amount', 'invoice_amount', 'fill_rate',
+                    'picked_order_count', 'picked_sku_count', 'picked_pieces_count',)
+    actions = ['export_as_csv']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @staticmethod
+    def picker_number(obj):
+        try:
+            return obj.picker_boy.phone_number
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+    @staticmethod
+    def full_name(obj):
+        try:
+            return obj.picker_boy.get_full_name()
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+
+    def assigned_order_count(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def order_amount(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def invoice_amount(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(inv_amount=Sum(
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')
+                *
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
+                output_field=FloatField()))['inv_amount']
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def get_percent(self, part, whole):
+        return "{:.2f}".format((1-(part / whole))*100) if whole and whole>0 else 0
+
+    def fill_rate(self, obj):
+        try:
+            fill_rate = self.get_percent(self.invoice_amount(obj), self.order_amount(obj))
+        except:
+            fill_rate = 0
+        return fill_rate
+
+    def picked_order_count(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                              picker_assigned_date__date__lte=obj.to_date,
+                                              picking_status='picking_complete').count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def picked_sku_count(self, obj):
+        try:
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date, picking_status='picking_complete')
+            picked_count = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)).count()
+            return picked_count
+        except:
+            return 0
+
+    def picked_pieces_count(self, obj):
+        try:
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                                   picker_assigned_date__date__lte=obj.to_date,
+                                                   picking_status='picking_complete')
+
+            picked_quantity = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)
+                                                  ).aggregate(Sum('pickup_quantity'))['pickup_quantity__sum']
+            return picked_quantity
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+
+    def get_queryset(self, request):
+        """
+        request object
+        return:-queryset
+        """
+
+        to_date, from_date = self.get_date(request)
+        qs = super(PickerPerformanceDashboard, self).get_queryset(request)
+        queryset = qs.filter(
+            picker_assigned_date__date__lte=to_date, picker_assigned_date__date__gte=from_date).order_by(
+            'picker_boy').distinct('picker_boy').select_related('order').prefetch_related('order__rt_order_order_product',
+                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user').annotate(to_date=Value(to_date, output_field=CharField()), from_date=Value(from_date, output_field=CharField()))
+        return queryset
+
+    def get_date(self, request):
+        try:
+            if request.GET['picker_assigned_date__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['picker_assigned_date__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['picker_assigned_date__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['picker_assigned_date__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
+                    'picked_order_count', 'picked_sku_count','picked_pieces_count')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([self.picker_number(obj), self.full_name(obj), self.assigned_order_count(obj),
+                             self.order_amount(obj), self.invoice_amount(obj), self.fill_rate(obj),
+                             self.picked_order_count(obj), self.picked_sku_count(obj),
+                             self.picked_pieces_count(obj)])
+        return response
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
@@ -2145,3 +2355,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
+admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)

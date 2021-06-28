@@ -175,6 +175,7 @@ class CartProductMapping(models.Model):
                                        on_delete=models.CASCADE)
     price = models.FloatField(verbose_name='Brand To Gram Price')
     per_unit_price = models.FloatField(default=0, null=True, blank=True)
+    is_grn_done = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Select Product"

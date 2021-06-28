@@ -114,6 +114,9 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
                 # indirect reward to ancestor referrers
                 RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
                                                          referral_obj.user_count_considered, changed_by)
+                referral_obj.user_count_considered = True
+                referral_obj.save()
+            return points_credit
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         error_logger.error("Rewards not processed for order {} exception {} Line No {}".format(tid, e, exc_tb.tb_lineno))

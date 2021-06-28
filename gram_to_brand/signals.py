@@ -60,6 +60,12 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         # from notification_center.utils import SendNotification
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
+@receiver(post_save, sender=GRNOrderProductMapping)
+def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
+    if instance.delivered_qty+instance.returned_qty > 0:
+        cart_product = instance.grn_order.order.ordered_cart.cart_list.filter(cart_product=instance.product)
+        cart_product.update(is_grn_done=True)
+
 
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
@@ -135,20 +141,6 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                                                          putaway_quantity,
                                                          type_normal, weight)
 
-                    # # Auto PutAway for warehouse 32154
-                    # is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
-                    # if not is_wh_consolidation_on:
-                    #     return
-                    # source_wh_id = get_config('wh_consolidation_source')
-                    #
-                    # if source_wh_id is None:
-                    #     info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
-                    #     return
-                    #
-                    # if is_wh_consolidation_on:
-                    #     source_wh = Shop.objects.filter(pk=source_wh_id).last()
-                    #     if in_obj.warehouse.id == source_wh.id:
-                    #         auto_put_away(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.id)
         # ends here
         instance.available_qty = 0
         instance.save()
