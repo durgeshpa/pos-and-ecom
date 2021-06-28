@@ -348,7 +348,7 @@ class DownloadMasterData(object):
         for col_num, column_title in enumerate(columns, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = column_title
-          
+
         brands = Brand.objects.values('id', 'brand_name', 'brand_parent_id', 'brand_parent__brand_name')
         for brand in brands:
             row = []
