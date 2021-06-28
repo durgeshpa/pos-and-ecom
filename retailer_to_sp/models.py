@@ -603,7 +603,7 @@ class BulkOrder(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.cart.order_id
+        return self.cart.rt_order_cart_mapping.order_no
 
     @property
     def cart_products_sample_file(self):
