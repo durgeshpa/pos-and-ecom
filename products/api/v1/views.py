@@ -147,7 +147,9 @@ class GetTaxView(GenericAPIView):
 
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Tax.objects.values('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at')
+    permission_classes = (AllowAny,)
+    queryset = Tax.objects.prefetch_related('tax_log').only('id', 'tax_name', 'tax_type', 'tax_percentage',
+                                                            'tax_start_at', 'tax_end_at',).order_by('-id')
     serializer_class = TaxCrudSerializers
 
     def get(self, request):
@@ -175,9 +177,31 @@ class TaxView(GenericAPIView):
         info_logger.info("Tax POST api called.")
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)
             info_logger.info("product Tax created successfully ")
             return get_response('product Tax created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Tax Updation """
+
+        info_logger.info("Tax PUT api called.")
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update tax', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        tax_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Tax Updated Successfully.")
+            return get_response('tax updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def search_filter_product_tax(self):

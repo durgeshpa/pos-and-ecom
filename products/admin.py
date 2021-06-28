@@ -335,6 +335,7 @@ class WeightAdmin(admin.ModelAdmin, ExportCsvMixin):
 class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = TaxResource
     actions = ["export_as_csv"]
+    fields = ['tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'status']
     search_fields = ['tax_name']
 
 

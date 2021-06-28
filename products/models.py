@@ -1051,8 +1051,8 @@ class CentralLog(models.Model):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
-    brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True,
-                                 on_delete=models.CASCADE)
+    brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,

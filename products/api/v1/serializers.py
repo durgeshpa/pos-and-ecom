@@ -1022,19 +1022,23 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class TaxCrudSerializers(serializers.ModelSerializer):
+    tax_log = LogSerializers(many=True, read_only=True)
+
     class Meta:
         model = Tax
-        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at')
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'tax_log')
 
     def validate(self, data):
 
-        if len(data.get('child_product_id_list')) == 0:
-            raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
-
-        for id in data.get('child_product_id_list'):
-            try:
-                Product.objects.get(id=id)
-            except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'child_product not found for id {id}')
-
         return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new tax"""
+        return Tax.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        """update tax"""
+        instance = super().update(instance, validated_data)
+        ProductCls.create_tax_log(instance)
+        return instance

@@ -214,6 +214,19 @@ class ProductCls(object):
 
         return child_product_log
 
+    @classmethod
+    def create_tax_log(cls, log_obj):
+        """
+            Create Tax Log
+        """
+        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=log_obj.updated_by)
+
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+                     'tax': log_obj}
+        info_logger.info("tax update info ", dict_data)
+
+        return tax_log
+
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
     """
