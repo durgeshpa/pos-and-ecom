@@ -23,7 +23,7 @@ from categories.models import Category
 from brand.models import Brand, Vendor
 from categories.common_validators import get_validate_category
 from products.common_function import get_excel_file_data, create_master_data, download_sample_file_master_data
-# from products.ap.v1.serializers import UserSerializers
+from products.api.v1.serializers import UserSerializers
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +51,12 @@ class ChoiceField(serializers.ChoiceField):
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Master Data', required=True)
-    # updated_by = UserSerializers()
+    updated_by = UserSerializers(read_only=True)
     select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('file', 'select_an_option',)
+        fields = ('file', 'select_an_option', 'updated_by')
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':
