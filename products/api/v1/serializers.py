@@ -1029,9 +1029,10 @@ class TaxCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'tax_log')
 
     def validate(self, data):
-        if data['tax_start_at'] and data['tax_end_at']:
-            data['tax_end_at'] < data['tax_start_at']
-            raise serializers.ValidationError("End date should be greater than start date.")
+        if 'tax_start_at' in self.initial_data and 'tax_end_at' in self.initial_data:
+            if data['tax_start_at'] and data['tax_end_at']:
+                data['tax_end_at'] < data['tax_start_at']
+                raise serializers.ValidationError("End date should be greater than start date.")
 
         # if data['tax_name'] and data['tax_type'] and data['tax_percentage']:
         #     if Tax.objects.filter(tax_name=data['tax_name'], tax_type=data['tax_type'],

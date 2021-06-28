@@ -618,7 +618,7 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
                 category_val = get_validate_category(self.initial_data['category_id'])
                 if 'error' in category_val:
                     raise serializers.ValidationError(_(category_val["error"]))
-                self.initial_data['category_id'] = category_val['category']
+                data['category_id'] = category_val['category']
         else:
             self.initial_data['category_id'] = None
 
