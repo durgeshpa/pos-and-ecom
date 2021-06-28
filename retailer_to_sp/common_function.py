@@ -86,12 +86,13 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
         return False, cart_product.capping_error_msg
 
 
-def reserved_args_json_data(shop_id, transaction_id, products, transaction_type, order_status):
+def reserved_args_json_data(shop_id, transaction_id, products, transaction_type, order_status, order_no):
     reserved_args = json.dumps({
         'shop_id': shop_id,
         'transaction_id': transaction_id,
         'products': products,
         'transaction_type': transaction_type,
-        'order_status': order_status
+        'order_status': order_status,
+        'order_number': order_no
     })
     return reserved_args

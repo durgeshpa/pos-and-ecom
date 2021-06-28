@@ -367,6 +367,20 @@ class ProductSearch(InputFilter):
             )
 
 
+class ProductEanSearch(InputFilter):
+    parameter_name = 'product_ean_search'
+    title = 'Product Ean Code'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_ean = self.value()
+            if product_ean is None:
+                return
+            return queryset.filter(
+                Q(product_ean_code__icontains=product_ean)
+            )
+
+
 class ProductSKUSearch(InputFilter):
     parameter_name = 'product_sku'
     title = 'Product SKU'
@@ -1016,7 +1030,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
 
     search_fields = ['product_name', 'id']
-    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status', ProductEanSearch]
     list_per_page = 50
 
     inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin, DestinationRepackagingCostMappingAdmin]
@@ -1712,7 +1726,7 @@ admin.site.register(PackageSize, PackageSizeAdmin)
 admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
-admin.site.register(ProductPrice, ProductPriceAdmin)
+# admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)

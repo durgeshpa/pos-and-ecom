@@ -18,8 +18,9 @@ from wms.common_functions import (CommonWarehouseInventoryFunctions,
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id, WmsInventoryHistory, HdposInventoryHistory
 from services.models import CronRunLog
-from marketing.models import Referral, RewardPoint, MLMUser, RewardLog
+from marketing.models import Referral, RewardPoint, RewardLog
 from global_config.models import GlobalConfig
+from accounts.models import User
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST')\
@@ -393,91 +394,6 @@ def update_sales_ret_obj(obj, status, error=''):
     if error != '':
         obj.error = error
     obj.save()
-
-
-def rewards_account(sales_obj, total_reward_percent, direct_reward_percent):
-    """
-        Account for used rewards by user w.r.t sales order
-        Account for rewards to referrer (direct and indirect) w.r.t sales order
-    """
-    if sales_obj.phone_number and sales_obj.phone_number != '':
-        sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
-        if sales_user:
-            self_reward_points = sales_obj.amount * 0.05
-            self_reward(sales_user, self_reward_points, sales_obj.id)
-            reward_points = sales_obj.amount * (total_reward_percent / 100)
-            referrer_reward(sales_user, sales_obj.id, reward_points, direct_reward_percent)
-            return True
-    return False
-
-def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_percent):
-    """
-        Account for reward (direct and indirect) w.r.t sales order
-    """
-
-    # Check if some user referred sales_user from referral_obj
-
-    referral_obj = Referral.objects.filter(referral_to=sales_user).last()
-    if referral_obj:
-        parent_referrer = referral_obj.referral_by
-        # account for direct reward to user who referred sales_user
-        direct_reward_points = int(reward_points * (direct_reward_percent / 100))
-        direct_reward(parent_referrer, direct_reward_points, transaction_id)
-
-        # account for indirect reward to ancestor referrers
-        indirect_reward_points = int(reward_points * ((100 - direct_reward_percent) / 100))
-        indirect_reward(parent_referrer, indirect_reward_points, transaction_id)
-
-
-def self_reward(user, points, transaction_id):
-    reward_obj = RewardPoint.objects.filter(user=user).last()
-    if reward_obj:
-        reward_obj.direct_earned += points
-        reward_obj.save()
-    else:
-        RewardPoint.objects.create(user=user, direct_earned=points)
-
-    RewardLog.objects.create(user=user, transaction_type='purchase_reward', transaction_id=transaction_id, points=points)
-
-
-def direct_reward(parent_referrer, direct_reward_points, transaction_id):
-    reward_obj = RewardPoint.objects.filter(user=parent_referrer).last()
-    if reward_obj:
-        reward_obj.direct_users += 1
-        reward_obj.direct_earned += direct_reward_points
-        reward_obj.save()
-    else:
-        RewardPoint.objects.create(user=parent_referrer, direct_users=1, direct_earned=direct_reward_points)
-
-    RewardLog.objects.create(user=parent_referrer, transaction_type='direct_reward',
-                             transaction_id=transaction_id, points=direct_reward_points)
-
-
-def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
-    referral_obj_indirect = Referral.objects.filter(referral_to=parent_referrer).last()
-    total_users = 0
-    users = []
-
-    while referral_obj_indirect is not None and referral_obj_indirect.referral_by:
-        total_users += 1
-        ancestor_user = referral_obj_indirect.referral_by
-        referral_obj_indirect = Referral.objects.filter(referral_to=ancestor_user).last()
-        users += [ancestor_user]
-
-    if total_users > 0:
-        indirect_reward_points_per_user = int(indirect_reward_points / total_users)
-        for ancestor in users:
-            reward_obj = RewardPoint.objects.filter(user=ancestor).last()
-            if reward_obj:
-                reward_obj.indirect_users += 1
-                reward_obj.indirect_earned += indirect_reward_points_per_user
-                reward_obj.save()
-            else:
-                RewardPoint.objects.create(user=ancestor, indirect_users=1,
-                                           indirect_earned=indirect_reward_points_per_user)
-
-            RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
-                                     transaction_id=transaction_id, points=indirect_reward_points_per_user)
 
 
 def mail_data():

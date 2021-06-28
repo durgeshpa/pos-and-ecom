@@ -1501,10 +1501,11 @@ class OrderCancellation(object):
             .filter(ordered_product_id__in=shipment_id_list)
         return [i['product_id'] for i in shipment_products]
 
+    # Todiscussusage
     def get_reserved_qty(self):
         reserved_qty_queryset = WarehouseInternalInventoryChange.objects \
             .values(r_sku=F('sku__id'),
-                    r_qty=F('quantity')).filter(transaction_id=self.order.order_no, transaction_type='reserved')
+                    r_qty=F('quantity')).filter(transaction_id=self.order.ordered_cart.cart_no, transaction_type='reserved')
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
@@ -1612,7 +1613,7 @@ class OrderCancellation(object):
 
 @receiver(post_save, sender=Order)
 def order_cancellation(sender, instance=None, created=False, **kwargs):
-    if instance.order_status == 'CANCELLED':
+    if instance.order_status == 'CANCELLED' and instance.ordered_cart.cart_type != 'BASIC':
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         if not pickup_obj:
             cancel_order(instance)

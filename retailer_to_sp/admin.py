@@ -305,7 +305,7 @@ class BuyerShopFilter(AutocompleteFilter):
 
 class OrderIDFilter(InputFilter):
     parameter_name = 'order_id'
-    title = 'order_id'
+    title = 'Order ID'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -487,6 +487,10 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/product_no_of_pieces.js', 'admin/js/select2.min.js')
+
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        return qs.exclude(cart_type='BASIC')
 
     def get_urls(self):
         from django.conf.urls import url
@@ -1001,6 +1005,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
+        qs = qs.exclude(ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1195,6 +1200,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1439,20 +1445,28 @@ class ShipmentAdmin(NestedModelAdmin):
 
 
     def pincode(self, obj):
-        return obj.order.shipping_address.pincode
+        try:
+            return obj.order.shipping_address.pincode
+        except:
+            return obj.order.seller_shop.shipping_address.pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         address = obj.order.shipping_address
+        if address is None:
+            address = obj.order.seller_shop.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
         shop_name = address.shop_name.shop_name
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
+        try:
+            city = obj.order.shipping_address.city
+        except:
+            city = obj.order.seller_shop.shipping_address.city
         return str(city)
 
     def start_qc(self,obj):
@@ -2002,6 +2016,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')

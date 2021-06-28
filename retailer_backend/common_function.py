@@ -15,20 +15,23 @@ from django.core.cache import cache
 from retailer_to_sp import models as RetailerToSPModels
 from celery.task import task
 
+
 # get shop
 def checkShop(shop_id):
     try:
-        shop = Shop.objects.get(id=shop_id,status=True)
+        shop = Shop.objects.get(id=shop_id, status=True)
         return True
     except ObjectDoesNotExist:
         return False
 
+
 def checkShopMapping(shop_id):
     try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
         return True
     except ObjectDoesNotExist:
         return False
+
 
 def checkNotShopAndMapping(shop_id):
     if checkShop(shop_id) and checkShopMapping(shop_id):
@@ -36,16 +39,18 @@ def checkNotShopAndMapping(shop_id):
     else:
         return True
 
+
 def getShop(shop_id):
     try:
-        shop = Shop.objects.get(id=shop_id,status=True)
+        shop = Shop.objects.get(id=shop_id, status=True)
         return shop
     except ObjectDoesNotExist:
         return None
 
+
 def getShopMapping(shop_id):
     try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
         return parent_mapping
     except ObjectDoesNotExist:
         return None
@@ -56,7 +61,7 @@ def get_financial_year():
     current_year = datetime.date.today().strftime('%y')
 
     if int(current_month) < 4:
-        current_year = str(int(datetime.date.today().strftime('%y'))-1)
+        current_year = str(int(datetime.date.today().strftime('%y')) - 1)
     return current_year
 
 
@@ -71,16 +76,18 @@ def get_shop_warehouse_state_code(address):
     shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_code(address.shop_name)
     return state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code
 
+
 def get_last_no_to_increment(model, field, instance_id, starts_with):
     prefix = "{}_{}_{}"
     instance_with_current_pattern = model.objects.filter(
-                                        **{field+'__icontains': starts_with})
+        **{field + '__icontains': starts_with})
     if instance_with_current_pattern.exists():
-        last_instance_no = model.objects.filter(**{field+'__icontains': starts_with}).latest(field)
+        last_instance_no = model.objects.filter(**{field + '__icontains': starts_with}).latest(field)
         return int(getattr(last_instance_no, field)[-7:])
 
     else:
         return 0
+
 
 def get_last_model_invoice(starts_with, field):
     shipment_instance = RetailerToSPModels.Invoice.objects.filter(invoice_no__icontains=starts_with)
@@ -90,13 +97,39 @@ def get_last_model_invoice(starts_with, field):
     else:
         return 0
 
-def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
+
+def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
-                                            address)
-    financial_year = get_financial_year()
+        address)
+    financial_year = year if year else get_financial_year()
     starts_with = "%s%s%s%s%s" % (
-                                shop_code, invoice_type, financial_year,
-                                state_code, warehouse_code)
+        shop_code, invoice_type, financial_year,
+        state_code, warehouse_code)
+    try:
+        last_number = cache.incr(starts_with)
+    except:
+        if is_invoice:
+            last_number = get_last_model_invoice(starts_with, field)
+        else:
+            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+        last_number += 1
+        cache.set(starts_with, last_number)
+        cache.persist(starts_with)
+
+    if len(warehouse_code) == 3 and shop_code == 'F':
+        ends_with = str(format(last_number, '06d'))
+    else:
+        ends_with = str(format(last_number, '07d'))
+    return "%s%s" % (starts_with, ends_with)
+
+
+def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
+        address)
+    financial_year = year if year else get_financial_year()
+    starts_with = "%s%s%s%s%s" % (
+        shop_code_bulk, invoice_type, financial_year,
+        state_code, warehouse_code)
     try:
         last_number = cache.incr(starts_with)
     except:
@@ -110,13 +143,14 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
 
-def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False):
+
+def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
-                                            address)
-    financial_year = get_financial_year()
+        address)
+    financial_year = year if year else get_financial_year()
     starts_with = "%s%s%s%s%s" % (
-                                shop_code_bulk, invoice_type, financial_year,
-                                state_code, warehouse_code)
+        shop_code_discounted, invoice_type, financial_year,
+        state_code, warehouse_code)
     try:
         last_number = cache.incr(starts_with)
     except:
@@ -129,27 +163,6 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
         cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
-
-def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False):
-    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
-                                            address)
-    financial_year = get_financial_year()
-    starts_with = "%s%s%s%s%s" % (
-                                shop_code_discounted, invoice_type, financial_year,
-                                state_code, warehouse_code)
-    try:
-        last_number = cache.incr(starts_with)
-    except:
-        if is_invoice:
-            last_number = get_last_model_invoice(starts_with, field)
-        else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-        last_number += 1
-        cache.set(starts_with, last_number)
-        cache.persist(starts_with)
-    ends_with = str(format(last_number, '07d'))
-    return "%s%s" % (starts_with, ends_with)
-
 
 
 def po_pattern(model, field, instance_id, address):
@@ -159,8 +172,10 @@ def po_pattern(model, field, instance_id, address):
 def order_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "OR")
 
+
 def order_id_pattern_discounted(model, field, instance_id, address):
     return common_pattern_discounted(model, field, instance_id, address, "OR")
+
 
 def order_id_pattern_bulk(model, field, instance_id, address):
     return common_pattern_bulk(model, field, instance_id, address, "OR")
@@ -171,7 +186,6 @@ def payment_id_pattern(model, field, instance_id, address):
 
 
 def order_id_pattern_r_gram(order_id):
-
     """ Order ID pattern
 
     Using 07 as the default city code for the pattern.
@@ -182,11 +196,10 @@ def order_id_pattern_r_gram(order_id):
     default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
     city_code = default_city_code
     ends_with = str(order_id).rjust(5, '0')
-    return "%s/%s/%s" % (starts_with,city_code,ends_with)
+    return "%s/%s/%s" % (starts_with, city_code, ends_with)
 
 
 def grn_pattern(id):
-
     """GRN patternbrand_note_id
 
     GRN year changes on 1st April(4th month).
@@ -197,12 +210,12 @@ def grn_pattern(id):
     current_year = datetime.date.today().strftime('%y')
     next_year = str(int(current_year) + 1)
 
-    if int(current_month)<4:
-        current_year = str(int(datetime.date.today().strftime('%y'))-1)
+    if int(current_month) < 4:
+        current_year = str(int(datetime.date.today().strftime('%y')) - 1)
         next_year = datetime.date.today().strftime('%y')
-    starts_with = "%s-%s"%(current_year,next_year)
+    starts_with = "%s-%s" % (current_year, next_year)
     ends_with = str(id)
-    return "%s/%s" % (starts_with,ends_with)
+    return "%s/%s" % (starts_with, ends_with)
 
 
 def brand_debit_note_pattern(model, field, instance_id, address):
@@ -212,15 +225,17 @@ def brand_debit_note_pattern(model, field, instance_id, address):
 def brand_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "CN")
 
+
 def discounted_credit_note_pattern(model, field, instance_id, address):
     return common_pattern_discounted(model, field, instance_id, address, "CN")
+
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern
     return int(c_num.split(starts_with)[1])
 
-def brand_note_pattern(note_type, id):
 
+def brand_note_pattern(note_type, id):
     """Brand Note pattern
 
     Getting note_type to return pattern as per note_typeself,
@@ -230,12 +245,12 @@ def brand_note_pattern(note_type, id):
     if note_type == 'debit_note':
         starts_with = datetime.date.today().strftime('%d%m%y')
         ends_with = str(id)
-        return "%s/%s"%(starts_with,ends_with)
+        return "%s/%s" % (starts_with, ends_with)
 
     elif note_type == 'credit_note':
         starts_with = getattr(settings, 'CN_STARTS_WITH', 'ADT/CN')
         ends_with = str(id).rjust(5, '0')
-        return "%s/%s"%(starts_with,ends_with)
+        return "%s/%s" % (starts_with, ends_with)
 
 
 def invoice_pattern(model, field, instance_id, address):
@@ -260,24 +275,39 @@ def generate_invoice_number(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
         invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
-        instance.invoice_no=invoice_no
+        instance.invoice_no = invoice_no
         instance.save()
+
 
 @task
 def generate_invoice_number_discounted_order(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
-        invoice_no = common_pattern_discounted(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
-        instance.invoice_no=invoice_no
+        invoice_no = common_pattern_discounted(RetailerToSPModels.Invoice, field, instance_id, address, "IV",
+                                               is_invoice=True)
+        instance.invoice_no = invoice_no
         instance.save()
+
 
 @task
 def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
         invoice_no = common_pattern_bulk(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
-        instance.invoice_no=invoice_no
+        instance.invoice_no = invoice_no
         instance.save()
+
+
+def cart_no_pattern(model, field, instance_id, address, year=None):
+    return common_pattern(model, field, instance_id, address, "CR", year)
+
+
+def cart_no_pattern_discounted(model, field, instance_id, address, year=None):
+    return common_pattern_discounted(model, field, instance_id, address, "CR", year)
+
+
+def cart_no_pattern_bulk(model, field, instance_id, address, year=None):
+    return common_pattern_bulk(model, field, instance_id, address, "CR", year)
 
 
 def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):

@@ -73,6 +73,7 @@ urlpatterns = [
     url(r'^franchise/', include('franchise.urls')),
     url(r'^admin/franchise/product-list/$', ProductList.as_view(), name='product-list'),
     url(r'^whc/', include('whc.urls')),
+    url(r'^pos/', include('pos.urls')),
     url(r'^retailer-incentive/', include('retailer_incentive.urls')),
     url(r'^ars/', include('ars.urls')),
 ]

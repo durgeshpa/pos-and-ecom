@@ -1,30 +1,9 @@
 from rest_framework import serializers
-from .models import PhoneOTP, RewardPoint, Profile, RewardLog
+from django.core.exceptions import ObjectDoesNotExist
+
 from global_config.models import GlobalConfig
 
-class PhoneOTPValidateSerializer(serializers.ModelSerializer):
-    """
-    validate the otp send to number
-    """
-
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-            'otp'
-        )
-
-
-class SendSmsOTPSerializer(serializers.ModelSerializer):
-    """
-    Send OTP SMS to number
-    """
-
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-        )
+from .models import RewardPoint, Profile, RewardLog
 
 
 class RewardsSerializer(serializers.ModelSerializer):
@@ -44,38 +23,46 @@ class RewardsSerializer(serializers.ModelSerializer):
                   'total_points_used', 'total_earned_points', 'remaining_points', 'welcome_reward_point',
                   'discount_point')
 
-    def direct_users(self, obj):
+    @staticmethod
+    def direct_users(obj):
         return str(obj.direct_users)
 
-    def indirect_users(self, obj):
+    @staticmethod
+    def indirect_users(obj):
         return str(obj.indirect_users)
 
-    def direct_earned(self, obj):
+    @staticmethod
+    def direct_earned(obj):
         return str(obj.direct_earned)
 
-    def indirect_earned(self, obj):
+    @staticmethod
+    def indirect_earned(obj):
         return str(obj.indirect_earned)
 
-    def points_used(self, obj):
+    @staticmethod
+    def points_used(obj):
         return str(obj.points_used)
 
-    def total_earned(self, obj):
+    @staticmethod
+    def total_earned(obj):
         return str(obj.direct_earned + obj.indirect_earned)
 
-    def remaining(self, obj):
+    @staticmethod
+    def remaining(obj):
         return str(obj.direct_earned + obj.indirect_earned - obj.points_used)
 
-    def welcome_reward(self, obj):
-        return str(RewardLog.objects.filter(user=obj.user, transaction_type='welcome_reward').last().points)
+    @staticmethod
+    def welcome_reward(obj):
+        return str(RewardLog.objects.filter(reward_user=obj.reward_user, transaction_type='welcome_reward').last().points)
 
-    def discount(self, obj):
+    @staticmethod
+    def discount(obj):
         try:
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
             used_reward_factor = int(conf_obj.value)
-        except:
+        except ObjectDoesNotExist:
             used_reward_factor = 4
-        return str(int((obj.direct_earned + obj.indirect_earned - obj.points_used)/used_reward_factor))
-
+        return str(int((obj.direct_earned + obj.indirect_earned - obj.points_used) / used_reward_factor))
 
 
 class ProfileUploadSerializer(serializers.ModelSerializer):
