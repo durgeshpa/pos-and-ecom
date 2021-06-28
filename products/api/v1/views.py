@@ -16,7 +16,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -227,6 +227,22 @@ class TaxView(GenericAPIView):
         if search_text:
             self.queryset = tax_search(self.queryset, search_text)
         return self.queryset
+
+
+class TaxExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = TaxExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected tax CSV """
+
+        info_logger.info("Tax ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Tax CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
 
 
 class ParentProductView(GenericAPIView):

@@ -1049,3 +1049,44 @@ class TaxCrudSerializers(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         ProductCls.create_tax_log(instance)
         return instance
+
+
+class TaxExportAsCSVSerializers(serializers.ModelSerializer):
+    tax_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Category
+        fields = ('tax_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('tax_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one tax id must be selected '))
+
+        for t_id in data.get('tax_id_list'):
+            try:
+                Tax.objects.get(id=t_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'tax not found for id {t_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Tax._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = Tax.objects.filter(id__in=validated_data['tax_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+
+

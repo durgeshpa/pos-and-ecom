@@ -2,7 +2,7 @@ from django.conf.urls import url
 from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, ProductHSNView, \
     ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
     BrandView, CategoryView, ProductPackingMappingView, SourceProductMappingView, ParentProductGetView, \
-    ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, GetTaxView
+    ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, GetTaxView, TaxExportAsCSVView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -23,4 +23,5 @@ urlpatterns = [
     url(r'^child-product-active-deactive/', ActiveDeactiveSelectedChildProductView.as_view(),
         name='child-product-active-deactive'),
     url(r'^child-download-bulk-product/', ChildProductExportAsCSVView.as_view(), name='child-download-bulk-product'),
+    url(r'^export-csv-tax/', TaxExportAsCSVView.as_view(), name='export-csv-tax'),
 ]
