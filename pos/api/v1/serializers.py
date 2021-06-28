@@ -1224,6 +1224,7 @@ class SalesReportSerializer(serializers.Serializer):
 class SalesReportResponseSerializer(serializers.Serializer):
     date = serializers.SerializerMethodField()
     month = serializers.SerializerMethodField()
+    order_count = serializers.IntegerField(read_only=True)
     sale = serializers.FloatField(read_only=True)
     returns = serializers.FloatField(read_only=True)
     effective_sale = serializers.FloatField(read_only=True)
@@ -1248,6 +1249,15 @@ class CustomerReportSerializer(serializers.Serializer):
     sort_by = serializers.ChoiceField(choices=('date', 'order_count', 'sale', 'returns', 'effective_sale'), default='date')
     sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
 
+    def validate(self, attrs):
+        sort_by = attrs.get('sort_by')
+        sort_by = sort_by if sort_by else 'date'
+        attrs['sort_by'] = 'created_at__' + sort_by if sort_by in ['date'] else sort_by
+
+        if attrs['start_date'] > attrs['end_date']:
+            raise serializers.ValidationError("End Date Must Be Greater Than Start Date")
+        return attrs
+
 
 class CustomerReportResponseSerializer(serializers.Serializer):
     phone_number = serializers.CharField(read_only=True)
@@ -1269,3 +1279,17 @@ class CustomerReportResponseSerializer(serializers.Serializer):
         if first_name:
             return first_name + ' ' + last_name if last_name else first_name
         return None
+
+
+class CustomerReportDetailResponseSerializer(serializers.Serializer):
+    order_id = serializers.CharField(read_only=True)
+    points_added = serializers.IntegerField(read_only=True)
+    points_redeemed = serializers.IntegerField(read_only=True)
+    sale = serializers.FloatField(read_only=True)
+    returns = serializers.FloatField(read_only=True)
+    effective_sale = serializers.FloatField(read_only=True)
+    date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_date(obj):
+        return obj['created_at__date'].strftime("%b %d, %Y") if 'created_at__date' in obj else None

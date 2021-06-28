@@ -2914,8 +2914,10 @@ class OrderCentral(APIView):
         shops_str = str(shops_str) if shops_str else ''
         if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
             if ReferralCode.is_marketing_user(order.buyer):
-                order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no, 'order_credit',
-                                            'order_indirect_credit', self.request.user.id, order.seller_shop.id)
+                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                 'order_credit', 'order_indirect_credit',
+                                                                 self.request.user.id, order.seller_shop.id)
+                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}

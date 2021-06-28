@@ -33,7 +33,8 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
-                          SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer)
+                          SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
+                          CustomerReportDetailResponseSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -615,9 +616,10 @@ class SalesReport(GenericAPIView):
 
         # Sale, returns, effective sale for all days
         qs = qs.values('created_at__date').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(order_count=Coalesce(Count('id'), 0))
         qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__date')
-        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date')
+        data = qs.values('sale', 'returns', 'effective_sale', 'order_count', 'created_at__date')
 
         return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
 
@@ -636,9 +638,10 @@ class SalesReport(GenericAPIView):
 
         # Sale, returns, effective sale for all months
         qs = qs.values('created_at__month').annotate(sale=Sum('order_amount'))
+        qs = qs.annotate(order_count=Coalesce(Count('id'), 0))
         qs = qs.annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns')).order_by('created_at__month')
-        data = qs.values('sale', 'returns', 'effective_sale', 'created_at__month', 'created_at__year')
+        data = qs.values('sale', 'returns', 'effective_sale', 'order_count', 'created_at__month', 'created_at__year')
 
         return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
 
@@ -711,7 +714,8 @@ class CustomerReport(GenericAPIView):
         except ObjectDoesNotExist:
             return api_response("Phone Number Invalid For This Shop!")
 
-        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id)
+        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id).select_related(
+            'ordered_cart')
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -722,13 +726,32 @@ class CustomerReport(GenericAPIView):
             end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
             qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
+        # Loyalty points added, redeemed, order value, return value
+        qs = qs.values('created_at__date', 'points_added', order_id=F('order_no'), points_redeemed=F('ordered_cart__redeem_points'),
+                       sale=F('order_amount')).annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
+        # Search
+        if search_text:
+            qs = qs.filter(Q(order_no__icontains=search_text))
+
+        # Sort
+        sort_by = '-' + request_data['sort_by'] if request_data['sort_order'] == -1 else request_data['sort_by']
+        qs = qs.order_by(sort_by)
+
+        # Paginate
+        data = self.pagination_class().paginate_queryset(qs, self.request)
+        # Serialize
+        data = CustomerReportDetailResponseSerializer(data, many=True).data
+        msg = 'Customer Orders Report Fetched Successfully!' if data else 'No Orders Found For Selected Filters!'
+        return api_response(msg, data, status.HTTP_200_OK, True)
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
         qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related(
             'user__reward_user_mlm', Prefetch('user__rt_buyer_order', queryset=Order.objects.filter(seller_shop=shop)),
-            Prefetch('user__rt_buyer_order__rt_return_order', queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
+            Prefetch('user__rt_buyer_order__rt_return_order',
+                     queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
