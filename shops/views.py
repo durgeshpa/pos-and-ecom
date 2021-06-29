@@ -100,6 +100,7 @@ class ProductTable(tables.Table):
     visibility = tables.Column()
     repackaging_type = tables.Column()
     normal = tables.Column()
+    normal_reserved = tables.Column()
     damaged = tables.Column()
     expired = tables.Column()
     missing = tables.Column()
@@ -233,6 +234,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'earliest_expiry_date': earliest_expiry_date,
                     'repackaging_type': myproduct.sku.repackaging_type,
                     'normal': 0,
+                    'normal_reserved': 0,
                     'damaged': 0,
                     'expired': 0,
                     'missing': 0,
@@ -257,6 +259,9 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
                 else:
                     product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
+                if myproduct.inventory_state.inventory_state == 'reserved':
+                    product_temp[myproduct.inventory_type.inventory_type+'_reserved'] = myproduct.quantity
+
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []
