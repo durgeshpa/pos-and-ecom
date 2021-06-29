@@ -4,7 +4,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ProductCategoryMappingSerializers, ParentProductImageSerializers
+    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -104,15 +104,15 @@ class ParentProductMultiImageUploadView(GenericAPIView):
 
 class ChildProductMultiImageUploadView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ParentProductImageSerializers
+    serializer_class = ChildProductImageSerializers
 
     def post(self, request):
-        """ POST API for Updating ParentProductImages """
+        """ POST API for Updating ChildProductImages """
 
-        info_logger.info("ParentProductMultiPhotoUpload POST api called.")
+        info_logger.info("ChildProductMultiImageUploadView POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            info_logger.info("ParentProductMultiPhotoUpload upload successfully")
+            info_logger.info("ChildProductMultiImageUploadView upload successfully")
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)

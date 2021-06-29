@@ -656,7 +656,7 @@ class ProductCategoryMappingSerializers(serializers.Serializer):
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
-    """Handles creating, reading and updating parent product items."""
+    """Handles creating, reading and updating parent product images."""
 
     image = serializers.ListField(
         child=serializers.FileField(max_length=100000,
@@ -695,6 +695,65 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
                     'url': img_instance.image.url,
                     'product_sku': parent_pro.parent_id,
                     'product_name': parent_pro.name
+                    }
+                upload_count += 1
+
+            total_count = upload_count + aborted_count
+            data.append(val_data)
+
+        data_value = {
+            'total_count': total_count,
+            'upload_count': upload_count,
+            'aborted_count': aborted_count,
+            'uploaded_data': data
+        }
+        return data_value
+
+    def to_representation(self, instance):
+        result = OrderedDict()
+        result['data'] = str(instance)
+        return result
+
+
+class ChildProductImageSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating child product images."""
+
+    image = serializers.ListField(
+        child=serializers.FileField(max_length=100000,
+                                    allow_empty_file=False,
+                                    use_url=True, ), write_only=True)
+
+    class Meta:
+        model = ProductImage
+        fields = ('image',)
+
+    def create(self, validated_data):
+        images_data = validated_data['image']
+
+        data = []
+        aborted_count = 0
+        upload_count = 0
+
+        for img in images_data:
+            file_name = img.name
+            product_sku = file_name.rsplit(".", 1)[0]
+            try:
+                child_product = Product.objects.get(product_sku=product_sku)
+            except:
+                val_data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Product found with SKU ID {}'.format(product_sku),
+                    'url': '#'
+                }
+                aborted_count += 1
+            else:
+                img_instance = ProductImage.objects.create(product=child_product, image_name=product_sku, image=img)
+                val_data = {
+                    'is_valid': True,
+                    'url': img_instance.image.url,
+                    'product_sku': child_product.product_sku,
+                    'product_name': child_product.product_name
                     }
                 upload_count += 1
 
