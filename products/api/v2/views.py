@@ -2,13 +2,14 @@ import logging
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
-
+from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers
+from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
-from categories.models import Category
+from products.models import BulkUploadForProductAttributes
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -18,8 +19,17 @@ debug_logger = logging.getLogger('file-debug')
 
 class BulkUploadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name')
+    permission_classes = (AllowAny,)
+    queryset = BulkUploadForProductAttributes.objects.select_related('updated_by')\
+        .only('file', 'updated_by').order_by('-id')
     serializer_class = UploadMasterDataSerializers
+
+    def get(self, request):
+
+        file = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(file, many=True)
+        msg = "" if file else "no uploaded file found"
+        return get_response(msg, serializer.data, True)
 
     def post(self, request):
         """
@@ -46,7 +56,6 @@ class BulkUploadProductAttributes(GenericAPIView):
 
 class BulkDownloadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name')
     serializer_class = DownloadMasterDataSerializers
 
     def post(self, request):
