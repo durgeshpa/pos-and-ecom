@@ -166,13 +166,18 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     case_size = ''
                     category = ''
                     brand = ''
-                binproducts = myproduct.sku.rt_product_sku.all()
-                earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
-                for binproduct in binproducts:
-                    exp_date_str = get_expiry_date(batch_id=binproduct.batch_id)
-                    exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
-                    if earliest_expiry_date > exp_date:
-                        earliest_expiry_date = exp_date
+
+                binproducts = myproduct.sku.rt_product_sku.filter(inventory_type=inventory_type_normal, quantity__gt=0)
+                if not binproducts.exists():
+                    earliest_expiry_date = "--"
+                else:
+                    earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
+                    for binproduct in binproducts:
+                        exp_date_str = get_expiry_date(batch_id=binproduct.batch_id)
+                        exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
+                        if earliest_expiry_date > exp_date:
+                            earliest_expiry_date = exp_date
+                    earliest_expiry_date = earliest_expiry_date.date()
                 price_list = myproduct.sku.product_pro_price.all()
                 is_price = False
                 product_price_slab1 = ''
@@ -225,7 +230,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'product_price1': product_price1,
                     'product_price_slab2': product_price_slab2,
                     'product_price2': product_price2,
-                    'earliest_expiry_date': earliest_expiry_date.date(),
+                    'earliest_expiry_date': earliest_expiry_date,
                     'repackaging_type': myproduct.sku.repackaging_type,
                     'normal': 0,
                     'damaged': 0,
