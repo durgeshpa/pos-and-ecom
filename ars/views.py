@@ -7,12 +7,13 @@ from io import StringIO
 from dal import autocomplete
 from decouple import config
 from django.db import transaction
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, Case, When
 from django.http import HttpResponse
 
 from accounts.models import User
 from addresses.models import Address
 from ars.models import ProductDemand, VendorDemand, VendorDemandProducts
+from common import constants
 from global_config.views import get_config
 from gram_to_brand.models import Cart, CartProductMapping, GRNOrderProductMapping, VendorShopMapping
 from products.models import ProductVendorMapping, ParentProduct
@@ -221,14 +222,17 @@ def get_current_inventory(warehouse, parent_product):
 
 def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     """
-    Returns total no of peices ordered of all the children for a given parent product and warehouse
+    Returns total no of peices ordered/invoiced of all the children for a given parent product and warehouse
     starting from the given date.
     """
     query = Order.objects.filter(seller_shop=warehouse,
                                                 ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
                                                 created_at__gte=starting_from_date).order_by()\
-                                         .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
-                                         .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
+                                        .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
+                                        .annotate(ordered_pieces=Case(When(rt_order_order_product__isnull=False,
+                                                            then=Sum('rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty')),
+                                                       default=Sum('ordered_cart__rt_cart_list__no_of_pieces')),)
+
     no_of_pieces_ordered = query[0]['ordered_pieces'] if query.exists() else 0
     return no_of_pieces_ordered
 
@@ -421,14 +425,14 @@ def create_po_from_demand(demand):
     if shipp_address is None or bill_address is None:
         info_logger.info("create_po_from_demand|Address not found|shop -{}".format(gf_shop))
         return
-
+    po_valid_for_days = get_config('PO_VALIDITY_IN_DAYS', constants.PO_VALIDITY_IN_DAYS)
     cart_instance = Cart.objects.create(brand=demand.brand, supplier_name=demand.vendor, supplier_state=demand.vendor.state,
                                         gf_shipping_address=shipp_address,
                                         gf_billing_address=bill_address,
                                         po_raised_by=system_user, last_modified_by=system_user,
                                         cart_type=Cart.CART_TYPE_CHOICE.AUTO,
                                         po_status=Cart.PENDING_APPROVAL,
-                                        po_validity_date=datetime.date.today() + datetime.timedelta(days=15),
+                                        po_validity_date=datetime.date.today() + datetime.timedelta(days=po_valid_for_days),
                                         po_delivery_date=datetime.datetime.today() +
                                                          datetime.timedelta(days=demand.vendor.lead_time))
 
