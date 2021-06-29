@@ -1026,7 +1026,7 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Tax
-        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'tax_log')
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'tax_log', 'status')
 
     def validate(self, data):
         if 'tax_start_at' in self.initial_data and 'tax_end_at' in self.initial_data:
