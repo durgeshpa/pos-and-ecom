@@ -383,7 +383,7 @@ class DownloadMasterData(object):
                 row.append(validated_data['category_id'].id)
                 row.append(validated_data['category_id'].category_name)
                 row.append(validated_data['category_id'].category_parent_id)
-                row.append(validated_data['category_id'].category_parent.category_name)
+                row.append(validated_data['category_id'].category_parent)
 
             row.append(product['status'])
             row.append(product['repackaging_type'])
