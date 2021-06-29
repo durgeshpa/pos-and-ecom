@@ -1058,7 +1058,7 @@ class TaxExportAsCSVSerializers(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Category
+        model = Tax
         fields = ('tax_id_list',)
 
     def validate(self, data):

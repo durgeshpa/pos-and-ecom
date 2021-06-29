@@ -1,5 +1,5 @@
 from django.conf.urls import url
-from .views import BulkUploadProductAttributes, BulkDownloadProductAttributes, ProductCategoryMapping
+from .views import BulkUploadProductAttributes, BulkDownloadProductAttributes, ProductCategoryMapping, ParentProductMultiImageUploadView
 
 urlpatterns = [
     url(r'^upload/bulk-upload-master-data/', BulkUploadProductAttributes.as_view(),
@@ -8,5 +8,7 @@ urlpatterns = [
         name='download/bulk-download-master-data'),
     url(r'^upload/product-category-mapping/', ProductCategoryMapping.as_view(),
         name='upload/product-category-mapping'),
+    url(r'^upload/parent-product-image-photos-upload/', ParentProductMultiImageUploadView.as_view(),
+        name='upload/parent-product-multiple-image-upload'),
 
 ]

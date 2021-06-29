@@ -1,10 +1,10 @@
 import logging
-
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
-from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, ProductCategoryMappingSerializers
+from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
+    ProductCategoryMappingSerializers, ParentProductImageSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -83,4 +83,36 @@ class ProductCategoryMapping(GenericAPIView):
             response = serializer.save()
             info_logger.info("ProductCategoryMapping upload successfully")
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ParentProductMultiImageUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ParentProductImageSerializers
+
+    def post(self, request):
+        """ POST API for Updating ParentProductImages """
+
+        info_logger.info("ParentProductMultiPhotoUpload POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("ParentProductMultiPhotoUpload upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class ChildProductMultiImageUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ParentProductImageSerializers
+
+    def post(self, request):
+        """ POST API for Updating ParentProductImages """
+
+        info_logger.info("ParentProductMultiPhotoUpload POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("ParentProductMultiPhotoUpload upload successfully")
+            return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)

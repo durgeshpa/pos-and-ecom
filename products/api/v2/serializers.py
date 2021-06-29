@@ -3,11 +3,12 @@ import json
 import logging
 import csv
 import codecs
+import os
 
 from pyexcel_xlsx import get_data as xlsx_get
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-
+from collections import OrderedDict
 from rest_framework import serializers
 
 from products.models import (
@@ -653,6 +654,65 @@ class ProductCategoryMappingSerializers(serializers.Serializer):
     def create(self, validated_data):
         pass
 
+
+class ParentProductImageSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating parent product items."""
+
+    image = serializers.ListField(
+        child=serializers.FileField(max_length=100000,
+                                    allow_empty_file=False,
+                                    use_url=True, ), write_only=True)
+
+    class Meta:
+        model = ParentProductImage
+        fields = ('image',)
+
+    def create(self, validated_data):
+        images_data = validated_data['image']
+
+        data = []
+        aborted_count = 0
+        upload_count = 0
+
+        for img in images_data:
+            file_name = img.name
+            parent_id = file_name.rsplit(".", 1)[0]
+            try:
+                parent_pro = ParentProduct.objects.get(parent_id=parent_id)
+            except:
+                val_data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Parent Product found with Parent ID {}'.format(parent_id),
+                    'url': '#'
+                }
+                aborted_count += 1
+            else:
+                img_instance = ParentProductImage.objects.create(parent_product=parent_pro,
+                                                                 image_name=parent_id, image=img)
+                val_data = {
+                    'is_valid': True,
+                    'url': img_instance.image.url,
+                    'product_sku': parent_pro.parent_id,
+                    'product_name': parent_pro.name
+                    }
+                upload_count += 1
+
+            total_count = upload_count + aborted_count
+            data.append(val_data)
+
+        data_value = {
+            'total_count': total_count,
+            'upload_count': upload_count,
+            'aborted_count': aborted_count,
+            'uploaded_data': data
+        }
+        return data_value
+
+    def to_representation(self, instance):
+        result = OrderedDict()
+        result['data'] = str(instance)
+        return result
 
 
 
