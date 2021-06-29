@@ -1565,6 +1565,7 @@ class ProductVendorMappingForm(forms.ModelForm):
         if not (product_price == None or product_price_pack == None):
             raise forms.ValidationError("Please enter only one Brand to Gram Price")
 
+
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
 
@@ -2103,6 +2104,7 @@ class BulkProductVendorMapping(forms.Form):
 
         return self.cleaned_data['file']
 
+
 class ProductPriceSlabForm(forms.ModelForm):
     """
     This class is used to create Slab Product Price for a particular product
@@ -2116,6 +2118,7 @@ class ProductPriceSlabForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
 
 class ProductPriceSlabCreationForm(forms.ModelForm):
     """
@@ -2324,7 +2327,8 @@ class UploadSlabProductPriceForm(forms.Form):
                                   or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
-    
+
+
 def only_int(value):
     if value.isdigit() is False:
         raise ValidationError('HSN can only be a numeric value.')
@@ -2332,7 +2336,6 @@ def only_int(value):
 
 class ProductHSNForm(forms.ModelForm):
     product_hsn_code = forms.CharField(max_length=8, min_length=6, validators=[only_int])
-
 
     class Meta:
         model = ProductHSN

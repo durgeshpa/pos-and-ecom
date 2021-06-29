@@ -1,6 +1,8 @@
 import re
 import json
 import logging
+import csv
+import codecs
 
 from pyexcel_xlsx import get_data as xlsx_get
 from django.db import transaction
@@ -627,6 +629,34 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         response = download_sample_file_master_data(validated_data)
         return response
+
+
+class ProductCategoryMappingSerializers(serializers.Serializer):
+    file = serializers.FileField(label='Upload ProductCategoryMapping Data', required=True)
+    updated_by = UserSerializers(read_only=True)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_("Sorry! Only csv file accepted"))
+        self.validate_row(data['file'])
+        return data['file']
+
+    def validate_row(self, data):
+        reader = csv.reader(codecs.iterdecode(data, 'utf-8', errors='ignore'))
+        next(reader)
+        for row_id, row in enumerate(reader):
+            if not row[0]:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'gf_code' can not be empty."))
+            if not row[1]:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'category_id' can not be empty."))
+
+    def create(self, validated_data):
+        pass
+
+
+
+
+
 
 
 

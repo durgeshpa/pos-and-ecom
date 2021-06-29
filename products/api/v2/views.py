@@ -4,7 +4,7 @@ from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
-from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers
+from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, ProductCategoryMappingSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -66,5 +66,21 @@ class BulkDownloadProductAttributes(GenericAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("BulkDownloadProductAttributes Downloaded successfully")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ProductCategoryMapping(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductCategoryMappingSerializers
+
+    def post(self, request):
+        """ POST API for Updating ProductCategoryMapping """
+
+        info_logger.info("BulkDownloadProductAttributes POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("ProductCategoryMapping upload successfully")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

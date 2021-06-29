@@ -60,7 +60,8 @@ class UploadMasterData(object):
             info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
             info_logger.info("Method Complete to set the Inactive status from excel file")
         except Exception as e:
-            error_logger.info(f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
+            error_logger.info(
+                f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
 
     @classmethod
     def set_sub_brand_and_brand(cls, excel_file_data_list):
@@ -105,7 +106,8 @@ class UploadMasterData(object):
                         if row['sub_category_id'] == row['category_id']:
                             continue
                         else:
-                            Category.objects.filter(id=row['sub_category_id']).update(category_parent=row['category_id'])
+                            Category.objects.filter(id=row['sub_category_id']).update(
+                                category_parent=row['category_id'])
                 except:
                     sub_category.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -132,7 +134,8 @@ class UploadMasterData(object):
                         fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                   'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
                                   'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
-                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                                  'is_lead_time_applicable']
 
                         available_fields = []
                         for col in fields:
@@ -146,7 +149,8 @@ class UploadMasterData(object):
                                 parent_product.update(product_type=row['product_type'])
 
                             if col == 'hsn':
-                                parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+                                parent_product.update(
+                                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
 
                             if col == 'tax_1(gst)':
                                 tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -154,7 +158,7 @@ class UploadMasterData(object):
                                                                        tax__tax_type='gst').update(tax=tax[0])
                                 if 'sku_id' in row.keys() and row['sku_id'] != '':
                                     product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst').\
+                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst'). \
                                         update(tax=tax[0])
 
                             if col == 'tax_2(cess)':
@@ -163,20 +167,21 @@ class UploadMasterData(object):
                                                                        tax__tax_type='cess').update(tax=tax[0])
                                 if 'sku_id' in row.keys() and row['sku_id'] != '':
                                     product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess').\
+                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess'). \
                                         update(tax=tax[0])
 
                             if col == 'tax_3(surcharge)':
                                 tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id, tax__tax_type='surcharge').update(
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                       tax__tax_type='surcharge').update(
                                     tax=tax[0])
                                 if 'sku_id' in row.keys() and row['sku_id'] != '':
                                     product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge').\
+                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge'). \
                                         update(tax=tax[0])
 
                             if col == 'inner_case_size':
-                                ParentProduct.objects.filter(parent_id=row['parent_id']).update\
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
                                     (inner_case_size=row['inner_case_size'])
 
                             if col == 'sub_category_id':
@@ -191,17 +196,20 @@ class UploadMasterData(object):
                                     parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
                             if col == 'is_ptr_applicable':
-                                ParentProduct.objects.filter(parent_id=row['parent_id']).update\
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
                                     (is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
 
                             if col == 'ptr_type':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (ptr_type=None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
-                                              if row['ptr_type'].lower() == 'mark up'else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
+                                    (ptr_type=None if not row[
+                                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                                    if row[
+                                           'ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 
                             if col == 'ptr_percent':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent'])
+                                    (ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
+                                        'ptr_percent'])
 
                             if col == 'is_ars_applicable':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
@@ -213,12 +221,14 @@ class UploadMasterData(object):
 
                             if col == 'is_lead_time_applicable':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
+                                    (is_lead_time_applicable=True if row[
+                                                                         'is_lead_time_applicable'].lower() == 'yes' else False)
 
                     except Exception as e:
                         parent_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
+            info_logger.info(
+                "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
         except Exception as e:
             error_logger.info(
@@ -277,20 +287,21 @@ class UploadMasterData(object):
                             child_product.update(weight_value=row['weight_value'])
 
                     if 'repackaging_type' in row.keys() and row['repackaging_type'] == 'destination':
-                        DestinationRepackagingCostMapping.objects.filter(destination=child_product[0].id)\
-                                                                 .update(raw_material=row['raw_material'],
-                                                                         wastage=row['wastage'],
-                                                                         fumigation=row['fumigation'],
-                                                                         label_printing=row['label_printing'],
-                                                                         packing_labour=row['packing_labour'],
-                                                                         primary_pm_cost=row['primary_pm_cost'],
-                                                                         secondary_pm_cost=row['secondary_pm_cost'],
-                                                                         final_fg_cost=row['final_fg_cost'],
-                                                                         conversion_cost=row['conversion_cost'])
+                        DestinationRepackagingCostMapping.objects.filter(destination=child_product[0].id) \
+                            .update(raw_material=row['raw_material'],
+                                    wastage=row['wastage'],
+                                    fumigation=row['fumigation'],
+                                    label_printing=row['label_printing'],
+                                    packing_labour=row['packing_labour'],
+                                    primary_pm_cost=row['primary_pm_cost'],
+                                    secondary_pm_cost=row['secondary_pm_cost'],
+                                    final_fg_cost=row['final_fg_cost'],
+                                    conversion_cost=row['conversion_cost'])
                 except Exception as e:
                     child_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Some error found in these row while working with Child data Functionality:" + str(child_data))
+            info_logger.info(
+                "Some error found in these row while working with Child data Functionality:" + str(child_data))
             info_logger.info("Script Complete to set the Child data")
         except Exception as e:
             error_logger.info(
@@ -332,13 +343,15 @@ class DownloadMasterData(object):
 
         writer.writerow(columns)
         products = Product.objects.values('id', 'product_sku', 'product_name', 'parent_product__parent_id',
-                                          'parent_product__name', 'product_ean_code', 'parent_product__parent_brand__id',
+                                          'parent_product__name', 'product_ean_code',
+                                          'parent_product__parent_brand__id',
                                           'parent_product__product_hsn__product_hsn_code', 'weight_unit',
                                           'weight_value', 'parent_product__inner_case_size', 'product_mrp',
                                           'parent_product__parent_brand__brand_name', 'status',
                                           'parent_product__parent_brand__brand_parent_id', 'repackaging_type',
-                                          'parent_product__parent_brand__brand_parent__brand_name', )\
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+                                          'parent_product__parent_brand__brand_parent__brand_name', ) \
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
             row = []
@@ -431,11 +444,12 @@ class DownloadMasterData(object):
         columns = ['sku_id', 'sku_name', 'mrp', 'status', ]
         writer.writerow(columns)
 
-        products = Product.objects.values('product_sku', 'product_name', 'product_mrp', 'status', ).\
-            filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+        products = Product.objects.values('product_sku', 'product_name', 'product_mrp', 'status', ). \
+            filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
-            row=[]
+            row = []
             row.append(product['product_sku'])
             row.append(product['product_name'])
             row.append(product['product_mrp'])
@@ -507,8 +521,9 @@ class DownloadMasterData(object):
         writer.writerow(columns)
 
         products = Product.objects.values('product_sku', 'product_name',
-                                          'parent_product__parent_id', 'parent_product__name', 'status')\
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+                                          'parent_product__parent_id', 'parent_product__name', 'status') \
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
             row = []
@@ -533,8 +548,9 @@ class DownloadMasterData(object):
         writer.writerow(columns)
 
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code',
-                                          'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type',)\
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+                                          'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type', ) \
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
             row = []
@@ -564,8 +580,10 @@ class DownloadMasterData(object):
                 row.append('')
             costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                      'label_printing', 'packing_labour',
-                                                                     'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost',
-                                                                     'conversion_cost').filter(destination=product['id'])
+                                                                     'primary_pm_cost', 'secondary_pm_cost',
+                                                                     'final_fg_cost',
+                                                                     'conversion_cost').filter(
+                destination=product['id'])
             for cost in costs:
                 row.append(cost['raw_material'])
                 row.append(cost['wastage'])
@@ -611,7 +629,7 @@ class DownloadMasterData(object):
                                                                'parent_product__is_ars_applicable',
                                                                'parent_product__max_inventory',
                                                                'parent_product__is_lead_time_applicable').filter(
-                                                                category=validated_data['category_id'])
+            category=validated_data['category_id'])
         for product in parent_products:
             row = []
             tax_list = ['', '', '']
@@ -619,7 +637,8 @@ class DownloadMasterData(object):
             row.append(product['parent_product__name'])
             row.append(product['parent_product__product_type'])
             row.append(product['parent_product__product_hsn__product_hsn_code'])
-            taxes = ParentProductTaxMapping.objects.select_related('tax').filter(parent_product=product['parent_product__id'])
+            taxes = ParentProductTaxMapping.objects.select_related('tax').filter(
+                parent_product=product['parent_product__id'])
             for tax in taxes:
                 if tax.tax.tax_type == 'gst':
                     tax_list[0] = tax.tax.tax_name
