@@ -1470,39 +1470,10 @@ def common_on_return_and_partial(shipment, flag):
                                            shipment_product_batch.returned_damage_qty)
 
                 elif flag == "partial_shipment":
-
-                    # put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
-                    #                                          warehouse=shipment_product_batch.pickup.warehouse,
-                    #                                          putaway_type='PAR_SHIPMENT',
-                    #                                          putaway_type_id=shipment.order.order_no,
-                    #                                          sku=shipment_product_batch.pickup.sku,
-                    #                                          batch_id=shipment_product_batch.batch_id)
-                    #
-                    # if put_away_object.exists():
-                    #     qty = i.expired_qty + i.damaged_qty
-                    # else:
-                    #     qty = i.expired_qty + i.damaged_qty
                     partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
                     if partial_ship_qty <= 0:
                         continue
                     else:
-                        # pu, _ = Putaway.objects.update_or_create(putaway_user=putaway_user,
-                        #                                          warehouse=shipment_product_batch.pickup.warehouse,
-                        #                                          putaway_type='PAR_SHIPMENT',
-                        #                                          putaway_type_id=shipment.order.order_no,
-                        #                                          sku=shipment_product_batch.pickup.sku,
-                        #                                          batch_id=batch_id,
-                        #                                          inventory_type=inv_type['N'],
-                        #                                          defaults={'quantity': partial_ship_qty,
-                        #                                                    'putaway_quantity': 0})
-                        #
-                        # PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.pickup.warehouse,
-                        #                                              sku=shipment_product_batch.pickup.sku,
-                        #                                              batch_id=batch_id,
-                        #                                              putaway_type='PAR_SHIPMENT',
-                        #                                              putaway=pu, bin=bin_id_for_input,
-                        #                                              putaway_status=False,
-                        #                                              defaults={'putaway_quantity': partial_ship_qty})
                         expired_qty = shipment_product_batch.expired_qty
                         if expired_qty > 0:
                             create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
@@ -1511,6 +1482,10 @@ def common_on_return_and_partial(shipment, flag):
                         if damaged_qty > 0:
                             create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
                                            inv_type['D'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, damaged_qty)
+                        rejected_qty = shipment_product_batch.rejected_qty
+                        if rejected_qty > 0:
+                            create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
+                                           inv_type['N'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, rejected_qty)
                 else:
                     pass
 
