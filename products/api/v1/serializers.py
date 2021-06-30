@@ -938,20 +938,6 @@ class ChildProductSerializers(serializers.ModelSerializer):
         ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
 
-def only_int(value):
-    if value.isdigit() is False:
-        raise serializers.ValidationError('HSN can only be a numeric value.')
-
-
-class ProductHSNSerializers(serializers.ModelSerializer):
-    """ Handles Get & creating """
-    product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
-
-    class Meta:
-        model = ProductHSN
-        fields = ['id', 'product_hsn_code', ]
-
-
 class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
     child_product_id_list = serializers.ListField(
         child=serializers.IntegerField(required=True)

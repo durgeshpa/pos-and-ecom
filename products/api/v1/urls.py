@@ -1,13 +1,13 @@
 from django.conf.urls import url
-from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, ProductHSNView, \
+from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, HSNListView, \
     ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
-    BrandView, CategoryView, ProductPackingMappingView, SourceProductMappingView, ParentProductGetView, \
-    ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, GetTaxView, TaxExportAsCSVView, \
+    BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
+    ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
     WeightView, WeightExportAsCSVView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
-    url(r'^get-parent-product/', ParentProductGetView.as_view(), name='get-parent-product'),
+    url(r'^get-parent-product/', ParentProductListView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
     url(r'^parent-bulk-product/', ParentProductBulkUploadView.as_view(), name='parent-bulk-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),
@@ -15,11 +15,11 @@ urlpatterns = [
         name='parent-product-active-deactive'),
     url(r'^product-capping/', ProductCappingView.as_view(), name='product-capping'),
     url(r'^product-vendor-mapping/', ProductVendorMappingView.as_view(), name='product-vendor-mapping'),
-    url(r'^product-hsn/', ProductHSNView.as_view(), name='product-hsn'),
-    url(r'^tax/', GetTaxView.as_view(), name='tax'),
+    url(r'^product-hsn/', HSNListView.as_view(), name='product-hsn'),
+    url(r'^tax/', TaxListView.as_view(), name='tax'),
     url(r'^product-tax/', TaxView.as_view(), name='product-tax'),
-    url(r'^brand/', BrandView.as_view(), name='brand'),
-    url(r'^category/', CategoryView.as_view(), name='category'),
+    url(r'^brand/', BrandListView.as_view(), name='brand'),
+    url(r'^category/', CategoryListView.as_view(), name='category'),
     url(r'^product-package-mapping/', ProductPackingMappingView.as_view(), name='product-source'),
     url(r'^source-product-mapping/', SourceProductMappingView.as_view(), name='product-source'),
     url(r'^child-product-active-deactive/', ActiveDeactiveSelectedChildProductView.as_view(),

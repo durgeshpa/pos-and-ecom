@@ -9,7 +9,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
-
+from categories.models import Category
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
@@ -24,7 +24,7 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search
-from categories.models import Category
+
 
 from rest_framework.permissions import AllowAny
 
@@ -34,7 +34,7 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
 
-class BrandView(GenericAPIView):
+class BrandListView(GenericAPIView):
     """
         Get Brand List
     """
@@ -52,7 +52,7 @@ class BrandView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class CategoryView(GenericAPIView):
+class CategoryListView(GenericAPIView):
     """
         Get Category List
     """
@@ -70,7 +70,7 @@ class CategoryView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class ParentProductGetView(GenericAPIView):
+class ParentProductListView(GenericAPIView):
     """
         Get Parent List
     """
@@ -88,50 +88,24 @@ class ParentProductGetView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class ProductHSNView(GenericAPIView):
+class HSNListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = ProductHSN.objects.values('id', 'product_hsn_code')
     serializer_class = ProductHSNSerializers
 
     def get(self, request):
-        """ GET API for Product HSN """
-
+        """ GET API for Product HSN List"""
         info_logger.info("Product HSN GET api called.")
-        if request.GET.get('id'):
-            """ Get Product HSN for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            product_hsn = id_validation['data']
-        else:
-            """ GET Product HSN List """
-            self.queryset = self.search_filter_product_hsn()
-            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = product_hsn_search(self.queryset, search_text)
+        product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_hsn, many=True)
         msg = "" if product_hsn else "no product hsn found"
         return get_response(msg, serializer.data, True)
 
-    def post(self, request, *args, **kwargs):
-        """ POST API for ProductHSN Creation """
 
-        info_logger.info("ProductHSN POST api called.")
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            info_logger.info("product HSN created successfully ")
-            return get_response('product HSN created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def search_filter_product_hsn(self):
-        search_text = self.request.GET.get('search_text')
-        # search using product_hsn_code based on criteria that matches
-        if search_text:
-            self.queryset = product_hsn_search(self.queryset, search_text)
-        return self.queryset
-
-
-class GetTaxView(GenericAPIView):
+class TaxListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = Tax.objects.values('id', 'tax_type', 'tax_percentage')
     serializer_class = TaxSerializers
