@@ -1,6 +1,6 @@
 from django.conf.urls import url
 from .views import BulkUploadProductAttributes, BulkDownloadProductAttributes, ProductCategoryMapping, \
-    ParentProductMultiImageUploadView, ChildProductMultiImageUploadView
+    ParentProductMultiImageUploadView, ChildProductMultiImageUploadView, BulkUploadLogView
 
 urlpatterns = [
     url(r'^upload/bulk-upload-master-data/', BulkUploadProductAttributes.as_view(),
@@ -13,6 +13,8 @@ urlpatterns = [
         name='upload/parent-product-multiple-image-upload'),
     url(r'^upload/child-product-multiple-image-upload/', ChildProductMultiImageUploadView.as_view(),
         name='upload/child-product-multiple-image-upload'),
+    url(r'^upload/bulk-upload-log/', BulkUploadLogView.as_view(),
+        name='upload/bulk-upload-log/'),
 
 
 ]

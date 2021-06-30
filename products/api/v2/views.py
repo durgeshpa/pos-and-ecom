@@ -1,15 +1,20 @@
 import logging
+from django.http import HttpResponse
+
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
-from django.http import HttpResponse
+
+from products.models import BulkUploadForProductAttributes, BulkUploadLog
+
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers
+    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers, \
+    BulkUploadLogSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
-from products.models import BulkUploadForProductAttributes
+from products.services import bulk_log_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -52,6 +57,40 @@ class BulkUploadProductAttributes(GenericAPIView):
             serializer.save(updated_by=request.user)
             return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class BulkUploadLogView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = BulkUploadLog.objects.select_related('uploaded_by')\
+        .only('id', 'file_name', 'uploaded_by', 'upload_type', 'uploaded_at').order_by('-id')
+    serializer_class = BulkUploadLogSerializers
+
+    def get(self, request):
+        """ GET Bulk Log List for Bulk Uploaded Data """
+
+        info_logger.info("Bulk Log GET api called.")
+
+        if request.GET.get('id'):
+            """ Get Bulk Log Detail for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            log = id_validation['data']
+        else:
+            """ GET Bulk Log List """
+            self.queryset = self.search_filter_bulk_log()
+            log = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(log, many=True)
+        msg = "" if log else "no log found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_bulk_log(self):
+        search_text = self.request.GET.get('search_text')
+        # search using upload_type and uploaded_by
+        if search_text:
+            self.queryset = bulk_log_search(self.queryset, search_text)
+        return self.queryset
 
 
 class BulkDownloadProductAttributes(GenericAPIView):

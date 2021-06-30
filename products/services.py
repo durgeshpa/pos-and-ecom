@@ -46,3 +46,9 @@ def parent_product_name_search(queryset, search_text):
     queryset = queryset.filter(name__icontains=search_text)
     return queryset
 
+
+# search using uploaded_by name & upload_type
+def bulk_log_search(queryset, search_text):
+    queryset = queryset.filter(Q(upload_type__icontains=search_text) | Q(uploaded_by__first_name__icontains=search_text)
+                               | Q(uploaded_by__last_name__icontains=search_text))
+    return queryset

@@ -1,4 +1,5 @@
 import logging
+
 from pyexcel_xlsx import get_data as xlsx_get
 
 from rest_framework import status
@@ -6,12 +7,14 @@ from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, BulkUploadLog
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
+
 from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
+    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
+
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -23,8 +26,8 @@ class ParentProductCls(object):
     @classmethod
     def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
         """
-            Delete Existing Images of specific ParentProduct if any
-            Create Parent Product Images
+            Delete Existing Images of specific ParentProduct
+            Create or Update Parent Product Images
         """
         ids = []
         if parent_product_pro_image:
@@ -93,7 +96,7 @@ class ProductCls(object):
     @classmethod
     def upload_child_product_images(cls, child_product, product_images, product_pro_image):
         """
-           Delete Existing Images of specific ParentProduct if any
+           Delete Existing Images of specific ParentProduct
            Create Parent Product Images
         """
         ids = []
@@ -160,6 +163,9 @@ class ProductCls(object):
 
     @classmethod
     def update_weight_inventory(cls, child_product):
+        """
+            Update WarehouseInventory
+        """
         warehouse_inv = WarehouseInventory.objects.filter(sku=child_product)
         for inv in warehouse_inv:
             inv.weight = inv.quantity * child_product.weight_value
@@ -328,3 +334,17 @@ def download_sample_file_master_data(validated_data):
     return response
 
 
+class BulkUpload(object):
+
+    @classmethod
+    def create_bulk_upload_log(cls, log_obj, select_an_option):
+        """
+            Create Bulk Log
+        """
+        bulk_log = BulkUploadLog.objects.create(upload_type=select_an_option, file_name=log_obj.file,
+                                                uploaded_at=log_obj.updated_at, uploaded_by=log_obj.updated_by)
+        dict_data = {'upload_type': bulk_log.upload_type, 'updated_at': bulk_log.uploaded_at,
+                     'file_name': bulk_log.file_name, 'uploaded_by': bulk_log.uploaded_by}
+        info_logger.info("bulk update info ", dict_data)
+
+        return bulk_log

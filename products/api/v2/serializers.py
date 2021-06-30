@@ -3,7 +3,6 @@ import json
 import logging
 import csv
 import codecs
-import os
 
 from pyexcel_xlsx import get_data as xlsx_get
 from django.db import transaction
@@ -12,21 +11,17 @@ from collections import OrderedDict
 from rest_framework import serializers
 
 from products.models import (
-    Product, ProductCategory, ProductOption,
-    ProductTaxMapping, ProductVendorMapping,
-    ProductImage, ProductHSN, ProductPrice,
-    ParentProduct, ParentProductCategory,
-    ProductSourceMapping,
-    ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
-    ProductPackingMapping
+    Product, ProductCategory, ProductTaxMapping, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,
+    Tax, ParentProductImage, BulkUploadForProductAttributes, BulkUploadLog
 )
-
 from categories.models import Category
 from brand.models import Brand, Vendor
+
 from categories.common_validators import get_validate_category
-from products.common_function import get_excel_file_data, create_master_data, download_sample_file_master_data
+from products.common_function import get_excel_file_data, download_sample_file_master_data, \
+    BulkUpload, create_master_data
 from products.api.v1.serializers import UserSerializers
+
 
 logger = logging.getLogger(__name__)
 
@@ -595,11 +590,20 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
                                                                               updated_by=validated_data['updated_by'])
 
+            BulkUpload.create_bulk_upload_log(product_attribute, validated_data['select_an_option'])
             return product_attribute
 
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+
+class BulkUploadLogSerializers(serializers.ModelSerializer):
+    uploaded_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = BulkUploadLog
+        fields = ('id', 'file_name', 'upload_type', 'file_name', 'uploaded_by', )
 
 
 class DownloadMasterDataSerializers(serializers.ModelSerializer):

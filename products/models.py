@@ -973,17 +973,6 @@ class BulkUploadForProductAttributes(BaseTimeModel):
         return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
 
 
-# class BulkUploadForGSTProductChange(BaseTimeModel):
-#     BULK_UPLOAD_TYPE = [
-#         ('gst', 'GST'),
-#         ('product', 'Product'),
-#     ]
-#     choice_type = models.CharField(max_length=50, choices=BULK_UPLOAD_TYPE)
-#     file = models.FileField(upload_to='products/producttaxmapping_product_attributes/')
-#
-#     def __str__(self):
-#         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
-#
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
@@ -1060,5 +1049,16 @@ class CentralLog(models.Model):
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='updated_by',
+        on_delete=models.DO_NOTHING
+    )
+
+
+class BulkUploadLog(models.Model):
+    upload_type = models.CharField(max_length=50, default='')
+    file_name = models.CharField(max_length=100, default='')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='bulk_file_uploaded_by',
         on_delete=models.DO_NOTHING
     )
