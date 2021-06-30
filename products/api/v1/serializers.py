@@ -1110,4 +1110,41 @@ class TaxExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
+class WeightExportAsCSVSerializers(serializers.ModelSerializer):
+    weight_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Weight
+        fields = ('weight_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('weight_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one weight id must be selected '))
+
+        for w_id in data.get('weight_id_list'):
+            try:
+                Weight.objects.get(id=w_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'weight not found for id {w_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Weight._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = Weight.objects.filter(id__in=validated_data['weight_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
 

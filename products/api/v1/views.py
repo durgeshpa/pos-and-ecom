@@ -17,7 +17,8 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
+    WeightExportAsCSVSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -779,7 +780,6 @@ class ProductVendorMappingView(GenericAPIView):
 
 class WeightView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Weight.objects.prefetch_related('weight_log', 'weight_log__updated_by')\
         .only('id', 'weight_value', 'weight_unit', 'status', 'weight_name').order_by('-id')
 
@@ -838,7 +838,7 @@ class WeightView(GenericAPIView):
 
         info_logger.info("Weight DELETE api called.")
         if not request.data.get('weight_ids'):
-            return get_response('please provide tax_ids', False)
+            return get_response('please provide weight_ids', False)
         try:
             for w_id in request.data.get('weight_ids'):
                 weight_id = self.queryset.get(id=int(w_id))
@@ -851,3 +851,18 @@ class WeightView(GenericAPIView):
             return get_response(f'please provide a valid weight id {w_id}', False)
         return get_response('weight were deleted successfully!', True)
 
+
+class WeightExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = WeightExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Weight CSV """
+
+        info_logger.info("Weight ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Weight CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
