@@ -21,6 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
+from nested_admin.nested import NestedTabularInline, NestedModelAdmin
 
 from global_config.models import GlobalConfig
 
@@ -57,7 +58,6 @@ from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCr
                       DeliveryCompletedAt, OrderCreatedAt)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
-from nested_admin import NestedModelAdmin, NestedStackedInline, NestedTabularInline
 from retailer_backend.messages import ERROR_MESSAGES
 
 logger = logging.getLogger('django')
@@ -358,7 +358,8 @@ class ShopSearch(InputFilter):
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchForm
-    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty',
+              'missing_qty', 'rejected_qty', 'reason_for_rejection')
     readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date')
     extra=0
     classes = ['batch_inline', ]
@@ -1314,22 +1315,21 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
-    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty']
-    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
+    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty',
+              'missing_qty', 'rejected_qty', 'reason_for_rejection']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date', 'reason_for_rejection']
     extra = 0
     max_num = 0
     classes = ['table_inline', ]
+
     def has_delete_permission(self, request, obj=None):
         return False
-
 
     def expiry_date(self, obj=None):
         return "-"
 
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj and obj.shipment_status == 'READY_TO_SHIP':
-    #         return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
-    #     return self.readonly_fields
+    def reason_for_rejection(self, obj=None):
+        return '--------'
 
 
 class ShipmentAdmin(NestedModelAdmin):
