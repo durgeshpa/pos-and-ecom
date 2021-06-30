@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, BulkUploadLog
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
 
@@ -332,19 +332,3 @@ def download_sample_file_master_data(validated_data):
         response = DownloadMasterData.set_parent_data_sample_file(validated_data)
 
     return response
-
-
-class BulkUpload(object):
-
-    @classmethod
-    def create_bulk_upload_log(cls, log_obj, select_an_option):
-        """
-            Create Bulk Log
-        """
-        bulk_log = BulkUploadLog.objects.create(upload_type=select_an_option, file_name=log_obj.file,
-                                                uploaded_at=log_obj.updated_at, uploaded_by=log_obj.updated_by)
-        dict_data = {'upload_type': bulk_log.upload_type, 'updated_at': bulk_log.uploaded_at,
-                     'file_name': bulk_log.file_name, 'uploaded_by': bulk_log.uploaded_by}
-        info_logger.info("bulk update info ", dict_data)
-
-        return bulk_log

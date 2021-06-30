@@ -12,14 +12,13 @@ from rest_framework import serializers
 
 from products.models import (
     Product, ProductCategory, ProductTaxMapping, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,
-    Tax, ParentProductImage, BulkUploadForProductAttributes, BulkUploadLog
+    Tax, ParentProductImage, BulkUploadForProductAttributes
 )
 from categories.models import Category
 from brand.models import Brand, Vendor
 
 from categories.common_validators import get_validate_category
-from products.common_function import get_excel_file_data, download_sample_file_master_data, \
-    BulkUpload, create_master_data
+from products.common_function import get_excel_file_data, download_sample_file_master_data, create_master_data
 from products.api.v1.serializers import UserSerializers
 
 
@@ -54,7 +53,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('file', 'select_an_option', 'updated_by')
+        fields = ('file', 'select_an_option', 'updated_by', 'upload_type', 'created_at', 'updated_at')
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':
@@ -588,22 +587,12 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             else:
                 validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
             product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
-                                                                              updated_by=validated_data['updated_by'])
-
-            BulkUpload.create_bulk_upload_log(product_attribute, validated_data['select_an_option'])
+                    updated_by=validated_data['updated_by'], upload_type=validated_data['select_an_option'])
             return product_attribute
 
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-
-class BulkUploadLogSerializers(serializers.ModelSerializer):
-    uploaded_by = UserSerializers(read_only=True)
-
-    class Meta:
-        model = BulkUploadLog
-        fields = ('id', 'file_name', 'upload_type', 'file_name', 'uploaded_by', )
 
 
 class DownloadMasterDataSerializers(serializers.ModelSerializer):

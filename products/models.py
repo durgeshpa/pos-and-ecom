@@ -964,8 +964,9 @@ class BulkUploadForGSTChange(BaseTimeModel):
 
 class BulkUploadForProductAttributes(BaseTimeModel):
     file = models.FileField(upload_to='products/product_attributes/')
+    upload_type = models.CharField(max_length=50, default='')
     updated_by = models.ForeignKey(
-        get_user_model(), null=True, related_name='bulk_product_attr_update',
+        get_user_model(), null=True, related_name='bulk_file_uploaded_by',
         on_delete=models.DO_NOTHING
     )
 
@@ -1049,16 +1050,5 @@ class CentralLog(models.Model):
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='updated_by',
-        on_delete=models.DO_NOTHING
-    )
-
-
-class BulkUploadLog(models.Model):
-    upload_type = models.CharField(max_length=50, default='')
-    file_name = models.CharField(max_length=100, default='')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    uploaded_by = models.ForeignKey(
-        get_user_model(), null=True,
-        related_name='bulk_file_uploaded_by',
         on_delete=models.DO_NOTHING
     )
