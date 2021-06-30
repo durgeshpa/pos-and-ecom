@@ -101,7 +101,7 @@ class HSNListView(GenericAPIView):
             self.queryset = product_hsn_search(self.queryset, search_text)
         product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_hsn, many=True)
-        msg = "" if product_hsn else "no product hsn found"
+        msg = "" if product_hsn else "no hsn found"
         return get_response(msg, serializer.data, True)
 
 
@@ -117,7 +117,7 @@ class TaxListView(GenericAPIView):
             self.queryset = tax_search(self.queryset, search_text)
         product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_tax, many=True)
-        msg = "" if product_tax else "no product tax found"
+        msg = "" if product_tax else "no tax found"
         return get_response(msg, serializer.data, True)
 
 
