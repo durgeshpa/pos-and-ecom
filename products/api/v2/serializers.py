@@ -594,6 +594,12 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        representation['updated_at'] = instance.updated_at.strftime("%b %d %Y %I:%M%p")
+        return representation
+
 
 class DownloadMasterDataSerializers(serializers.ModelSerializer):
     select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
