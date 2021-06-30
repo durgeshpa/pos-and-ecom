@@ -50,7 +50,7 @@ def get_validate_product_hsn(product_hsn):
     return {'product_hsn': product_hsn}
 
 
-def get_validate_categorys(parent_product_pro_category):
+def get_validate_categories(parent_product_pro_category):
     """ validate ids that belong to a Category model also
     checking category shouldn't repeat else through error """
     cat_list = []

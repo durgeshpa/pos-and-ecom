@@ -8,7 +8,8 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
-    ProductSourceMapping
+    ProductSourceMapping, Weight
+
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
@@ -16,7 +17,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -148,8 +149,9 @@ class GetTaxView(GenericAPIView):
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Tax.objects.select_related('updated_by',).prefetch_related('tax_log', 'tax_log__updated_by').only('id', 'tax_name', 'tax_type',
-                          'tax_percentage', 'tax_start_at', 'tax_end_at', 'updated_by').order_by('-id')
+    queryset = Tax.objects.prefetch_related('tax_log', 'tax_log__updated_by')\
+        .only('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'status').\
+        order_by('-id')
 
     serializer_class = TaxCrudSerializers
 
@@ -169,7 +171,7 @@ class TaxView(GenericAPIView):
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
-        msg = "" if product_tax else "no product tax found"
+        msg = "" if product_tax else "no tax found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
@@ -773,3 +775,79 @@ class ProductVendorMappingView(GenericAPIView):
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
         return self.queryset
+
+
+class WeightView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Weight.objects.prefetch_related('weight_log', 'weight_log__updated_by')\
+        .only('id', 'weight_value', 'weight_unit', 'status', 'weight_name').order_by('-id')
+
+    serializer_class = WeightSerializers
+
+    def get(self, request):
+        """ GET API for Weight """
+
+        info_logger.info("Weight GET api called.")
+        if request.GET.get('id'):
+            """ Get Weight for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_tax = id_validation['data']
+        else:
+            """ GET Weight List """
+            product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product_tax, many=True)
+        msg = "" if product_tax else "no weight found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Weight Creation """
+
+        info_logger.info("Weight POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("weight created successfully ")
+            return get_response('weight created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Weight Updation """
+
+        info_logger.info("Weight PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update weight', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        tax_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Weight Updated Successfully.")
+            return get_response('weight updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Weight """
+
+        info_logger.info("Weight DELETE api called.")
+        if not request.data.get('weight_ids'):
+            return get_response('please provide tax_ids', False)
+        try:
+            for w_id in request.data.get('weight_ids'):
+                weight_id = self.queryset.get(id=int(w_id))
+                try:
+                    weight_id.delete()
+                except:
+                    return get_response(f'can not delete weight {weight_id.weight_name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid weight id {w_id}', False)
+        return get_response('weight were deleted successfully!', True)
+

@@ -226,6 +226,18 @@ class ProductCls(object):
 
         return tax_log
 
+    @classmethod
+    def create_weight_log(cls, log_obj):
+        """
+            Create Weight Log
+        """
+        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=log_obj.updated_by)
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+                     'weight': log_obj}
+        info_logger.info("weight_log update info ", dict_data)
+
+        return weight_log
+
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
     """

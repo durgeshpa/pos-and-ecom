@@ -328,6 +328,7 @@ class PackageSizeAdmin(admin.ModelAdmin, ExportCsvMixin):
 class WeightAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = WeightResource
     actions = ["export_as_csv"]
+    fields = ['weight_name', 'weight_unit', 'weight_value', 'status']
     prepopulated_fields = {'weight_name': ('weight_value', 'weight_unit')}
     search_fields = ['weight_name']
 

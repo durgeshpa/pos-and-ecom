@@ -91,13 +91,15 @@ class Flavor(models.Model):
         return self.flavor_name
 
 
-class Weight(models.Model):
+class Weight(BaseTimestampUserStatusModel):
     weight_value = models.CharField(max_length=255, null=True, blank=True)
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'kg')
     weight_name = models.SlugField(unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='weight_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.weight_name
@@ -1053,6 +1055,7 @@ class CentralLog(models.Model):
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
+    weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,

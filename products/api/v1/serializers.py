@@ -2,7 +2,6 @@ import codecs
 import csv
 import re
 import datetime
-
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
@@ -12,18 +11,20 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
-    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
-    ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog, BulkUploadForProductAttributes
+    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, \
+    Tax, ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, BulkUploadForProductAttributes, \
+    Weight, CentralLog
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
+from accounts.models import User
+
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
-    get_validate_images, get_validate_categorys, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
+    get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
     get_validate_child_product_image_ids
 from products.common_function import ParentProductCls, ProductCls
-from accounts.models import User
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -208,7 +209,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
         data['product_hsn'] = product_hsn_val['product_hsn']
 
-        category_val = get_validate_categorys(self.initial_data['parent_product_pro_category'])
+        category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
             raise serializers.ValidationError(_(category_val["error"]))
 
@@ -1049,6 +1050,25 @@ class TaxCrudSerializers(serializers.ModelSerializer):
         """update tax"""
         instance = super().update(instance, validated_data)
         ProductCls.create_tax_log(instance)
+        return instance
+
+
+class WeightSerializers(serializers.ModelSerializer):
+    weight_log = LogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = Weight
+        fields = ('id', 'weight_value', 'weight_unit', 'status', 'weight_name', 'weight_log')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new weight"""
+        return Weight.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        """update weight"""
+        instance = super().update(instance, validated_data)
+        ProductCls.create_weight_log(instance)
         return instance
 
 
