@@ -339,6 +339,7 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
                                                             f"Repackaging Type 'destination'."))
                     elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
                         raise serializers.ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
