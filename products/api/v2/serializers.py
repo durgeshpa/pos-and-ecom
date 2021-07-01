@@ -1,19 +1,20 @@
 import re
 import json
 import logging
-import csv
 import codecs
-
-from pyexcel_xlsx import get_data as xlsx_get
+import csv
+import datetime
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-from collections import OrderedDict
-from rest_framework import serializers
 
-from products.models import (
-    Product, ProductCategory, ProductTaxMapping, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,
-    Tax, ParentProductImage, BulkUploadForProductAttributes
-)
+from pyexcel_xlsx import get_data as xlsx_get
+from collections import OrderedDict
+
+from rest_framework import serializers
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+
+from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,\
+    Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping
 from categories.models import Category
 from brand.models import Brand, Vendor
 
@@ -44,6 +45,205 @@ class ChoiceField(serializers.ChoiceField):
             if val == data:
                 return key
         self.fail('invalid_choice', input=data)
+
+
+class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload Parent Product list', write_only=True, required=True)
+
+    class Meta:
+        model = ParentProduct
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                        row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                    continue
+            if not row[0]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Parent Name' can not be empty."))
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+
+            if not row[1]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
+            elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
+
+            if not row[2]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Category' can not be empty."))
+            else:
+                if not Category.objects.filter(category_name=row[2].strip()).exists():
+                    categories = row[2].split(',')
+                    for cat in categories:
+                        cat = cat.strip().replace("'", '')
+                        if not Category.objects.filter(category_name=cat).exists():
+                            raise serializers.ValidationError(
+                                _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
+            if not row[3]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
+            elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
+
+            if not row[4]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'GST' can not be empty."))
+            elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'GST' can only be 0, 5, 12, 18, 28."))
+
+            if row[5] and not re.match("^([0]|[1][2])(\s+)?%?$", row[5]):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'CESS' can only be 0, 12."))
+
+            if row[6] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[6]):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Surcharge' can only be a numeric value."))
+
+            if not row[7]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[7]):
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+
+            if not row[8]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
+            elif row[8].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only be 'B2B', 'B2C', "
+                                                    f"'Both B2B and B2C'."))
+
+            if not row[9]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_ptr_applicable' can not be empty."))
+
+            if str(row[9]).lower() not in ['yes', 'no']:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} |  {row['is_ptr_applicable']} | "
+                                                    f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
+
+            elif row[9].lower() == 'yes' and (not row[10] or row[10] == '' or row[10].lower() not in [
+                        'mark up', 'mark down']):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | "
+                                                    f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
+
+            elif row[9].lower() == 'yes' and (not row[11] or row[11] == '' or 100 < int(row[11]) or int(row[11]) < 0):
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | "
+                                                    f"'ptr_percent' is invalid"))
+
+            if not row[12]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_ars_applicable' can not be empty."))
+
+            if str(row[12]).lower() not in ['yes', 'no']:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[12]} |" 
+                                                    f"'is_ars_applicable' can only be 'Yes' or 'No' "))
+
+            if not row[13]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'max_inventory_in_days' can not be empty."))
+
+            if not re.match("^\d+$", str(row[13])) or int(row[13]) < 1 or int(row[13]) > 999:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[13]} "
+                                                    f"|'Max Inventory In Days' is invalid."))
+
+            if not row[14]:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_lead_time_applicable' can not be empty."))
+
+            if str(row[14]).lower() not in ['yes', 'no']:
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[15]} |"
+                                                    f"'is_lead_time_applicable' can only be 'Yes' or 'No' "))
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        next(reader)
+        parent_product_list = []
+        try:
+            for row in reader:
+                parent_product = ParentProduct.objects.create(
+                    name=row[0].strip(),
+                    parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
+                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
+                    inner_case_size=int(row[7]),
+                    product_type=row[8],
+                    is_ptr_applicable=(True if row[9].lower() == 'yes' else False),
+                    ptr_type=(None if not row[9].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                              if row[10].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
+                    ptr_percent=(None if not row[9].lower() == 'yes' else row[11]),
+                    is_ars_applicable=True if row[12].lower() == 'yes' else False,
+                    max_inventory=row[13],
+                    is_lead_time_applicable=(True if row[14].lower() == 'yes' else False),
+
+                )
+                parent_product.save()
+
+                parent_gst = int(row[4])
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
+                ).save()
+
+                parent_cess = int(row[5]) if row[5] else 0
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
+                ).save()
+
+                parent_surcharge = float(row[6]) if row[6] else 0
+                if Tax.objects.filter(
+                        tax_type='surcharge',
+                        tax_percentage=parent_surcharge
+                ).exists():
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
+                    ).save()
+                else:
+                    new_surcharge_tax = Tax.objects.create(
+                        tax_name='Surcharge - {}'.format(parent_surcharge),
+                        tax_type='surcharge',
+                        tax_percentage=parent_surcharge,
+                        tax_start_at=datetime.datetime.now()
+                    )
+                    new_surcharge_tax.save()
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=new_surcharge_tax
+                    ).save()
+                if Category.objects.filter(category_name=row[2].strip()).exists():
+                    parent_product_category = ParentProductCategory.objects.create(
+                        parent_product=parent_product,
+                        category=Category.objects.filter(category_name=row[2].strip()).last()
+                    )
+                    parent_product_category.save()
+                else:
+                    categories = row[2].split(',')
+                    for cat in categories:
+                        cat = cat.strip().replace("'", '')
+                        parent_product_category = ParentProductCategory.objects.create(
+                            parent_product=parent_product,
+                            category=Category.objects.filter(category_name=cat).last()
+                        )
+                        parent_product_category.save()
+                parent_product_list.append(parent_product)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return parent_product_list
+
+
+class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload Child Product list')
+
+    class Meta:
+        model = Product
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError("Sorry! Only .csv file accepted.")
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):

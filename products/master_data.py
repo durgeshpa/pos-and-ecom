@@ -201,8 +201,7 @@ class UploadMasterData(object):
 
                             if col == 'ptr_type':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (ptr_type=None if not row[
-                                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                                    (ptr_type=None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                                     if row[
                                            'ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 

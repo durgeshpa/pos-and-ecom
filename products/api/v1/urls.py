@@ -1,5 +1,5 @@
 from django.conf.urls import url
-from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, HSNListView, \
+from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView, \
     ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
     BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
     ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
@@ -9,7 +9,6 @@ urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
     url(r'^get-parent-product/', ParentProductListView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
-    url(r'^parent-bulk-product/', ParentProductBulkUploadView.as_view(), name='parent-bulk-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),
     url(r'^parent-product-active-deactive/', ActiveDeactiveSelectedParentProductView.as_view(),
         name='parent-product-active-deactive'),
@@ -28,4 +27,5 @@ urlpatterns = [
     url(r'^export-csv-tax/', TaxExportAsCSVView.as_view(), name='export-csv-tax'),
     url(r'^weight/', WeightView.as_view(), name='weight'),
     url(r'^export-csv-weight/', WeightExportAsCSVView.as_view(), name='export-csv-weight'),
+
 ]

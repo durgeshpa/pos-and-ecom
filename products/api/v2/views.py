@@ -2,13 +2,16 @@ import logging
 from django.http import HttpResponse
 
 from rest_framework import authentication
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 
-from products.models import BulkUploadForProductAttributes
+from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
+    ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
+    ProductSourceMapping, Weight
 
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers
+    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers, \
+    ParentProductBulkUploadSerializers, ChildProductBulkUploadSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -19,6 +22,36 @@ from products.services import bulk_log_search
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class ParentProductBulkCreateView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ParentProductBulkUploadSerializers
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Bulk Create Parent Product """
+
+        info_logger.info("Parent Product Bulk Create POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('parent product CSV uploaded successfully!', True)
+        return get_response(serializer_error(serializer), False)
+
+
+class ChildProductBulkCreateView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductBulkUploadSerializers
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Bulk Upload Child Product CSV """
+
+        info_logger.info("Child Product Bulk Create POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('child product CSV uploaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
 
 class BulkUploadProductAttributes(GenericAPIView):

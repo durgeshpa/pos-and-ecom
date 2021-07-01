@@ -13,12 +13,11 @@ from categories.models import Category
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
-from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
-    ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
+from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
+    ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
-    WeightExportAsCSVSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -500,21 +499,6 @@ class ChildProductView(GenericAPIView):
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__id=category)
         return self.queryset
-
-
-class ParentProductBulkUploadView(CreateAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ParentProductBulkUploadSerializers
-
-    def post(self, request, *args, **kwargs):
-        """ POST API for Bulk Upload Parent Product CSV with Category & Tax """
-
-        info_logger.info("Parent Product Bulk Upload POST api called.")
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('parent product CSV uploaded successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
 
 
 class ParentProductExportAsCSVView(CreateAPIView):
