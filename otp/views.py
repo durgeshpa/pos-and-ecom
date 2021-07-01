@@ -3,6 +3,8 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
@@ -10,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
 from retailer_backend.messages import *
+from accounts.tokens import account_activation_token
 
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
@@ -93,6 +96,11 @@ class ValidateOTP(CreateAPIView):
         if not self.expired(user) and not self.max_attempts(user, 10):
             user.is_verified = 1
             user.save()
+            if self.request.data.get('password_reset', 0) == 1:
+                user = UserModel.objects.get(phone_number=user.phone_number)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = account_activation_token.make_token(user)
+                msg['response_data'] = [{'uid': uid, 'token': token}]
             msg['is_success'], msg['message'] = True, [SUCCESS_MESSAGES['MOBILE_NUMBER_VERIFIED']]
             status_code = status.HTTP_200_OK
         elif self.max_attempts(user, 10):
