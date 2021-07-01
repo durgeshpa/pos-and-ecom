@@ -178,6 +178,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
                     is_ars_applicable=True if row[12].lower() == 'yes' else False,
                     max_inventory=row[13].lower(),
                     is_lead_time_applicable=(True if row[14].lower() == 'yes' else False),
+                    created_by=validated_data['created_by']
 
                 )
                 parent_product.save()
