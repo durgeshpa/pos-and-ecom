@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from ars.filters import WarehouseFilter, ParentProductFilter
 from ars.models import ProductDemand
-from ars.views import get_current_inventory, get_child_product_with_latest_grn
+from ars.views import get_current_inventory
 
 info_logger = logging.getLogger('file-info')
 
@@ -60,6 +60,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
         Returns the current inventory in the system for a parent product for specific warehouse
         """
         return get_current_inventory(obj.warehouse, obj.parent_product)
+
 
     def current_demand(self, obj):
         """
