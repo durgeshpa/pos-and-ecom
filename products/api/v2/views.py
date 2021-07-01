@@ -93,8 +93,7 @@ class ChildProductsDownloadSampleCSV(APIView):
                 ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"],
                 ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
-                 "BPOBLKREG00000001", "10.00"]
-                ]
+                 "BPOBLKREG00000001", "10.00"]]
         for row in data:
             writer.writerow(row)
 

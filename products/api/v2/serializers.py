@@ -14,7 +14,8 @@ from rest_framework import serializers
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,\
-    Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping
+    Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping, ProductSourceMapping, \
+    DestinationRepackagingCostMapping, ProductPackingMapping
 from categories.models import Category
 from brand.models import Brand, Vendor
 
@@ -246,9 +247,7 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError("Sorry! Only .csv file accepted.")
 
-    @transaction.atomic
-    def create(self, validated_data):
-        reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         next(reader)
         for row_id, row in enumerate(reader):
             if len(row) == 0:
@@ -260,33 +259,42 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
             if not row[0]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
             elif not ParentProduct.objects.filter(parent_id=row[0]).exists():
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
+
             if not row[1]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can not be empty."))
             elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'offer']:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', "
                                                     f"'Different MRP', 'Different Weight', 'Different EAN', 'Offer'."))
+
             if not row[2]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[2]):
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+
             if not row[3]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can not be empty."))
             elif not re.match("^[a-zA-Z0-9\+\.\-]*$", row[3].replace("'", '')):
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can only contain "
                                                     f"alphanumeric input."))
+
             if not row[4]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can not be empty."))
             elif not re.match("^\d+[.]?[\d]{0,2}$", row[4]):
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can only be a numeric value."))
+
             if not row[5]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can not be empty."))
             elif not re.match("^\d+[.]?[\d]{0,2}$", row[5]):
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can only be a numeric value."))
+
             if not row[6]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can not be empty."))
             elif row[6].lower() not in ['gram']:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
+
             if not row[7]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
             elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
@@ -296,15 +304,16 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for "
                                                         f"Repackaging Type 'destination'."))
                 else:
-                    there = False
+                    source_sku = False
                     for pro in row[8].split(','):
                         pro = pro.strip()
                         if pro is not '':
                             if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
-                                there = True
+                                source_sku = True
                             else:
-                                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' {pro} is invalid."))
-                    if not there:
+                                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' {pro} "
+                                                                    f"is invalid."))
+                    if not source_sku:
                         raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for "
                                                             f"Repackaging Type 'destination'."))
 
@@ -330,6 +339,65 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
                                                             f"Repackaging Type 'destination'."))
                     elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
                         raise serializers.ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
+
+    @transaction.atomic
+    def create(self, validated_data):
+        reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        next(reader)
+        try:
+            for row_id, row in enumerate(reader):
+                if len(row) == 0:
+                    continue
+                if '' in row:
+                    if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
+                            and row[5] == '' and row[6] == ''):
+                        continue
+
+                product = Product.objects.create(
+                    parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                    reason_for_child_sku=(row[1].lower()),
+                    product_name=row[2],
+                    product_ean_code=row[3].replace("'", ''),
+                    product_mrp=float(row[4]),
+                    weight_value=float(row[5]),
+                    weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
+                    repackaging_type=row[7]
+                )
+                product.save()
+
+                source_map = []
+                if row[7] == 'destination':
+                    for pro in row[8].split(','):
+                        pro = pro.strip()
+                        if pro is not '' and pro not in source_map and \
+                                Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                            source_map.append(pro)
+                    for sku in source_map:
+                        ProductSourceMapping.objects.create(
+                            destination_sku=product,
+                            source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
+                            status=True
+                        )
+                    DestinationRepackagingCostMapping.objects.create(
+                        destination=product,
+                        raw_material=float(row[9]),
+                        wastage=float(row[10]),
+                        fumigation=float(row[11]),
+                        label_printing=float(row[12]),
+                        packing_labour=float(row[13]),
+                        primary_pm_cost=float(row[14]),
+                        secondary_pm_cost=float(row[15])
+                    )
+                    ProductPackingMapping.objects.create(
+                        sku=product,
+                        packing_sku=Product.objects.get(product_sku=row[16]),
+                        packing_sku_weight_per_unit_sku=float(row[17])
+                    )
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):
