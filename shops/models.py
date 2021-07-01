@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+import traceback
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
@@ -118,6 +119,48 @@ class Shop(models.Model):
                 return parent.shop_name
         except:
             return None
+    
+    @property
+    def shipping_address(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().address_line1
+        except:
+            return None
+
+    @property
+    def city_name(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().city.city_name
+        except:
+            return None
+
+    @property
+    def pin_code(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
+        except:
+            return None
+
+    @property
+    def owner(self):
+        try:
+            if self.shop_owner.first_name and self.shop_owner.last_name:
+                return "%s - %s - %s %s - %s - %s" % (self.shop_name,
+                                            str(self.shop_owner.phone_number), self.shop_owner.first_name,
+                                            self.shop_owner.last_name, str(self.shop_type), str(self.id)
+                                            )
+
+            elif self.shop_owner.first_name:
+                return "%s - %s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name,
+                                        str(self.shop_type), str(self.id))
+
+            return "%s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), str(self.shop_type),
+                                        str(self.id))
+        except:
+            return None
 
     @property
     def get_shop_shipping_address(self):
@@ -153,10 +196,6 @@ class Shop(models.Model):
     def shop_approved(self):
         return True if self.status == True and self.retiler_mapping.filter(
             status=True).exists() and self.approval_status == self.APPROVED else False
-
-    @property
-    def shipping_address(self):
-        return self.shop_name_address_mapping.filter(address_type='shipping').last()
 
     @property
     def get_shop_parent_name(self):
