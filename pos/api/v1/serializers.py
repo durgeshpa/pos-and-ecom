@@ -621,7 +621,8 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         block, cb = dict(), 1
         block[cb] = dict()
         block[cb][1] = "Paid Amount: " + str(self.get_order_total(obj)).rstrip('0').rstrip('.')
-        discount = ongoing_return.discount_adjusted
+
+        discount = self.get_discount_amount(obj)
         redeem_points_value = self.get_redeem_points_value(obj)
         if discount and redeem_points_value:
             block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip(
@@ -636,14 +637,23 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(
                 obj.order_amount).rstrip('0').rstrip('.')
 
-        refunded_amount = self.get_refunded_amount(obj)
+        returns = OrderReturn.objects.filter(order=obj, status='completed')
+        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0
+        for ret in returns:
+            return_value += ret.return_value
+            discount_adjusted += ret.discount_adjusted
+            points_adjusted += ret.refund_points
+            refunded_amount += max(0, ret.refund_amount)
+        returned_oints_value = 0
+        if obj.ordered_cart.redeem_factor:
+            returned_oints_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
         if refunded_amount:
             cb += 1
             block[cb] = dict()
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
             block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(
-                self.get_returned_total(obj)).rstrip('0').rstrip('.') + '.'
-            block[cb][2] += ' Rs.' + str(discount).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount else ')'
+                return_value).rstrip('0').rstrip('.') + '.'
+            block[cb][2] += ' Rs.' + str(discount_adjusted).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount_adjusted else ')'
 
         cb += 1
         block[cb] = dict()
@@ -656,14 +666,6 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
                 lines_array.append(lines_dict[key])
             block_array.append(lines_array)
         return block_array
-
-    @staticmethod
-    def get_returned_total(obj):
-        returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_value = 0
-        for ret in returns:
-            return_value += ret.return_value
-        return return_value
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -681,15 +683,6 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         for offer in offers:
             discount += float(offer['discount_value'])
         return round(discount, 2)
-
-    @staticmethod
-    def get_refunded_amount(obj):
-        previous_refund = 0
-        if obj.order_status == Order.PARTIALLY_RETURNED:
-            previous_returns = obj.rt_return_order.filter(status='completed')
-            for ret in previous_returns:
-                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
-        return round(previous_refund, 2)
 
     @staticmethod
     def get_cart_offers(obj):
