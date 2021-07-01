@@ -48,13 +48,12 @@ class ParentProductsDownloadSampleCSV(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         writer = csv.writer(response)
-        writer.writerow(["name", "brand", "category", "hsn", "gst", "cess", "surcharge", "brand case size",
-                         "inner case size", "product type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+        writer.writerow(["name", "brand", "category", "hsn", "gst", "cess", "surcharge", "inner case size", "product type", "is_ptr_applicable", "ptr_type", "ptr_percent",
                          "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable"])
 
         data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "10", "b2c", "yes", "Mark Up", "12", "yes", "2", "yes"], ["parent2", "Too Yumm",
-                "Grocery & Staples", "123456", "18", "0", "100", "10", "10", "b2c", "no", " ", "", "no", "2", "yes"]]
+                 "10", "B2C", "yes", "Mark Up", "12", "yes", "2", "yes"], ["parent2", "Too Yumm",
+                "Grocery & Staples", "123456", "18", "0", "100", "10", "B2B", "no", " ", "", "no", "2", "yes"]]
         for row in data:
             writer.writerow(row)
 
