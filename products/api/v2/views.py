@@ -76,6 +76,32 @@ class ChildProductBulkCreateView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class ChildProductsDownloadSampleCSV(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        filename = "child_products_upload_sample.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
+                         "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
+                         'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                         'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', "Packing SKU",
+                         "Packing Sku Weight (gm) Per Unit (Qty) Destination Sku"])
+        data = [["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"],
+                ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"],
+                ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
+                 "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
+                 "BPOBLKREG00000001", "10.00"]
+                ]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Child Product Sample CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
 class BulkUploadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)

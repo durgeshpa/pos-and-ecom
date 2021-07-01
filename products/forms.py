@@ -626,8 +626,8 @@ class UploadChildProductAdminForm(forms.Form):
             if len(row) == 0:
                 continue
             if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[
-                    5] == '' and row[6] == ''):
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
+                        and row[5] == '' and row[6] == ''):
                     continue
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
