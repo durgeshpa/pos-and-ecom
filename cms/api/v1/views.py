@@ -463,6 +463,10 @@ class PageView(APIView):
         serializer = self.serializer_class(data=data, instance=page, context = {'request':request} ,partial=True)
         if serializer.is_valid():
             serializer.save()
+
+            cache.delete('pages')
+            info_logger.info("-----------PAGES CACHE INVALIDATED  @PATCH pages/-----------")
+
             message = {
                 "is_success": True,
                 "message": "OK",
@@ -485,14 +489,29 @@ class PageDetailView(APIView):
         """Get page specific details"""
         
         query_params = request.query_params
-        try:
-            page = Page.objects.get(id = id)
-        except Exception:
+
+        # try from cache first
+        cached_pages = cache.get('cached_pages')
+        if(cached_pages and cached_pages.get(id)):
             message = {
-                "is_success": False,
-                "message": "No pages exist for this id."
+                "is_success": True,
+                "message": "OK",
+                "data": cached_pages.get(id)
             }
-            return Response(message, status = status.HTTP_204_NO_CONTENT)
+            info_logger.info("-----USING PAGE FROM CACHE  @GET pages/id----------")
+            return Response(message, status = status.HTTP_200_OK)
+        else:   
+            try:
+                page = Page.objects.get(id = id)
+
+            except Exception:
+                message = {
+                    "is_success": False,
+                    "message": "No pages exist for this id."
+                }
+                return Response(message, status = status.HTTP_204_NO_CONTENT)
+
+
         page_version = None
         if query_params.get('version'):
             try:
@@ -509,6 +528,13 @@ class PageDetailView(APIView):
             "message": "OK",
             "data": serializer.data
         }
+        # set the cache
+        if not cached_pages:
+            cached_pages = {}
+        cached_pages[id] = serializer.data
+        cache.set('cached_pages', cached_pages)
+        info_logger.info("-----SET PAGE IN CACHE  @GET pages/id----------")
+
         return Response(message, status = status.HTTP_200_OK)
 
 
@@ -526,6 +552,11 @@ class PageDetailView(APIView):
         serializer = PageDetailSerializer(data=request.data, instance=page, partial=True)
         if serializer.is_valid():
             serializer.save()
+
+            # remove the page with id from the cache
+            cache.set("cached_pages", cache.get("cached_pages").pop(id))
+            info_logger.info(f"-----REMOVE PAGE WITH ID: {id} FROM CACHE  @PATCH pages/id----------")
+            
             message = {
                 "is_success": True,
                 "message": "OK",

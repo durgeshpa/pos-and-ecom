@@ -137,6 +137,8 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             card=card,
                                                             card_data=new_card_data,
                                                             )
+            # card.name=data["name"]
+            # card.save()
             info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
         else:
             app_id = data.get("app_id")
