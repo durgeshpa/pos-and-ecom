@@ -536,19 +536,19 @@ LOGGING = {
        # 'file-debug': {
        #     'level': 'DEBUG',
        #     'class': 'logging.FileHandler',
-       #     'filename': 'debug.log',
+       #     'filename': '/var/log/retailer-backend/debug.log',
        #     'formatter': 'verbose',
        # },
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': 'info.log',
+           'filename': '/var/log/retailer-backend/info.log',
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': 'error.log',
+           'filename': '/var/log/retailer-backend/error.log',
            'formatter': 'verbose',
        },
        # 'console': {
@@ -558,7 +558,7 @@ LOGGING = {
         'cron_log_file': {
              'level': 'INFO',
              'class': 'logging.FileHandler',
-             'filename': 'scheduled_jobs.log',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
 
