@@ -14,6 +14,7 @@ from rest_framework.decorators import list_route
 from rest_framework.permissions import (AllowAny,IsAuthenticated)
 from brand.models import Brand
 
+
 class GetAllSubCategoryListView(viewsets.ModelViewSet):
     permission_classes = (AllowAny,)
     queryset = Category.objects.filter(category_parent=None)
@@ -24,6 +25,7 @@ class GetAllSubCategoryListView(viewsets.ModelViewSet):
         queryset = Category.objects.filter(category_parent=None)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
 
 class GetCategoryListBySlot(APIView):
     permission_classes = (AllowAny,)
@@ -38,9 +40,11 @@ class GetCategoryListBySlot(APIView):
         is_success = True if category_data else False
         return Response({ "message":[""],"response_data": category_data_serializer.data,"is_success":is_success})
 
+
 class GetcategoryBrandListView(APIView):
 
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
@@ -49,21 +53,25 @@ class GetcategoryBrandListView(APIView):
         is_success = True if brands else False
         return Response({"message":[""], "response_data": category_brand_serializer.data ,"is_success":is_success })
 
+
 class GetSubCategoriesListView(APIView):
 
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
-        sub_categories = category.cat_parent.filter(status=True)
+        sub_categories = category.sub_category.filter(status=True)
         sub_category_data_serializer = CategorySerializer(sub_categories,many=True)
 
         is_success = True if sub_categories else False
         return Response({"message":[""], "response_data": sub_category_data_serializer.data ,"is_success":is_success })
 
+
 class GetAllCategoryListView(APIView):
 
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         categories_to_return = []
         shop_id = self.request.GET.get('shop_id')
@@ -78,8 +86,8 @@ class GetAllCategoryListView(APIView):
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
-            elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True):
+            elif c.sub_category.filter(status=True).count() > 0:
+                for sub_category in c.sub_category.filter(status=True):
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break

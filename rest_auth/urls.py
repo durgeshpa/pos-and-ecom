@@ -1,4 +1,4 @@
-from django.conf.urls import url
+from django.conf.urls import url,include
 
 from rest_auth.views import (
     LoginView, LogoutView, UserDetailsView, PasswordChangeView,

@@ -67,7 +67,6 @@ def update_category_elasticsearch(sender, instance=None, created=False, **kwargs
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
 
-
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
@@ -93,7 +92,6 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
 
 
-
 @receiver(post_save, sender=ParentProduct)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     logger.info("Updating ES of child products of parent {}".format(instance))
@@ -105,7 +103,6 @@ def update_parent_product_elasticsearch(sender, instance=None, created=False, **
             product_images = [
                 {
                     "image_name": p_i.image_name,
-                    "image_alt": p_i.image_alt_text,
                     "image_url": p_i.image.url
                 }
                 for p_i in instance.parent_product_pro_image.all()

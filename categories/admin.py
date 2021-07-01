@@ -1,6 +1,6 @@
 from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import Category,CategoryData,CategoryPosation
+from .models import Category, CategoryData, CategoryPosation
 from import_export.admin import ExportActionMixin
 from .resources import CategoryResource
 from retailer_backend.admin import InputFilter
@@ -19,6 +19,8 @@ class CategorySearch(InputFilter):
             return queryset.filter(
                 Q(category_name__icontains=category_name)
             )
+
+
 class CategoryParentSearch(InputFilter):
     parameter_name = 'category_parent'
     title = 'Category Parent'
@@ -31,6 +33,7 @@ class CategoryParentSearch(InputFilter):
             return queryset.filter(
                 Q(category_parent__category_name__icontains=category_parent)
             )
+
 
 class CategorySKUSearch(InputFilter):
     parameter_name = 'category_sku_part'
@@ -45,21 +48,27 @@ class CategorySKUSearch(InputFilter):
                 Q(category_sku_part__icontains=category_sku_part)
             )
 
+
 class CategoryDataInline(SortableStackedInline):
     model = CategoryData
 
+
 class CategoryPosationAdmin(NonSortableParentAdmin):
     inlines = [CategoryDataInline]
+
 
 admin.site.register(CategoryPosation, CategoryPosationAdmin)
 
 
 class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = CategoryResource
-    list_display = ['id','category_name', 'category_slug','category_parent', 'category_sku_part']
+    fields = ('category_name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',
+              'category_image', 'status')
+    list_display = ['id', 'category_name', 'category_slug', 'category_parent', 'category_sku_part']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
     search_fields = ('category_name',)
-    list_filter = [CategorySearch,CategoryParentSearch,CategorySKUSearch]
+    list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
+
 
 admin.site.register(Category,CategoryAdmin)

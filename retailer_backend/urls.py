@@ -44,6 +44,7 @@ urlpatterns = [
     url(r'^shops/', include('shops.urls')),
     url(r'^category/', include('categories.urls')),
     url(r'^product/', include('products.urls')),
+    url(r'^brand/', include('brand.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
     url(r'^offerbannerapi/', include('offer.urls')),
