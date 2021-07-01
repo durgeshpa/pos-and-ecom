@@ -1,11 +1,13 @@
 from django.conf.urls import url
 from .views import BulkUploadProductAttributes, BulkDownloadProductAttributes, ProductCategoryMapping, \
     ParentProductMultiImageUploadView, ChildProductMultiImageUploadView, ChildProductBulkCreateView , \
-    ParentProductBulkCreateView
+    ParentProductBulkCreateView, ParentProductsDownloadSampleCSV
 
 urlpatterns = [
     url(r'^upload/create-parent-bulk-product/', ParentProductBulkCreateView.as_view(),
         name='create-parent-bulk-product'),
+    url(r'^download/parent-bulk-product-sample/', ParentProductsDownloadSampleCSV.as_view(),
+        name='download/parent-bulk-product-sample'),
     url(r'^upload/create-child-bulk-product/', ChildProductBulkCreateView.as_view(), name='create-child-bulk-product'),
     url(r'^upload/bulk-upload-master-data/', BulkUploadProductAttributes.as_view(),
         name='upload/bulk-upload-master-data'),

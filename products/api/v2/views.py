@@ -1,8 +1,9 @@
 import logging
 from django.http import HttpResponse
-
+import csv
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
@@ -37,6 +38,28 @@ class ParentProductBulkCreateView(CreateAPIView):
             serializer.save(created_by=request.user)
             return get_response('parent product CSV uploaded successfully!', True)
         return get_response(serializer_error(serializer), False)
+
+
+class ParentProductsDownloadSampleCSV(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        filename = "parent_products_sample.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["name", "brand", "category", "hsn", "gst", "cess", "surcharge", "brand case size",
+                         "inner case size", "product type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                         "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable"])
+
+        data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
+                 "10", "10", "b2c", "yes", "Mark Up", "12", "yes", "2", "yes"], ["parent2", "Too Yumm",
+                "Grocery & Staples", "123456", "18", "0", "100", "10", "10", "b2c", "no", " ", "", "no", "2", "yes"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Parent Product Sample CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
 
 
 class ChildProductBulkCreateView(CreateAPIView):

@@ -2292,7 +2292,6 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
                 selling_price_per_saleable_unit = float(round(selling_price, 2))
 
-
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
             elif not row[5]:

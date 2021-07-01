@@ -47,6 +47,10 @@ class ChoiceField(serializers.ChoiceField):
         self.fail('invalid_choice', input=data)
 
 
+class ParentProductBulkSampleFileSerializers(serializers.ModelSerializer):
+    pass
+
+
 class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Parent Product list', write_only=True, required=True)
 
