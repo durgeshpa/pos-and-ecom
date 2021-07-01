@@ -176,7 +176,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
                               if row[10].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row[9].lower() == 'yes' else row[11]),
                     is_ars_applicable=True if row[12].lower() == 'yes' else False,
-                    max_inventory=row[13],
+                    max_inventory=row[13].lower(),
                     is_lead_time_applicable=(True if row[14].lower() == 'yes' else False),
 
                 )

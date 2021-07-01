@@ -52,8 +52,8 @@ class ParentProductsDownloadSampleCSV(APIView):
                          "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable"])
 
         data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "B2C", "yes", "Mark Up", "12", "yes", "2", "yes"], ["parent2", "Too Yumm",
-                "Grocery & Staples", "123456", "18", "0", "100", "10", "B2B", "no", " ", "", "no", "2", "yes"]]
+                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes"], ["parent2", "Too Yumm",
+                "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no", " ", "", "no", "2", "yes"]]
         for row in data:
             writer.writerow(row)
 
