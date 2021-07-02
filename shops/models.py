@@ -148,17 +148,12 @@ class Shop(models.Model):
     def owner(self):
         try:
             if self.shop_owner.first_name and self.shop_owner.last_name:
-                return "%s - %s - %s %s - %s - %s" % (self.shop_name,
-                                            str(self.shop_owner.phone_number), self.shop_owner.first_name,
-                                            self.shop_owner.last_name, str(self.shop_type), str(self.id)
-                                            )
+                return "%s %s - %s" % (self.shop_owner.first_name, self.shop_owner.last_name, str(self.shop_owner.id))
 
             elif self.shop_owner.first_name:
-                return "%s - %s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name,
-                                        str(self.shop_type), str(self.id))
+                return "%s" % (self.shop_owner.first_name)
 
-            return "%s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), str(self.shop_type),
-                                        str(self.id))
+            return "%s" % (str(self.shop_owner.phone_number))
         except:
             return None
 
