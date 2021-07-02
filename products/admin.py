@@ -1370,9 +1370,9 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
 
 
 class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-    list_display = ('file',)
-    fields = ('file',)
-    readonly_fields = ('file',)
+    list_display = ('file', 'upload_type', 'updated_by', 'created_at',)
+    fields = ('file', 'updated_by', )
+    readonly_fields = ('file', 'updated_by',)
 
     change_list_template = 'admin/products/product_attributes_change_list.html'
 

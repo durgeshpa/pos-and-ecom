@@ -626,8 +626,8 @@ class UploadChildProductAdminForm(forms.Form):
             if len(row) == 0:
                 continue
             if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[
-                    5] == '' and row[6] == ''):
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
+                        and row[5] == '' and row[6] == ''):
                     continue
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
@@ -2291,7 +2291,6 @@ class UploadSlabProductPriceForm(forms.Form):
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
                 selling_price_per_saleable_unit = float(round(selling_price, 2))
-
 
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))

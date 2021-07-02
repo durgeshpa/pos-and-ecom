@@ -1,4 +1,5 @@
 import logging
+
 from pyexcel_xlsx import get_data as xlsx_get
 
 from rest_framework import status
@@ -7,11 +8,13 @@ from rest_framework.response import Response
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
+
 from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
+    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
+
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -23,8 +26,8 @@ class ParentProductCls(object):
     @classmethod
     def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
         """
-            Delete Existing Images of specific ParentProduct if any
-            Create Parent Product Images
+            Delete Existing Images of specific ParentProduct
+            Create or Update Parent Product Images
         """
         ids = []
         if parent_product_pro_image:
@@ -93,7 +96,7 @@ class ProductCls(object):
     @classmethod
     def upload_child_product_images(cls, child_product, product_images, product_pro_image):
         """
-           Delete Existing Images of specific ParentProduct if any
+           Delete Existing Images of specific ParentProduct
            Create Parent Product Images
         """
         ids = []
@@ -160,6 +163,9 @@ class ProductCls(object):
 
     @classmethod
     def update_weight_inventory(cls, child_product):
+        """
+            Update WarehouseInventory
+        """
         warehouse_inv = WarehouseInventory.objects.filter(sku=child_product)
         for inv in warehouse_inv:
             inv.weight = inv.quantity * child_product.weight_value
@@ -292,39 +298,37 @@ def create_master_data(validated_data):
     excel_file_data = xlsx_get(validated_data['file'])['Users']
     uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
 
-    if validated_data['select_an_option'] == "master_data":
+    if validated_data['upload_type'] == "master_data":
         SetMasterData.set_master_data(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "inactive_status":
+    if validated_data['upload_type'] == "inactive_status":
         UploadMasterData.set_inactive_status(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "sub_brand_with_brand":
+    if validated_data['upload_type'] == "sub_brand_with_brand":
         UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "sub_category_with_category":
+    if validated_data['upload_type'] == "sub_category_with_category":
         UploadMasterData.set_sub_category_and_category(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "child_parent":
+    if validated_data['upload_type'] == "child_parent":
         UploadMasterData.set_child_parent(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "child_data":
+    if validated_data['upload_type'] == "child_data":
         UploadMasterData.set_child_data(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "parent_data":
+    if validated_data['upload_type'] == "parent_data":
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
 
 
 def download_sample_file_master_data(validated_data):
 
-    if validated_data['select_an_option'] == "master_data":
+    if validated_data['upload_type'] == "master_data":
         response = DownloadMasterData.set_master_data_sample_file(validated_data)
-    if validated_data['select_an_option'] == "inactive_status":
+    if validated_data['upload_type'] == "inactive_status":
         response = DownloadMasterData.set_inactive_status_sample_file(validated_data)
-    if validated_data['select_an_option'] == "sub_brand_with_brand":
+    if validated_data['upload_type'] == "sub_brand_with_brand":
         response = DownloadMasterData.brand_sub_brand_mapping_sample_file()
-    if validated_data['select_an_option'] == "sub_category_with_category":
+    if validated_data['upload_type'] == "sub_category_with_category":
         response = DownloadMasterData.category_sub_category_mapping_sample_file()
-    if validated_data['select_an_option'] == "child_parent":
+    if validated_data['upload_type'] == "child_parent":
         response = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
-    if validated_data['select_an_option'] == "child_data":
+    if validated_data['upload_type'] == "child_data":
         response = DownloadMasterData.set_child_data_sample_file(validated_data)
-    if validated_data['select_an_option'] == "parent_data":
+    if validated_data['upload_type'] == "parent_data":
         response = DownloadMasterData.set_parent_data_sample_file(validated_data)
 
     return response
-
-

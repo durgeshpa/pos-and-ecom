@@ -1050,7 +1050,6 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')

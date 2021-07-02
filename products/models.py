@@ -964,8 +964,9 @@ class BulkUploadForGSTChange(BaseTimeModel):
 
 class BulkUploadForProductAttributes(BaseTimeModel):
     file = models.FileField(upload_to='products/product_attributes/')
+    upload_type = models.CharField(max_length=50, default='')
     updated_by = models.ForeignKey(
-        get_user_model(), null=True, related_name='bulk_product_attr_update',
+        get_user_model(), null=True, related_name='bulk_file_uploaded_by',
         on_delete=models.DO_NOTHING
     )
 
@@ -973,17 +974,6 @@ class BulkUploadForProductAttributes(BaseTimeModel):
         return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
 
 
-# class BulkUploadForGSTProductChange(BaseTimeModel):
-#     BULK_UPLOAD_TYPE = [
-#         ('gst', 'GST'),
-#         ('product', 'Product'),
-#     ]
-#     choice_type = models.CharField(max_length=50, choices=BULK_UPLOAD_TYPE)
-#     file = models.FileField(upload_to='products/producttaxmapping_product_attributes/')
-#
-#     def __str__(self):
-#         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
-#
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
@@ -1050,6 +1040,7 @@ class ProductPackingMapping(models.Model):
 
 
 class CentralLog(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
