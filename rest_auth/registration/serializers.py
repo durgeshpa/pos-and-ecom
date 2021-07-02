@@ -21,7 +21,7 @@ from marketing.models import ReferralCode
 from shops.models import Shop
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from otp.models import PhoneOTP
-from otp.views import ValidateOTP
+from otp.views import ValidateOTPInternal
 UserModel = get_user_model()
 
 
@@ -257,7 +257,7 @@ class MlmOtpRegisterSerializer(serializers.Serializer):
 
         phone_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
         if phone_otp:
-            to_verify_otp = ValidateOTP()
+            to_verify_otp = ValidateOTPInternal()
             msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
             if status_code != 200:
                 message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"

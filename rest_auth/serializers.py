@@ -28,7 +28,7 @@ from .models import TokenModel
 from .utils import import_callable
 
 from otp.models import PhoneOTP
-from otp.views import ValidateOTP
+from otp.views import ValidateOTPInternal
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
 from pos.common_functions import filter_pos_shop
 
@@ -154,7 +154,7 @@ class MlmOtpLoginSerializer(serializers.Serializer):
         phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
         if phone_otp:
             # verify if entered otp was sent to the user
-            to_verify_otp = ValidateOTP()
+            to_verify_otp = ValidateOTPInternal()
             msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
             if status_code != 200:
                 message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
@@ -194,7 +194,7 @@ class PosOtpLoginSerializer(serializers.Serializer):
         phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
         if phone_otp:
             # verify if entered otp was sent to the user
-            to_verify_otp = ValidateOTP()
+            to_verify_otp = ValidateOTPInternal()
             msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
             if status_code != 200:
                 message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
