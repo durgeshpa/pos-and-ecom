@@ -287,7 +287,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'invoice_no', 'created_at')
+    list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
 
     fieldsets = (
         (_('Shop Details'), {

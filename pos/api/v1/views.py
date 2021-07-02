@@ -10,7 +10,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
-from django.db.models import Q, Sum, F, Prefetch, Count
+from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
@@ -721,13 +721,14 @@ class CustomerReport(GenericAPIView):
         date_filter = request_data['date_filter']
         if date_filter:
             qs = self.filter_by_date_filter(date_filter, qs)
-        else:
-            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
-            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
-            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+        # else:
+        #     start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+        #     end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+        #     qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Loyalty points added, redeemed, order value, return value
-        qs = qs.values('created_at__date', 'points_added', order_id=F('order_no'), points_redeemed=F('ordered_cart__redeem_points'),
+        qs = qs.values('created_at__date', 'points_added', order_id=F('order_no'),
+                       points_redeemed=F('ordered_cart__redeem_points'),
                        sale=F('order_amount')).annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
@@ -748,29 +749,31 @@ class CustomerReport(GenericAPIView):
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
-        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related(
-            'user__reward_user_mlm', Prefetch('user__rt_buyer_order', queryset=Order.objects.filter(seller_shop=shop)),
-            Prefetch('user__rt_buyer_order__rt_return_order',
-                     queryset=OrderReturn.objects.filter(order__seller_shop=shop)))
+        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related('user__reward_user_mlm')
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
         if date_filter:
             qs = self.filter_by_date_filter(date_filter, qs)
-        else:
-            start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
-            end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
-            qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+        # else:
+        #     start_date = datetime.datetime.strptime(request_data['start_date'], '%Y-%m-%d')
+        #     end_date = datetime.datetime.strptime(request_data['end_date'], '%Y-%m-%d')
+        #     qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Loyalty points, sale, returns, effective sale for all users for shop
         qs = qs.annotate(loyalty_points=Coalesce(F('user__reward_user_mlm__direct_earned') - F(
             'user__reward_user_mlm__indirect_earned') - F('user__reward_user_mlm__points_used'), 0))
-        qs = qs.annotate(order_count=Coalesce(Count('user__rt_buyer_order'), 0))
-        qs = qs.annotate(sale=Coalesce(Sum('user__rt_buyer_order__order_amount'), 0))
+        qs = qs.annotate(sale=Coalesce(Subquery(
+            Order.objects.filter(buyer=OuterRef('user'), seller_shop=shop).values('buyer').annotate(
+                sale=Sum('order_amount')).order_by('buyer').values('sale')), 0))
+        qs = qs.annotate(order_count=Coalesce(Subquery(
+            Order.objects.filter(buyer=OuterRef('user'), seller_shop=shop).values('buyer').annotate(
+                order_count=Count('id')).order_by('buyer').values('order_count')), 0))
         qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount'), 0))
-        qs = qs.annotate(effective_sale=F('sale') - F('returns'))
-        qs = qs.values('sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points', 'user__first_name',
-                       'user__last_name', 'order_count', phone_number=F('user__phone_number'), date=F('created_at'))
+        qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
+        qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
+                       'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
+                       date=F('created_at'))
 
         # Search
         if search_text:
