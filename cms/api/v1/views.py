@@ -21,6 +21,8 @@ from cms.permissions import ( has_cards_create_permission,
                               has_apps_status_change_permission
                               )
 
+from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
+
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
@@ -57,7 +59,7 @@ class CardView(APIView, PaginationHandlerMixin):
             card_id = query_params.get('id')
             queryset = queryset.filter(id=card_id)
             if len(queryset) == 0:
-                raise NotFound(f"card with id {card_id} not found")
+                raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card_id))
 
         if query_params.get('app_id'):
             try:
@@ -65,12 +67,12 @@ class CardView(APIView, PaginationHandlerMixin):
                 app = get_object_or_404(Application, id=app_id)
                 queryset = queryset.filter(app=app)
             except:
-                raise NotFound(f"app with app_id {app_id} not found")
+                raise NotFound(ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
         
         if query_params.get('card_type'):
             card_type = query_params.get('card_type')
             if card_type not in [ x[0] for x in CARD_TYPE_CHOICES] :
-                raise ValidationError(f"card_type not valid. card_type must be one of {[ x[0] for x in CARD_TYPE_CHOICES]}")
+                raise ValidationError(VALIDATION_ERROR_MESSAGES["CARD_ITEM_NOT_VALID"].format([ x[0] for x in CARD_TYPE_CHOICES]))
             else:
                 queryset = queryset.filter(type=card_type)
         
@@ -83,7 +85,7 @@ class CardView(APIView, PaginationHandlerMixin):
 
         message = {
             "is_success": "true",
-            "message": "OK",
+            "message": SUCCESS_MESSAGES["CARDS_RETRIEVE_SUCCESS"],
             "data": cards.data
         }
         return Response(message)
@@ -103,7 +105,7 @@ class CardView(APIView, PaginationHandlerMixin):
 
             message = {
                 "is_success": "true",
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["CARD_CREATE_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status=status.HTTP_201_CREATED)
@@ -111,7 +113,7 @@ class CardView(APIView, PaginationHandlerMixin):
         else:
             message = {
                 "is_success": "false",
-                "message": "please check the fields",
+                "message": VALIDATION_ERROR_MESSAGES["CARD_POST_DETAILS_NOT_VALID"],
             }
             error_logger.error(serializer.errors)
             info_logger.error(f"Failed To Create New Card")
@@ -125,7 +127,7 @@ class CardView(APIView, PaginationHandlerMixin):
         try:
             card_id = data.pop("card_id")
         except:
-            raise ValidationError("field card_id is required")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["CARD_ID_REQUIRED"])
 
         card_data_data = data.get("card_data")
 
@@ -136,7 +138,7 @@ class CardView(APIView, PaginationHandlerMixin):
         try:
             card = Card.objects.get(id=card_id)
         except:
-            raise ValidationError("Card with id {id} not found")
+            raise ValidationError(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(id))
 
 
         card_version = CardVersion.objects.filter(card=card).last()
@@ -152,6 +154,7 @@ class CardView(APIView, PaginationHandlerMixin):
 
         message = {
             "is_success": True,
+            "message": SUCCESS_MESSAGES["CARD_PATCH_SUCCESS"],
             "error": []
         }
 
@@ -164,6 +167,7 @@ class CardView(APIView, PaginationHandlerMixin):
                         card_data_serializer.save()
             else:
                 message["is_success"]=False
+                message["message"] = ERROR_MESSAGES["CARD_PATCH_FAIL"]
                 message["error"].append(card_data_serializer.errors)
 
 
@@ -173,6 +177,7 @@ class CardView(APIView, PaginationHandlerMixin):
                 card_serializer.save()
             else:
                 message["is_success"]=False
+                message["message"] = ERROR_MESSAGES["CARD_PATCH_FAIL"]
                 message["error"].append(card_serializer.errors)
         
 
@@ -213,13 +218,14 @@ class ItemsView(APIView):
         try:
             card_id = data.pop("card_id")
         except:
-            raise ValidationError("field card_id is required")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["ITEM_CARD_ID_REQUIRD"])
 
 
         serializer = CardItemSerializer(data=data, context={"card_id": card_id})
 
         message = {
             "is_success": True,
+            "message": SUCCESS_MESSAGES["ITEM_CREATE_SUCCESS"],
             "errors": []
         }
 
@@ -230,7 +236,8 @@ class ItemsView(APIView):
             info_logger.info("-----------CARDS CACHE INVALIDATED  @POST items/-----------")
 
         else:
-            message["is_success"] = False,
+            message["is_success"] = False
+            message["message"] = ERROR_MESSAGES["ITEM_CREATE_FAIL"]
             message["errors"].append(serializer.errors)
 
 
@@ -242,17 +249,18 @@ class ItemsView(APIView):
         try:
             item_id = data.pop("item_id")
         except:
-            raise ValidationError("field item_id is required")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["ITEM_ID_REQUIRED"])
 
         try:
             item = CardItem.objects.get(id=item_id)
         except:
-            raise ValidationError("CardItem with id {item_id} not found")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["ITEM_WITH_ID_NOT_FOUND"].format(item_id))
 
         serializer = CardItemSerializer(item, data=data, partial=True)
 
         message = {
             "is_success": True,
+            "message": SUCCESS_MESSAGES["ITEM_PATCH_SUCCESS"],
             "errors": []
         }
 
@@ -264,6 +272,7 @@ class ItemsView(APIView):
 
         else:
             message["is_success"] = False,
+            message["message"] = ERROR_MESSAGES["ITEM_PATCH_FAIL"],
             message["errors"].append(serializer.errors)
 
 
@@ -274,19 +283,19 @@ class ItemsView(APIView):
         try:
             item_id = data.pop("item_id")
         except:
-            raise ValidationError("field item_id is required")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["ITEM_ID_REQUIRED"])
         
         try:
             item = CardItem.objects.get(id=item_id)
         except:
-            raise ValidationError(f"CardItem with id {item_id} not found.")
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["ITEM_WITH_ID_NOT_FOUND"].format(item_id))
         
         try:
             item.delete()
             info_logger.info(f"-----------CARD ITEM with id {item_id} deleted-----------")
 
         except:
-            raise ValidationError(f"Error while deleting Item")
+            raise ValidationError(ERROR_MESSAGES["ITEM_DELEATE_FAIL"])
 
         cache.delete('cards')
         info_logger.info("-----------CARDS CACHE INVALIDATED  @DELETE items/-----------")
@@ -294,6 +303,7 @@ class ItemsView(APIView):
         message = {
 
             "is_success": True,
+            "message": SUCCESS_MESSAGES["ITEM_DELETE_SUCCESS"],
             "errors": []
         }
         return Response(message) 
