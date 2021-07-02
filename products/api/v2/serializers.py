@@ -15,7 +15,7 @@ from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory,\
     Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping, ProductSourceMapping, \
-    DestinationRepackagingCostMapping, ProductPackingMapping
+    DestinationRepackagingCostMapping, ProductPackingMapping, ParentProductTaxMapping, BulkProductTaxUpdate
 from categories.models import Category
 from brand.models import Brand, Vendor
 
@@ -63,17 +63,17 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
         next(reader)
         for row_id, row in enumerate(reader):
             if not row[0]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Parent Name' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Parent Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
 
             if not row[1]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
 
             if not row[2]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Category' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
             else:
                 if not Category.objects.filter(category_name=row[2].strip()).exists():
                     categories = row[2].split(',')
@@ -81,70 +81,70 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
                         cat = cat.strip().replace("'", '')
                         if not Category.objects.filter(category_name=cat).exists():
                             raise serializers.ValidationError(
-                                _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
+                                _(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
             if not row[3]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'HSN' doesn't exist in the system."))
 
             if not row[4]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'GST' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
             elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'GST' can only be 0, 5, 12, 18, 28."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 0, 5, 12, 18, 28."))
 
             if row[5] and not re.match("^([0]|[1][2])(\s+)?%?$", row[5]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'CESS' can only be 0, 12."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'CESS' can only be 0, 12."))
 
             if row[6] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[6]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Surcharge' can only be a numeric value."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Surcharge' can only be a numeric value."))
 
             if not row[7]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[7]):
                 raise serializers.ValidationError(
-                    _(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+                    _(f"Row {row_id + 1} | 'Inner Case Size' can only be a numeric value."))
 
             if not row[8]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product Type' can not be empty."))
             elif row[8].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only be 'B2B', 'B2C', "
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Product Type' can only be 'B2B', 'B2C', "
                                                     f"'Both B2B and B2C'."))
 
             if not row[9]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_ptr_applicable' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'is_ptr_applicable' can not be empty."))
 
             if str(row[9]).lower() not in ['yes', 'no']:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} |  {row['is_ptr_applicable']} | "
+                raise serializers.ValidationError(_(f"Row {row_id + 1} |  {row['is_ptr_applicable']} | "
                                                     f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
 
             elif row[9].lower() == 'yes' and (not row[10] or row[10] == '' or row[10].lower() not in [
                         'mark up', 'mark down']):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | "
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | "
                                                     f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
 
             elif row[9].lower() == 'yes' and (not row[11] or row[11] == '' or 100 < int(row[11]) or int(row[11]) < 0):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | "
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | "
                                                     f"'ptr_percent' is invalid"))
 
             if not row[12]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_ars_applicable' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'is_ars_applicable' can not be empty."))
 
             if str(row[12]).lower() not in ['yes', 'no']:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[12]} |" 
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | {row[12]} |" 
                                                     f"'is_ars_applicable' can only be 'Yes' or 'No' "))
 
             if not row[13]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'max_inventory_in_days' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'max_inventory_in_days' can not be empty."))
 
             if not re.match("^\d+$", str(row[13])) or int(row[13]) < 1 or int(row[13]) > 999:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[13]} "
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | {row[13]} "
                                                     f"|'Max Inventory In Days' is invalid."))
 
             if not row[14]:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'is_lead_time_applicable' can not be empty."))
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'is_lead_time_applicable' can not be empty."))
 
             if str(row[14]).lower() not in ['yes', 'no']:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | {row[15]} |"
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | {row[15]} |"
                                                     f"'is_lead_time_applicable' can only be 'Yes' or 'No' "))
 
         return data
@@ -159,7 +159,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
                 parent_product = ParentProduct.objects.create(
                     name=row[0].strip(), parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                    inner_case_size=int(row[7]),product_type=row[8], is_ptr_applicable=(True if row[9].lower() == 'yes' else False),
+                    inner_case_size=int(row[7]), product_type=row[8], is_ptr_applicable=(True if row[9].lower() == 'yes' else False),
                     ptr_type=(None if not row[9].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                               if row[10].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row[9].lower() == 'yes' else row[11]),
@@ -1073,9 +1073,69 @@ class ChildProductImageSerializers(serializers.ModelSerializer):
         return result
 
 
+class BulkProductTaxUpdateSerializers(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload ProductTaxUpdate Data', required=True)
+    updated_by = UserSerializers(read_only=True)
 
+    class Meta:
+        model = BulkProductTaxUpdate
+        fields = ('file', 'updated_by')
 
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_("Sorry! Only csv file accepted"))
 
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        next(reader)
+        for row_id, row in enumerate(reader):
+            if not row[0]:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'parent_id.' can not be empty."))
+            elif not ParentProduct.objects.filter(parent_id=row[0].strip()).exists():
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'parent_id' doesn't exist in the system."))
 
+            if not row[1]:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'GST percentage ' can not be empty."))
+            elif not row[1].isdigit():
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid GST percentage."))
+            try:
+                Tax.objects.get(tax_type='gst', tax_percentage=float(row[1]))
+            except:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type GST and percentage"
+                                                    f" does not exists in system."))
 
+            if row[2] and not row[2].isdigit():
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid CESS percentage."))
+            try:
+                Tax.objects.get(tax_type='cess', tax_percentage=float(row[2]))
+            except:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type CESS and percentage"
+                                                    f" does not exists in system."))
 
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        next(reader)
+        try:
+            for row_id, row in enumerate(reader):
+                parent_pro_id = ParentProduct.objects.filter(parent_id=row[0].strip()).last()
+                queryset = ParentProductTaxMapping.objects.filter(parent_product=parent_pro_id)
+                if queryset.exists():
+                    queryset.filter(tax__tax_type='gst').update(tax_id=row[1])
+                    if row[2]:
+                        tax = Tax.objects.get(tax_type='cess', tax_percentage=float(row[2]))
+                        product_cess_tax = queryset.filter(tax__tax_type='cess')
+                        if product_cess_tax.exists():
+                            queryset.filter(tax__tax_type='cess').update(tax_id=tax)
+                        else:
+                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax_id=tax)
+
+            tax_update_attribute = BulkProductTaxUpdate.objects.create(file=validated_data['file'],
+                                                                       updated_by=validated_data['updated_by'])
+
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return tax_update_attribute

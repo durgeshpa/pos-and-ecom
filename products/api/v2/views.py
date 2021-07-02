@@ -9,10 +9,9 @@ from rest_framework.permissions import AllowAny
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
-
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
     ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers, \
-    ParentProductBulkUploadSerializers, ChildProductBulkUploadSerializers
+    ParentProductBulkUploadSerializers, ChildProductBulkUploadSerializers, BulkProductTaxUpdateSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -186,6 +185,36 @@ class ProductCategoryMapping(GenericAPIView):
             response = serializer.save()
             info_logger.info("ProductCategoryMapping upload successfully")
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class BulkProductTaxGSTUpdateSampleCSV(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        filename = "bulk_product_tax_gst_update_sample.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['parent_id', 'gst', 'cess'])
+        writer.writerow(['PHEATOY0006', 2, 12])
+        info_logger.info("bulk tax update Sample CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
+class BulkProductTaxUpdateView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkProductTaxUpdateSerializers
+
+    def post(self, request):
+        """ POST API for Updating BulkProductTaxGST """
+
+        info_logger.info("BulkProductTaxUpdateView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("tax updated successfully")
+            return get_response('tax updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
