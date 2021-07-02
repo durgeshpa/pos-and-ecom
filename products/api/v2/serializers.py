@@ -364,8 +364,6 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
                     weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
                     repackaging_type=row[7]
                 )
-                product.save()
-
                 source_map = []
                 if row[7] == 'destination':
                     for pro in row[8].split(','):
