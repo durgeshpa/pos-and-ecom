@@ -316,28 +316,27 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
         next(reader)
         try:
             for row_id, row in enumerate(reader):
-                product = Product.objects.create(parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                child_product = Product.objects.create(parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
                                                  reason_for_child_sku=(row[1].lower()), product_name=row[2],
                                                  product_ean_code=row[3].replace("'", ''), product_mrp=float(row[4]),
                                                  weight_value=float(row[5]), weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
                                                  repackaging_type=row[7], created_by=validated_data['created_by'])
-                product.save()
 
                 if row[7] == 'destination':
                     source_map = []
-                    for product in row[8].split(','):
-                        pro = product.strip()
+                    for product_skus in row[8].split(','):
+                        pro = product_skus.strip()
                         if pro is not '' and pro not in source_map and \
                                 Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
                             source_map.append(pro)
                     for sku in source_map:
                         pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
-                        ProductSourceMapping.objects.create(destination_sku=product, source_sku=pro_sku, status=True)
-                    DestinationRepackagingCostMapping.objects.create(destination=product, raw_material=float(row[9]),
+                        ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_sku, status=True)
+                    DestinationRepackagingCostMapping.objects.create(destination=child_product, raw_material=float(row[9]),
                                                                      wastage=float(row[10]), fumigation=float(row[11]),
                                                                      label_printing=float(row[12]), packing_labour=float(row[13]),
                                                                      primary_pm_cost=float(row[14]), secondary_pm_cost=float(row[15]))
-                    ProductPackingMapping.objects.create(sku=product, packing_sku=Product.objects.get(product_sku=row[16]),
+                    ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(product_sku=row[16]),
                                                          packing_sku_weight_per_unit_sku=float(row[17]))
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
