@@ -574,10 +574,10 @@ class SalesReport(GenericAPIView):
 
         if report_type == 'daily':
             return self.daily_report(shop, report_type, request_data)
-        elif report_type == 'monthly':
-            return self.monthly_report(shop, report_type, request_data)
-        else:
-            return self.invoice_report(shop, report_type, request_data)
+        # elif report_type == 'monthly':
+        #     return self.monthly_report(shop, report_type, request_data)
+        # else:
+        #     return self.invoice_report(shop, report_type, request_data)
 
     def invoice_report(self, shop, report_type, request_data):
         # Shop Filter
@@ -602,6 +602,67 @@ class SalesReport(GenericAPIView):
         return self.get_response(report_type, data, request_data['sort_by'], request_data['sort_order'])
 
     def daily_report(self, shop, report_type, request_data):
+        # Get start date and end date based on offset and limit
+        offset, limit = request_data['offset'], request_data['limit']
+        date_today = datetime.datetime.today()
+        end_date = date_today - datetime.timedelta(days=offset)
+        start_date = end_date - datetime.timedelta(days=limit - 1)
+
+        # Filter Orders for sales
+        # Shop Filter
+        qss = Order.objects.filter(seller_shop=shop)
+        # Date Filter
+        qss = qss.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Sale, order count
+        qss = qss.values('created_at__date').annotate(sale=Sum('order_amount'), order_count=Coalesce(Count('id'), 0))
+        sales_data = qss.values('sale', 'order_count', 'created_at__date', effective_sale=F('sale')).order_by(
+            '-created_at__date')
+
+        # Filter returns for returns
+        # Shop Filter
+        qsr = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
+        # Date Filter
+        qsr = qsr.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+
+        # Returns
+        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount'), 0))
+        returns_data = qsr.values('returns', 'created_at__date')
+
+        # Merge sales and returns
+        result_set = dict()
+        for sale in sales_data:
+            key = str(sale['created_at__date'])
+            sale['date'] = sale['created_at__date'].strftime("%b %d, %Y")
+            del sale['created_at__date']
+            result_set[key] = sale
+            result_set[key]['returns'] = 0
+        for ret in returns_data:
+            key = str(ret['created_at__date'])
+            ret['date'] = ret['created_at__date'].strftime("%b %d, %Y")
+            del ret['created_at__date']
+            if key in result_set:
+                result_set[key].update(ret)
+                result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+            else:
+                result_set[key] = dict()
+                result_set[key] = ret
+                result_set[key]['sale'] = 0
+                result_set[key]['order_count'] = 0
+                result_set[key]['effective_sale'] = 0
+        for i in range(0, limit):
+            date = end_date - datetime.timedelta(days=i)
+            date = date.date()
+            if str(date) not in result_set:
+                result_set[str(date)] = {'sale': 0, 'order_count': 0, 'effective_sale': 0, 'returns': 0,
+                                         'date': date.strftime("%b %d, %Y")}
+
+        result_set = dict(reversed(sorted(result_set.items()))).values()
+        report_type = report_type.capitalize()
+        msg = report_type + ' Sales Report Fetched Successfully!'
+        return api_response(msg, result_set, status.HTTP_200_OK, True)
+
+    def daily_report_prev(self, shop, report_type, request_data):
         # Shop Filter
         qs = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop)
 
