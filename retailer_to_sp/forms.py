@@ -695,7 +695,6 @@ class ShipmentForm(forms.ModelForm):
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
-
     # shipped_qty = forms.IntegerField(disabled=True)
     # picked_pieces = forms.IntegerField(disabled=True)
     # damaged_qty = forms.IntegerField(disabled=True)
@@ -704,7 +703,7 @@ class ShipmentProductMappingForm(forms.ModelForm):
         model = ShipmentProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'shipped_qty', 'picked_pieces'
+            'shipped_qty', 'picked_pieces',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -730,7 +729,8 @@ class ShipmentProductMappingForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         # data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
-        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
+        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty')\
+                + data.get('missing_qty') + data.get('rejected_qty'):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
@@ -1117,7 +1117,7 @@ class OrderedProductBatchForm(forms.ModelForm):
             if data.get('expired_qty') is None:
                 raise forms.ValidationError('Expired Quantity can not be blank.')
             if int(self.instance.pickup_quantity) != data.get('quantity') + data.get('damaged_qty') + data.get(
-                    'expired_qty'):
+                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty') :
                 raise forms.ValidationError(
                     'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data

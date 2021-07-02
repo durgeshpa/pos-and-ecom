@@ -1470,39 +1470,10 @@ def common_on_return_and_partial(shipment, flag):
                                            shipment_product_batch.returned_damage_qty)
 
                 elif flag == "partial_shipment":
-
-                    # put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
-                    #                                          warehouse=shipment_product_batch.pickup.warehouse,
-                    #                                          putaway_type='PAR_SHIPMENT',
-                    #                                          putaway_type_id=shipment.order.order_no,
-                    #                                          sku=shipment_product_batch.pickup.sku,
-                    #                                          batch_id=shipment_product_batch.batch_id)
-                    #
-                    # if put_away_object.exists():
-                    #     qty = i.expired_qty + i.damaged_qty
-                    # else:
-                    #     qty = i.expired_qty + i.damaged_qty
                     partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
                     if partial_ship_qty <= 0:
                         continue
                     else:
-                        # pu, _ = Putaway.objects.update_or_create(putaway_user=putaway_user,
-                        #                                          warehouse=shipment_product_batch.pickup.warehouse,
-                        #                                          putaway_type='PAR_SHIPMENT',
-                        #                                          putaway_type_id=shipment.order.order_no,
-                        #                                          sku=shipment_product_batch.pickup.sku,
-                        #                                          batch_id=batch_id,
-                        #                                          inventory_type=inv_type['N'],
-                        #                                          defaults={'quantity': partial_ship_qty,
-                        #                                                    'putaway_quantity': 0})
-                        #
-                        # PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.pickup.warehouse,
-                        #                                              sku=shipment_product_batch.pickup.sku,
-                        #                                              batch_id=batch_id,
-                        #                                              putaway_type='PAR_SHIPMENT',
-                        #                                              putaway=pu, bin=bin_id_for_input,
-                        #                                              putaway_status=False,
-                        #                                              defaults={'putaway_quantity': partial_ship_qty})
                         expired_qty = shipment_product_batch.expired_qty
                         if expired_qty > 0:
                             create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
@@ -1511,6 +1482,10 @@ def common_on_return_and_partial(shipment, flag):
                         if damaged_qty > 0:
                             create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
                                            inv_type['D'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, damaged_qty)
+                        rejected_qty = shipment_product_batch.rejected_qty
+                        if rejected_qty > 0:
+                            create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
+                                           inv_type['N'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, rejected_qty)
                 else:
                     pass
 
@@ -1853,6 +1828,44 @@ def cancel_shipment(request, obj, initial_stage, shipment_obj, bin_id, inventory
                                                                           transaction_id=transaction_id,
                                                                           quantity=damaged_qty)
                                 deduct_quantity = damaged_qty
+                        elif inventory_type == type_normal:
+                            rejected_qty = shipped_obj.rejected_qty
+                            if rejected_qty > 0:
+                                bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                                          bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          inventory_type=type_normal,
+                                                                          in_stock=True).last()
+                                if bin_inv_obj:
+                                    bin_quantity = bin_inv_obj.quantity
+                                    final_quantity = bin_quantity + rejected_qty
+                                    bin_inv_obj.quantity = final_quantity
+                                    bin_inv_obj.save()
+                                else:
+
+                                    BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin,
+                                                                       sku=obj.sku,
+                                                                       batch_id=batch_id,
+                                                                       inventory_type=type_normal,
+                                                                       quantity=rejected_qty,
+                                                                       in_stock=True)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                    obj.warehouse, obj.sku, type_normal, state_total_available,
+                                    rejected_qty, transaction_type, transaction_id)
+                                BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          initial_bin=Bin.objects.get(
+                                                                              bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                                    warehouse=obj.warehouse),
+                                                                          initial_inventory_type=type_normal,
+                                                                          final_inventory_type=type_normal,
+                                                                          transaction_type=transaction_type,
+                                                                          transaction_id=transaction_id,
+                                                                          quantity=rejected_qty)
+                                deduct_quantity = rejected_qty
+
                         ordered_quantity = int(-deduct_quantity)
                         obj.putaway_status = True
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(

@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
 from material.frontend.templatetags.material_frontend import verbose_name_plural
+from model_utils import Choices
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -1904,6 +1905,8 @@ class OrderedProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
+    missing_qty = models.PositiveIntegerField(default=0, verbose_name="Missing Pieces")
+    rejected_qty = models.PositiveIntegerField(default=0, verbose_name="Rejected Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, on_delete=models.DO_NOTHING
@@ -2256,6 +2259,7 @@ class Shipment(OrderedProduct):
 
 
 class OrderedProductBatch(models.Model):
+    REJECTION_REASON_CHOICE = Choices((1,'Near Expiry'), (2, 'Not Clean'), (10, 'Other'))
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
     pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
@@ -2274,8 +2278,18 @@ class OrderedProductBatch(models.Model):
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
     pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
+    missing_qty = models.PositiveIntegerField(default=0, verbose_name="Missing Pieces")
+    rejected_qty = models.PositiveIntegerField(default=0, verbose_name="Rejected Pieces")
+    reason_for_rejection = models.PositiveIntegerField(choices=REJECTION_REASON_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+    def clean(self, *args, **kwargs):
+        if self.rejected_qty > 0 and self.reason_for_rejection is None:
+            raise ValidationError(_('Please provide the reason for rejecting the item/s'))
+        else:
+            super(OrderedProductBatch, self).clean(*args, **kwargs)
 
     # def save(self, *args, **kwargs):
     #     if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
