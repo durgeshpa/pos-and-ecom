@@ -62,12 +62,6 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
         reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         next(reader)
         for row_id, row in enumerate(reader):
-            if len(row) == 0:
-                continue
-            if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                        row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
-                    continue
             if not row[0]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Parent Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
@@ -163,72 +157,53 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
         try:
             for row in reader:
                 parent_product = ParentProduct.objects.create(
-                    name=row[0].strip(),
-                    parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
+                    name=row[0].strip(), parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                    inner_case_size=int(row[7]),
-                    product_type=row[8],
-                    is_ptr_applicable=(True if row[9].lower() == 'yes' else False),
+                    inner_case_size=int(row[7]),product_type=row[8], is_ptr_applicable=(True if row[9].lower() == 'yes' else False),
                     ptr_type=(None if not row[9].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                               if row[10].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row[9].lower() == 'yes' else row[11]),
                     is_ars_applicable=True if row[12].lower() == 'yes' else False,
-                    max_inventory=row[13].lower(),
-                    is_lead_time_applicable=(True if row[14].lower() == 'yes' else False),
+                    max_inventory=row[13].lower(), is_lead_time_applicable=(True if row[14].lower() == 'yes' else False),
                     created_by=validated_data['created_by']
-
                 )
-                parent_product.save()
 
                 parent_gst = int(row[4])
                 ParentProductTaxMapping.objects.create(
                     parent_product=parent_product,
-                    tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
-                ).save()
+                    tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last())
 
                 parent_cess = int(row[5]) if row[5] else 0
                 ParentProductTaxMapping.objects.create(
                     parent_product=parent_product,
-                    tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
-                ).save()
+                    tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last())
 
                 parent_surcharge = float(row[6]) if row[6] else 0
-                if Tax.objects.filter(
-                        tax_type='surcharge',
-                        tax_percentage=parent_surcharge
-                ).exists():
+                if Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).exists():
                     ParentProductTaxMapping.objects.create(
                         parent_product=parent_product,
-                        tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
-                    ).save()
+                        tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last())
                 else:
-                    new_surcharge_tax = Tax.objects.create(
-                        tax_name='Surcharge - {}'.format(parent_surcharge),
-                        tax_type='surcharge',
-                        tax_percentage=parent_surcharge,
-                        tax_start_at=datetime.datetime.now()
-                    )
-                    new_surcharge_tax.save()
-                    ParentProductTaxMapping.objects.create(
-                        parent_product=parent_product,
-                        tax=new_surcharge_tax
-                    ).save()
+                    new_surcharge_tax = Tax.objects.create(tax_name='Surcharge - {}'.format(parent_surcharge),
+                                                           tax_type='surcharge', tax_percentage=parent_surcharge,
+                                                           tax_start_at=datetime.datetime.now())
+
+                    ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=new_surcharge_tax)
+
                 if Category.objects.filter(category_name=row[2].strip()).exists():
-                    parent_product_category = ParentProductCategory.objects.create(
+                    ParentProductCategory.objects.create(
                         parent_product=parent_product,
-                        category=Category.objects.filter(category_name=row[2].strip()).last()
-                    )
-                    parent_product_category.save()
+                        category=Category.objects.filter(category_name=row[2].strip()).last())
+
                 else:
                     categories = row[2].split(',')
                     for cat in categories:
                         cat = cat.strip().replace("'", '')
-                        parent_product_category = ParentProductCategory.objects.create(
-                            parent_product=parent_product,
-                            category=Category.objects.filter(category_name=cat).last()
-                        )
-                        parent_product_category.save()
+                        ParentProductCategory.objects.create(parent_product=parent_product,
+                                                             category=Category.objects.filter(category_name=cat).last())
+
                 parent_product_list.append(parent_product)
+
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -250,12 +225,6 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
         reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         next(reader)
         for row_id, row in enumerate(reader):
-            if len(row) == 0:
-                continue
-            if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
-                        and row[5] == '' and row[6] == ''):
-                    continue
             if not row[0]:
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
             elif not ParentProduct.objects.filter(parent_id=row[0]).exists():
@@ -347,51 +316,28 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
         next(reader)
         try:
             for row_id, row in enumerate(reader):
-                if len(row) == 0:
-                    continue
-                if '' in row:
-                    if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
-                            and row[5] == '' and row[6] == ''):
-                        continue
+                product = Product.objects.create(parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                                                 reason_for_child_sku=(row[1].lower()), product_name=row[2],
+                                                 product_ean_code=row[3].replace("'", ''), product_mrp=float(row[4]),
+                                                 weight_value=float(row[5]), weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
+                                                 repackaging_type=row[7], created_by=validated_data['created_by'])
 
-                product = Product.objects.create(
-                    parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
-                    reason_for_child_sku=(row[1].lower()),
-                    product_name=row[2],
-                    product_ean_code=row[3].replace("'", ''),
-                    product_mrp=float(row[4]),
-                    weight_value=float(row[5]),
-                    weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
-                    repackaging_type=row[7]
-                )
-                source_map = []
                 if row[7] == 'destination':
-                    for pro in row[8].split(','):
-                        pro = pro.strip()
+                    source_map = []
+                    for product in row[8].split(','):
+                        pro = product.strip()
                         if pro is not '' and pro not in source_map and \
                                 Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
                             source_map.append(pro)
                     for sku in source_map:
-                        ProductSourceMapping.objects.create(
-                            destination_sku=product,
-                            source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
-                            status=True
-                        )
-                    DestinationRepackagingCostMapping.objects.create(
-                        destination=product,
-                        raw_material=float(row[9]),
-                        wastage=float(row[10]),
-                        fumigation=float(row[11]),
-                        label_printing=float(row[12]),
-                        packing_labour=float(row[13]),
-                        primary_pm_cost=float(row[14]),
-                        secondary_pm_cost=float(row[15])
-                    )
-                    ProductPackingMapping.objects.create(
-                        sku=product,
-                        packing_sku=Product.objects.get(product_sku=row[16]),
-                        packing_sku_weight_per_unit_sku=float(row[17])
-                    )
+                        pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
+                        ProductSourceMapping.objects.create(destination_sku=product, source_sku=pro_sku, status=True)
+                    DestinationRepackagingCostMapping.objects.create(destination=product, raw_material=float(row[9]),
+                                                                     wastage=float(row[10]), fumigation=float(row[11]),
+                                                                     label_printing=float(row[12]), packing_labour=float(row[13]),
+                                                                     primary_pm_cost=float(row[14]), secondary_pm_cost=float(row[15]))
+                    ProductPackingMapping.objects.create(sku=product, packing_sku=Product.objects.get(product_sku=row[16]),
+                                                         packing_sku_weight_per_unit_sku=float(row[17]))
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
