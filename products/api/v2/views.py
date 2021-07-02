@@ -70,8 +70,8 @@ class ChildProductBulkCreateView(CreateAPIView):
 
         info_logger.info("Child Product Bulk Create POST api called.")
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid(created_by=request.user):
-            serializer.save()
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
             return get_response('child product CSV uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
