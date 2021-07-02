@@ -298,37 +298,37 @@ def create_master_data(validated_data):
     excel_file_data = xlsx_get(validated_data['file'])['Users']
     uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
 
-    if validated_data['select_an_option'] == "master_data":
+    if validated_data['upload_type'] == "master_data":
         SetMasterData.set_master_data(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "inactive_status":
+    if validated_data['upload_type'] == "inactive_status":
         UploadMasterData.set_inactive_status(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "sub_brand_with_brand":
+    if validated_data['upload_type'] == "sub_brand_with_brand":
         UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "sub_category_with_category":
+    if validated_data['upload_type'] == "sub_category_with_category":
         UploadMasterData.set_sub_category_and_category(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "child_parent":
+    if validated_data['upload_type'] == "child_parent":
         UploadMasterData.set_child_parent(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "child_data":
+    if validated_data['upload_type'] == "child_data":
         UploadMasterData.set_child_data(uploaded_data_by_user_list)
-    if validated_data['select_an_option'] == "parent_data":
+    if validated_data['upload_type'] == "parent_data":
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
 
 
 def download_sample_file_master_data(validated_data):
 
-    if validated_data['select_an_option'] == "master_data":
+    if validated_data['upload_type'] == "master_data":
         response = DownloadMasterData.set_master_data_sample_file(validated_data)
-    if validated_data['select_an_option'] == "inactive_status":
+    if validated_data['upload_type'] == "inactive_status":
         response = DownloadMasterData.set_inactive_status_sample_file(validated_data)
-    if validated_data['select_an_option'] == "sub_brand_with_brand":
+    if validated_data['upload_type'] == "sub_brand_with_brand":
         response = DownloadMasterData.brand_sub_brand_mapping_sample_file()
-    if validated_data['select_an_option'] == "sub_category_with_category":
+    if validated_data['upload_type'] == "sub_category_with_category":
         response = DownloadMasterData.category_sub_category_mapping_sample_file()
-    if validated_data['select_an_option'] == "child_parent":
+    if validated_data['upload_type'] == "child_parent":
         response = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
-    if validated_data['select_an_option'] == "child_data":
+    if validated_data['upload_type'] == "child_data":
         response = DownloadMasterData.set_child_data_sample_file(validated_data)
-    if validated_data['select_an_option'] == "parent_data":
+    if validated_data['upload_type'] == "parent_data":
         response = DownloadMasterData.set_parent_data_sample_file(validated_data)
 
     return response

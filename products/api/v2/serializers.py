@@ -317,10 +317,10 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
         try:
             for row_id, row in enumerate(reader):
                 child_product = Product.objects.create(parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
-                                                 reason_for_child_sku=(row[1].lower()), product_name=row[2],
-                                                 product_ean_code=row[3].replace("'", ''), product_mrp=float(row[4]),
-                                                 weight_value=float(row[5]), weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
-                                                 repackaging_type=row[7], created_by=validated_data['created_by'])
+                                                       reason_for_child_sku=(row[1].lower()), product_name=row[2],
+                                                       product_ean_code=row[3].replace("'", ''), product_mrp=float(row[4]),
+                                                       weight_value=float(row[5]), weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
+                                                       repackaging_type=row[7], created_by=validated_data['created_by'])
 
                 if row[7] == 'destination':
                     source_map = []
@@ -348,20 +348,21 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
 class UploadMasterDataSerializers(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Master Data', required=True)
     updated_by = UserSerializers(read_only=True)
-    select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
+    upload_type = ChoiceField(choices=DATA_TYPE_CHOICES, required=True)
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('file', 'select_an_option', 'updated_by', 'upload_type', 'created_at', 'updated_at')
+        fields = ('file', 'upload_type', 'updated_by', 'created_at', 'updated_at')
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':
             raise serializers.ValidationError(_('Sorry! Only excel(xlsx) file accepted.'))
         excel_file_data = xlsx_get(self.initial_data['file'])['Users']
 
-        if data['select_an_option'] == "master_data" or data['select_an_option'] == "inactive_status" or \
-                data['select_an_option'] == "child_parent" or data['select_an_option'] == "child_data" or \
-                data['select_an_option'] == "parent_data":
+        if data['upload_type'] == "master_data" or data['upload_type'] == "inactive_status" or \
+                data['upload_type'] == "child_parent" or data['upload_type'] == "child_data" or \
+                data['upload_type'] == "parent_data":
+
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
@@ -375,7 +376,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
         # Checking, whether excel file is empty or not!
         if excel_file_data:
-            self.read_file(excel_file_data, self.initial_data['select_an_option'], self.initial_data['category_id'])
+            self.read_file(excel_file_data, self.initial_data['upload_type'], self.initial_data['category_id'])
         else:
             raise serializers.ValidationError("Excel File cannot be empty.Please add some data to upload it!")
 
@@ -881,12 +882,12 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             create_master_data(validated_data)
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
             if attribute_id:
-                validated_data['file'].name = validated_data['select_an_option'] + '-' + str(
+                validated_data['file'].name = validated_data['upload_type'] + '-' + str(
                     attribute_id['id'] + 1) + '.xlsx '
             else:
-                validated_data['file'].name = validated_data['select_an_option'] + '-' + str(1) + '.xlsx'
+                validated_data['file'].name = validated_data['upload_type'] + '-' + str(1) + '.xlsx'
             product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
-                    updated_by=validated_data['updated_by'], upload_type=validated_data['select_an_option'])
+                                updated_by=validated_data['updated_by'], upload_type=validated_data['upload_type'])
             return product_attribute
 
         except Exception as e:
@@ -901,17 +902,17 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
 
 class DownloadMasterDataSerializers(serializers.ModelSerializer):
-    select_an_option = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
+    upload_type = ChoiceField(choices=DATA_TYPE_CHOICES, required=True, write_only=True)
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('select_an_option',)
+        fields = ('upload_type',)
 
     def validate(self, data):
 
-        if data['select_an_option'] == "master_data" or data['select_an_option'] == "inactive_status" or \
-                data['select_an_option'] == "child_parent" or data['select_an_option'] == "child_data" or \
-                data['select_an_option'] == "parent_data":
+        if data['upload_type'] == "master_data" or data['upload_type'] == "inactive_status" or \
+                data['upload_type'] == "child_parent" or data['upload_type'] == "child_data" or \
+                data['upload_type'] == "parent_data":
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
