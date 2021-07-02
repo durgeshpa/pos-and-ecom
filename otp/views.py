@@ -147,6 +147,98 @@ class ValidateOTP(CreateAPIView):
         return False if (user.attempts < getattr(settings, 'OTP_ATTEMPTS', attempts)) else True
 
 
+class ValidateOTPInternal:
+    def verify(self, otp, user):
+        """
+            Verify if user is blocked currently
+            If not blocked, match otp with last requested otp
+            If matched, check for max attempts or expired otp. Else verify
+            If not matched, check for max attempts or expired otp
+        """
+        otp_block_seconds = getattr(settings, 'OTP_BLOCK_INTERVAL', 1800)
+        # Check if user was blocked
+        if user.blocked:
+            return self.user_blocked(user, otp_block_seconds)
+        # Entered otp matches last requested otp
+        if otp == user.otp:
+            return self.otp_matched(user, otp_block_seconds)
+        # Entered otp does not match last requested otp
+        else:
+            return self.otp_not_matched(user, otp_block_seconds)
+
+    @staticmethod
+    def user_blocked(user, otp_block_seconds):
+        """
+            If block time remains, return remaining block time
+            Else refresh and request for new otp
+        """
+        current_time = datetime.datetime.now()
+        otp_block_interval = datetime.timedelta(seconds=otp_block_seconds)
+        re_request_delta = otp_block_interval - (current_time - user.modified_at)
+        re_request_minutes = int(re_request_delta.total_seconds() / 60)
+        msg = {'is_success': False, 'message': '', 'response_data': None}
+        # If block time still remaining
+        if re_request_minutes > 0:
+            msg['message'] = VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(re_request_minutes)
+        else:
+            msg['message'] = [VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']]
+        return msg, status.HTTP_406_NOT_ACCEPTABLE
+
+    def otp_matched(self, user, otp_block_seconds):
+        """
+            Entered otp matched with last requested otp
+            Check for max attempts and expired otp, else verify user
+        """
+        msg, status_code = {'is_success': False, 'message': '', 'response_data': None}, status.HTTP_406_NOT_ACCEPTABLE
+        if not self.expired(user) and not self.max_attempts(user, 10):
+            user.is_verified = 1
+            user.save()
+            msg['is_success'], msg['message'] = True, [SUCCESS_MESSAGES['MOBILE_NUMBER_VERIFIED']]
+            status_code = status.HTTP_200_OK
+        elif self.max_attempts(user, 10):
+            user.blocked = 1
+            user.save()
+            msg['message'] = [
+                VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(int(otp_block_seconds / 60))]
+        elif self.expired(user):
+            msg['message'] = [VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']]
+        return msg, status_code
+
+    def otp_not_matched(self, user, otp_block_seconds):
+        """
+            Entered otp does not match last requested otp
+            Check for max attempts or expired otp or only mismatch
+        """
+        msg, status_code = {'is_success': False, 'message': '', 'response_data': None}, status.HTTP_406_NOT_ACCEPTABLE
+        if self.max_attempts(user, 10):
+            user.blocked = 1
+            user.save()
+            msg['message'] = [
+                VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(int(otp_block_seconds / 60))]
+        elif self.expired(user):
+            msg['message'] = [VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']]
+        else:
+            user.attempts += 1
+            user.save()
+            msg['message'] = [VALIDATION_ERROR_MESSAGES['OTP_NOT_MATCHED']]
+        return msg, status_code
+
+    @staticmethod
+    def expired(user):
+        """
+            Check if otp has expired
+        """
+        current_time, expiry_time = datetime.datetime.now(), datetime.timedelta(seconds=user.expires_in)
+        return False if (current_time - user.created_at <= expiry_time) else True
+
+    @staticmethod
+    def max_attempts(user, attempts):
+        """
+            Check if max attempts for otp have exceeded
+        """
+        return False if (user.attempts < getattr(settings, 'OTP_ATTEMPTS', attempts)) else True
+
+
 class SendSmsOTP(CreateAPIView):
     permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
