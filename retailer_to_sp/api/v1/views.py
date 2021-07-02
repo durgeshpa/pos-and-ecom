@@ -3668,7 +3668,6 @@ class OrderReturns(APIView):
         order_return.refund_amount = refund_amount
         order_return.refund_points = refund_points
         order_return.discount_adjusted = discount_adjusted
-        order_return.new_order_total = round(new_cart_value, 2)
         order_return.save()
 
     @staticmethod
@@ -3749,7 +3748,7 @@ class OrderReturns(APIView):
         """
         order_return = OrderReturn.objects.filter(order=order, status='created').last()
         if not order_return:
-            order_return = OrderReturn.objects.create(order=order, status='created', new_order_total=0)
+            order_return = OrderReturn.objects.create(order=order, status='created')
         order_return.processed_by = self.request.user
         order_return.return_reason = return_reason
         order_return.save()
