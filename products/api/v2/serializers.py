@@ -321,6 +321,7 @@ class ChildProductBulkUploadSerializers(serializers.ModelSerializer):
                                                  product_ean_code=row[3].replace("'", ''), product_mrp=float(row[4]),
                                                  weight_value=float(row[5]), weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
                                                  repackaging_type=row[7], created_by=validated_data['created_by'])
+                product.save()
 
                 if row[7] == 'destination':
                     source_map = []
