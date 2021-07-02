@@ -13,7 +13,8 @@ from .models import RetailerProduct, RetailerProductImage, Payment, ShopCustomer
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
-    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping
+    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
+    RetailerOrderReturn, RetailerReturnItems
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .forms import RetailerProductsForm
 
@@ -399,6 +400,52 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class RetailerReturnItemsAdmin(admin.TabularInline):
+    model = RetailerReturnItems
+    fields = ('retailer_product', 'return_qty', 'price', 'return_value')
+    readonly_fields = ('retailer_product', 'price', 'return_value')
+
+    @staticmethod
+    def price(obj):
+        return str(obj.ordered_product.selling_price)
+
+    @staticmethod
+    def retailer_product(obj):
+        return str(obj.ordered_product.retailer_product)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(RetailerOrderReturn)
+class RetailerOrderReturnAdmin(admin.ModelAdmin):
+    list_display = ('order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+                    'refund_mode', 'created_at')
+    fields = list_display
+    list_per_page = 10
+    search_fields = ('order__order_no', )
+    inlines = [RetailerReturnItemsAdmin]
+
+    @staticmethod
+    def refunded_amount(obj):
+        return max(obj.refund_amount, 0)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
         return False
 
 

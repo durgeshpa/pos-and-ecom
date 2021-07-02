@@ -5,7 +5,7 @@ import re
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.core import validators
 
 from pos.models import RetailerProduct, RetailerProductImage
@@ -429,7 +429,7 @@ class ReturnItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', 'new_sp', 'status')
+        fields = ('return_qty', 'status')
 
 
 class OrderReturnSerializer(serializers.ModelSerializer):
@@ -457,7 +457,6 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_subtotal = serializers.SerializerMethodField()
-    received_effective_price = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
     rt_return_ordered_product = ReturnItemsSerializer(many=True)
 
@@ -481,8 +480,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ('retailer_product', 'selling_price', 'effective_price', 'qty', 'product_subtotal',
-                  'received_effective_price', 'rt_return_ordered_product')
+        fields = ('retailer_product', 'selling_price', 'qty', 'product_subtotal', 'rt_return_ordered_product')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -548,12 +546,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                         product['return_qty'] = return_item['return_qty']
                     else:
                         product['already_returned_qty'] = product['already_returned_qty'] + return_item[
-                            'return_qty'] if 'return_qty' in product else return_item['return_qty']
-                    if 'new_sp' in product:
-                        if float(return_item['new_sp']) < float(product['new_sp']):
-                            product['new_sp'] = float(return_item['new_sp'])
-                    else:
-                        product['new_sp'] = float(return_item['new_sp'])
+                            'return_qty'] if 'already_returned_qty' in product else return_item['return_qty']
             product['display_text'] = ''
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
@@ -609,9 +602,6 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                 discount += i['discount_value']
         return round(discount, 2)
 
-    def invoice_dt(self, obj):
-        return get_invoice_and_link(OrderedProduct.objects.get(order=obj), self.context.get("current_url", None))
-
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'products', 'ongoing_return')
@@ -621,21 +611,6 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     """
         Get refund amount on checkout
     """
-    # order_total = serializers.SerializerMethodField()
-    # discount_amount = serializers.SerializerMethodField()
-    # redeem_points = serializers.SerializerMethodField()
-    # redeem_points_value = serializers.SerializerMethodField()
-    # received_amount = serializers.SerializerMethodField()
-    # returned_total = serializers.SerializerMethodField()
-    # refunded_amount = serializers.SerializerMethodField()
-    # refunded_points = serializers.SerializerMethodField()
-    # refunded_points_value = serializers.SerializerMethodField()
-    # discount_already_adjusted = serializers.SerializerMethodField()
-    # current_amount = serializers.SerializerMethodField()
-    # return_total = serializers.SerializerMethodField()
-    # refund_amount = serializers.SerializerMethodField()
-    # refund_points = serializers.SerializerMethodField()
-    # refund_points_value = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
     return_info = serializers.SerializerMethodField()
 
@@ -643,28 +618,42 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         ongoing_return = obj.rt_return_order.filter(status='created').last()
         if not ongoing_return:
             return []
-        block = dict()
-        cb = 1
+        block, cb = dict(), 1
         block[cb] = dict()
         block[cb][1] = "Paid Amount: " + str(self.get_order_total(obj)).rstrip('0').rstrip('.')
+
         discount = self.get_discount_amount(obj)
         redeem_points_value = self.get_redeem_points_value(obj)
         if discount and redeem_points_value:
-            block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip('0').rstrip('.') + ') = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
-            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
+            block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip(
+                '0').rstrip('.') + ') = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(
+                redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
         elif discount:
-            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip(
+                '0').rstrip('.')
             block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon)'
         elif redeem_points_value:
-            block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+            block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(
+                obj.order_amount).rstrip('0').rstrip('.')
 
-        refunded_amount = self.get_refunded_amount(obj)
+        returns = OrderReturn.objects.filter(order=obj, status='completed')
+        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0
+        for ret in returns:
+            return_value += ret.return_value
+            discount_adjusted += ret.discount_adjusted
+            points_adjusted += ret.refund_points
+            refunded_amount += max(0, ret.refund_amount)
+        returned_oints_value = 0
+        if obj.ordered_cart.redeem_factor:
+            returned_oints_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
         if refunded_amount:
             cb += 1
             block[cb] = dict()
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
-            block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(self.get_returned_total(obj)).rstrip('0').rstrip('.') + '.'
-            block[cb][2] += ' Rs.' + str(discount).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount else ')'
+            block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(
+                return_value).rstrip('0').rstrip('.') + '.'
+            block[cb][2] += ' Rs.' + str(discount_adjusted).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount_adjusted else ')'
 
         cb += 1
         block[cb] = dict()
@@ -672,58 +661,11 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
         block_array = []
         for b in block:
-            lines_dict = block[b]
-            lines_array = []
+            lines_dict, lines_array = block[b], []
             for key in lines_dict:
                 lines_array.append(lines_dict[key])
             block_array.append(lines_array)
         return block_array
-
-    def get_discount_already_adjusted(self, obj):
-        last_return = obj.rt_return_order.filter(status='completed').last()
-        if last_return and last_return.refund_amount < 0:
-            discount_adjusted = last_return.refund_amount * -1
-        else:
-            discount_adjusted = self.get_discount_amount(obj)
-        return discount_adjusted
-
-    def get_returned_total(self, obj):
-        ret_total = 0
-        last_return = obj.rt_return_order.filter(status='completed').last()
-        if last_return:
-            ret_total = round(self.get_order_total(obj) - last_return.new_order_total, 2)
-        return ret_total
-
-    def get_return_total(self, obj):
-        ret_total = 0
-        ongoing_return = obj.rt_return_order.filter(status='created').last()
-        if ongoing_return:
-            last_return = obj.rt_return_order.filter(status='completed').last()
-            if last_return:
-                ret_total = round(last_return.new_order_total - ongoing_return.new_order_total)
-            else:
-                ret_total = round(self.get_order_total(obj) - ongoing_return.new_order_total, 2)
-        return ret_total
-
-    @staticmethod
-    def get_refund_points(obj):
-        ongoing_return = obj.rt_return_order.filter(status='created').last()
-        return round(ongoing_return.refund_points, 2) if ongoing_return else 0
-
-    @staticmethod
-    def get_redeem_points(obj):
-        return obj.ordered_cart.redeem_points
-
-    @staticmethod
-    def get_refunded_points(obj):
-        previous_refund_pts = 0
-        redeem_factor = obj.ordered_cart.redeem_factor
-        if redeem_factor:
-            if obj.order_status == Order.PARTIALLY_RETURNED:
-                previous_returns = obj.rt_return_order.filter(status='completed')
-                for ret in previous_returns:
-                    previous_refund_pts += ret.refund_points
-        return previous_refund_pts
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -742,30 +684,8 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             discount += float(offer['discount_value'])
         return round(discount, 2)
 
-    def get_current_amount(self, obj):
-        return round(obj.order_amount + self.get_redeem_points_value(obj) - self.get_refunded_amount(
-            obj) - self.get_refunded_points_value(obj) - self.get_refund_amount(obj) - self.get_refund_points_value(
-            obj), 2)
-
-    def get_refunded_amount(self, obj):
-        previous_refund = 0
-        if obj.order_status == Order.PARTIALLY_RETURNED:
-            previous_returns = obj.rt_return_order.filter(status='completed')
-            for ret in previous_returns:
-                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
-        return round(previous_refund, 2)
-
-    def get_refunded_points_value(self, obj):
-        previous_refund = 0
-        redeem_factor = obj.ordered_cart.redeem_factor
-        if redeem_factor:
-            previous_refund = round(self.get_refunded_points(obj) / redeem_factor, 2)
-        return previous_refund
-
-    def get_cart_offers(self, obj):
-        """
-            Get offers applied on cart
-        """
+    @staticmethod
+    def get_cart_offers(obj):
         offers = obj.ordered_cart.offers
         cart_offers = []
         for offer in offers:
@@ -773,36 +693,13 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
                 cart_offers.append(offer)
         return cart_offers
 
-    def get_received_amount(self, obj):
-        """
-            order amount
-        """
-        return round(obj.order_amount, 2)
-
-    def get_refund_amount(self, obj):
-        """
-            refund amount
-        """
+    @staticmethod
+    def get_refund_amount(obj):
         ongoing_return = obj.rt_return_order.filter(status='created').last()
         return round(ongoing_return.refund_amount, 2) if ongoing_return else 0
 
-    def get_refund_points_value(self, obj):
-        """
-            refund points value
-        """
-        refund_points_value = 0
-        redeem_factor = obj.ordered_cart.redeem_factor
-        if redeem_factor:
-            ongoing_return = obj.rt_return_order.filter(status='created').last()
-            if ongoing_return:
-                refund_points_value = round(ongoing_return.refund_points / redeem_factor, 2)
-        return refund_points_value
-
     class Meta:
         model = Order
-        # fields = ('id', 'order_total', 'discount_amount', 'redeem_points', 'redeem_points_value', 'received_amount',
-        #           'refunded_amount', 'refunded_points', 'refunded_points_value', 'current_amount', 'refund_amount',
-        #           'refund_points', 'refund_points_value', 'buyer', 'order_status')
         fields = ('id', 'return_info', 'order_status', 'buyer')
 
 
@@ -1127,7 +1024,7 @@ class BasicCartUserViewSerializer(serializers.Serializer):
     referral_code = serializers.CharField(required=False, allow_null=True, allow_blank=True, default=None)
 
     def validate(self, attrs):
-        phone_number, email, referral_code, shop_id = attrs.get('phone_number'), attrs.get('email'),\
+        phone_number, email, referral_code, shop_id = attrs.get('phone_number'), attrs.get('email'), \
                                                       attrs.get('referral_code'), attrs.get('shop_id')
 
         if not phone_number:
@@ -1293,3 +1190,184 @@ class CustomerReportDetailResponseSerializer(serializers.Serializer):
     @staticmethod
     def get_date(obj):
         return obj['created_at__date'].strftime("%b %d, %Y") if 'created_at__date' in obj else None
+
+
+class ReturnItemsGetSerializer(serializers.ModelSerializer):
+    """
+        Single return item detail
+    """
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_id(obj):
+        return obj.ordered_product.retailer_product.id
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.ordered_product.retailer_product.name
+
+    class Meta:
+        model = ReturnItems
+        fields = ('product_id', 'product_name', 'return_qty', 'return_value')
+
+
+class OrderReturnGetSerializer(serializers.ModelSerializer):
+    return_items = serializers.SerializerMethodField()
+    refund_points_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_return_items(obj):
+        qs = ReturnItems.objects.filter(return_id=obj, ordered_product__product_type=1)
+        return_items = ReturnItemsGetSerializer(qs, many=True).data
+
+        free_products_return = obj.free_qty_map
+        free_return_item_map = {}
+        if free_products_return:
+            for combo in free_products_return:
+                free_product = RetailerProduct.objects.get(id=combo['free_item_id'])
+                free_return_item_map[combo['item_id']] = 'Returned ' + str(combo['free_item_return_qty']) + ' items of ' \
+                                                         + free_product.name
+
+        for ret in return_items:
+            ret['free_product_return'] = 0
+            if ret['product_id'] in free_return_item_map:
+                ret['free_product_return'] = 1
+                ret['free_product_text'] = free_return_item_map[ret['product_id']]
+
+        return return_items
+
+    @staticmethod
+    def get_refund_points_value(obj):
+        refund_points_value = 0
+        redeem_factor = obj.order.ordered_cart.redeem_factor
+        if redeem_factor:
+            refund_points_value = round(obj.refund_points / redeem_factor, 2)
+        return refund_points_value
+
+    class Meta:
+        model = OrderReturn
+        fields = ('return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
+
+
+class BasicOrderDetailSerializer(serializers.ModelSerializer):
+    """
+        Pos Order detail
+    """
+    order_summary = serializers.SerializerMethodField()
+    return_summary = serializers.SerializerMethodField()
+    items = serializers.SerializerMethodField()
+
+    def get_order_summary(self, obj):
+        order_summary = dict()
+        discount = self.get_discount(obj)
+        redeem_points_value = self.get_redeem_points_value(obj)
+        order_value = round(obj.order_amount + discount + redeem_points_value, 2)
+        order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
+            'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
+        return order_summary
+
+    @staticmethod
+    def get_return_summary(obj):
+        returns = OrderReturn.objects.filter(order=obj, status='completed')
+        return_value, discount_adjusted, points_adjusted, refund_amount = 0, 0, 0, 0
+        for ret in returns:
+            return_value += ret.return_value
+            discount_adjusted += ret.discount_adjusted
+            points_adjusted += ret.refund_points
+            refund_amount += max(0, ret.refund_amount)
+        points_value = 0
+        if obj.ordered_cart.redeem_factor:
+            points_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
+        return_summary = dict()
+        return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
+            'points_adjusted'], return_summary['amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+        return return_summary
+
+    def get_items(self, obj):
+        """
+            Get ordered products details
+        """
+        qs = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
+        products = BasicOrderProductDetailSerializer(qs, many=True).data
+        # cart offers - map free product to purchased
+        product_offer_map, cart_free_product = {}, {}
+        for offer in obj.ordered_cart.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {'cart_free_product': 1, 'id': offer['free_item_id'], 'mrp': offer['free_item_mrp'],
+                                     'name': offer['free_item_name'], 'qty': offer['free_item_qty'],
+                                     'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip(
+                                         '0').rstrip('.')}
+
+        completed_returns = OrderReturn.objects.filter(order=obj, status='completed')
+        return_item_map = {}
+        for return_obj in completed_returns:
+            return_item_detail = return_obj.free_qty_map
+            if return_item_detail:
+                for combo in return_item_detail:
+                    if combo['item_id'] in return_item_map:
+                        return_item_map[combo['item_id']] += combo['free_item_return_qty']
+                    else:
+                        return_item_map[combo['item_id']] = combo['free_item_return_qty']
+
+        for product in products:
+            product['returned_qty'] = 0
+            rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
+            if rt_return_ordered_product:
+                for return_item in rt_return_ordered_product:
+                    if return_item['status'] != 'created':
+                        product['returned_qty'] = product['returned_qty'] + return_item['return_qty'
+                        ] if 'returned_qty' in product else return_item['return_qty']
+            product['returned_subtotal'] = round(float(product['selling_price']) * product['returned_qty'], 2)
+            # map purchased product with free product
+            if product['retailer_product']['id'] in product_offer_map:
+                free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product)
+                if free_prod_info:
+                    product.update(free_prod_info)
+
+        if cart_free_product:
+            cart_free_product['returned_qty'] = return_item_map[
+                'free_product'] if 'free_product' in return_item_map else 0
+            products.append(cart_free_product)
+        return products
+
+    @staticmethod
+    def get_free_product_text(product_offer_map, return_item_map, product):
+        offer = product_offer_map[product['retailer_product']['id']]
+        free_already_return_qty = return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0
+        display_text = ['Free - ' + str(offer['free_item_qty_added']) + ' items of ' + str(
+            offer['free_item_name']) + ' on purchase of ' + str(product['qty']) + ' items | Buy ' + str(offer[
+                            'item_qty']) + ' Get ' + str(offer['free_item_qty'])]
+        if free_already_return_qty:
+            display_text += ['Free return - ' + str(free_already_return_qty) + ' items of ' + str(
+                offer['free_item_name']) + ' on return of ' + str(product['returned_qty']) + ' items']
+        return {'free_product': 1, 'display_text': display_text}
+
+    @staticmethod
+    def get_redeem_points_value(obj):
+        redeem_points_value = 0
+        if obj.ordered_cart.redeem_factor:
+            redeem_points_value = round(obj.ordered_cart.redeem_points / obj.ordered_cart.redeem_factor, 2)
+        return redeem_points_value
+
+    def get_discount(self, obj):
+        discount = 0
+        offers = self.get_cart_offers(obj)
+        for offer in offers:
+            discount += float(offer['discount_value'])
+        return round(discount, 2)
+
+    @staticmethod
+    def get_cart_offers(obj):
+        offers = obj.ordered_cart.offers
+        cart_offers = []
+        for offer in offers:
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                cart_offers.append(offer)
+        return cart_offers
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'order_status', 'items', 'order_summary', 'return_summary')
