@@ -788,7 +788,7 @@ class CustomerReport(GenericAPIView):
         #     qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Loyalty points added, redeemed, order value, return value
-        qs = qs.values('created_at__date', 'points_added', order_id=F('order_no'),
+        qs = qs.values('id', 'created_at__date', 'points_added', order_id=F('order_no'),
                        points_redeemed=F('ordered_cart__redeem_points'),
                        sale=F('order_amount')).annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))

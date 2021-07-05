@@ -1181,6 +1181,7 @@ class CustomerReportResponseSerializer(serializers.Serializer):
 
 
 class CustomerReportDetailResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
     order_id = serializers.CharField(read_only=True)
     points_added = serializers.IntegerField(read_only=True)
     points_redeemed = serializers.IntegerField(read_only=True)
@@ -1259,6 +1260,11 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     order_summary = serializers.SerializerMethodField()
     return_summary = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
+    creation_date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_creation_date(obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     def get_order_summary(self, obj):
         order_summary = dict()
@@ -1372,4 +1378,4 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'items', 'order_summary', 'return_summary')
+        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
