@@ -1,5 +1,3 @@
-from accounts.api.v1 import serializers
-import addresses
 from addresses.models import Address
 import logging
 from rest_framework import authentication
@@ -112,36 +110,34 @@ class AddressListView(generics.GenericAPIView):
         """ GET API for Address """
         info_logger.info("Address GET api called.")
 
-        address_queryset = self.queryset
-
         if request.GET.get('pin_code'):
             """ Get Address for specific Pin Code """
             id_validation = validate_pin_code(
-                address_queryset, int(request.GET.get('pin_code')))
+                self.queryset, int(request.GET.get('pin_code')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            address_queryset = id_validation['data']
+            self.queryset = id_validation['data']
 
         if request.GET.get('city_id'):
             """ Get Address for specific City ID """
             id_validation = validate_city_id(
-                address_queryset, int(request.GET.get('city_id')))
+                self.queryset, int(request.GET.get('city_id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            address_queryset = id_validation['data']
+            self.queryset = id_validation['data']
 
         if request.GET.get('state_id'):
             """ Get Address for specific State ID """
             id_validation = validate_state_id(
-                address_queryset, int(request.GET.get('state_id')))
+                self.queryset, int(request.GET.get('state_id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            address_queryset = id_validation['data']
+            self.queryset = id_validation['data']
 
-        address_data = SmallOffsetPagination().paginate_queryset(address_queryset, request)
-        pin_code_list = get_distinct_pin_codes(address_queryset)
-        city_list = get_distinct_cities(address_queryset)
-        state_list = get_distinct_states(address_queryset)
+        address_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        pin_code_list = get_distinct_pin_codes(self.queryset)
+        city_list = get_distinct_cities(self.queryset)
+        state_list = get_distinct_states(self.queryset)
         add_serializer = self.add_serializer_class(address_data, many=True)
         data = {
             'addresses': add_serializer.data,

@@ -1,27 +1,15 @@
 from addresses.models import Address
-import addresses
 from django.db import transaction
-import re
-import datetime
-from django.db import models
 from rest_framework import serializers
-from datetime import datetime, timedelta
 
-from shops.models import (FavouriteProduct, RetailerType, ShopType, Shop, ShopPhoto,
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
 from django.contrib.auth import get_user_model
-from django.db.models import Sum, fields
-from accounts.api.v1.serializers import UserSerializer, GroupSerializer
-from addresses.api.v1.serializers import AddressSerializer
-from retailer_backend.validators import MobileNumberValidator
-from rest_framework import validators
-from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
-from django.db.models import Q
+from accounts.api.v1.serializers import UserSerializer
 
 
 User = get_user_model()
-
 
 '''
 For Shop Type List
