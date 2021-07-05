@@ -44,4 +44,4 @@ class VendorDemand(BaseTimestampModel):
 class VendorDemandProducts(BaseTimestampModel):
     demand = models.ForeignKey(VendorDemand, related_name='ars_demand_products', on_delete=models.CASCADE)
     product = models.ForeignKey(ParentProduct, related_name='ars_product_demands', on_delete=models.CASCADE)
-    quantity = models.PositiveSmallIntegerField()
+    quantity = models.PositiveIntegerField()
