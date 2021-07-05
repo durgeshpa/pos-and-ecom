@@ -1089,6 +1089,8 @@ class InventoryLogReportSerializer(serializers.ModelSerializer):
 
 
 class SalesReportSerializer(serializers.Serializer):
+    offset = serializers.IntegerField(default=0)
+    limit = serializers.IntegerField(default=10)
     report_type = serializers.ChoiceField(choices=('daily', 'monthly', 'invoice'), default='daily')
     date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
                                                    'last_month', 'this_year'), required=False, allow_null=True,
