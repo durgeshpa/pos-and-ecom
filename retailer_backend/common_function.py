@@ -322,7 +322,7 @@ def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):
         model.objects.bulk_create(items)
 
 
-def send_mail(sender, recipient_list, subject, body, attachment_list=None):
+def send_mail(sender, recipient_list, subject, body, attachment_list=None, **kwargs):
     """
     Parameters:
         sender : valid email address as string
@@ -336,6 +336,10 @@ def send_mail(sender, recipient_list, subject, body, attachment_list=None):
     email.body = body
     email.from_email = sender
     email.to = recipient_list
+    if kwargs.get('cc') is not None:
+        email.cc = kwargs.get('cc')
+    if kwargs.get('bcc') is not None:
+        email.bcc = kwargs.get('bcc')
     for attachment in attachment_list:
         email.attach(attachment['name'], attachment['value'], attachment['type'])
     email.send()
