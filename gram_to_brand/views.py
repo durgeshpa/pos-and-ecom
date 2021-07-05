@@ -636,11 +636,13 @@ def mail_to_vendor_on_po_approval(po_instance):
     """
     sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
     recipient_list = get_config("MAIL_DEV")
+    bcc_list = None
     if config('OS_ENV') and config('OS_ENV') in ['Production']:
         if get_config("MAIL_TO_VENDOR", False):
             recipient_list = [po_instance.supplier_name.email_id]
+            bcc_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
         else:
-            recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
+            recipient_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
     vendor_name = po_instance.supplier_name.vendor_name
     po_no = po_instance.po_no
     subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_no,
@@ -663,7 +665,7 @@ def mail_to_vendor_on_po_approval(po_instance):
         show_content_in_browser=False, cmd_options=cmd_option
     )
     attachment = {'name': filename, 'type': 'application/pdf', 'value': response.rendered_content}
-    send_mail(sender, recipient_list, subject, body, [attachment])
+    send_mail(sender, recipient_list, subject, body, [attachment], bcc= bcc_list)
 
 
 def generate_pdf_data(po_instance):
