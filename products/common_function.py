@@ -76,9 +76,9 @@ class ParentProductCls(object):
         """
         change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
         parent_product_log = CentralLog.objects.create(parent_product=log_obj, changed_fields=change_message,
-                                                       updated_by=log_obj.updated_by, action="updated")
+                                                       updated_by=create_updated_by, action=action)
 
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+        dict_data = {'updated_by': parent_product_log.updated_by, 'updated_at': parent_product_log.update_at,
                      'product_id': log_obj, "changed_fields": change_message}
         info_logger.info("parent product update info ", dict_data)
 
@@ -218,9 +218,9 @@ class ProductCls(object):
 
         change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
         child_product_log = CentralLog.objects.create(child_product=log_obj, changed_fields=change_message,
-                                                      updated_by=log_obj.updated_by, action="updated")
+                                                      updated_by=create_updated_by, action=action)
 
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+        dict_data = {'updated_by': child_product_log.updated_by, 'update_at': child_product_log.update_at,
                      'child_product': log_obj, "changed_fields": change_message}
         info_logger.info("child product update info ", dict_data, )
 
@@ -241,16 +241,14 @@ class ProductCls(object):
         return tax_log
 
     @classmethod
-    def create_weight_log(cls, log_obj, changed_data):
+    def create_weight_log(cls, log_obj, changed_data, action):
         """
             Create Weight Log
         """
-        change_message = "No fields changed."
-        if changed_data:
-            change_message = "Changed " + ", ".join(changed_data)
-        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=log_obj.updated_by,
-                                               changed_fields=change_message, action="updated")
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
+        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=create_updated_by,
+                                               changed_fields=change_message, action=action)
+        dict_data = {'updated_by': weight_log.updated_by, 'updated_at': weight_log.update_at,
                      'weight': log_obj, "changed_fields": change_message}
         info_logger.info("weight_log update info ", dict_data)
 

@@ -250,7 +250,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
-        ProductCls.create_parent_product_log(parent_product, None, "created")
+        ParentProductCls.create_parent_product_log(parent_product, None, "created")
 
         return parent_product
 
