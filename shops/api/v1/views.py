@@ -903,11 +903,10 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                     executive_obj = ExecutiveFeedback.objects.filter(day_beat_plan=day_beat)
                                     if executive_obj.exists():
                                         beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
-                                        if beat_plan_serializer.data.__len__() <= 0:
-                                            return Response({"detail": messages.ERROR_MESSAGES["4014"],
-                                                             "data": beat_plan_serializer.data,
-                                                             'is_success': True},
-                                                            status=status.HTTP_200_OK)
+                                        return Response({"detail": SUCCESS_MESSAGES["2001"],
+                                                         "data": beat_plan_serializer.data,
+                                                         'is_success': True},
+                                                        status=status.HTTP_200_OK)
                     except Exception as error:
                         logger.exception(error)
                         return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
