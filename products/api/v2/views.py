@@ -103,7 +103,6 @@ class ChildProductsDownloadSampleCSV(APIView):
 
 class BulkUploadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = BulkUploadForProductAttributes.objects.select_related('updated_by')\
         .only('id', 'file', 'upload_type', 'updated_by', 'created_at', 'updated_at').order_by('-id')
     serializer_class = UploadMasterDataSerializers
@@ -112,7 +111,6 @@ class BulkUploadProductAttributes(GenericAPIView):
         """ GET Bulk Log List for Bulk Uploaded Data """
 
         info_logger.info("Bulk Log GET api called.")
-
         if request.GET.get('id'):
             """ Get Bulk Log Detail for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
