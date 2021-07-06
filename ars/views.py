@@ -96,7 +96,7 @@ def populate_daily_average():
                                                               inventory_type__inventory_type='normal',
                                                               inventory_state__inventory_state='total_available',
                                                               sku__parent_product_id__in=master_data.keys(),
-                                                              archived_at__gte=starting_avg_from) \
+                                                              archived_at__gt=starting_avg_from) \
                                                       .values('warehouse', 'sku__parent_product', 'archived_at__date') \
                                                       .annotate(days=Count('sku__parent_product', distinct=True))
 
@@ -107,9 +107,10 @@ def populate_daily_average():
 
         master_data[item['sku__parent_product']][item['warehouse']]['visible_days'] += item['days']
 
+    # Get total no of pieces ordered where invoice is not yet generated starting from starting_avg_from date
     ordered_qty_not_invoiced = Order.objects.filter(seller_shop__id__in=warehouse_list,
                                                     ordered_cart__rt_cart_list__cart_product__parent_product_id__in=master_data.keys(),
-                                                    created_at__gte=starting_avg_from).order_by() \
+                                                    created_at__gt=starting_avg_from).order_by() \
                                             .values('seller_shop', 'ordered_cart__rt_cart_list__cart_product__parent_product') \
                                             .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces', filter=Q(rt_order_order_product__isnull=True)))
 
@@ -117,9 +118,10 @@ def populate_daily_average():
         master_data[item['ordered_cart__rt_cart_list__cart_product__parent_product']][item['seller_shop']]['ordered_pieces'] = \
             item['ordered_pieces'] if item['ordered_pieces'] else 0
 
+    # Get total no of pieces invoiced starting from starting_avg_from date
     shipped_qty = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop__id__in=warehouse_list,
                                                        product__parent_product_id__in=master_data.keys(),
-                                                       ordered_product__order__created_at__gte=starting_avg_from).order_by() \
+                                                       ordered_product__order__created_at__gt=starting_avg_from).order_by() \
                                                .values('ordered_product__order__seller_shop', 'product__parent_product') \
                                                .annotate(shipped_pieces=Sum('shipped_qty'))
 
@@ -137,7 +139,7 @@ def populate_daily_average():
                                                cart_product__parent_product_id__in=master_data.keys(),
                                                cart__po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL,
                                                                     Cart.PARTIAL_DELIVERED],
-                                               cart__po_validity_date__gte=datetime.date.today(),
+                                               cart__po_validity_date__gt=datetime.date.today(),
                                                is_grn_done=False
                                                )\
                                        .values('cart__gf_billing_address__shop_name','cart_product__parent_product')\
@@ -171,7 +173,7 @@ def get_daily_average(warehouse, parent_product):
                                                          inventory_type__inventory_type='normal',
                                                          inventory_state__inventory_state='total_available',
                                                          sku__parent_product=parent_product, visible=True,
-                                                         archived_at__gte=starting_avg_from) \
+                                                         archived_at__gt=starting_avg_from) \
                                               .values('sku__parent_product', 'archived_at__date')\
                                               .distinct('sku__parent_product__id', 'archived_at__date').count()
     # avg_days = query.last()['days'] if query.exists() else 0
@@ -190,7 +192,7 @@ def get_inventory_in_process(warehouse, parent_product):
     inventory_in_process = CartProductMapping.objects.filter(cart__gf_billing_address__shop_name=gf_shop,
                                                             cart__po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL,
                                                                                  Cart.PARTIAL_DELIVERED],
-                                                            cart__po_validity_date__gte=datetime.date.today(),
+                                                            cart__po_validity_date__gt=datetime.date.today(),
                                                             cart_product__parent_product=parent_product,
                                                             is_grn_done=False)\
                                                      .aggregate(no_of_pieces=Sum('no_of_pieces'))
@@ -240,10 +242,10 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     starting from the given date.
     """
     ordered_qty_not_invoiced = Order.objects.filter(seller_shop=warehouse, ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
-                                                created_at__gte=starting_from_date).order_by()\
+                                                created_at__gt=starting_from_date).order_by()\
                                         .aggregate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces', filter=Q(rt_order_order_product__isnull=True)))
     shipped_qty = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=warehouse,product__parent_product=parent_product,
-                                                ordered_product__order__created_at__gte=starting_from_date).order_by()\
+                                                ordered_product__order__created_at__gt=starting_from_date).order_by()\
                                         .aggregate(shipped_pieces=Sum('shipped_qty'))
 
     no_of_pieces_ordered = ordered_qty_not_invoiced.get('ordered_pieces') if ordered_qty_not_invoiced.get('ordered_pieces') else 0\
