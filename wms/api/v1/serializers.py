@@ -1,4 +1,4 @@
-
+from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
@@ -121,14 +121,20 @@ class PickupSerializer(DynamicFieldsModelSerializer):
         return True
 
 
+class ShopExecutiveUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('first_name', 'last_name', 'phone_number')
+
 class OrderSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
     order_create_date = serializers.SerializerMethodField()
     delivery_location = serializers.SerializerMethodField('m_delivery_location')
-
+    sales_executive = serializers.SerializerMethodField()
+    
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', )
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'sales_executive')
 
     def picker_status_dt(self, obj):
         return str(obj.order_status).lower()
@@ -138,6 +144,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def m_delivery_location(self, obj):
         return obj.shipping_address.city.city_name
+
+    def get_sales_executive(self, obj):
+        shop_user_mapping = obj.buyer_shop.shop_user.filter(status=True, employee_group__name='Sales Executive').last()
+        serializer = ShopExecutiveUserSerializer(shop_user_mapping.employee)
+        return serializer.data
 
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
