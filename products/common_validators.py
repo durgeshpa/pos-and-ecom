@@ -54,35 +54,38 @@ def get_validate_categories(parent_product_pro_category):
     """ validate ids that belong to a Category model also
     checking category shouldn't repeat else through error """
     cat_list = []
+    cat_obj = []
     for cat_data in parent_product_pro_category:
         try:
             category = Category.objects.get(id=cat_data['category'])
         except Exception as e:
             logger.error(e)
             return {'error': '{} category not found'.format(cat_data['category'])}
+        cat_obj.append(category)
         if category in cat_list:
             return {'error': '{} do not repeat same category for one product'.format(category)}
         cat_list.append(category)
-    return {'category': parent_product_pro_category}
+    return {'category': cat_obj}
 
 
 def get_validate_tax(parent_product_pro_tax):
     """ validate ids that belong to a Tax model also
         checking tax type 'gst' should be selected """
     tax_list_type = []
+    tax_obj = []
     for tax_data in parent_product_pro_tax:
         try:
             tax = Tax.objects.get(id=tax_data['tax'])
         except Exception as e:
             logger.error(e)
             return {'error': 'tax not found'}
-
+        tax_obj.append(tax)
         if tax.tax_type in tax_list_type:
             return {'error': '{} type tax can be filled only once'.format(tax.tax_type)}
         tax_list_type.append(tax.tax_type)
     if 'gst' not in tax_list_type:
         return {'error': 'Please fill the GST tax value'}
-    return {'tax': parent_product_pro_tax}
+    return {'tax': tax_obj}
 
 
 def get_validate_images(product_images):

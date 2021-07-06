@@ -6,13 +6,13 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
 
 from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 
 # Get an instance of a logger
@@ -24,7 +24,7 @@ debug_logger = logging.getLogger('file-debug')
 class ParentProductCls(object):
 
     @classmethod
-    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
+    def upload_parent_product_images(cls, parent_product, parent_product_pro_image, product_images):
         """
             Delete Existing Images of specific ParentProduct
             Create or Update Parent Product Images
@@ -35,7 +35,7 @@ class ParentProductCls(object):
                 ids.append(image['id'])
 
         ParentProductImage.objects.filter(parent_product=parent_product).exclude(
-                            id__in=ids).delete()
+            id__in=ids).delete()
         if product_images:
             for image in product_images:
                 ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
@@ -70,14 +70,16 @@ class ParentProductCls(object):
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
 
     @classmethod
-    def create_parent_product_log(cls, log_obj):
+    def create_parent_product_log(cls, log_obj, changed_data, action):
         """
             Create Parent Product Log
         """
-        parent_product_log = CentralLog.objects.create(parent_product=log_obj, updated_by=log_obj.updated_by)
+        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
+        parent_product_log = CentralLog.objects.create(parent_product=log_obj, changed_fields=change_message,
+                                                       updated_by=log_obj.updated_by, action="updated")
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'product_id': log_obj}
+                     'product_id': log_obj, "changed_fields": change_message}
         info_logger.info("parent product update info ", dict_data)
 
         return parent_product_log
@@ -86,7 +88,7 @@ class ParentProductCls(object):
 class ProductCls(object):
 
     @classmethod
-    def create_child_product(cls, parent_product,  **validated_data):
+    def create_child_product(cls, parent_product, **validated_data):
         """
            Create Child Product
         """
@@ -147,7 +149,8 @@ class ProductCls(object):
         for source_sku_data in packing_material_rt:
             pack_sku_id = Product.objects.get(id=source_sku_data['packing_sku'])
             ProductPackingMapping.objects.create(sku=child_product, packing_sku=pack_sku_id,
-                                                 packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+                                                 packing_sku_weight_per_unit_sku=source_sku_data[
+                                                     'packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
@@ -196,7 +199,7 @@ class ProductCls(object):
                                                    vendor=vendor_obj['vendor'], **validated_data)
 
     @classmethod
-    def update_product_vendor_mapping(cls, product, vendor,  product_vendor_map):
+    def update_product_vendor_mapping(cls, product, vendor, product_vendor_map):
         """
             Update Product Vendor Mapping
         """
@@ -208,38 +211,47 @@ class ProductCls(object):
         return product_vendor_map
 
     @classmethod
-    def create_child_product_log(cls, log_obj):
+    def create_child_product_log(cls, log_obj, changed_data, action):
         """
             Create Child Product Log
         """
-        child_product_log = CentralLog.objects.create(child_product=log_obj, updated_by=log_obj.updated_by)
+
+        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
+        child_product_log = CentralLog.objects.create(child_product=log_obj, changed_fields=change_message,
+                                                      updated_by=log_obj.updated_by, action="updated")
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'child_product': log_obj}
-        info_logger.info("child product update info ", dict_data)
+                     'child_product': log_obj, "changed_fields": change_message}
+        info_logger.info("child product update info ", dict_data, )
 
         return child_product_log
 
     @classmethod
-    def create_tax_log(cls, log_obj):
+    def create_tax_log(cls, log_obj, changed_data, action):
         """
             Create Tax Log
         """
-        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=log_obj.updated_by)
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'tax': log_obj}
+        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
+        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=create_updated_by,
+                                            changed_fields=change_message, action=action)
+        dict_data = {'updated_by': tax_log.updated_by, 'update_at': tax_log.update_at,
+                     'tax': log_obj, "changed_fields": change_message}
         info_logger.info("tax update info ", dict_data)
 
         return tax_log
 
     @classmethod
-    def create_weight_log(cls, log_obj):
+    def create_weight_log(cls, log_obj, changed_data):
         """
             Create Weight Log
         """
-        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=log_obj.updated_by)
+        change_message = "No fields changed."
+        if changed_data:
+            change_message = "Changed " + ", ".join(changed_data)
+        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=log_obj.updated_by,
+                                               changed_fields=change_message, action="updated")
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'weight': log_obj}
+                     'weight': log_obj, "changed_fields": change_message}
         info_logger.info("weight_log update info ", dict_data)
 
         return weight_log
@@ -315,7 +327,6 @@ def create_master_data(validated_data):
 
 
 def download_sample_file_master_data(validated_data):
-
     if validated_data['upload_type'] == "master_data":
         response = DownloadMasterData.set_master_data_sample_file(validated_data)
     if validated_data['upload_type'] == "inactive_status":
@@ -332,3 +343,25 @@ def download_sample_file_master_data(validated_data):
         response = DownloadMasterData.set_parent_data_sample_file(validated_data)
 
     return response
+
+
+def changed_fields(instance, validated_data, changed_data=[]):
+    for field, value in validated_data.items():
+        if not isinstance(value, dict):
+            if value != getattr(instance, field, None):
+                changed_data.append(field)
+        else:
+            changed_fields(getattr(instance, field), validated_data[field], changed_data)
+
+    return changed_data
+
+
+def change_message_action(log_obj, changed_data, action):
+    change_message = "No fields changed."
+    if changed_data:
+        change_message = "Changed " + ", ".join(changed_data)
+    if action == "created":
+        create_updated_by = log_obj.created_by
+    else:
+        create_updated_by = log_obj.updated_by
+    return change_message, action, create_updated_by

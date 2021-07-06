@@ -11,6 +11,7 @@ from products.api.v1.serializers import UserSerializers, LogSerializers
 from products.common_validators import get_validate_parent_brand
 from brand.common_function import BrandCls
 from products.models import ProductVendorMapping, Product, ParentProduct
+from products.common_function import changed_fields
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -130,6 +131,7 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             brand = Brand.objects.create(**validated_data)
+            BrandCls.create_brand_log(brand, None, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -139,12 +141,12 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         try:
+            changed_data = changed_fields(instance, validated_data)
             brand = super().update(instance, validated_data)
+            BrandCls.create_brand_log(brand, changed_data, "updated")
         except Exception as e:
             error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-        BrandCls.create_brand_log(brand)
 
         return brand
 

@@ -386,7 +386,6 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('parent_product')\
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
                           'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
@@ -454,9 +453,9 @@ class ChildProductView(GenericAPIView):
         id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        parent_product_instance = id_instance['data'].last()
+        child_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
+        serializer = self.serializer_class(instance=child_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Child Product Updated Successfully.")

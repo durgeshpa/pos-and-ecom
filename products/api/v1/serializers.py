@@ -21,7 +21,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
     get_validate_child_product_image_ids
-from products.common_function import ParentProductCls, ProductCls
+from products.common_function import ParentProductCls, ProductCls, changed_fields
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -145,7 +145,7 @@ class LogSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = CentralLog
-        fields = ('update_at', 'updated_by',)
+        fields = ('update_at', 'updated_by', 'changed_fields')
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
@@ -171,7 +171,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_('product_images is required'))
 
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
-            image_val = get_validate_parent_product_image_ids(self.initial_data['id'], self.initial_data['parent_product_pro_image'])
+            image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
+                                                              self.initial_data['parent_product_pro_image'])
             if 'error' in image_val:
                 raise serializers.ValidationError(_(image_val["error"]))
 
@@ -211,10 +212,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
         category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
             raise serializers.ValidationError(_(category_val["error"]))
+        # data['parent_product_pro_category'] = category_val['category']
 
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
             raise serializers.ValidationError(_(tax_val["error"]))
+        # data['parent_product_pro_tax'] = tax_val['tax']
 
         return data
 
@@ -247,23 +250,20 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
+        ProductCls.create_parent_product_log(parent_product, None, "created")
 
         return parent_product
 
     @transaction.atomic
-    def update(self, instance, validated_data, changed_data=[]):
+    def update(self, instance, validated_data):
         """ This method is used to update an instance of the Parent Product's attribute. """
-
         validated_data.pop('parent_product_pro_image', None)
         validated_data.pop('product_images', None)
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
         validated_data.pop('product_parent_product', None)
-    
-        # for field, value in validated_data.items():
-        #     if not isinstance(value, dict):
-        #         if value != getattr(instance, field, None):
-        #             changed_data.append(field)
+
+        changed_data = changed_fields(instance, validated_data)
         try:
             # call super to save modified instance along with the validated data
             parent_product = super().update(instance, validated_data)
@@ -272,7 +272,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
-        ParentProductCls.create_parent_product_log(parent_product)
+        ParentProductCls.create_parent_product_log(parent_product, changed_data, "updated")
+
         return parent_product
 
     # crete parent product image, tax & category
@@ -665,8 +666,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_pro_tax', 'destination_product_pro', 'destination_product_repackaging',
-                  'packing_product_rt', 'product_vendor_mapping', 'product_images', 'child_product_logs')
+                  'product_pro_image', 'parent_product', 'product_pro_tax', 'destination_product_pro', 'product_images',
+                  'destination_product_repackaging', 'packing_product_rt', 'product_vendor_mapping', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -734,8 +735,10 @@ class ChildProductSerializers(serializers.ModelSerializer):
         validated_data.pop('destination_product_pro', None)
         validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
+
         try:
             child_product = ProductCls.create_child_product(self.initial_data['parent_product'], **validated_data)
+            ProductCls.create_child_product_log(child_product, None, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -761,11 +764,14 @@ class ChildProductSerializers(serializers.ModelSerializer):
         validated_data.pop('destination_product_pro', None)
         validated_data.pop('packing_product_rt', None)
         destination_product_repack = validated_data.pop('destination_product_repackaging', None)
+
+        changed_data = changed_fields(instance, validated_data)
         try:
             # call super to save modified instance along with the validated data
             child_product_obj = super().update(instance, validated_data)
             child_product = ProductCls.update_child_product(self.initial_data['parent_product'],
                                                             child_product_obj)
+            ProductCls.create_child_product_log(child_product, changed_data, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -785,7 +791,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if child_product.repackaging_type == 'destination':
             self.create_source_packing_material_destination_product(child_product,
                                                                     destination_product_repack)
-        ProductCls.create_child_product_log(child_product)
+
         return child_product
 
     def create_source_packing_material_destination_product(self, child_product, destination_product_repack):
@@ -869,7 +875,8 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Tax
-        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'tax_log', 'status')
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at',
+                  'tax_end_at', 'tax_log', 'status')
 
     def validate(self, data):
         if 'tax_start_at' in self.initial_data and 'tax_end_at' in self.initial_data:
@@ -886,12 +893,21 @@ class TaxCrudSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """create a new tax"""
-        return Tax.objects.create(**validated_data)
+
+        try:
+            tax = Tax.objects.create(**validated_data)
+            ProductCls.create_tax_log(tax, None, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return tax
 
     def update(self, instance, validated_data):
         """update tax"""
+        changed_data = changed_fields(instance, validated_data)
         instance = super().update(instance, validated_data)
-        ProductCls.create_tax_log(instance)
+        ProductCls.create_tax_log(instance, changed_data, "updated")
         return instance
 
 
@@ -905,12 +921,24 @@ class WeightSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """create a new weight"""
-        return Weight.objects.create(**validated_data)
+        try:
+            weight = Weight.objects.create(**validated_data)
+            ProductCls.create_weight_log(weight, None, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return weight
 
     def update(self, instance, validated_data):
         """update weight"""
-        instance = super().update(instance, validated_data)
-        ProductCls.create_weight_log(instance)
+        try:
+            instance = super().update(instance, validated_data)
+            changed_data = changed_fields(instance, validated_data)
+            ProductCls.create_weight_log(instance, changed_data, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
         return instance
 
 
