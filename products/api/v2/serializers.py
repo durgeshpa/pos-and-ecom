@@ -352,7 +352,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('file', 'upload_type', 'updated_by', 'created_at', 'updated_at')
+        fields = ('id', 'file', 'upload_type', 'updated_by', 'created_at', 'updated_at')
 
     def validate(self, data):
         if not data['file'].name[-5:] in '.xlsx':

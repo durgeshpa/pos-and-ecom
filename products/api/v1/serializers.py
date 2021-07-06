@@ -226,7 +226,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if not representation['is_ptr_applicable']:
-            representation['ptr_type'] = representation['ptr_percent'] = '-'
+            representation['ptr_type'] = representation['ptr_percent'] = ' '
         return representation
 
     @transaction.atomic

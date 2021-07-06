@@ -1,5 +1,6 @@
 import logging
 from django.http import HttpResponse
+from django.core.exceptions import ObjectDoesNotExist
 import csv
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
@@ -147,6 +148,24 @@ class BulkUploadProductAttributes(GenericAPIView):
             serializer.save(updated_by=request.user)
             return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Bulk Attribute """
+
+        info_logger.info("Bulk Log DELETE api called.")
+        if not request.data.get('bulk_product_attribute_ids'):
+            return get_response('please provide bulk_product_attribute_id', False)
+        try:
+            for id in request.data.get('bulk_product_attribute_ids'):
+                bulk_product_attribute = self.queryset.get(id=int(id))
+                try:
+                    bulk_product_attribute.delete()
+                except:
+                    return get_response(f'can not delete bulk_product_attribute {bulk_product_attribute.file}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'{id} is invalid, please provide a valid bulk_product_attribute_id ', False)
+        return get_response('bulk product attribute were deleted successfully!', True)
 
     def search_filter_bulk_log(self):
         search_text = self.request.GET.get('search_text')
