@@ -230,14 +230,16 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
-        'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
-        'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
-        'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor', 'parent_product_log', 'parent_product_log__updated_by'). \
-        only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
-             'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code', 'updated_at',
-             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory')\
-        .order_by('-id')
+         'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
+         'product_parent_product__product_pro_image', 'parent_product_pro_category__category', 'parent_product_log',
+         'product_parent_product__product_vendor_mapping', 'parent_product_pro_tax__tax', 'parent_product_pro_image',
+         'parent_product_log__updated_by', 'product_parent_product__product_vendor_mapping__vendor',)\
+        .only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
+              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
+              'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
+              'max_inventory').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -386,16 +388,19 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('parent_product').prefetch_related('product_pro_image',
-        'product_vendor_mapping', 'parent_product__parent_product_pro_image', 'child_product_log', 'child_product_log__updated_by',
-        'parent_product__parent_product_pro_category__category', 'parent_product__parent_product_pro_category',
-        'destination_product_pro', 'destination_product_pro__source_sku', 'destination_product_repackaging',
-        'packing_product_rt', 'packing_product_rt__packing_sku', 'parent_product__product_hsn',
-        'parent_product__product_parent_product__product_vendor_mapping', 'parent_product__parent_product_log',
-        'parent_product__parent_product_log__updated_by', 'parent_product__product_parent_product__product_vendor_mapping__vendor',
-        'product_vendor_mapping__vendor', 'parent_product__product_parent_product__product_vendor_mapping',
-        'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
-        'parent_product__parent_product_pro_tax__tax', 'product_pro_tax__tax',).order_by('-id')
+    queryset = ChildProduct.objects.select_related('parent_product')\
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
+                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
 

@@ -120,11 +120,13 @@ class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
 
 
 class ChildProductVendorSerializers(serializers.ModelSerializer):
+    product_pro_image = ProductImageSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
 
     class Meta:
         model = Product
-        fields = ('id', 'product_name', 'product_vendor_mapping')
+        fields = ('id', 'product_name', 'product_sku', 'repackaging_type',  'status', 'product_pro_image',
+                  'product_vendor_mapping')
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -249,7 +251,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         return parent_product
 
     @transaction.atomic
-    def update(self, instance, validated_data):
+    def update(self, instance, validated_data, changed_data=[]):
         """ This method is used to update an instance of the Parent Product's attribute. """
 
         validated_data.pop('parent_product_pro_image', None)
@@ -257,7 +259,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
         validated_data.pop('product_parent_product', None)
-
+        #
+        # for field, value in validated_data.items():
+        #     if not isinstance(value, dict):
+        #         if value != getattr(instance, field, None):
+        #             changed_data.append(field)
         try:
             # call super to save modified instance along with the validated data
             parent_product = super().update(instance, validated_data)

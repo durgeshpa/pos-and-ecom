@@ -1040,6 +1040,7 @@ class ProductPackingMapping(models.Model):
 
 
 class CentralLog(models.Model):
+    changed_fields = models.TextField(blank=True, null=True)
     shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
