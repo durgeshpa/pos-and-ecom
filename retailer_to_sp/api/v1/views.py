@@ -5201,6 +5201,15 @@ class SellerOrderList(generics.ListAPIView):
                                               employee_group__permissions__codename='can_sales_person_add_shop',
                                               shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
+    def get_order_status(self, status):
+        order_status_dict = {
+            'new': [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                    Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH],
+            'in_transit': [Order.DISPATCHED],
+            'completed': [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]
+        }
+        return order_status_dict.get(status)
+
     def get_queryset(self):
         shop_emp = self.get_employee()
         if not shop_emp.exists():
@@ -5213,9 +5222,20 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by(
-            '-created_at') if self.is_manager else Order.objects.filter(buyer_shop__id__in=shop_list,
-                                                                        ordered_by=request.user).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
+                    else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
+                                      .order_by('-created_at')
+
+        params = request.query_params
+        info_logger.info("SellerOrderList|query_params {}".format(request.query_params))
+        if params.get('order_status') is not None:
+            order_status_list = self.get_order_status(params['order_status'])
+            if order_status_list is not None:
+                queryset = queryset.filter(order_status__in=order_status_list)
+
+        if params.get('retailer_name') is not None:
+            queryset = queryset.filter(buyer_shop__shop_name__icontains= params.get('retailer_name') )
+
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:

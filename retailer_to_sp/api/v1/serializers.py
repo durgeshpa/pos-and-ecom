@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Sum, Q
 from rest_framework import serializers
 
+from accounts.models import UserWithName
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
@@ -1184,6 +1185,21 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
                   #'cash_discount', 'loyalty_incentive', 'margin',
                   'shipped_qty',  'returned_qty','returned_damage_qty', 'product_image')
 
+
+class OrderHistoryUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserWithName
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
+class OrderHistoryTripSerializer(serializers.ModelSerializer):
+    dispatch_no = serializers.ReadOnlyField()
+    delivery_boy = OrderHistoryUserSerializer()
+
+    class Meta:
+        model = Trip
+        fields = ('dispatch_no', 'delivery_boy')
+
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
@@ -1263,11 +1279,28 @@ class SellerOrderedCartListSerializer(serializers.ModelSerializer):
 
 class SellerOrderListSerializer(serializers.ModelSerializer):
     ordered_cart = SellerOrderedCartListSerializer()
-    order_status = serializers.CharField(source='get_order_status_display')
+    order_status = serializers.SerializerMethodField()
     rt_order_order_product = serializers.SerializerMethodField()
     is_ordered_by_sales = serializers.SerializerMethodField('is_ordered_by_sales_dt')
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
+    trip_details = serializers.SerializerMethodField()
+
+
+    def get_order_status(self, obj):
+        if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                     Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
+            return 'New'
+        elif obj.order_status in [Order.DISPATCHED]:
+            return 'In Transit'
+        elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
+            return 'Completed'
+        return obj.order_status
+
+    def get_trip_details(self, obj):
+        qs = Trip.objects.filter(rt_invoice_trip__order_id=obj.id)
+        serializer = OrderHistoryTripSerializer(instance=qs, many=True)
+        return serializer.data
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -1292,7 +1325,8 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
-                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
+                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
+                  'trip_details')
 
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:
