@@ -12,7 +12,6 @@ from categories.models import Category
 from products.api.v1.serializers import UserSerializers, LogSerializers
 from categories.common_function import CategoryCls
 from categories.common_validators import get_validate_category
-from products.common_function import changed_fields
 
 
 class SubCategorySerializer(serializers.Serializer):
@@ -116,7 +115,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             category = Category.objects.create(**validated_data)
-            CategoryCls.create_category_log(category, None, "created")
+            CategoryCls.create_category_log(category, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -125,10 +124,9 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        changed_data = changed_fields(instance, validated_data)
         try:
             category = super().update(instance, validated_data)
-            CategoryCls.create_category_log(category, changed_data, "updated")
+            CategoryCls.create_category_log(category, "updated")
         except Exception as e:
             error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
