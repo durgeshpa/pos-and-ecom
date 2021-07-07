@@ -514,7 +514,7 @@ class PageDetailView(APIView):
         if query_params.get('version'):
             try:
                 page_version_key = f"page_version_{id}_{query_params.get('version')}"
-                cached_version = cache.get[page_version_key, None]
+                cached_version = cache.get(page_version_key, None)
                 if(cached_version):
                     page_version = cached_version
                 else:
@@ -525,10 +525,11 @@ class PageDetailView(APIView):
             except Exception:
                 message = {
                     "is_success": False,
-                    "message": "This version of page doesnot exist."
+                    "message": "This version of page does not exist."
                 }
                 return Response(message, status = status.HTTP_204_NO_CONTENT)
         serializer = self.serializer_class(page, context = {'page_version': page_version})
+        print(serializer.data)
         message = {
             "is_success": True,
             "message": "OK",
@@ -558,7 +559,7 @@ class PageDetailView(APIView):
             page_id = f"page_{id}"
             cache.delete(page_id)
 
-            cache.set(page_id, serializer.data)
+            cache.set(page_id, page)
 
             message = {
                 "is_success": True,

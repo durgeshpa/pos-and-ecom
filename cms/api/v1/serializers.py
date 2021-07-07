@@ -396,7 +396,6 @@ class PageDetailSerializer(serializers.ModelSerializer):
         data =  super().to_representation(instance)
         if self.context.get('page_version'):
             data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
-            pass
         else:
             page = PageVersion.objects.select_related('page')
             page_versions = page.filter(page_id = instance.id)
