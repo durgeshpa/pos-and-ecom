@@ -835,6 +835,7 @@ class CustomerReport(GenericAPIView):
                 'order__buyer').annotate(
                 returns=Sum('refund_amount', filter=Q(refund_amount__gt=0) and Q(status='completed'))).order_by('order__buyer').values('returns')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
+        qs = qs.filter(order_count__gt=0)
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
                        'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
                        date=F('created_at'))
