@@ -285,7 +285,7 @@ class OrderedProductMappingInline(admin.TabularInline):
 
 class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
-    search_fields = ('invoice__invoice_no', 'order__order_no')
+    search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 10
     list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
 
@@ -432,7 +432,7 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin):
                     'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
-    search_fields = ('order__order_no', )
+    search_fields = ('order__order_no', 'order__buyer__phone_number')
     inlines = [RetailerReturnItemsAdmin]
 
     @staticmethod
