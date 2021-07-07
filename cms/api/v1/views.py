@@ -1,4 +1,5 @@
 import logging
+from re import S
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.views import APIView
@@ -331,7 +332,7 @@ class ApplicationView(APIView):
         serializer = self.serializer_class(apps, many = True)
         message = {
             "is_success":True,
-            "message": "OK",
+            "message": SUCCESS_MESSAGES["APP_RETRIEVE_SUCCESS"],
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
@@ -346,13 +347,13 @@ class ApplicationView(APIView):
             serializer.save(created_by = request.user)
             message = {
                 "is_success": True,
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["APP_CREATE_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
-            "message": "Data is not valid",
+            "message": ERROR_MESSAGES["APP_CREATE_FAIL"],
             "error": serializer.errors
         }
         error_logger.error(serializer.errors)
@@ -371,13 +372,13 @@ class ApplicationDetailView(APIView):
         except Exception:
             message = {
                 "is_success": False,
-                "message": "No application exist for this id."
+                "message": ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
         serializer = self.serializer_class(app)
         message = {
             "is_success": True,
-            "message": "OK",
+            "message": SUCCESS_MESSAGES["APP_RETRIEVE_SUCCESS"],
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
@@ -392,7 +393,7 @@ class ApplicationDetailView(APIView):
         except Exception:
             message = {
                 "is_success": False,
-                "message": "No application exist for this id."
+                "message": ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
         serializer = self.serializer_class(data=request.data, instance=app, partial=True)
@@ -400,13 +401,13 @@ class ApplicationDetailView(APIView):
             serializer.save()
             message = {
                 "is_success": True,
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["APP_PATCH_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
-            "message": "Data is not valid",
+            "message": ERROR_MESSAGES["APP_PATCH_FAIL"],
             "error": serializer.errors
         }
         error_logger.error(serializer.errors)
@@ -432,7 +433,7 @@ class PageView(APIView):
         serializer = self.serializer_class(pages, many = True)
         message = {
             "is_success":True,
-            "message": "OK",
+            "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
@@ -449,13 +450,13 @@ class PageView(APIView):
 
             message = {
                 "is_success": True,
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["PAGE_CREATE_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
-            "message": "Data is not valid",
+            "message": ERROR_MESSAGES["PAGE_CREATE_FAIL"],
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
@@ -465,23 +466,23 @@ class PageView(APIView):
         data = request.data
         page_id = data.get('page_id', None)
         if not page_id:
-            raise ValidationError({"message": "page_id is required"})
+            raise ValidationError(VALIDATION_ERROR_MESSAGES["PAGE_ID_REQUIRED"])
         try:
             page = Page.objects.get(id = page_id)
         except Exception:
-            raise NotFound({"message": f"No pages exists with id {page_id}"})
+            raise NotFound(ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(page_id))
         serializer = self.serializer_class(data=data, instance=page, context = {'request':request} ,partial=True)
         if serializer.is_valid():
             serializer.save()
             message = {
                 "is_success": True,
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["PAGE_PATCH_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
-            "message": "Data is not valid",
+            "message": ERROR_MESSAGES["PAGE_PATCH_FAIL"],
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
@@ -500,7 +501,7 @@ class PageDetailView(APIView):
         except Exception:
             message = {
                 "is_success": False,
-                "message": "No pages exist for this id."
+                "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
         page_version = None
@@ -510,13 +511,13 @@ class PageDetailView(APIView):
             except Exception:
                 message = {
                     "is_success": False,
-                    "message": "This version of page doesnot exist."
+                    "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
                 }
                 return Response(message, status = status.HTTP_204_NO_CONTENT)
         serializer = self.serializer_class(page, context = {'page_version': page_version})
         message = {
             "is_success": True,
-            "message": "OK",
+            "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
@@ -530,7 +531,7 @@ class PageDetailView(APIView):
         except Exception:
             message = {
                 "is_success": False,
-                "message": "No pages exist for this id."
+                "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
         serializer = PageDetailSerializer(data=request.data, instance=page, partial=True)
@@ -538,13 +539,13 @@ class PageDetailView(APIView):
             serializer.save()
             message = {
                 "is_success": True,
-                "message": "OK",
+                "message": SUCCESS_MESSAGES["PAGE_PATCH_SUCCESS"],
                 "data": serializer.data
             }
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
-            "message": "Data is not valid",
+            "message": ERROR_MESSAGES["PAGE_PATCH_FAIL"],
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)

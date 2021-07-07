@@ -84,7 +84,7 @@ class CardItemSerializer(serializers.ModelSerializer):
         try:
             Card.objects.get(id=card_id)
         except:
-            raise ValidationError(f"card with id {card_id} not found")
+            raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card_id))
         latest_version = CardVersion.objects.filter(card__id=card_id).last()
         card_data = latest_version.card_data
         new_card_item = CardItem.objects.create(
@@ -178,10 +178,6 @@ class CardSerializer(serializers.ModelSerializer):
         model = Card
         depth = 1
         fields = '__all__'
-
-
-
-
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -326,16 +322,16 @@ class PageSerializer(serializers.ModelSerializer):
         try:
             app = Application.objects.get(id = app_id)
         except Exception:
-            raise NotFound({'message': f"app with id {app_id} not found"})
+            raise NotFound(ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
 
         # Checking cards exist or not and card is of same app
         for card in cards:
             try:
                 card_query = Card.objects.get(id = card['card_id'])
             except Exception:
-                raise NotFound({"message": f"card with {card['card_id']} doesnot exist"})
+                raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card['card_id']))
             if card_query.app != app:
-                raise ValidationError({"message": f"card id {card['card_id']} is not linked with app {app.id}."})
+                raise ValidationError(VALIDATION_ERROR_MESSAGES["CARD_APP_NOT_VALID"].format(card['card_id'], app_id))
 
         # Create new Page
         page = Page.objects.create(**validated_data)
@@ -367,9 +363,9 @@ class PageSerializer(serializers.ModelSerializer):
             try:
                 card_query = Card.objects.get(id = card['card_id'])
             except Exception:
-                raise NotFound({"message": f"card with {card['card_id']} doesnot exist"})
+                raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card['card_id']))
             if card_query.app != app:
-                raise ValidationError({"message": f"card id {card['card_id']} is not linked with app {app.id}."})
+                raise ValidationError(VALIDATION_ERROR_MESSAGES["CARD_APP_NOT_VALID"].format(card['card_id'], app.id))
         
         latest_version = PageVersion.objects.filter(page = instance).order_by('-version_no').first()
 
@@ -423,7 +419,7 @@ class PageDetailSerializer(serializers.ModelSerializer):
                     try:
                         page_version = PageVersion.objects.get(page = page, version_no = version_no)
                     except Exception:
-                        raise NotFound({'message': f"Page with version number {version_no} does not exist"})
+                        raise NotFound(ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(version_no))
                 else:
                     page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
                 page_version.published_on = datetime.now()
