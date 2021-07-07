@@ -488,9 +488,8 @@ class PageDetailView(APIView):
         # cached_pages
         # cached_versions
         try:
-            cached_pages = cache.get('cached_pages')
-            if(not cached_pages):
-                cached_pages = {}
+            cached_pages = cache.get('cached_pages', {})
+
             cached_page = cached_pages[id]
             if(cached_page):
                 page = cached_page
@@ -509,9 +508,7 @@ class PageDetailView(APIView):
         page_version = None
         if query_params.get('version'):
             try:
-                cached_versions = cache.get('cached_versions')
-                if(not cached_versions):
-                    cached_versions = {}
+                cached_versions = cache.get('cached_versions', {})
                 cached_version = cached_versions[(id, query_params.get('version'))]
                 if(cached_version):
                     page_version = cached_version
