@@ -442,8 +442,8 @@ class CartSerializer(serializers.ModelSerializer):
                               | Q(cart_product__product_name__icontains=search_text)
                               | Q(cart_product__product_ean_code__icontains=search_text))
         # Pagination
-        if qs.exists() and self.context.get('request'):
-            qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
+        # if qs.exists() and self.context.get('request'):
+        #     qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
 
         return CartProductMappingSerializer(qs, many=True, context=self.context).data
 
