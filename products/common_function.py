@@ -1,19 +1,18 @@
 import logging
-
-from pyexcel_xlsx import get_data as xlsx_get
+import codecs
+import csv
 
 from rest_framework import status
 from rest_framework.response import Response
-
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
 
-from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
+from products.master_data import UploadMasterData, DownloadMasterData
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
-    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
+    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product, get_csv_file_data
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -70,16 +69,15 @@ class ParentProductCls(object):
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
 
     @classmethod
-    def create_parent_product_log(cls, log_obj, changed_data, action):
+    def create_parent_product_log(cls, log_obj, action):
         """
             Create Parent Product Log
         """
-        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
-        parent_product_log = CentralLog.objects.create(parent_product=log_obj, changed_fields=change_message,
-                                                       updated_by=create_updated_by, action=action)
-
+        action, create_updated_by = created_updated_by(log_obj, action)
+        parent_product_log = CentralLog.objects.create(parent_product=log_obj, updated_by=create_updated_by,
+                                                       action=action)
         dict_data = {'updated_by': parent_product_log.updated_by, 'updated_at': parent_product_log.update_at,
-                     'product_id': log_obj, "changed_fields": change_message}
+                     'product_id': log_obj, }
         info_logger.info("parent product update info ", dict_data)
 
         return parent_product_log
@@ -211,45 +209,40 @@ class ProductCls(object):
         return product_vendor_map
 
     @classmethod
-    def create_child_product_log(cls, log_obj, changed_data, action):
+    def create_child_product_log(cls, log_obj, action):
         """
             Create Child Product Log
         """
 
-        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
-        child_product_log = CentralLog.objects.create(child_product=log_obj, changed_fields=change_message,
-                                                      updated_by=create_updated_by, action=action)
-
+        action, create_updated_by = created_updated_by(log_obj, action)
+        child_product_log = CentralLog.objects.create(child_product=log_obj, updated_by=create_updated_by,
+                                                      action=action)
         dict_data = {'updated_by': child_product_log.updated_by, 'update_at': child_product_log.update_at,
-                     'child_product': log_obj, "changed_fields": change_message}
+                     'child_product': log_obj}
         info_logger.info("child product update info ", dict_data, )
 
         return child_product_log
 
     @classmethod
-    def create_tax_log(cls, log_obj, changed_data, action):
+    def create_tax_log(cls, log_obj, action):
         """
             Create Tax Log
         """
-        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
-        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=create_updated_by,
-                                            changed_fields=change_message, action=action)
-        dict_data = {'updated_by': tax_log.updated_by, 'update_at': tax_log.update_at,
-                     'tax': log_obj, "changed_fields": change_message}
+        action, create_updated_by = created_updated_by(log_obj, action)
+        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': tax_log.updated_by, 'update_at': tax_log.update_at, 'tax': log_obj}
         info_logger.info("tax update info ", dict_data)
 
         return tax_log
 
     @classmethod
-    def create_weight_log(cls, log_obj, changed_data, action):
+    def create_weight_log(cls, log_obj, action):
         """
             Create Weight Log
         """
-        change_message, action, create_updated_by = change_message_action(log_obj, changed_data, action)
-        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=create_updated_by,
-                                               changed_fields=change_message, action=action)
-        dict_data = {'updated_by': weight_log.updated_by, 'updated_at': weight_log.update_at,
-                     'weight': log_obj, "changed_fields": change_message}
+        action, create_updated_by = created_updated_by(log_obj, action)
+        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': weight_log.updated_by, 'updated_at': weight_log.update_at, 'weight': log_obj}
         info_logger.info("weight_log update info ", dict_data)
 
         return weight_log
@@ -286,30 +279,15 @@ def serializer_error(serializer):
     return errors[0]
 
 
-def get_excel_file_data(excel_file):
-    headers = excel_file.pop(0)  # headers of the uploaded excel file
-    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
-
-    uploaded_data_by_user_list = []
-    excel_dict = {}
-    count = 0
-    for row in excel_file:
-        for ele in row:
-            excel_dict[excelFile_headers[count]] = ele
-            count += 1
-        uploaded_data_by_user_list.append(excel_dict)
-        excel_dict = {}
-        count = 0
-
-    return uploaded_data_by_user_list, excelFile_headers
-
-
 def create_master_data(validated_data):
-    excel_file_data = xlsx_get(validated_data['file'])['Users']
-    uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
+    csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
+    # Converting headers into lowercase
+    excel_file_headers = [str(ele).lower() for ele in
+                          excel_file_header_list]
 
-    if validated_data['upload_type'] == "master_data":
-        SetMasterData.set_master_data(uploaded_data_by_user_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
+
     if validated_data['upload_type'] == "inactive_status":
         UploadMasterData.set_inactive_status(uploaded_data_by_user_list)
     if validated_data['upload_type'] == "sub_brand_with_brand":
@@ -343,23 +321,10 @@ def download_sample_file_master_data(validated_data):
     return response
 
 
-def changed_fields(instance, validated_data, changed_data=[]):
-    for field, value in validated_data.items():
-        if not isinstance(value, dict):
-            if value != getattr(instance, field, None):
-                changed_data.append(field)
-        else:
-            changed_fields(getattr(instance, field), validated_data[field], changed_data)
-
-    return changed_data
-
-
-def change_message_action(log_obj, changed_data, action):
-    change_message = "No fields changed."
-    if changed_data:
-        change_message = "Changed " + ", ".join(changed_data)
+def created_updated_by(log_obj, action):
     if action == "created":
         create_updated_by = log_obj.created_by
     else:
         create_updated_by = log_obj.updated_by
-    return change_message, action, create_updated_by
+
+    return action, create_updated_by
