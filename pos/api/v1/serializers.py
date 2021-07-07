@@ -1151,7 +1151,7 @@ class CustomerReportSerializer(serializers.Serializer):
     def validate(self, attrs):
         sort_by = attrs.get('sort_by')
         sort_by = sort_by if sort_by else 'date'
-        attrs['sort_by'] = 'created_at__' + sort_by if sort_by in ['date'] else sort_by
+        attrs['sort_by'] = 'created_at' if sort_by in ['date'] else sort_by
 
         if attrs['start_date'] > attrs['end_date']:
             raise serializers.ValidationError("End Date Must Be Greater Than Start Date")
