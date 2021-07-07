@@ -299,3 +299,46 @@ class MlmOtpRegisterSerializer(serializers.Serializer):
 
 class VerifyEmailSerializer(serializers.Serializer):
     key = serializers.CharField()
+
+
+class EcomRegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=get_username_max_length(), min_length=allauth_settings.USERNAME_MIN_LENGTH, required=allauth_settings.USERNAME_REQUIRED)
+    first_name = serializers.CharField(required=True, write_only=True)
+    referral_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, default=None)
+    password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+
+    def validate_username(self, username):
+        username = get_adapter().clean_username(username)
+        return username
+
+    def validate_password1(self, password):
+        return get_adapter().clean_password(password)
+
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError(_("The two password fields didn't match."))
+        user_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
+        if not user_otp or not user_otp.is_verified:
+            raise serializers.ValidationError(_("Please verify your mobile number first!"))
+        return data
+
+    def get_cleaned_data(self):
+        return {
+            'username': self.validated_data.get('username', ''),
+            'password1': self.validated_data.get('password1', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'imei_no': self.validated_data.get('imei_no', '')
+        }
+
+    def save(self, request):
+        adapter = get_adapter()
+        user = adapter.new_user(request)
+        self.cleaned_data = self.get_cleaned_data()
+        adapter.save_user(request, user, self)
+        setup_user_email(request, user, [])
+
+        ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
+        return user

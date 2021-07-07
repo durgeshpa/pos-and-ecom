@@ -248,11 +248,12 @@ class SendSmsOTP(CreateAPIView):
         # Validate request data
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
-            return self.process_otp_request()
+            data = serializer.data
+            return self.process_otp_request(data['user_exists'], data['is_mlm'])
         else:
             return api_serializer_errors(serializer.errors)
 
-    def process_otp_request(self):
+    def process_otp_request(self, user_exists, is_mlm):
         """
             Process valid request for otp
         """
@@ -266,12 +267,12 @@ class SendSmsOTP(CreateAPIView):
         action = self.request.data.get('action', "0")
         app_type = self.request.data.get('app_type', "0")
         if otp_type == "2":
-            return self.send_new_voice_otp(ph_no, app_type, action)
+            return self.send_new_voice_otp(ph_no, app_type, action, user_exists, is_mlm)
         else:
-            return self.send_new_text_otp(ph_no, app_type, action)
+            return self.send_new_text_otp(ph_no, app_type, action, user_exists, is_mlm)
 
     @staticmethod
-    def send_new_voice_otp(ph_no, app_type, action):
+    def send_new_voice_otp(ph_no, app_type, action, user_exists, is_mlm):
         """
             Generate and send new otp on call
         """
@@ -286,11 +287,11 @@ class SendSmsOTP(CreateAPIView):
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
         msg = {'is_success': True, 'message': ["You will receive a call soon on {}".format(ph_no)],
-               'response_data': None}
+               'response_data': None, 'user_exists': user_exists, 'is_mlm': is_mlm}
         return Response(msg, status=status.HTTP_200_OK)
 
     @staticmethod
-    def send_new_text_otp(ph_no, app_type, action):
+    def send_new_text_otp(ph_no, app_type, action, user_exists, is_mlm):
         """
             Generate and send new otp on sms
         """
@@ -308,8 +309,8 @@ class SendSmsOTP(CreateAPIView):
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
-        return Response({'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None},
-                        status=status.HTTP_200_OK)
+        return Response({'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None,
+                         'user_exists': user_exists, 'is_mlm': is_mlm}, status=status.HTTP_200_OK)
 
     @staticmethod
     def block_unblock_user(ph_no):
