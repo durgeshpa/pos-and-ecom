@@ -830,8 +830,10 @@ class CustomerReport(GenericAPIView):
         qs = qs.annotate(order_count=Coalesce(Subquery(
             Order.objects.filter(buyer=OuterRef('user'), seller_shop=shop).values('buyer').annotate(
                 order_count=Count('id')).order_by('buyer').values('order_count')), 0))
-        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount',
-                                              filter=Q(user__rt_buyer_order__rt_return_order__status='completed')), 0))
+        qs = qs.annotate(returns=Coalesce(Subquery(
+            OrderReturn.objects.filter(order__buyer=OuterRef('user'), order__seller_shop=shop).values(
+                'order__buyer').annotate(
+                returns=Sum('refund_amount')).order_by('order__buyer').values('returns')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
                        'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
