@@ -1,32 +1,26 @@
+from addresses.models import Address
 from django.db import transaction
-import re
-import datetime
-from django.db import models
 from rest_framework import serializers
-from datetime import datetime, timedelta
 
-from shops.models import (FavouriteProduct, RetailerType, ShopType, Shop, ShopPhoto,
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
 from django.contrib.auth import get_user_model
-from django.db.models import Sum, fields
-from accounts.api.v1.serializers import UserSerializer, GroupSerializer
-from retailer_backend.validators import MobileNumberValidator
-from rest_framework import validators
-from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
-from django.db.models import Q
+from accounts.api.v1.serializers import UserSerializer
 
 
 User = get_user_model()
 
-
 '''
 For Shop Type List
 '''
+
+
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
         fields = '__all__'
+
 
 class ShopTypeSerializers(serializers.ModelSerializer):
     shop_type = serializers.SerializerMethodField()
@@ -44,9 +38,12 @@ class ShopTypeSerializers(serializers.ModelSerializer):
             instance.shop_sub_type).data
         return response
 
+
 '''
 For Shop Type List
 '''
+
+
 class ShopTypeListSerializers(serializers.ModelSerializer):
     shop_type = serializers.SerializerMethodField()
 
@@ -57,9 +54,12 @@ class ShopTypeListSerializers(serializers.ModelSerializer):
         model = ShopType
         fields = ('id', 'shop_type')
 
+
 '''
 For Shops Listing
 '''
+
+
 class RelatedUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -91,6 +91,65 @@ class ShopDocSerializer(serializers.ModelSerializer):
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', )
 
+
+class ShopOwnerNameListSerializer(serializers.ModelSerializer):
+    shop_owner = UserSerializer()
+
+    class Meta:
+        model = Shop
+        fields = ('shop_owner',)
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('pk', 'id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+
+
+class PinCodeSerializer(serializers.ModelSerializer):
+    
+    pincode_id = serializers.SerializerMethodField('get_pin_id_name')
+    pincode = serializers.SerializerMethodField('get_pincode_name')
+    
+    class Meta:
+        model = Address
+        fields = ('pincode_id', 'pincode',)
+    
+    def get_pin_id_name(self, obj):
+        return obj.pincode_link.id if obj.pincode_link else None
+    
+    def get_pincode_name(self, obj):
+        return obj.pincode_link.pincode if obj.pincode_link else None
+
+
+class CitySerializer(serializers.ModelSerializer):
+    
+    city_id = serializers.SerializerMethodField('get_city_id_from_city')
+    city_name = serializers.SerializerMethodField('get_city_name_from_city')
+    
+    class Meta:
+        model = Address
+        fields = ('city_id', 'city_name',)
+
+    def get_city_id_from_city(self, obj):
+        return obj.city.id
+
+    def get_city_name_from_city(self, obj):
+        return obj.city.city_name    
+
+class StateSerializer(serializers.ModelSerializer):
+    
+    state_id = serializers.SerializerMethodField('get_state_id_from_state')
+    state_name = serializers.SerializerMethodField('get_state_name_from_state')
+    
+    class Meta:
+        model = Address
+        fields = ('state_id', 'state_name',)
+
+    def get_state_id_from_state(self, obj):
+        return obj.state.id
+
+    def get_state_name_from_state(self, obj):
+        return obj.state.state_name    
 
 class ShopCrudSerializers(serializers.ModelSerializer):
 
