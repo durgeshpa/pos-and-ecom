@@ -36,7 +36,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -5182,6 +5183,49 @@ class RetailerShopsList(APIView):
             return Response({"message": ["User is not exists"], "response_data": None, "is_success": False,
                              "is_user_mapped_with_same_sp": False})
 
+class RetailerList(generics.ListAPIView):
+    serializer_class = SellerOrderListSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(),
+                                              shop__shop_type__shop_type__in=['r', 'f', 'sp'],
+                                              status=True)
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_employee(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user,
+                                              employee_group__permissions__codename='can_sales_person_add_shop',
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_queryset(self):
+        shop_emp = self.get_employee()
+        if not shop_emp.exists():
+            shop_emp = self.get_shops()
+        return shop_emp.values('shop')
+
+    def list(self, request, *args, **kwargs):
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        shop_list = self.get_queryset()
+        queryset = Shop.objects.filter(id__in=shop_list, status=True).order_by('shop_name')
+
+        params = request.query_params
+        info_logger.info("RetailerList|query_params {}".format(request.query_params))
+        if params.get('retailer_name') is not None:
+            queryset = queryset.filter(shop_name__icontains=params.get('retailer_name') )
+
+        if queryset.exists():
+            serializer = ShopSerializer(queryset, many=True)
+            if serializer.data:
+                msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+
 
 class SellerOrderList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
@@ -5239,9 +5283,10 @@ class SellerOrderList(generics.ListAPIView):
             if order_status_list is not None:
                 queryset = queryset.filter(order_status__in=order_status_list)
 
-        if params.get('retailer_name') is not None:
-            queryset = queryset.filter(buyer_shop__shop_name__icontains= params.get('retailer_name') )
-
+        if params.get('retailer_id') is not None:
+            queryset = queryset.filter(buyer_shop_id=params.get('retailer_id') )
+        elif params.get('retailer_name') is not None:
+            queryset = queryset.filter(buyer_shop__shop_name__icontains=params.get('retailer_name'))
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:
