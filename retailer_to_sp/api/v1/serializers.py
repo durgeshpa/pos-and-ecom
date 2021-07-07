@@ -1277,6 +1277,11 @@ class SellerOrderedCartListSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id','order_id','cart_status','rt_cart_list')
 
+class ShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
 class SellerOrderListSerializer(serializers.ModelSerializer):
     ordered_cart = SellerOrderedCartListSerializer()
     order_status = serializers.SerializerMethodField()
