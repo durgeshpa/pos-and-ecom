@@ -489,51 +489,38 @@ class PageDetailView(APIView):
         """Get page specific details"""
         
         query_params = request.query_params
-        # cached_pages
-        # cached_versions
         try:
-            cached_pages = cache.get('cached_pages', {})
 
-            cached_page = cached_pages[id]
+            page_id = f"page_{id}"
+            cached_page = cache.get(page_id, None)
+
+            # cached_page = cached_pages[id]
             if(cached_page):
                 page = cached_page
             else:
                 page = Page.objects.get(id = id)
-                
-                cached_pages[id] = page
-                cache.set('cached_pages', cached_pages)
+                cache.set(page_id, page)
 
         except Exception:
             message = {
-                "is_success": True,
-                "message": "OK",
-                "data": cached_pages.get(id)
+                "is_success": False,
+                "message": "No Page Exists for this id",
             }
             info_logger.info("-----USING PAGE FROM CACHE  @GET pages/id----------")
             return Response(message, status = status.HTTP_200_OK)
-        else:   
-            try:
-                page = Page.objects.get(id = id)
-
-            except Exception:
-                message = {
-                    "is_success": False,
-                    "message": "No pages exist for this id."
-                }
-                return Response(message, status = status.HTTP_204_NO_CONTENT)
 
 
         page_version = None
         if query_params.get('version'):
             try:
-                cached_versions = cache.get('cached_versions', {})
-                cached_version = cached_versions[(id, query_params.get('version'))]
+                page_version_key = f"page_version_{id}_{query_params.get('version')}"
+                cached_version = cache.get[page_version_key, None]
                 if(cached_version):
                     page_version = cached_version
                 else:
                     page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
-                    cached_versions[(id,query_params.get('version'))] = page_version
-                    cache.set('cached_versions', cached_versions)
+                    
+                    cache.set(page_version_key, page_version)
 
             except Exception:
                 message = {
@@ -547,11 +534,7 @@ class PageDetailView(APIView):
             "message": "OK",
             "data": serializer.data
         }
-        # set the cache
-        if not cached_pages:
-            cached_pages = {}
-        cached_pages[id] = serializer.data
-        cache.set('cached_pages', cached_pages)
+
         info_logger.info("-----SET PAGE IN CACHE  @GET pages/id----------")
 
         return Response(message, status = status.HTTP_200_OK)
@@ -572,9 +555,10 @@ class PageDetailView(APIView):
         if serializer.is_valid():
             serializer.save()
 
-            cached_pages = cache.get("cached_pages")
-            del cached_pages[id]
-            cache.set("cached_pages", cached_pages)
+            page_id = f"page_{id}"
+            cache.delete(page_id)
+
+            cache.set(page_id, serializer.data)
 
             message = {
                 "is_success": True,
