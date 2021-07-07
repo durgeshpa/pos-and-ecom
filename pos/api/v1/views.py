@@ -10,7 +10,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
-from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
+from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper, Prefetch
 from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
@@ -582,7 +582,8 @@ class SalesReport(GenericAPIView):
     def invoice_report(self, shop, report_type, request_data):
         # Shop Filter
         qs = OrderedProduct.objects.select_related('order', 'invoice').prefetch_related(
-            'order__rt_return_order').filter(order__seller_shop=shop)
+            Prefetch('order__rt_return_order', queryset=OrderReturn.objects.filter(status='completed'))).filter(
+            order__seller_shop=shop)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -776,7 +777,8 @@ class CustomerReport(GenericAPIView):
             return api_response("Phone Number Invalid For This Shop!")
 
         qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id).select_related(
-            'ordered_cart')
+            'ordered_cart').prefetch_related(Prefetch('rt_return_order', queryset=OrderReturn.objects.filter(
+             status='completed')))
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -810,7 +812,8 @@ class CustomerReport(GenericAPIView):
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
-        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related('user__reward_user_mlm')
+        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related('user__reward_user_mlm').prefetch_related(
+            Prefetch('user__rt_buyer_order__rt_return_order__refund_amount', queryset=OrderReturn.objects.filter(status='completed')))
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
