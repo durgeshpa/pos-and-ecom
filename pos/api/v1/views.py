@@ -626,7 +626,7 @@ class SalesReport(GenericAPIView):
         qsr = qsr.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Returns
-        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount'), 0))
+        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
         returns_data = qsr.values('returns', 'created_at__date')
 
         # Merge sales and returns
@@ -790,7 +790,7 @@ class CustomerReport(GenericAPIView):
         qs = qs.values('id', 'created_at__date', 'points_added', order_id=F('order_no'),
                        points_redeemed=F('ordered_cart__redeem_points'),
                        sale=F('order_amount')).annotate(
-            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed')), 0))
+            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed') and Q(rt_return_order__refund_amount__gt=0)), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
         # Search
@@ -833,7 +833,7 @@ class CustomerReport(GenericAPIView):
         qs = qs.annotate(returns=Coalesce(Subquery(
             OrderReturn.objects.filter(order__buyer=OuterRef('user'), order__seller_shop=shop).values(
                 'order__buyer').annotate(
-                returns=Sum('refund_amount')).order_by('order__buyer').values('returns')), 0))
+                returns=Sum('refund_amount', filter=Q(refund_amount__gt=0) and Q(status='completed'))).order_by('order__buyer').values('returns')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
                        'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
