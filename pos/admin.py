@@ -437,7 +437,7 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin):
 
     @staticmethod
     def refunded_amount(obj):
-        return max(obj.refund_amount, 0)
+        return obj.refund_amount
 
     def has_delete_permission(self, request, obj=None):
         return False
