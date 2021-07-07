@@ -28,7 +28,7 @@ from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordReset
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
 from .serializers import (PasswordResetValidateSerializer, MlmOtpLoginSerializer, MlmResponseSerializer,
                           LoginResponseSerializer, PosLoginResponseSerializer, RetailUserDetailsSerializer,
-                          api_serializer_errors, PosOtpLoginSerializer)
+                          api_serializer_errors, PosOtpLoginSerializer, EcomOtpLoginSerializer)
 from .models import TokenModel
 from .utils import jwt_encode
 
@@ -39,16 +39,20 @@ sensitive_post_parameters_m = method_decorator(
         'password', 'old_password', 'new_password1', 'new_password2'
     )
 )
+APP_TYPES = ['0', '1', '2', '3']
 
 APPLICATION_LOGIN_SERIALIZERS_MAP = {
     '0': LoginSerializer,
     '1': MlmOtpLoginSerializer,
-    '2': PosOtpLoginSerializer
+    '2': PosOtpLoginSerializer,
+    '3_0': LoginSerializer,
+    '3_1': EcomOtpLoginSerializer
 }
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
     '0': LoginResponseSerializer,
     '1': MlmResponseSerializer,
-    '2': PosLoginResponseSerializer
+    '2': PosLoginResponseSerializer,
+    '3': LoginResponseSerializer,
 }
 
 
@@ -75,7 +79,10 @@ class LoginView(GenericAPIView):
         Return Serializer Class Based On App Type Requested
         """
         app = self.request.data.get('app_type', '0')
-        app = app if app in APPLICATION_LOGIN_SERIALIZERS_MAP else '0'
+        app = app if app in APP_TYPES else '0'
+        if app == '3':
+            login_with_otp = self.request.data.get('login_with_otp', '0')
+            app = app + '_' + str(login_with_otp)
         return APPLICATION_LOGIN_SERIALIZERS_MAP[app]
 
     def get_response_serializer(self):

@@ -139,7 +139,8 @@ INSTALLED_APPS = [
     'whc',
     'redash_report',
     'retailer_incentive',
-    'ars'
+    'ars',
+    'ecom'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:

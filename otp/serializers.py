@@ -27,10 +27,12 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PhoneOTP
-        fields = ('phone_number', 'action', 'app_type')
+        fields = ('phone_number', 'action', 'app_type', 'user_exists', 'is_mlm')
 
     action = serializers.IntegerField(default=0)
     app_type = serializers.IntegerField(default=0)
+    user_exists = serializers.BooleanField(default=False)
+    is_mlm = serializers.BooleanField(default=False)
 
     def validate(self, attrs):
         """
@@ -40,6 +42,15 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         action = attrs.get('action')
         app_type = attrs.get('app_type')
         user = UserModel.objects.filter(phone_number=number).last()
+
+        # E-Com
+        if app_type == 3:
+            # Registering
+            if action == 0 and user:
+                raise serializers.ValidationError("You are already registered! Please login.")
+            # Login
+            elif action == 1 and not user:
+                raise serializers.ValidationError("You are not registered. Please sign up.")
 
         # Marketing
         if app_type == 1:
@@ -71,6 +82,11 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
             # Login
             elif action == 1 and not user:
                 raise serializers.ValidationError("User not registered. Please register first.")
+
+        if user:
+            attrs['user_exists'] = True
+            if ReferralCode.is_marketing_user(user):
+                attrs['is_mlm'] = True
         return attrs
 
 
