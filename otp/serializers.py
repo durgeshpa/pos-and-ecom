@@ -41,6 +41,15 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         app_type = attrs.get('app_type')
         user = UserModel.objects.filter(phone_number=number).last()
 
+        # E-Com
+        if app_type == 3:
+            # Registering
+            if action == 0 and user:
+                raise serializers.ValidationError("You are already registered! Please login.")
+            # Login
+            elif action == 1 and not user:
+                raise serializers.ValidationError("We cannot find an account with that mobile number.")
+
         # Marketing
         if app_type == 1:
             # Registering

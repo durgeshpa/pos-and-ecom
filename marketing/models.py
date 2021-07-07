@@ -73,6 +73,11 @@ class ReferralCode(models.Model):
     def is_marketing_user(cls, user):
         return True if ReferralCode.objects.filter(user=user).exists() else False
 
+    @classmethod
+    def user_referral_code(cls, user):
+        ref_code_obj = ReferralCode.objects.filter(user=user).last()
+        return ref_code_obj.referral_code if ref_code_obj else None
+
     def __str__(self):
         return ''
 
@@ -168,6 +173,15 @@ class RewardPoint(models.Model):
                                " next purchase. Login and share your referral code:%s with friends and win more points."
                                % (points, int(points / used_reward_factor), referral_code))
         message.send()
+
+    @property
+    def redeemable_points(self):
+        return max(self.direct_earned + self.indirect_earned - self.points_used, 0)
+
+    @property
+    def redeemable_discount(self):
+        reward_factor = int(GlobalConfig.objects.get(key='used_reward_factor').value)
+        return str(round(self.redeemable_points / reward_factor, 2)).rstrip('0').rstrip('.')
 
     def __str__(self):
         return "Reward Points For - {}".format(self.reward_user)
