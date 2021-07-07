@@ -10,7 +10,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
-from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper, Prefetch
+from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
@@ -581,9 +581,7 @@ class SalesReport(GenericAPIView):
 
     def invoice_report(self, shop, report_type, request_data):
         # Shop Filter
-        qs = OrderedProduct.objects.select_related('order', 'invoice').prefetch_related(
-            Prefetch('order__rt_return_order', queryset=OrderReturn.objects.filter(status='completed'))).filter(
-            order__seller_shop=shop)
+        qs = OrderedProduct.objects.select_related('order', 'invoice').filter(order__seller_shop=shop)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -596,7 +594,8 @@ class SalesReport(GenericAPIView):
 
         # Sale, returns, effective sale for all orders
         qs = qs.annotate(sale=F('order__order_amount'))
-        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount',
+                                              filter=Q(order__rt_return_order__status='completed')), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'), invoice_no=F('invoice__invoice_no'))
         data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date', 'invoice_no')
 
@@ -776,9 +775,7 @@ class CustomerReport(GenericAPIView):
         except ObjectDoesNotExist:
             return api_response("Phone Number Invalid For This Shop!")
 
-        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id).select_related(
-            'ordered_cart').prefetch_related(Prefetch('rt_return_order', queryset=OrderReturn.objects.filter(
-             status='completed')))
+        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -792,7 +789,8 @@ class CustomerReport(GenericAPIView):
         # Loyalty points added, redeemed, order value, return value
         qs = qs.values('id', 'created_at__date', 'points_added', order_id=F('order_no'),
                        points_redeemed=F('ordered_cart__redeem_points'),
-                       sale=F('order_amount')).annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+                       sale=F('order_amount')).annotate(
+            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed')), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
         # Search
@@ -812,8 +810,7 @@ class CustomerReport(GenericAPIView):
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
-        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related('user__reward_user_mlm').prefetch_related(
-            Prefetch('user__rt_buyer_order__rt_return_order__refund_amount', queryset=OrderReturn.objects.filter(status='completed')))
+        qs = ShopCustomerMap.objects.filter(shop=shop)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -833,7 +830,8 @@ class CustomerReport(GenericAPIView):
         qs = qs.annotate(order_count=Coalesce(Subquery(
             Order.objects.filter(buyer=OuterRef('user'), seller_shop=shop).values('buyer').annotate(
                 order_count=Count('id')).order_by('buyer').values('order_count')), 0))
-        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount',
+                                              filter=Q(user__rt_buyer_order__rt_return_order__status='completed')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
                        'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
