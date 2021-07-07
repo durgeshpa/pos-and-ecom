@@ -1201,6 +1201,7 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
     """
     product_id = serializers.SerializerMethodField()
     product_name = serializers.SerializerMethodField()
+    selling_price = serializers.SerializerMethodField()
 
     @staticmethod
     def get_product_id(obj):
@@ -1210,9 +1211,13 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
     def get_product_name(obj):
         return obj.ordered_product.retailer_product.name
 
+    @staticmethod
+    def get_selling_price(obj):
+        return obj.ordered_product.selling_price
+
     class Meta:
         model = ReturnItems
-        fields = ('product_id', 'product_name', 'return_qty', 'return_value')
+        fields = ('product_id', 'product_name', 'selling_price', 'return_qty', 'return_value')
 
 
 class OrderReturnGetSerializer(serializers.ModelSerializer):
