@@ -489,10 +489,21 @@ class PageDetailView(APIView):
         """Get page specific details"""
         
         query_params = request.query_params
+        # cached_pages
+        # cached_versions
+        try:
+            cached_pages = cache.get('cached_pages', {})
 
-        # try from cache first
-        cached_pages = cache.get('cached_pages')
-        if(cached_pages and cached_pages.get(id)):
+            cached_page = cached_pages[id]
+            if(cached_page):
+                page = cached_page
+            else:
+                page = Page.objects.get(id = id)
+                
+                cached_pages[id] = page
+                cache.set('cached_pages', cached_pages)
+
+        except Exception:
             message = {
                 "is_success": True,
                 "message": "OK",
@@ -515,7 +526,15 @@ class PageDetailView(APIView):
         page_version = None
         if query_params.get('version'):
             try:
-                page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
+                cached_versions = cache.get('cached_versions', {})
+                cached_version = cached_versions[(id, query_params.get('version'))]
+                if(cached_version):
+                    page_version = cached_version
+                else:
+                    page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
+                    cached_versions[(id,query_params.get('version'))] = page_version
+                    cache.set('cached_versions', cached_versions)
+
             except Exception:
                 message = {
                     "is_success": False,
@@ -553,10 +572,10 @@ class PageDetailView(APIView):
         if serializer.is_valid():
             serializer.save()
 
-            # remove the page with id from the cache
-            cache.set("cached_pages", cache.get("cached_pages").pop(id))
-            info_logger.info(f"-----REMOVE PAGE WITH ID: {id} FROM CACHE  @PATCH pages/id----------")
-            
+            cached_pages = cache.get("cached_pages")
+            del cached_pages[id]
+            cache.set("cached_pages", cached_pages)
+
             message = {
                 "is_success": True,
                 "message": "OK",
