@@ -25,7 +25,7 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
 
-class ChildProductExportAsCSVView(CreateAPIView):
+class ChildProductExportAsCSVView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = ChildProductExportAsCSVSerializers
 
