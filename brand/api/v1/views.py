@@ -177,14 +177,15 @@ class BrandView(GenericAPIView):
 
         info_logger.info("Brand DELETE api called.")
         if not request.data.get('brand_ids'):
-            return get_response('please provide brand_id', False)
+            return get_response('please select brand', False)
         try:
             for b_id in request.data.get('brand_ids'):
                 brand_id = self.queryset.get(id=int(b_id))
                 try:
                     brand_id.delete()
                 except:
-                    return get_response(f'can not delete brand {brand_id.brand_name}', False)
+                    return get_response(f'You can not delete brand {brand_id.brand_name}, '
+                                        f'because this brand is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid brand {b_id}', False)

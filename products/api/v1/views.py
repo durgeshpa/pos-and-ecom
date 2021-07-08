@@ -184,14 +184,15 @@ class TaxView(GenericAPIView):
 
         info_logger.info("Tax DELETE api called.")
         if not request.data.get('tax_ids'):
-            return get_response('please provide tax_ids', False)
+            return get_response('please select tax', False)
         try:
             for id in request.data.get('tax_ids'):
                 tax_id = self.queryset.get(id=int(id))
                 try:
                     tax_id.delete()
                 except:
-                    return get_response(f'can not delete tax {tax_id.tax_name}', False)
+                    return get_response(f'You can not delete tax {tax_id.tax_name}, '
+                                        f'because this tax is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid tax_id {id}', False)
@@ -305,14 +306,15 @@ class ParentProductView(GenericAPIView):
 
         info_logger.info("Parent Product DELETE api called.")
         if not request.data.get('parent_product_id'):
-            return get_response('please provide parent_product_id', False)
+            return get_response('please select parent product', False)
         try:
             for id in request.data.get('parent_product_id'):
                 parent_product_id = self.queryset.get(id=int(id))
                 try:
                     parent_product_id.delete()
                 except:
-                    return get_response(f'can not delete parent_product {parent_product_id.name}', False)
+                    return get_response(f'You can not delete parent product {parent_product_id.name}, '
+                                        f'because this parent product is mapped with child product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid parent_product_id {id}', False)
@@ -467,14 +469,15 @@ class ChildProductView(GenericAPIView):
 
         info_logger.info("Child Product DELETE api called.")
         if not request.data.get('child_product_id'):
-            return get_response('please provide child_product_id', False)
+            return get_response('please select child product', False)
         try:
             for id in request.data.get('child_product_id'):
                 child_product_id = self.queryset.get(id=int(id))
                 try:
                     child_product_id.delete()
                 except:
-                    return get_response(f'can not delete child_product {child_product_id.product_name}', False)
+                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
+                                        f'because this child product is mapped with product price', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid child_product_id {id}', False)
@@ -799,14 +802,15 @@ class WeightView(GenericAPIView):
 
         info_logger.info("Weight DELETE api called.")
         if not request.data.get('weight_ids'):
-            return get_response('please provide weight_ids', False)
+            return get_response('please select weight', False)
         try:
             for w_id in request.data.get('weight_ids'):
                 weight_id = self.queryset.get(id=int(w_id))
                 try:
                     weight_id.delete()
                 except:
-                    return get_response(f'can not delete weight {weight_id.weight_name}', False)
+                    return get_response(f'You can not delete weight {weight_id.weight_name}, '
+                                        f'because this weight is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid weight id {w_id}', False)

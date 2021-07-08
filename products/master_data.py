@@ -1,9 +1,7 @@
 import logging
-
+import io
 import datetime
-
 import csv
-from django.http import HttpResponse
 
 from django.db.models import Q
 from brand.models import Brand
@@ -327,17 +325,16 @@ class DownloadMasterData(object):
 
     def response_workbook(filename):
 
-        response = HttpResponse(content_type='text/csv')
+        csv_file_buffer = io.StringIO()
         date = datetime.datetime.now().strftime('%d_%b_%y_%I_%M')
-        response['Content-Disposition'] = f'attachment; filename={date}-{filename}.csv"'
-        writer = csv.writer(response)
-
-        return response, writer
+        writer = csv.writer(csv_file_buffer, dialect='excel', delimiter=',')
+        csv_filename = f'filename={date}-{filename}.csv"'
+        return csv_file_buffer, writer, csv_filename
 
     @classmethod
     def set_inactive_status_sample_file(cls, validated_data):
 
-        response, writer = DownloadMasterData.response_workbook("active_inactive_status_sample")
+        response, writer, csv_filename = DownloadMasterData.response_workbook("active_inactive_status_sample")
         columns = ['sku_id', 'sku_name', 'mrp', 'status', ]
         writer.writerow(columns)
 
@@ -359,9 +356,7 @@ class DownloadMasterData(object):
 
     @classmethod
     def brand_sub_brand_mapping_sample_file(cls):
-
-        response, writer = DownloadMasterData.response_workbook("subBrand-BrandMappingSample")
-
+        response, writer, csv_filename = DownloadMasterData.response_workbook("active_inactive_status_sample")
         columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
         writer.writerow(columns)
 
@@ -388,7 +383,7 @@ class DownloadMasterData(object):
     @classmethod
     def category_sub_category_mapping_sample_file(cls):
 
-        response, writer = DownloadMasterData.response_workbook("subCategory-CategorySample")
+        response, writer, csv_filename = DownloadMasterData.response_workbook("subCategory-CategorySample")
         columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name', ]
         writer.writerow(columns)
 
@@ -413,7 +408,7 @@ class DownloadMasterData(object):
 
     @classmethod
     def set_child_with_parent_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("child_parent_mapping_data_sample")
+        response, writer, csv_filename = DownloadMasterData.response_workbook("child_parent_mapping_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
         writer.writerow(columns)
 
@@ -437,7 +432,7 @@ class DownloadMasterData(object):
 
     @classmethod
     def set_child_data_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("child_data_sample")
+        response, writer, csv_filename = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'status',
                    'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material', 'wastage',
                    'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
@@ -499,7 +494,7 @@ class DownloadMasterData(object):
 
     @classmethod
     def set_parent_data_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("parent_data_sample")
+        response, writer, csv_filename = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                    'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
@@ -581,7 +576,7 @@ class DownloadMasterData(object):
 
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
-        return response
+        return response, csv_filename
 
 
 def get_ptr_type_text(ptr_type=None):

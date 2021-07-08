@@ -22,6 +22,8 @@ from products.common_validators import read_file
 from categories.common_validators import get_validate_category
 from products.common_function import download_sample_file_master_data, create_master_data
 from products.api.v1.serializers import UserSerializers
+from products.upload_file import upload_file_to_s3
+
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +386,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         if csv_file_data:
             read_file(csv_file_data, self.initial_data['upload_type'], self.initial_data['category_id'])
         else:
-            raise serializers.ValidationError("Excel File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
         return data
 
     @transaction.atomic
@@ -439,7 +441,8 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        response = download_sample_file_master_data(validated_data)
+        response, csv_filename = download_sample_file_master_data(validated_data)
+        upload_file_to_s3(response, csv_filename)
         return response
 
 
