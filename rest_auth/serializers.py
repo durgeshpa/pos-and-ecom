@@ -392,6 +392,33 @@ class JWTSerializer(serializers.Serializer):
         return user_data
 
 
+# Todo remove
+class PasswordResetSerializer(serializers.ModelSerializer):
+    """
+    Serializer for requesting an OTP for password reset.
+    """
+
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )
+
+
+# Todo remove
+class PasswordResetValidateSerializer(serializers.ModelSerializer):
+    """
+    Validate the otp send to mobile number for password reset
+    """
+
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+            'otp'
+        )
+
+
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
     Serializer for requesting a password reset e-mail.
@@ -408,6 +435,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         self._errors = {}
+
         # Decode the uidb64 to uid to get User object
         try:
             uid = force_text(uid_decoder(attrs['uid']))
@@ -459,6 +487,7 @@ class PasswordChangeSerializer(serializers.Serializer):
             self.user,
             not self.user.check_password(value)
         )
+
         if all(invalid_password_conditions):
             raise serializers.ValidationError('Invalid password')
         return value
@@ -467,6 +496,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         self.set_password_form = self.set_password_form_class(
             user=self.user, data=attrs
         )
+
         if not self.set_password_form.is_valid():
             raise serializers.ValidationError(self.set_password_form.errors)
         return attrs

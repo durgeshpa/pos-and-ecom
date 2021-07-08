@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from marketing.models import RewardPoint
 
+from ecom.utils import check_ecom_user
 from .serializers import AccountSerializer, RewardsSerializer
 
 
@@ -13,6 +14,7 @@ class AccountView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    @check_ecom_user
     def get(self, request, *args, **kwargs):
         """
         E-Commerce User Account
@@ -26,6 +28,7 @@ class RewardsView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    @check_ecom_user
     def get(self, request, *args, **kwargs):
         """
         All Reward Credited/Used Details For User
