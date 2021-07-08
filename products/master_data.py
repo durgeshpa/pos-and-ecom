@@ -352,6 +352,7 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Set Inactive Status Sample File has been Successfully Downloaded")
+        csv_filename.seek(0)
         return response
 
     @classmethod
@@ -378,6 +379,7 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Brand and Sub Brand Mapping Sample File has been Successfully Downloaded")
+        csv_filename.seek(0)
         return response
 
     @classmethod
