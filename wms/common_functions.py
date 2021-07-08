@@ -183,13 +183,15 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj):
-        bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty - qty_picked
-        bin_inv_obj.save()
+        obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        obj.to_be_picked_qty = obj.to_be_picked_qty - qty_picked
+        obj.save()
 
     @classmethod
     def add_to_be_picked_to_bin(cls, qty, bin_inv_obj):
-        bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty + qty
-        bin_inv_obj.save()
+        obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        obj.to_be_picked_qty = obj.to_be_picked_qty + qty
+        obj.save()
 
 
 class CommonPickupFunctions(object):
@@ -247,7 +249,7 @@ class CommonWarehouseInventoryFunctions(object):
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock, weight=0):
 
-        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+        ware_house_inventory_obj = WarehouseInventory.objects.select_for_update().filter(
             warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
                 inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
                 inventory_type=inventory_type).last(), in_stock=in_stock).last()
