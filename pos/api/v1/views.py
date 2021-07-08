@@ -581,8 +581,7 @@ class SalesReport(GenericAPIView):
 
     def invoice_report(self, shop, report_type, request_data):
         # Shop Filter
-        qs = OrderedProduct.objects.select_related('order', 'invoice').prefetch_related(
-            'order__rt_return_order').filter(order__seller_shop=shop)
+        qs = OrderedProduct.objects.select_related('order', 'invoice').filter(order__seller_shop=shop)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -595,7 +594,8 @@ class SalesReport(GenericAPIView):
 
         # Sale, returns, effective sale for all orders
         qs = qs.annotate(sale=F('order__order_amount'))
-        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Sum('order__rt_return_order__refund_amount',
+                                              filter=Q(order__rt_return_order__status='completed')), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'), invoice_no=F('invoice__invoice_no'))
         data = qs.values('sale', 'returns', 'effective_sale', 'created_at__date', 'invoice_no')
 
@@ -626,7 +626,7 @@ class SalesReport(GenericAPIView):
         qsr = qsr.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Returns
-        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount'), 0))
+        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
         returns_data = qsr.values('returns', 'created_at__date')
 
         # Merge sales and returns
@@ -775,8 +775,7 @@ class CustomerReport(GenericAPIView):
         except ObjectDoesNotExist:
             return api_response("Phone Number Invalid For This Shop!")
 
-        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id).select_related(
-            'ordered_cart')
+        qs = Order.objects.filter(buyer_id=shop_user_map.user_id, seller_shop_id=shop_user_map.shop_id)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -790,7 +789,8 @@ class CustomerReport(GenericAPIView):
         # Loyalty points added, redeemed, order value, return value
         qs = qs.values('id', 'created_at__date', 'points_added', order_id=F('order_no'),
                        points_redeemed=F('ordered_cart__redeem_points'),
-                       sale=F('order_amount')).annotate(returns=Coalesce(Sum('rt_return_order__refund_amount'), 0))
+                       sale=F('order_amount')).annotate(
+            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed') and Q(rt_return_order__refund_amount__gt=0)), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
         # Search
@@ -810,7 +810,7 @@ class CustomerReport(GenericAPIView):
 
     def customer_list(self, shop, search_text, request_data):
         # Shop Filter
-        qs = ShopCustomerMap.objects.filter(shop=shop).prefetch_related('user__reward_user_mlm')
+        qs = ShopCustomerMap.objects.filter(shop=shop)
 
         # Date / Date Range Filter
         date_filter = request_data['date_filter']
@@ -830,8 +830,12 @@ class CustomerReport(GenericAPIView):
         qs = qs.annotate(order_count=Coalesce(Subquery(
             Order.objects.filter(buyer=OuterRef('user'), seller_shop=shop).values('buyer').annotate(
                 order_count=Count('id')).order_by('buyer').values('order_count')), 0))
-        qs = qs.annotate(returns=Coalesce(Sum('user__rt_buyer_order__rt_return_order__refund_amount'), 0))
+        qs = qs.annotate(returns=Coalesce(Subquery(
+            OrderReturn.objects.filter(order__buyer=OuterRef('user'), order__seller_shop=shop).values(
+                'order__buyer').annotate(
+                returns=Sum('refund_amount', filter=Q(refund_amount__gt=0) and Q(status='completed'))).order_by('order__buyer').values('returns')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
+        qs = qs.filter(order_count__gt=0)
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
                        'user__first_name', 'user__last_name', phone_number=F('user__phone_number'),
                        date=F('created_at'))
