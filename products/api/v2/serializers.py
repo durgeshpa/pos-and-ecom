@@ -6,9 +6,9 @@ import csv
 import datetime
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-
+from django.http import HttpResponse
 from collections import OrderedDict
-
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
@@ -19,7 +19,7 @@ from categories.models import Category
 from brand.models import Brand, Vendor
 
 from products.common_validators import read_file
-from categories.common_validators import get_validate_category
+from categories.common_validators import get_validate_category, product_category
 from products.common_function import download_sample_file_master_data, create_master_data
 from products.api.v1.serializers import UserSerializers
 from products.upload_file import upload_file_to_s3
@@ -631,3 +631,73 @@ class BulkProductTaxUpdateSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return tax_update_attribute
+
+
+class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
+    child_product_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Product
+        fields = ('child_product_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('child_product_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
+
+        for id in data.get('child_product_id_list'):
+            try:
+                Product.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'child_product not found for id {id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Product._meta
+        exclude_fields = ['created_at', 'updated_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        field_names_dest = field_names.copy()
+        cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                       'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+        add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+                      'packing_sku_weight_per_unit_sku'] + cost_params
+
+        for field_name in add_fields:
+            field_names_dest.append(field_name)
+
+        writer.writerow(field_names_dest)
+
+        for id in validated_data['child_product_id_list']:
+            obj = Product.objects.filter(id=id).last()
+            items = [getattr(obj, field) for field in field_names]
+            items.append(obj.product_brand)
+            items.append(product_category(obj))
+
+            if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
+                items.append(obj.parent_product.parent_product_pro_image.last().image.url)
+            elif obj.product_pro_image.last():
+                items.append(obj.product_pro_image.last().image.url)
+            else:
+                items.append('-')
+
+            if obj.repackaging_type == 'destination':
+                source_skus = [str(psm.source_sku) for psm in ProductSourceMapping.objects.filter(
+                    destination_sku_id=obj.id, status=True)]
+                items.append("\n".join(source_skus))
+                packing_sku = ProductPackingMapping.objects.filter(sku_id=obj.id).last()
+                items.append(str(packing_sku) if packing_sku else '-')
+                items.append(str(packing_sku.packing_sku_weight_per_unit_sku) if packing_sku else '-')
+                cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
+                for param in cost_params:
+                    items.append(str(getattr(cost_obj, param)))
+            writer.writerow(items)
+        return response

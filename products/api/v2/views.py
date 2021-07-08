@@ -11,7 +11,7 @@ from products.models import BulkUploadForProductAttributes, ParentProduct, Produ
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ParentProductImageSerializers, ChildProductImageSerializers, \
+    ParentProductImageSerializers, ChildProductImageSerializers, ChildProductExportAsCSVSerializers, \
     ParentProductBulkUploadSerializers, ChildProductBulkUploadSerializers, BulkProductTaxUpdateSerializers
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -23,6 +23,22 @@ from products.services import bulk_log_search
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class ChildProductExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
+
+        info_logger.info("Parent Product ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Parent Product CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
 
 
 class ParentProductBulkCreateView(CreateAPIView):
