@@ -19,7 +19,8 @@ from categories.models import Category
 from brand.models import Brand, Vendor
 
 from products.common_validators import read_file
-from categories.common_validators import get_validate_category, product_category
+from categories.common_validators import get_validate_category
+from products.common_validators import product_category
 from products.common_function import download_sample_file_master_data, create_master_data
 from products.api.v1.serializers import UserSerializers
 from products.upload_file import upload_file_to_s3
