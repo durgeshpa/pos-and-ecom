@@ -249,7 +249,7 @@ class CommonWarehouseInventoryFunctions(object):
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock, weight=0):
 
-        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+        ware_house_inventory_obj = WarehouseInventory.objects.select_for_update().filter(
             warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
                 inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
                 inventory_type=inventory_type).last(), in_stock=in_stock).last()
