@@ -80,6 +80,7 @@ class User(AbstractUser):
     #last_login_date = models.DateField(auto_now_add=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
     is_whatsapp = models.BooleanField(default=False)
+    is_ecom_user = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()

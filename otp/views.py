@@ -97,10 +97,11 @@ class ValidateOTP(CreateAPIView):
             user.is_verified = 1
             user.save()
             if self.request.data.get('password_reset', 0) == 1:
-                user = UserModel.objects.get(phone_number=user.phone_number)
-                uid = urlsafe_base64_encode(force_bytes(user.pk))
-                token = account_activation_token.make_token(user)
-                msg['response_data'] = [{'uid': uid, 'token': token}]
+                user = UserModel.objects.filter(phone_number=user.phone_number).last()
+                if user:
+                    uid = urlsafe_base64_encode(force_bytes(user.pk))
+                    token = account_activation_token.make_token(user)
+                    msg['response_data'] = [{'uid': uid, 'token': token}]
             msg['is_success'], msg['message'] = True, [SUCCESS_MESSAGES['MOBILE_NUMBER_VERIFIED']]
             status_code = status.HTTP_200_OK
         elif self.max_attempts(user, 10):
@@ -248,69 +249,60 @@ class SendSmsOTP(CreateAPIView):
         # Validate request data
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
-            data = serializer.data
-            return self.process_otp_request(data['user_exists'], data['is_mlm'])
+            ph_no, otp_type = self.request.data.get("phone_number"), self.request.data.get('otp_type', "1")
+            msg, status_code = RequestOTPCls.process_otp_request(ph_no, otp_type)
+            return Response(msg, status=status_code)
         else:
             return api_serializer_errors(serializer.errors)
 
-    def process_otp_request(self, user_exists, is_mlm):
+
+class RequestOTPCls(object):
+
+    @classmethod
+    def process_otp_request(cls, ph_no, otp_type):
         """
             Process valid request for otp
         """
-        ph_no = self.request.data.get("phone_number")
         # Check if user is currently blocked OR has to be blocked OR has to be unblocked
-        block_unblock_response = self.block_unblock_user(ph_no)
+        block_unblock_response = RequestOTPCls.block_unblock_user(ph_no)
         if not block_unblock_response['success']:
-            return Response(block_unblock_response, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return block_unblock_response, status.HTTP_406_NOT_ACCEPTABLE
         # Send new sms or voice OTP
-        otp_type = self.request.data.get('otp_type', "1")
-        action = self.request.data.get('action', "0")
-        app_type = self.request.data.get('app_type', "0")
         if otp_type == "2":
-            return self.send_new_voice_otp(ph_no, app_type, action, user_exists, is_mlm)
+            return RequestOTPCls.send_new_voice_otp(ph_no)
         else:
-            return self.send_new_text_otp(ph_no, app_type, action, user_exists, is_mlm)
+            return RequestOTPCls.send_new_text_otp(ph_no)
 
     @staticmethod
-    def send_new_voice_otp(ph_no, app_type, action, user_exists, is_mlm):
+    def send_new_voice_otp(ph_no):
         """
             Generate and send new otp on call
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
-        action_text = 'to LogIn to' if action == "1" else 'to Register on'
-        account_type = 'GramFactory POS' if app_type == '2' else (
-            'PepperTap Rewards' if app_type == '1' else 'GramFactory')
-        sms_body = "Your OTP {} {} is {}.".format(action_text, account_type, otp)
-        sms_body_old = "OTP for your GramFactory account is %s" % otp
-        message = SendVoiceSms(phone=ph_no, body=sms_body_old)
+        sms_body = "OTP for your GramFactory account is %s" % otp
+        message = SendVoiceSms(phone=ph_no, body=sms_body)
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
         msg = {'is_success': True, 'message': ["You will receive a call soon on {}".format(ph_no)],
-               'response_data': None, 'user_exists': user_exists, 'is_mlm': is_mlm}
-        return Response(msg, status=status.HTTP_200_OK)
+               'response_data': None}
+        return msg, status.HTTP_200_OK
 
     @staticmethod
-    def send_new_text_otp(ph_no, app_type, action, user_exists, is_mlm):
+    def send_new_text_otp(ph_no):
         """
             Generate and send new otp on sms
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
-        action_text = 'to LogIn to' if action == "1" else 'to Register on'
-        account_type = 'GramFactory POS' if app_type == '2' else (
-            'PepperTap Rewards' if app_type == '1' else 'GramFactory')
-        expires_in = int(getattr(settings, 'OTP_EXPIRES_IN', 300) / 60)
-        sms_body = "Use {} as your OTP {} {}. Request time is {}, {} IST. The OTP expires within {} minutes.".format(
-            otp, action_text, account_type, date, time, expires_in)
-        sms_body_old = "%s is your One Time Password for GramFactory Account. Request time is %s, %s IST." % (
-                        otp, date, time)
-        message = SendSms(phone=ph_no, body=sms_body_old)
+        sms_body = "%s is your One Time Password for GramFactory Account. Request time is %s, %s IST." % (
+            otp, date, time)
+        message = SendSms(phone=ph_no, body=sms_body)
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
-        return Response({'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None,
-                         'user_exists': user_exists, 'is_mlm': is_mlm}, status=status.HTTP_200_OK)
+        msg = {'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None}
+        return msg, status.HTTP_200_OK
 
     @staticmethod
     def block_unblock_user(ph_no):
@@ -342,83 +334,6 @@ class SendSmsOTP(CreateAPIView):
                     response['message'] = [
                         VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(re_request_minutes)]
         return response
-
-
-# Todo remove
-class ResendSmsOTP(CreateAPIView):
-    permission_classes = (AllowAny,)
-    queryset = PhoneOTP.objects.all()
-    serializer_class = ResendSmsOTPSerializer
-
-    def post(self, request, format=None):
-        serializer = self.serializer_class(
-            data=request.data, context={'request': request}
-        )
-        if serializer.is_valid():
-            number = request.data.get("phone_number")
-            user = PhoneOTP.objects.filter(phone_number=number)
-            if user.exists():
-                user = user.last()
-                if self.just_now(user):
-                    msg = {'is_success': False,
-                           'message': [self.waiting()],
-                           'response_data': None}
-                    return Response(msg,
-                                    status=status.HTTP_406_NOT_ACCEPTABLE
-                                    )
-                else:
-                    otp = user.otp
-                    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-                    time = datetime.datetime.now().strftime("%I:%M %p")
-                    message = SendSms(phone=number,
-                                      body="%s is your One Time Password for GramFactory Account." \
-                                           " Request time is %s, %s IST." % (otp, date, time))
-                    message.send()
-                    # if 'success' in reason:
-                    user.last_otp = timezone.now()
-                    user.save()
-                    msg = {'is_success': True,
-                           'message': ["message sent"],
-                           'response_data': None}
-                    return Response(msg,
-                                    status=status.HTTP_200_OK
-                                    )
-            else:
-                msg = {'is_success': False,
-                       'message': [VALIDATION_ERROR_MESSAGES['INVALID_DATA']],
-                       'response_data': None}
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE
-                                )
-        else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field, error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                   'message': [error for error in errors],
-                   'response_data': None}
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
-
-    def just_now(self, user):
-        self.last_otp_time = user.last_otp
-        self.current_time = datetime.datetime.now()
-        self.resend_in = datetime.timedelta(seconds=user.resend_in)
-        self.time_dif = self.current_time - self.last_otp_time
-        if self.time_dif <= self.resend_in:
-            return True
-        else:
-            return False
-
-    def waiting(self):
-        waiting_time = self.resend_in - self.time_dif
-        seconds = str(waiting_time.total_seconds()).split('.')[0]
-        return "You can resend OTP after %s seconds" % (seconds)
 
 
 # Todo remove
@@ -467,33 +382,6 @@ class ResendVoiceOTP(CreateAPIView):
         waiting_time = self.resend_in - self.time_dif
         seconds = str(waiting_time.total_seconds()).split('.')[0]
         return "You can resend OTP after %s seconds" % seconds
-
-
-# Todo remove
-class RevokeOTP(object):
-    """Revoke OTP if epired or attempts exceeds"""
-
-    def __init__(self, phone, error_msg):
-        super(RevokeOTP, self).__init__()
-        self.phone = phone
-        self.error_msg = error_msg
-
-    def update(self):
-        number = self.phone
-        phone_otp, otp = PhoneOTP.update_otp_for_number(number)
-        date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-        time = datetime.datetime.now().strftime("%I:%M %p")
-        message = SendSms(phone=number,
-                          body="%s is your One Time Password for GramFactory Account." \
-                               " Request time is %s, %s IST." % (otp, date, time))
-        message.send()
-        # if 'success' in reason:
-        phone_otp.last_otp = timezone.now()
-        phone_otp.save()
-        msg = {'is_success': True,
-               'message': ["message sent"],
-               'response_data': None}
-        return msg
 
 
 # Todo remove

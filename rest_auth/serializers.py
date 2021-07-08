@@ -1,4 +1,5 @@
 import logging
+
 from django.contrib.auth import get_user_model, authenticate
 from django.conf import settings
 from django.contrib.auth.forms import SetPasswordForm
@@ -7,10 +8,10 @@ from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 from django.core.validators import RegexValidator
-from rest_framework import serializers, exceptions
+
+from rest_framework import serializers, exceptions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework import status
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -24,21 +25,20 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
+from otp.models import PhoneOTP
+from otp.views import ValidateOTPInternal
+from marketing.models import ReferralCode
+from pos.common_functions import filter_pos_shop
+
 from .models import TokenModel
 from .utils import import_callable
 
-from otp.models import PhoneOTP
-from otp.views import ValidateOTPInternal
-from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from pos.common_functions import filter_pos_shop
-
-# Get the UserModel
 UserModel = get_user_model()
 
-# Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
 
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
@@ -392,33 +392,6 @@ class JWTSerializer(serializers.Serializer):
         return user_data
 
 
-# Todo remove
-class PasswordResetSerializer(serializers.ModelSerializer):
-    """
-    Serializer for requesting an OTP for password reset.
-    """
-
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-        )
-
-
-# Todo remove
-class PasswordResetValidateSerializer(serializers.ModelSerializer):
-    """
-    Validate the otp send to mobile number for password reset
-    """
-
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-            'otp'
-        )
-
-
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
     Serializer for requesting a password reset e-mail.
@@ -435,7 +408,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         self._errors = {}
-
         # Decode the uidb64 to uid to get User object
         try:
             uid = force_text(uid_decoder(attrs['uid']))
@@ -487,7 +459,6 @@ class PasswordChangeSerializer(serializers.Serializer):
             self.user,
             not self.user.check_password(value)
         )
-
         if all(invalid_password_conditions):
             raise serializers.ValidationError('Invalid password')
         return value
@@ -496,7 +467,6 @@ class PasswordChangeSerializer(serializers.Serializer):
         self.set_password_form = self.set_password_form_class(
             user=self.user, data=attrs
         )
-
         if not self.set_password_form.is_valid():
             raise serializers.ValidationError(self.set_password_form.errors)
         return attrs
@@ -518,3 +488,8 @@ def api_serializer_errors(s_errors):
             errors.append(error if 'non_field_errors' in field else ''.join('{} : {}'.format(field, error)))
     return Response({'is_success': False, 'message': errors, 'response_data': None},
                     status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class EcomAccessSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_number = serializers.CharField(validators=[phone_regex], max_length=10, required=True)
