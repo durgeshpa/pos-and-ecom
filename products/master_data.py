@@ -328,7 +328,7 @@ class DownloadMasterData(object):
         csv_file_buffer = io.StringIO()
         date = datetime.datetime.now().strftime('%d_%b_%y_%I_%M')
         writer = csv.writer(csv_file_buffer, dialect='excel', delimiter=',')
-        csv_filename = f'filename={date}-{filename}.csv"'
+        csv_filename = f'{date}-{filename}'
         return csv_file_buffer, writer, csv_filename
 
     @classmethod
@@ -352,8 +352,8 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Set Inactive Status Sample File has been Successfully Downloaded")
-        csv_filename.seek(0)
-        return response
+        response.seek(0)
+        return response, csv_filename
 
     @classmethod
     def brand_sub_brand_mapping_sample_file(cls):
@@ -379,8 +379,8 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Brand and Sub Brand Mapping Sample File has been Successfully Downloaded")
-        csv_filename.seek(0)
-        return response
+        response.seek(0)
+        return response, csv_filename
 
     @classmethod
     def category_sub_category_mapping_sample_file(cls):
@@ -406,7 +406,8 @@ class DownloadMasterData(object):
 
             writer.writerow(row)
         info_logger.info("Category and Sub Category Mapping Sample File has been Successfully Downloaded")
-        return response
+        response.seek(0)
+        return response, csv_filename
 
     @classmethod
     def set_child_with_parent_sample_file(cls, validated_data):
@@ -430,6 +431,7 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Child Parent Mapping Sample File has been Successfully Downloaded")
+        response.seek(0)
         return response
 
     @classmethod
@@ -492,7 +494,8 @@ class DownloadMasterData(object):
             writer.writerow(row)
 
         info_logger.info("Child Data Sample File has been Successfully Downloaded")
-        return response
+        response.seek(0)
+        return response, csv_filename
 
     @classmethod
     def set_parent_data_sample_file(cls, validated_data):
@@ -578,6 +581,7 @@ class DownloadMasterData(object):
 
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
+        response.seek(0)
         return response, csv_filename
 
 

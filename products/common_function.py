@@ -283,8 +283,7 @@ def create_master_data(validated_data):
     csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
     excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
     # Converting headers into lowercase
-    excel_file_headers = [str(ele).lower() for ele in
-                          excel_file_header_list]
+    excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
 
     uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
 

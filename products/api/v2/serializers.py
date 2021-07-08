@@ -442,8 +442,8 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         response, csv_filename = download_sample_file_master_data(validated_data)
-        upload_file_to_s3(response, csv_filename)
-        return response
+        object_url = upload_file_to_s3(response, csv_filename)
+        return object_url
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):

@@ -185,7 +185,7 @@ class BulkDownloadProductAttributes(GenericAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("BulkDownloadProductAttributes Downloaded successfully")
-            return HttpResponse(response, content_type='text/csv')
+            return HttpResponse(response)
         return get_response(serializer_error(serializer), False)
 
 
