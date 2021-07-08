@@ -1100,6 +1100,12 @@ class ShipmentSerializer(serializers.ModelSerializer):
     break_start_time = serializers.SerializerMethodField()
     break_end_time = serializers.SerializerMethodField()
     off_day = serializers.SerializerMethodField()
+    sales_executive = serializers.SerializerMethodField()
+
+    def get_sales_executive(self, obj):
+        shop_user_mapping = obj.order.buyer_shop.shop_user.filter(status=True, employee_group__name='Sales Executive').last()
+        serializer = ShopExecutiveUserSerializer(shop_user_mapping.employee)
+        return serializer.data
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
@@ -1141,7 +1147,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
             'total_paid_amount', 'shop_open_time', 'shop_close_time',
-            'break_start_time', 'break_end_time', 'off_day')
+            'break_start_time', 'break_end_time', 'off_day', 'sales_executive')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):
@@ -1200,6 +1206,12 @@ class OrderHistoryTripSerializer(serializers.ModelSerializer):
         model = Trip
         fields = ('dispatch_no', 'delivery_boy')
 
+
+class ShopExecutiveUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('first_name', 'last_name', 'phone_number')
+
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
@@ -1220,6 +1232,7 @@ class TripSerializer(serializers.ModelSerializer):
             return round(float(obj.total_trip_amount_value) - float(obj.cash_to_be_collected()),2)
         except:
             return 0
+
 
     class Meta:
         model = Trip
