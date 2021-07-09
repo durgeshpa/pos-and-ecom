@@ -20,7 +20,7 @@ from brand.models import Brand, Vendor
 
 from products.common_validators import read_file
 from categories.common_validators import get_validate_category
-from products.common_function import download_sample_file_master_data, create_master_data
+from products.common_function import download_sample_file_update_master_data, update_master_data
 from products.api.v1.serializers import UserSerializers
 from products.upload_file import upload_file_to_s3
 
@@ -392,7 +392,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         try:
-            create_master_data(validated_data)
+            update_master_data(validated_data)
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
             if attribute_id:
                 validated_data['file'].name = validated_data['upload_type'] + '-' + \
@@ -420,13 +420,12 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = BulkUploadForProductAttributes
-        fields = ('upload_type',)
+        fields = ('upload_type', )
 
     def validate(self, data):
 
-        if data['upload_type'] == "master_data" or data['upload_type'] == "inactive_status" or \
-                data['upload_type'] == "child_parent" or data['upload_type'] == "child_data" or \
-                data['upload_type'] == "parent_data":
+        if data['upload_type'] == "inactive_status" or data['upload_type'] == "child_parent" or \
+                data['upload_type'] == "child_data" or data['upload_type'] == "parent_data":
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
@@ -441,7 +440,7 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        response, csv_filename = download_sample_file_master_data(validated_data)
+        response, csv_filename = download_sample_file_update_master_data(validated_data)
         object_url = upload_file_to_s3(response, csv_filename)
         return object_url
 

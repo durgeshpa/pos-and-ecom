@@ -445,8 +445,7 @@ class DownloadMasterData(object):
 
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code',
                                           'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type', ) \
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
-            'category_id'].category_name))
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
 
         for product in products:
             row = []
@@ -478,8 +477,7 @@ class DownloadMasterData(object):
                                                                      'label_printing', 'packing_labour',
                                                                      'primary_pm_cost', 'secondary_pm_cost',
                                                                      'final_fg_cost',
-                                                                     'conversion_cost').filter(
-                destination=product['id'])
+                                                                     'conversion_cost').filter(destination=product['id'])
             for cost in costs:
                 row.append(cost['raw_material'])
                 row.append(cost['wastage'])
@@ -501,15 +499,13 @@ class DownloadMasterData(object):
     def set_parent_data_sample_file(cls, validated_data):
         response, writer, csv_filename = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                   'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-                   'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-                   'is_lead_time_applicable']
+                   'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
+                   'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
+                   'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
         writer.writerow(columns)
 
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
-                                                               'parent_product__name',
-                                                               'parent_product__product_type',
+                                                               'parent_product__name', 'parent_product__product_type',
                                                                'parent_product__product_hsn__product_hsn_code',
                                                                'parent_product__inner_case_size',
                                                                'parent_product__parent_brand__id',

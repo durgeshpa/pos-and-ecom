@@ -279,7 +279,16 @@ def serializer_error(serializer):
     return errors[0]
 
 
-def create_master_data(validated_data):
+def created_updated_by(log_obj, action):
+    if action == "created":
+        create_updated_by = log_obj.created_by
+    else:
+        create_updated_by = log_obj.updated_by
+
+    return action, create_updated_by
+
+
+def update_master_data(validated_data):
     csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
     excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
     # Converting headers into lowercase
@@ -301,29 +310,21 @@ def create_master_data(validated_data):
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
 
 
-def download_sample_file_master_data(validated_data):
-    if validated_data['upload_type'] == "master_data":
-        response, csv_filename = DownloadMasterData.set_master_data_sample_file(validated_data)
+def download_sample_file_update_master_data(validated_data):
+
     if validated_data['upload_type'] == "inactive_status":
         response, csv_filename = DownloadMasterData.set_inactive_status_sample_file(validated_data)
     if validated_data['upload_type'] == "sub_brand_with_brand":
         response, csv_filename = DownloadMasterData.brand_sub_brand_mapping_sample_file()
     if validated_data['upload_type'] == "sub_category_with_category":
         response, csv_filename = DownloadMasterData.category_sub_category_mapping_sample_file()
-    if validated_data['upload_type'] == "child_parent":
-        response, csv_filename = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
     if validated_data['upload_type'] == "child_data":
         response, csv_filename = DownloadMasterData.set_child_data_sample_file(validated_data)
     if validated_data['upload_type'] == "parent_data":
         response, csv_filename = DownloadMasterData.set_parent_data_sample_file(validated_data)
+    if validated_data['upload_type'] == "child_parent":
+        response, csv_filename = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
 
     return response, csv_filename
 
 
-def created_updated_by(log_obj, action):
-    if action == "created":
-        create_updated_by = log_obj.created_by
-    else:
-        create_updated_by = log_obj.updated_by
-
-    return action, create_updated_by
