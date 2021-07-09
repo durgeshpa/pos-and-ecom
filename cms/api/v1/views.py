@@ -499,18 +499,17 @@ class PageDetailView(APIView):
     def get(self, request, id, format = None):
         """Get page specific details"""
         
-        query_params = request.query_params
         try:
 
             page_id = f"page_{id}"
-            cached_page = cache.get(page_id, None)
 
-            # cached_page = cached_pages[id]
+            cached_page = cache.get(page_id)
+
             if(cached_page):
-                page = cached_page
+                return Response(cached_page, status = status.HTTP_200_OK)
+
             else:
                 page = Page.objects.get(id = id)
-                cache.set(page_id, page)
 
         except Exception:
             message = {
@@ -521,25 +520,7 @@ class PageDetailView(APIView):
             return Response(message, status = status.HTTP_200_OK)
 
 
-        page_version = None
-        if query_params.get('version'):
-            try:
-                page_version_key = f"page_version_{id}_{query_params.get('version')}"
-                cached_version = cache.get(page_version_key, None)
-                if(cached_version):
-                    page_version = cached_version
-                else:
-                    page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
-                    
-                    cache.set(page_version_key, page_version)
-
-            except Exception:
-                message = {
-                    "is_success": False,
-                    "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
-                }
-                return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = self.serializer_class(page, context = {'page_version': page_version})
+        serializer = self.serializer_class(page, context = {'page_version': None})
         message = {
             "is_success": True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
@@ -547,6 +528,8 @@ class PageDetailView(APIView):
         }
 
         info_logger.info("-----SET PAGE IN CACHE  @GET pages/id----------")
+
+        cache.set(page_id, message)
 
         return Response(message, status = status.HTTP_200_OK)
 
@@ -569,13 +552,17 @@ class PageDetailView(APIView):
             page_id = f"page_{id}"
             cache.delete(page_id)
 
-            cache.set(page_id, page)
 
             message = {
                 "is_success": True,
                 "message": SUCCESS_MESSAGES["PAGE_PATCH_SUCCESS"],
                 "data": serializer.data
             }
+
+            custom_message = dict(message)
+            custom_message["message"] = SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"]
+            cache.set(page_id, custom_message)
+
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
             "is_success": False,
