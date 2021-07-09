@@ -1,5 +1,4 @@
 import re
-import json
 import logging
 import codecs
 import csv
@@ -31,12 +30,13 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
 DATA_TYPE_CHOICES = (
-    ('inactive_status', 'inactive_status'),
-    ('sub_brand_with_brand', 'sub_brand_with_brand'),
-    ('sub_category_with_category', 'sub_category_with_category'),
-    ('child_parent', 'child_parent'),
-    ('child_data', 'child_data'),
-    ('parent_data', 'parent_data'),
+    ('product_status_update_inactive', 'product_status_update_inactive'),
+    ('sub_brand_with_brand_mapping', 'sub_brand_with_brand_mapping'),
+    ('sub_category_with_category_mapping', 'sub_category_with_category_mapping'),
+    ('child_parent_product_update', 'child_parent_product_update'),
+    ('child_product_update', 'child_product_update'),
+    ('parent_product_update', 'parent_product_update'),
+    ('product_tax_update', 'product_tax_update'),
 )
 
 
@@ -367,8 +367,8 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
-        if data['upload_type'] == "inactive_status" or data['upload_type'] == "child_parent" or \
-                data['upload_type'] == "child_data" or data['upload_type'] == "parent_data":
+        if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == "parent_product_update" \
+                or data['upload_type'] == "child_parent_product_update" or data['upload_type'] == "child_product_update" :
 
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
@@ -449,9 +449,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product images."""
 
     image = serializers.ListField(
-        child=serializers.FileField(max_length=100000,
-                                    allow_empty_file=False,
-                                    use_url=True, ), write_only=True)
+        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=True, ), write_only=True)
 
     class Meta:
         model = ParentProductImage
@@ -602,6 +600,14 @@ class BulkProductTaxUpdateSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type CESS and percentage"
                                                     f" does not exists in system."))
 
+            if row[3] and not row[3].isdigit():
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid CESS percentage."))
+            try:
+                Tax.objects.get(tax_type='surcharge', tax_percentage=float(row[3]))
+            except:
+                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type Surcharge and percentage"
+                                                    f" does not exists in system."))
+
         return data
 
     @transaction.atomic
@@ -613,14 +619,22 @@ class BulkProductTaxUpdateSerializers(serializers.ModelSerializer):
                 parent_pro_id = ParentProduct.objects.filter(parent_id=row[0].strip()).last()
                 queryset = ParentProductTaxMapping.objects.filter(parent_product=parent_pro_id)
                 if queryset.exists():
-                    queryset.filter(tax__tax_type='gst').update(tax_id=row[1])
+                    tax = Tax.objects.get(tax_type='gst', tax_percentage=float(row[1]))
+                    queryset.filter(tax__tax_type='gst').update(tax=tax)
                     if row[2]:
                         tax = Tax.objects.get(tax_type='cess', tax_percentage=float(row[2]))
                         product_cess_tax = queryset.filter(tax__tax_type='cess')
                         if product_cess_tax.exists():
-                            queryset.filter(tax__tax_type='cess').update(tax_id=tax)
+                            queryset.filter(tax__tax_type='cess').update(tax_id=tax.id)
                         else:
-                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax_id=tax)
+                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=tax)
+                    if row[3]:
+                        tax = Tax.objects.get(tax_type='surcharge', tax_percentage=float(row[3]))
+                        product_surcharge_tax = queryset.filter(tax__tax_type='surcharge')
+                        if product_surcharge_tax.exists():
+                            queryset.filter(tax__tax_type='surcharge').update(tax=tax)
+                        else:
+                            pro_tax = ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=tax)
 
             tax_update_attribute = BulkProductTaxUpdate.objects.create(file=validated_data['file'],
                                                                        updated_by=validated_data['updated_by'])

@@ -197,8 +197,8 @@ class BulkProductTaxGSTUpdateSampleCSV(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         writer = csv.writer(response)
-        writer.writerow(['parent_id', 'gst', 'cess'])
-        writer.writerow(['PHEATOY0006', 2, 12])
+        writer.writerow(['parent_id', 'GST', 'Cess', 'Surcharge'])
+        writer.writerow(['PHEATOY0006', 2, 12, 4])
         info_logger.info("bulk tax update Sample CSVExported successfully ")
         return HttpResponse(response, content_type='text/csv')
 

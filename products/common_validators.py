@@ -293,30 +293,33 @@ def read_file(csv_file, upload_master_data, category):
     excel_file_headers = [str(ele).lower() for ele in
                           excel_file_header_list]
 
-    if upload_master_data == "sub_brand_with_brand":
+    if upload_master_data == "sub_brand_with_brand_mapping":
         required_header_list = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name']
 
-    if upload_master_data == "sub_category_with_category":
+    if upload_master_data == "sub_category_with_category_mapping":
         required_header_list = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name']
 
-    if upload_master_data == "inactive_status":
+    if upload_master_data == "product_status_update_inactive":
         required_header_list = ['sku_id', 'sku_name', 'mrp', 'status']
 
-    if upload_master_data == "parent_data":
+    if upload_master_data == "parent_product_update":
         required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
                                 'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
                                 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
 
-    if upload_master_data == "child_data":
+    if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
                                 'status', 'repackaging_type', 'source_sku_id', 'source_sku_name',
                                 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                                 'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
 
-    if upload_master_data == "child_parent":
+    if upload_master_data == "child_parent_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
+
+    if upload_master_data == "product_tax_update":
+        required_header_list = ['parent_id', 'gst', 'cess', 'surcharge']
 
     check_headers(excel_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
@@ -335,7 +338,7 @@ def check_headers(excel_file_headers, required_header_list):
 
 
 def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data, category):
-    if upload_master_data == "sub_brand_with_brand":
+    if upload_master_data == "sub_brand_with_brand_mapping":
         row_num = 1
         mandatory_columns = ['brand_id', 'brand_name']
         for ele in mandatory_columns:
@@ -352,7 +355,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_name' in row.keys() and row['brand_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'Brand_Name' can't be empty")
 
-    if upload_master_data == "sub_category_with_category":
+    if upload_master_data == "sub_category_with_category_mapping":
         row_num = 1
         mandatory_columns = ['category_id', 'category_name']
         for ele in mandatory_columns:
@@ -370,7 +373,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'category_name' in row.keys() and row['category_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'Category_Name' can't be empty")
 
-    if upload_master_data == "inactive_status":
+    if upload_master_data == "product_status_update_inactive":
         row_num = 1
         mandatory_columns = ['sku_id', 'sku_name', 'status']
         for ele in mandatory_columns:
@@ -392,7 +395,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'sku_name' in row.keys() and row['sku_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'SKU_Name' can't be empty")
 
-    if upload_master_data == "parent_data":
+    if upload_master_data == "parent_product_update":
         row_num = 1
         mandatory_columns = ['parent_id', 'parent_name', 'status']
         for ele in mandatory_columns:
@@ -414,7 +417,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'status' in row.keys() and row['status'] == '':
                 raise ValidationError(f"Row {row_num} | 'Status' can't be empty")
 
-    if upload_master_data == "child_data":
+    if upload_master_data == "child_product_update":
         mandatory_columns = ['sku_id', 'sku_name', 'status']
         row_num = 1
         for ele in mandatory_columns:
@@ -436,7 +439,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'sku_name' in row.keys() and row['sku_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'SKU_Name' can't be empty")
 
-    if upload_master_data == "child_parent":
+    if upload_master_data == "child_parent_product_update":
         row_num = 1
         mandatory_columns = ['sku_id', 'parent_id', 'status']
         for ele in mandatory_columns:
@@ -458,6 +461,23 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'status' in row.keys() and row['status'] == '':
                 raise ValidationError(f"Row {row_num} | 'Status' can't be empty")
 
+    if upload_master_data == "product_tax_update":
+        row_num = 1
+        mandatory_columns = ['parent_id', 'gst']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory column for 'Product and Tax Mapping'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'parent_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'Parent_ID' can't be empty")
+            if 'parent_id' in row.keys() and row['parent_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'Parent_ID' can't be empty")
+            if 'gst' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'GST' can not be empty.")
+            if 'gst' in row.keys() and row['gst'] == '':
+                raise ValidationError(f"Row {row_num} | 'GST percentage ' can not be empty.")
+
     validate_row(uploaded_data_list, header_list, category)
 
 
@@ -467,7 +487,7 @@ def validate_row(uploaded_data_list, header_list, category):
     """
     try:
         brand = Brand.objects.all()
-        category = Category.objects.all()
+        categories = Category.objects.all()
         child_product = Product.objects.all()
         parent_products = ParentProduct.objects.all()
         product_hsn = ProductHSN.objects.all()
@@ -496,22 +516,22 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'Sub_Brand_Name' doesn't exist in the system ")
 
             if 'category_id' in header_list and 'category_id' in row.keys() and row['category_id'] != '':
-                if not category.filter(id=row['category_id']).exists():
+                if not categories.filter(id=row['category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_id']} | "
                                           f"'Category_ID' doesn't exist in the system ")
 
             if 'category_name' in header_list and 'category_name' in row.keys() and row['category_name'] != '':
-                if not category.filter(category_name=row['category_name']).exists():
+                if not categories.filter(category_name=row['category_name']).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_name']} | "
                                           f"'Category_Name' doesn't exist in the system ")
 
             if 'sub_category_id' in header_list and 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
-                if not category.filter(id=row['sub_category_id']).exists():
+                if not categories.filter(id=row['sub_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sub_category_id']} | "
                                           f"'Sub_Category_ID' doesn't exist in the system ")
 
             if 'sub_category_name' in header_list and 'sub_category_name' in row.keys() and row['sub_category_name'] != '':
-                if not category.filter(category_name=row['sub_category_name']).exists():
+                if not categories.filter(category_name=row['sub_category_name']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sub_category_name']} | "
                                           f"'Sub_Category_Name' doesn't exist in the system ")
 
@@ -540,10 +560,9 @@ def validate_row(uploaded_data_list, header_list, category):
                     if not parent_products.filter(parent_id=row['parent_id']).exists():
                         raise ValidationError(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist.")
                 parent_product = parent_products.filter(parent_id=row['parent_id'])
-                if 'sku_id' not in row.keys():
+                if category and 'sku_id' not in row.keys():
                     if not ParentProductCategory.objects.filter(category=category.id,
                                                                 parent_product=parent_product[0].id).exists():
-                        category = Category.objects.values('category_name').filter(id=category.category_name)
                         raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                               f"{category.category_name}) that you have selected in Dropdown Only! ")
 
@@ -567,6 +586,31 @@ def validate_row(uploaded_data_list, header_list, category):
             if 'tax_3(surcharge)' in header_list and 'tax_3(surcharge)' in row.keys() and row['tax_3(surcharge)'] != '':
                 if not tax.filter(tax_name=row['tax_3(surcharge)']).exists():
                     raise ValidationError(f"Row {row_num} | {row['tax_3(surcharge)']} Invalid Tax(Surcharge)!")
+
+            if 'gst' in header_list and 'gst' in row.keys() and row['gst'] != '':
+                if not row['gst'].isdigit():
+                    raise ValidationError(f"Row {row_num} | {row['gst']} Please enter a valid GST percentage.")
+
+                if not tax.filter(tax_type='gst', tax_percentage=float(row['gst'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['gst']} | Tax with type GST and "
+                                          f"percentage does not exists in system.")
+
+            if 'cess' in header_list and 'cess' in row.keys() and row['cess'] != '':
+                if not row['cess'].isdigit():
+                    raise ValidationError(f"Row {row_num} | {row['cess']} Please enter a valid CESS percentage.")
+
+                if not tax.filter(tax_type='cess', tax_percentage=float(row['cess'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['cess']} | Tax with type CESS and "
+                                          f"percentage does not exists in system.")
+
+            if 'surcharge' in header_list and 'surcharge' in row.keys() and row['surcharge'] != '':
+                if not row['surcharge'].isdigit():
+                    raise ValidationError(f"Row {row_num} | {row['surcharge']} Please enter a valid Surcharge "
+                                          f"percentage.")
+
+                if not tax.filter(tax_type='surcharge', tax_percentage=float(row['surcharge'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['surcharge']} | Tax with type Surcharge and "
+                                          f"percentage does not exists in system.")
 
             if 'inner_case_size' in header_list and 'inner_case_size' in row.keys() and row['inner_case_size'] != '':
                 if not re.match("^\d+$", str(row['inner_case_size'])):

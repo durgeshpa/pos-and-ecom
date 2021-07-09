@@ -310,6 +310,39 @@ class UploadMasterData(object):
             error_logger.info(
                 f"Something went wrong, while working with 'Set Child Data Functionality' + {str(e)}")
 
+    @classmethod
+    def set_product_tax(cls, csv_file_data_list):
+        """
+            Updating Parent Product & Tax
+        """
+        try:
+            info_logger.info('Method Start to update the Parent Product with Tax')
+            for row in csv_file_data_list:
+                parent_pro_id = ParentProduct.objects.filter(parent_id=row['parent_id'].strip()).last()
+                queryset = ParentProductTaxMapping.objects.filter(parent_product=parent_pro_id)
+                if queryset.exists():
+                    gst_tax = Tax.objects.get(tax_type='gst', tax_percentage=float(row['gst']))
+                    queryset.filter(tax__tax_type='gst').update(tax=gst_tax)
+                    if row['cess']:
+                        cess_tax = Tax.objects.get(tax_type='cess', tax_percentage=float(row['cess']))
+                        product_cess_tax = queryset.filter(tax__tax_type='cess')
+                        if product_cess_tax.exists():
+                            queryset.filter(tax__tax_type='cess').update(tax_id=cess_tax)
+                        else:
+                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=cess_tax)
+                    if row['surcharge']:
+                        surcharge_tax = Tax.objects.get(tax_type='surcharge', tax_percentage=float(row['surcharge']))
+                        product_surcharge_tax = queryset.filter(tax__tax_type='surcharge')
+                        if product_surcharge_tax.exists():
+                            queryset.filter(tax__tax_type='surcharge').update(tax_id=surcharge_tax)
+                        else:
+                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=surcharge_tax)
+
+            info_logger.info("Method complete to update the Parent Product with Tax from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with update Parent Product with Tax Functionality'"
+                              f" + {str(e)}")
+
 
 class DownloadMasterData(object):
     """
@@ -579,6 +612,16 @@ class DownloadMasterData(object):
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
         response.seek(0)
         return response, csv_filename
+
+    @classmethod
+    def set_product_tax_sample_file(cls, validated_data):
+        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
+        columns = ['parent_id', 'gst', 'cess', 'surcharge', ]
+        writer.writerow(columns)
+        writer.writerow(['PHEATOY0006', 2, 12, 4])
+        info_logger.info("bulk tax update Sample CSVExported successfully ")
+        response.seek(0)
+        return response
 
 
 def get_ptr_type_text(ptr_type=None):
