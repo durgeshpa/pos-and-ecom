@@ -551,7 +551,10 @@ class PageDetailView(APIView):
             serializer.save()
 
             page_id = f"page_{id}"
+            latest_page_key = f"latest_page_{id}"
+
             cache.delete(page_id)
+            cache.delete(latest_page_key)
 
 
             message = {
@@ -570,9 +573,11 @@ class PageDetailView(APIView):
                 "data": data
             }
 
-            custom_message = dict(message)
-            custom_message["message"] = SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"]
-            cache.set(page_id, custom_message)
+            # custom_message = dict(message)
+            # custom_message["message"] = SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"]
+            # cache.set(page_id, custom_message)
+
+            cache.set(latest_page_key, message_to_cache)
 
             return Response(message, status = status.HTTP_201_CREATED)
         message = {
@@ -592,7 +597,12 @@ class PageVersionDetailView(APIView):
         """Get Data of Latest Version"""
 
         try:
-            page = Page.objects.get(id = id)
+            page_key = f"latest_page_{id}"
+            cached_page = cache.get(page_key, None)
+            if(cached_page):
+                return Response(cached_page, status=status.HTTP_200_OK)
+            else:
+                page = Page.objects.get(id = id)
         except Exception:
             message = {
                 "is_success": False,
@@ -608,4 +618,5 @@ class PageVersionDetailView(APIView):
             "message": "OK",
             "data": serializer.data
         }
+        cache.set(page_key, message)
         return Response(message)
