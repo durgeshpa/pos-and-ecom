@@ -432,3 +432,18 @@ class PageDetailSerializer(serializers.ModelSerializer):
                 instance.active_version_no = None
 
         return super().update(instance, validated_data)
+
+
+class PageLatestDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Specific Page"""
+
+    class Meta:
+        model = Page
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        data['latest_version'] = PageVersionDetailSerializer(self.context.get('version')).data
+        apps = ApplicationPage.objects.get(page__id = instance.id).app
+        data['applications'] = PageApplicationSerializer(apps).data
+        return data

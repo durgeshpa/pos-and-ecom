@@ -1,12 +1,13 @@
 import logging
 from re import S
+from django.core.checks import messages
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer
+from rest_framework import serializers, status
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer 
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
 
@@ -559,6 +560,16 @@ class PageDetailView(APIView):
                 "data": serializer.data
             }
 
+            latest_page_version_no = page.active_version_no
+            latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
+            data = PageLatestDetailSerializer(page, context = {'version': latest_page_version}).data
+
+            message_to_cache = {
+                "is_success": True,
+                "message": "OK",
+                "data": data
+            }
+
             custom_message = dict(message)
             custom_message["message"] = SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"]
             cache.set(page_id, custom_message)
@@ -570,3 +581,31 @@ class PageDetailView(APIView):
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
+
+
+class PageVersionDetailView(APIView):
+    """For Latest Version of Page"""
+
+    serializer_class = PageLatestDetailSerializer
+
+    def get(self, request, id, format = None):
+        """Get Data of Latest Version"""
+
+        try:
+            page = Page.objects.get(id = id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
+            }
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        
+        latest_page_version_no = page.active_version_no
+        latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
+        serializer = self.serializer_class(page, context = {'version': latest_page_version})
+        message = {
+            "is_success": True,
+            "message": "OK",
+            "data": serializer.data
+        }
+        return Response(message)
