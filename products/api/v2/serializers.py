@@ -424,8 +424,9 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if data['upload_type'] == "inactive_status" or data['upload_type'] == "child_parent" or \
-                data['upload_type'] == "child_data" or data['upload_type'] == "parent_data":
+        if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == "parent_product_update" \
+                or data['upload_type'] == "child_parent_product_update" or data['upload_type'] == "child_product_update":
+
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
@@ -560,87 +561,3 @@ class ChildProductImageSerializers(serializers.ModelSerializer):
         result = OrderedDict()
         result['data'] = str(instance)
         return result
-
-
-class BulkProductTaxUpdateSerializers(serializers.ModelSerializer):
-    file = serializers.FileField(label='Upload ProductTaxUpdate Data', required=True)
-    updated_by = UserSerializers(read_only=True)
-
-    class Meta:
-        model = BulkProductTaxUpdate
-        fields = ('file', 'updated_by')
-
-    def validate(self, data):
-        if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(_("Sorry! Only csv file accepted"))
-
-        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
-        next(reader)
-        for row_id, row in enumerate(reader):
-            if not row[0]:
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'parent_id.' can not be empty."))
-            elif not ParentProduct.objects.filter(parent_id=row[0].strip()).exists():
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'parent_id' doesn't exist in the system."))
-
-            if not row[1]:
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'GST percentage ' can not be empty."))
-            elif not row[1].isdigit():
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid GST percentage."))
-            try:
-                Tax.objects.get(tax_type='gst', tax_percentage=float(row[1]))
-            except:
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type GST and percentage"
-                                                    f" does not exists in system."))
-
-            if row[2] and not row[2].isdigit():
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid CESS percentage."))
-            try:
-                Tax.objects.get(tax_type='cess', tax_percentage=float(row[2]))
-            except:
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type CESS and percentage"
-                                                    f" does not exists in system."))
-
-            if row[3] and not row[3].isdigit():
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Please enter a valid CESS percentage."))
-            try:
-                Tax.objects.get(tax_type='surcharge', tax_percentage=float(row[3]))
-            except:
-                raise serializers.ValidationError(_(f"Row {row_id + 1} | 'Tax with type Surcharge and percentage"
-                                                    f" does not exists in system."))
-
-        return data
-
-    @transaction.atomic
-    def create(self, validated_data):
-        reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
-        next(reader)
-        try:
-            for row_id, row in enumerate(reader):
-                parent_pro_id = ParentProduct.objects.filter(parent_id=row[0].strip()).last()
-                queryset = ParentProductTaxMapping.objects.filter(parent_product=parent_pro_id)
-                if queryset.exists():
-                    tax = Tax.objects.get(tax_type='gst', tax_percentage=float(row[1]))
-                    queryset.filter(tax__tax_type='gst').update(tax=tax)
-                    if row[2]:
-                        tax = Tax.objects.get(tax_type='cess', tax_percentage=float(row[2]))
-                        product_cess_tax = queryset.filter(tax__tax_type='cess')
-                        if product_cess_tax.exists():
-                            queryset.filter(tax__tax_type='cess').update(tax_id=tax.id)
-                        else:
-                            ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=tax)
-                    if row[3]:
-                        tax = Tax.objects.get(tax_type='surcharge', tax_percentage=float(row[3]))
-                        product_surcharge_tax = queryset.filter(tax__tax_type='surcharge')
-                        if product_surcharge_tax.exists():
-                            queryset.filter(tax__tax_type='surcharge').update(tax=tax)
-                        else:
-                            pro_tax = ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=tax)
-
-            tax_update_attribute = BulkProductTaxUpdate.objects.create(file=validated_data['file'],
-                                                                       updated_by=validated_data['updated_by'])
-
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-
-        return tax_update_attribute

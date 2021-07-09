@@ -465,7 +465,7 @@ class DownloadMasterData(object):
 
         info_logger.info("Child Parent Mapping Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response
+        return response, csv_filename
 
     @classmethod
     def set_child_data_sample_file(cls, validated_data):
@@ -476,8 +476,8 @@ class DownloadMasterData(object):
                    'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
         writer.writerow(columns)
 
-        products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code',
-                                          'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type', ) \
+        products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
+                                          'weight_unit', 'weight_value', 'status', 'repackaging_type', ) \
             .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
 
         for product in products:
@@ -618,10 +618,12 @@ class DownloadMasterData(object):
         response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
         columns = ['parent_id', 'gst', 'cess', 'surcharge', ]
         writer.writerow(columns)
+
         writer.writerow(['PHEATOY0006', 2, 12, 4])
+
         info_logger.info("bulk tax update Sample CSVExported successfully ")
         response.seek(0)
-        return response
+        return response, csv_filename
 
 
 def get_ptr_type_text(ptr_type=None):
