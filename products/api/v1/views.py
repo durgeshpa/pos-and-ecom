@@ -1,10 +1,12 @@
 import logging
+import datetime
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
+from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
@@ -13,6 +15,7 @@ from categories.models import Category
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
+
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
@@ -23,9 +26,8 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search
+from products.common_function import ParentProductCls, ProductCls
 
-
-from rest_framework.permissions import AllowAny
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -190,12 +192,14 @@ class TaxView(GenericAPIView):
                 tax_id = self.queryset.get(id=int(id))
                 try:
                     tax_id.delete()
-                except:
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'tax_id': tax_id}
+                    info_logger.info("tax deleted info ", dict_data)
+                except Exception as er:
                     return get_response(f'You can not delete tax {tax_id.tax_name}, '
                                         f'because this tax is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid tax_id {id}', False)
+            return get_response(f'please provide a valid tax id {id}', False)
         return get_response('tax were deleted successfully!', True)
 
     def search_filter_product_tax(self):
@@ -312,6 +316,9 @@ class ParentProductView(GenericAPIView):
                 parent_product_id = self.queryset.get(id=int(id))
                 try:
                     parent_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'parent_product_id': parent_product_id}
+                    info_logger.info("parent_product deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete parent product {parent_product_id.name}, '
                                         f'because this parent product is mapped with child product', False)
@@ -475,6 +482,9 @@ class ChildProductView(GenericAPIView):
                 child_product_id = self.queryset.get(id=int(id))
                 try:
                     child_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'child_product_id': child_product_id}
+                    info_logger.info("child_product deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete child product {child_product_id.product_name}, '
                                         f'because this child product is mapped with product price', False)
@@ -808,6 +818,9 @@ class WeightView(GenericAPIView):
                 weight_id = self.queryset.get(id=int(w_id))
                 try:
                     weight_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'weight_id': weight_id}
+                    info_logger.info("weight deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete weight {weight_id.weight_name}, '
                                         f'because this weight is mapped with product', False)

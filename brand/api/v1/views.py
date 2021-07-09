@@ -1,6 +1,6 @@
 import logging
 from django.core.exceptions import ObjectDoesNotExist
-
+import datetime
 from django.http import HttpResponse
 
 from rest_framework.views import APIView
@@ -183,6 +183,9 @@ class BrandView(GenericAPIView):
                 brand_id = self.queryset.get(id=int(b_id))
                 try:
                     brand_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'brand_id': brand_id}
+                    info_logger.info("brand deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete brand {brand_id.brand_name}, '
                                         f'because this brand is mapped with product', False)
