@@ -1,12 +1,12 @@
 import logging
-from re import S
-from django.core.checks import messages
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers, status
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer 
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
@@ -592,6 +592,7 @@ class PageVersionDetailView(APIView):
     """For Latest Version of Page"""
 
     serializer_class = PageLatestDetailSerializer
+    permission_classes = (AllowAny,)
 
     def get(self, request, id, format = None):
         """Get Data of Latest Version"""
