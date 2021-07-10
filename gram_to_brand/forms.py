@@ -57,7 +57,7 @@ class POGenerationForm(forms.ModelForm):
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             '/static/admin/js/po_generation_form.js',
         )
 
@@ -295,7 +295,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             'admin/js/po_generation_form.js'
         )
 

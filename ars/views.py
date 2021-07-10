@@ -267,15 +267,17 @@ def initiate_ars():
                     continue
                 current_inventory = get_current_inventory(warehouse, parent_product)
                 max_inventory_in_days = parent_product.max_inventory
-                demand = (daily_average * max_inventory_in_days) - current_inventory
-                if demand <= 0:
-                    continue
                 if parent_product.is_lead_time_applicable:
                     max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
+                demand = (daily_average * max_inventory_in_days) - current_inventory
+
+                if demand <= 0:
+                    continue
 
                 min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
                 max_inventory = max_inventory_in_days * daily_average
                 min_inventory = min_inventory_in_days * daily_average
+
                 if demand >= (max_inventory - min_inventory):
                     is_eligible_to_raise_demand = True
 
@@ -434,7 +436,7 @@ def create_po_from_demand(demand):
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
 
-            no_of_cases = demand_product.quantity / product_case_size
+            no_of_cases = math.ceil(demand_product.quantity / product_case_size)
             no_of_pieces = no_of_cases * product_case_size
 
             CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=demand_product.product,
