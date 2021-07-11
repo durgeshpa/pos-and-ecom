@@ -500,39 +500,32 @@ class PageDetailView(APIView):
     def get(self, request, id, format = None):
         """Get page specific details"""
         
+        query_params = request.query_params
         try:
-
-            page_id = f"page_{id}"
-
-            cached_page = cache.get(page_id)
-
-            if(cached_page):
-                return Response(cached_page, status = status.HTTP_200_OK)
-
-            else:
-                page = Page.objects.get(id = id)
-
+            page = Page.objects.get(id = id)
         except Exception:
             message = {
                 "is_success": False,
                 "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
             }
-            info_logger.info("-----USING PAGE FROM CACHE  @GET pages/id----------")
-            return Response(message, status = status.HTTP_200_OK)
-
-
-        serializer = self.serializer_class(page, context = {'page_version': None})
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        page_version = None
+        if query_params.get('version'):
+            try:
+                page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
+            except Exception:
+                message = {
+                    "is_success": False,
+                    "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
+                }
+                return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = self.serializer_class(page, context = {'page_version': page_version})
         message = {
             "is_success": True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
             "data": serializer.data
         }
-
-        info_logger.info("-----SET PAGE IN CACHE  @GET pages/id----------")
-
-        cache.set(page_id, message)
-
-        return Response(message, status = status.HTTP_200_OK)
+        return Response(message, status = status.HTTP_200_OK) 
 
 
     def patch(self, request, id):
@@ -550,10 +543,10 @@ class PageDetailView(APIView):
         if serializer.is_valid():
             serializer.save()
 
-            page_id = f"page_{id}"
+            # page_id = f"page_{id}"
             latest_page_key = f"latest_page_{id}"
 
-            cache.delete(page_id)
+            # cache.delete(page_id)
             cache.delete(latest_page_key)
 
 
