@@ -459,16 +459,23 @@ def check_pos_shop(view_func):
             msg = validate_data_format(request)
             if msg:
                 return api_response(msg)
+        app_type = request.META.get('HTTP_APP_TYPE', None)
         shop_id = request.META.get('HTTP_SHOP_ID', None)
         if not shop_id:
             return api_response("No Shop Selected!")
-        user = request.user
-        qs = filter_pos_shop(user)
-        qs = qs.filter(id=shop_id)
-        shop = qs.last()
-        if not shop:
-            return api_response("Franchise Shop Id Not Approved / Invalid!")
+        # E-commerce
+        if app_type == '3':
+            shop = Shop.objects.filter(id=shop_id).last()
+            if not shop:
+                return api_response("Shop not available!")
+        else:
+            qs = filter_pos_shop(request.user)
+            qs = qs.filter(id=shop_id)
+            shop = qs.last()
+            if not shop:
+                return api_response("Franchise Shop Id Not Approved / Invalid!")
         kwargs['shop'] = shop
+        kwargs['app_type'] = app_type
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func

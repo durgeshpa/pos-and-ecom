@@ -255,13 +255,14 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
         elif search_type == '2':
-            results = self.rp_normal_search(shop_id)
+            results = self.rp_normal_search(shop_id, app_type)
         else:
             return api_response("Please Provide A Valid Search Type")
         if results:
@@ -280,13 +281,16 @@ class SearchProducts(APIView):
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
         return self.process_rp(output_type, body, shop_id)
 
-    def rp_normal_search(self, shop_id):
+    def rp_normal_search(self, shop_id, app_type=None):
         """
             Search Retailer Shop Catalogue On Similar Match
         """
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         body = dict()
+        body['query'] = dict()
+        if app_type == '3':
+            body['query']["bool"] = {"filter": [{"term": {"status": 'active'}}]}
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
@@ -382,7 +386,7 @@ class SearchProducts(APIView):
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     # Combo Offers On Products
-                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 10,
+                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 1,
                                                                                       ["coupon_code", "coupon_type"])
                     p_list.append(p["_source"])
             except Exception as e:
