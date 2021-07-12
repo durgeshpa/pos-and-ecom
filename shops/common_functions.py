@@ -20,7 +20,7 @@ class ShopCls(object):
         """
         shop_log = CentralLog.objects.create(
             shop=log_obj, updated_by=log_obj.updated_by)
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.modified_at,
                      'shop': log_obj}
         info_logger.info("shop_log update info ", dict_data)
 

@@ -245,7 +245,7 @@ class AddressSerializer(serializers.ModelSerializer):
 class ShopCrudSerializers(serializers.ModelSerializer):
 
     related_users = RelatedUsersSerializer(read_only=True, many=True)
-    # shop_log = LogSerializers(many=True, read_only=True)
+    shop_log = LogSerializers(many=True, read_only=True)
 
     approval_status = serializers.SerializerMethodField('shop_approval_status')
     shop_type = serializers.SerializerMethodField('get_shop_type_name')
@@ -261,7 +261,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         model = Shop
         fields = ('id', 'shop_name', 'owner', 'parent_shop', 'address', 'pincode', 'city',
                   'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
-                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern',)  # 'shop_log')
+                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern', 'shop_log')
 
     def shop_approval_status(self, obj):
         return obj.get_approval_status_display()
@@ -311,6 +311,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_shop_photo_doc_invoice(shop_instance)
+        ShopCls.create_shop_log(shop_instance)
         return shop_instance
 
     @transaction.atomic
@@ -326,7 +327,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_shop_photo_doc_invoice(shop_instance)
-        # ShopCls.create_shop_log(shop_instance)
+        ShopCls.create_shop_log(shop_instance)
         return shop_instance
 
     def create_shop_photo_doc_invoice(self, shop):
