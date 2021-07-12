@@ -1,4 +1,5 @@
 import logging
+from products.models import CentralLog
 from pyexcel_xlsx import get_data as xlsx_get
 
 from rest_framework import status
@@ -15,6 +16,27 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
+class ShopCls(object):
+    @classmethod
+    def create_shop_log(cls, log_obj):
+        """
+            Create Weight Log
+        """
+        shop_log = CentralLog.objects.create(shop=log_obj, updated_by=log_obj.updated_by)
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+                     'shop': log_obj}
+        info_logger.info("shop_log update info ", dict_data)
+
+        return shop_log
+    
+    @classmethod
+    def create_shop_docs(cls, shop, shop_docs):
+        """
+            Create Shop Docs
+        """
+        shop_docs = ShopDocument.objects.filter(shop_name=shop).all()
+        for doc in shop_docs:
+            print(doc)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

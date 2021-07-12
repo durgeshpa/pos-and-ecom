@@ -1,17 +1,18 @@
-from addresses.models import Address
 import logging
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import authentication
 from rest_framework import generics
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from rest_framework.permissions import AllowAny
 from retailer_backend.utils import SmallOffsetPagination
+
+from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 
 from .serializers import (
-    ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
-    ShopOwnerNameListSerializer, PinCodeSerializer, CitySerializer,
-    StateSerializer
+    CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    ShopOwnerNameListSerializer, StateAddressSerializer
 )
 from shops.models import (
     ShopType, Shop
@@ -21,7 +22,7 @@ from shops.services import (
     shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states
 )
 from shops.common_validators import (
-    validate_id, validate_state_id, validate_city_id, validate_pin_code
+    validate_data_format, validate_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
 )
 
 User = get_user_model()
@@ -81,6 +82,32 @@ class ApprovalStatusListView(generics.GenericAPIView):
         return get_response(msg, data, True)
 
 
+class ShopDocumentTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ShopDocumentList """
+        info_logger.info("ShopDocumentList GET api called.")
+        fields = ['id', 'status']
+        data = [dict(zip(fields, d)) for d in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShopInvoiceStatusListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ShopInvoiceStatusList """
+        info_logger.info("ShopInvoiceStatusList GET api called.")
+        fields = ['id', 'status']
+        data = [dict(zip(fields, d)) for d in ShopInvoicePattern.SHOP_INVOICE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class ShopOwnerNameListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -90,7 +117,16 @@ class ShopOwnerNameListView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for ShopOwnerNameList """
         info_logger.info("ShopOwnerNameList GET api called.")
-        shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        if request.GET.get('id'):
+            """ Get Shop for specific ID """
+            id_validation = validate_shop_owner_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Shop List """
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shops_data, many=True)
         msg = ""
         return get_response(msg, serializer.data, True)
@@ -100,9 +136,9 @@ class AddressListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     add_serializer_class = AddressSerializer
-    pincode_serializer_class = PinCodeSerializer
-    city_serializer_class = CitySerializer
-    state_serializer_class = StateSerializer
+    pincode_serializer_class = PinCodeAddressSerializer
+    city_serializer_class = CityAddressSerializer
+    state_serializer_class = StateAddressSerializer
 
     queryset = Address.objects.all()
 
@@ -171,11 +207,71 @@ class ShopView(generics.GenericAPIView):
             """ GET Shop List """
             self.queryset = self.search_filter_shops_data()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-            print(shops_data)
 
         serializer = self.serializer_class(shops_data, many=True)
         msg = "" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
+    
+    def post(self, request):
+        """ POST API for Shop Creation with Image Category & Tax """
+
+        info_logger.info("Shop POST api called.")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Shop Created Successfully.")
+            return get_response('shop created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Shop Updation with Image Category & Tax """
+
+        info_logger.info("Shop PUT api called.")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shop', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        shop_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=shop_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Shop Updated Successfully.")
+            return get_response('shop updated!', serializer.data)
+        print(serializer.errors)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Shop with image """
+
+        info_logger.info("Shop DELETE api called.")
+        if not request.data.get('shop_id'):
+            return get_response('please provide shop_id', False)
+        try:
+            for id in request.data.get('shop_id'):
+                shop_id = self.queryset.get(id=int(id))
+                try:
+                    shop_id.delete()
+                except:
+                    return get_response(f'can not delete shop {shop_id.name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid shop_id {id}', False)
+        return get_response('shop were deleted successfully!', True)
+
 
     def search_filter_shops_data(self):
         search_text = self.request.GET.get('search_text')
