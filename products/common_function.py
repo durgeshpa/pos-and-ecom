@@ -1,19 +1,18 @@
 import logging
-
-from pyexcel_xlsx import get_data as xlsx_get
+import codecs
+import csv
 
 from rest_framework import status
 from rest_framework.response import Response
-
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
 
-from products.master_data import SetMasterData, UploadMasterData, DownloadMasterData
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
+from products.master_data import UploadMasterData, DownloadMasterData
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
+    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product, get_csv_file_data
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -24,7 +23,7 @@ debug_logger = logging.getLogger('file-debug')
 class ParentProductCls(object):
 
     @classmethod
-    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
+    def upload_parent_product_images(cls, parent_product, parent_product_pro_image, product_images):
         """
             Delete Existing Images of specific ParentProduct
             Create or Update Parent Product Images
@@ -35,7 +34,7 @@ class ParentProductCls(object):
                 ids.append(image['id'])
 
         ParentProductImage.objects.filter(parent_product=parent_product).exclude(
-                            id__in=ids).delete()
+            id__in=ids).delete()
         if product_images:
             for image in product_images:
                 ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
@@ -70,14 +69,15 @@ class ParentProductCls(object):
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
 
     @classmethod
-    def create_parent_product_log(cls, log_obj):
+    def create_parent_product_log(cls, log_obj, action):
         """
             Create Parent Product Log
         """
-        parent_product_log = CentralLog.objects.create(parent_product=log_obj, updated_by=log_obj.updated_by)
-
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'product_id': log_obj}
+        action, create_updated_by = created_updated_by(log_obj, action)
+        parent_product_log = CentralLog.objects.create(parent_product=log_obj, updated_by=create_updated_by,
+                                                       action=action)
+        dict_data = {'updated_by': parent_product_log.updated_by, 'updated_at': parent_product_log.update_at,
+                     'product_id': log_obj, }
         info_logger.info("parent product update info ", dict_data)
 
         return parent_product_log
@@ -86,7 +86,7 @@ class ParentProductCls(object):
 class ProductCls(object):
 
     @classmethod
-    def create_child_product(cls, parent_product,  **validated_data):
+    def create_child_product(cls, parent_product, **validated_data):
         """
            Create Child Product
         """
@@ -147,7 +147,8 @@ class ProductCls(object):
         for source_sku_data in packing_material_rt:
             pack_sku_id = Product.objects.get(id=source_sku_data['packing_sku'])
             ProductPackingMapping.objects.create(sku=child_product, packing_sku=pack_sku_id,
-                                                 packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+                                                 packing_sku_weight_per_unit_sku=source_sku_data[
+                                                     'packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
@@ -196,7 +197,7 @@ class ProductCls(object):
                                                    vendor=vendor_obj['vendor'], **validated_data)
 
     @classmethod
-    def update_product_vendor_mapping(cls, product, vendor,  product_vendor_map):
+    def update_product_vendor_mapping(cls, product, vendor, product_vendor_map):
         """
             Update Product Vendor Mapping
         """
@@ -208,38 +209,40 @@ class ProductCls(object):
         return product_vendor_map
 
     @classmethod
-    def create_child_product_log(cls, log_obj):
+    def create_child_product_log(cls, log_obj, action):
         """
             Create Child Product Log
         """
-        child_product_log = CentralLog.objects.create(child_product=log_obj, updated_by=log_obj.updated_by)
 
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+        action, create_updated_by = created_updated_by(log_obj, action)
+        child_product_log = CentralLog.objects.create(child_product=log_obj, updated_by=create_updated_by,
+                                                      action=action)
+        dict_data = {'updated_by': child_product_log.updated_by, 'update_at': child_product_log.update_at,
                      'child_product': log_obj}
-        info_logger.info("child product update info ", dict_data)
+        info_logger.info("child product update info ", dict_data, )
 
         return child_product_log
 
     @classmethod
-    def create_tax_log(cls, log_obj):
+    def create_tax_log(cls, log_obj, action):
         """
             Create Tax Log
         """
-        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=log_obj.updated_by)
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'tax': log_obj}
+        action, create_updated_by = created_updated_by(log_obj, action)
+        tax_log = CentralLog.objects.create(tax=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': tax_log.updated_by, 'update_at': tax_log.update_at, 'tax': log_obj}
         info_logger.info("tax update info ", dict_data)
 
         return tax_log
 
     @classmethod
-    def create_weight_log(cls, log_obj):
+    def create_weight_log(cls, log_obj, action):
         """
             Create Weight Log
         """
-        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=log_obj.updated_by)
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
-                     'weight': log_obj}
+        action, create_updated_by = created_updated_by(log_obj, action)
+        weight_log = CentralLog.objects.create(weight=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': weight_log.updated_by, 'updated_at': weight_log.update_at, 'weight': log_obj}
         info_logger.info("weight_log update info ", dict_data)
 
         return weight_log
@@ -276,59 +279,56 @@ def serializer_error(serializer):
     return errors[0]
 
 
-def get_excel_file_data(excel_file):
-    headers = excel_file.pop(0)  # headers of the uploaded excel file
-    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
+def created_updated_by(log_obj, action):
+    if action == "created":
+        create_updated_by = log_obj.created_by
+    else:
+        create_updated_by = log_obj.updated_by
 
-    uploaded_data_by_user_list = []
-    excel_dict = {}
-    count = 0
-    for row in excel_file:
-        for ele in row:
-            excel_dict[excelFile_headers[count]] = ele
-            count += 1
-        uploaded_data_by_user_list.append(excel_dict)
-        excel_dict = {}
-        count = 0
-
-    return uploaded_data_by_user_list, excelFile_headers
+    return action, create_updated_by
 
 
-def create_master_data(validated_data):
-    excel_file_data = xlsx_get(validated_data['file'])['Users']
-    uploaded_data_by_user_list, excelFile_headers = get_excel_file_data(excel_file_data)
+def update_master_data(validated_data):
+    csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
+    # Converting headers into lowercase
+    excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
 
-    if validated_data['upload_type'] == "master_data":
-        SetMasterData.set_master_data(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "inactive_status":
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
+
+    if validated_data['upload_type'] == "product_status_update_inactive":
         UploadMasterData.set_inactive_status(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "sub_brand_with_brand":
+    if validated_data['upload_type'] == "sub_brand_with_brand_mapping":
         UploadMasterData.set_sub_brand_and_brand(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "sub_category_with_category":
+    if validated_data['upload_type'] == "sub_category_with_category_mapping":
         UploadMasterData.set_sub_category_and_category(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "child_parent":
+    if validated_data['upload_type'] == "child_parent_product_update":
         UploadMasterData.set_child_parent(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "child_data":
+    if validated_data['upload_type'] == "child_product_update":
         UploadMasterData.set_child_data(uploaded_data_by_user_list)
-    if validated_data['upload_type'] == "parent_data":
+    if validated_data['upload_type'] == "parent_product_update":
         UploadMasterData.set_parent_data(uploaded_data_by_user_list)
+    if validated_data['upload_type'] == "product_tax_update":
+        UploadMasterData.set_product_tax(uploaded_data_by_user_list)
 
 
-def download_sample_file_master_data(validated_data):
+def download_sample_file_update_master_data(validated_data):
 
-    if validated_data['upload_type'] == "master_data":
-        response = DownloadMasterData.set_master_data_sample_file(validated_data)
-    if validated_data['upload_type'] == "inactive_status":
-        response = DownloadMasterData.set_inactive_status_sample_file(validated_data)
-    if validated_data['upload_type'] == "sub_brand_with_brand":
-        response = DownloadMasterData.brand_sub_brand_mapping_sample_file()
-    if validated_data['upload_type'] == "sub_category_with_category":
-        response = DownloadMasterData.category_sub_category_mapping_sample_file()
-    if validated_data['upload_type'] == "child_parent":
-        response = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
-    if validated_data['upload_type'] == "child_data":
-        response = DownloadMasterData.set_child_data_sample_file(validated_data)
-    if validated_data['upload_type'] == "parent_data":
-        response = DownloadMasterData.set_parent_data_sample_file(validated_data)
+    if validated_data['upload_type'] == "product_status_update_inactive":
+        response, csv_filename = DownloadMasterData.set_inactive_status_sample_file(validated_data)
+    if validated_data['upload_type'] == "sub_brand_with_brand_mapping":
+        response, csv_filename = DownloadMasterData.brand_sub_brand_mapping_sample_file()
+    if validated_data['upload_type'] == "sub_category_with_category_mapping":
+        response, csv_filename = DownloadMasterData.category_sub_category_mapping_sample_file()
+    if validated_data['upload_type'] == "child_product_update":
+        response, csv_filename = DownloadMasterData.set_child_data_sample_file(validated_data)
+    if validated_data['upload_type'] == "parent_product_update":
+        response, csv_filename = DownloadMasterData.set_parent_data_sample_file(validated_data)
+    if validated_data['upload_type'] == "child_parent_product_update":
+        response, csv_filename = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
+    if validated_data['upload_type'] == "product_tax_update":
+        response, csv_filename = DownloadMasterData.set_product_tax_sample_file(validated_data)
 
-    return response
+    return response, csv_filename
+
+

@@ -7,6 +7,7 @@ import urllib.request
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.validators import MinValueValidator, MaxValueValidator
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -92,8 +93,9 @@ class Flavor(models.Model):
 
 
 class Weight(BaseTimestampUserStatusModel):
-    weight_value = models.CharField(max_length=255, null=True, blank=True)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'kg')
+    weight_value = models.DecimalField(null=True, blank=True, decimal_places=2, max_digits=12,
+                                       validators=[MinValueValidator(0.0)])
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default = 'kg')
     weight_name = models.SlugField(unique=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
@@ -1040,6 +1042,7 @@ class ProductPackingMapping(models.Model):
 
 
 class CentralLog(models.Model):
+    action = models.CharField(max_length=50, null=True, blank=True)
     shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)

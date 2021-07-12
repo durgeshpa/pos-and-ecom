@@ -1,4 +1,5 @@
 import logging
+import datetime
 from django.core.exceptions import ObjectDoesNotExist
 
 from django.http import HttpResponse
@@ -172,14 +173,18 @@ class CategoryView(GenericAPIView):
 
         info_logger.info("Category DELETE api called.")
         if not request.data.get('category_ids'):
-            return get_response('please provide parent_product_id', False)
+            return get_response('please select category', False)
         try:
             for id in request.data.get('category_ids'):
                 category_id = self.queryset.get(id=int(id))
                 try:
                     category_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'brand_id': category_id}
+                    info_logger.info("category deleted info ", dict_data)
                 except:
-                    return get_response(f'can not delete category {category_id.category_name}', False)
+                    return get_response(f'You can not delete category {category_id.category_name}, '
+                                        f'because this category is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid category {id}', False)

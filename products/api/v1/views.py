@@ -1,10 +1,12 @@
 import logging
+import datetime
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
+from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
@@ -13,6 +15,7 @@ from categories.models import Category
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
+
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
@@ -23,9 +26,8 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search
+from products.common_function import ParentProductCls, ProductCls
 
-
-from rest_framework.permissions import AllowAny
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -184,17 +186,20 @@ class TaxView(GenericAPIView):
 
         info_logger.info("Tax DELETE api called.")
         if not request.data.get('tax_ids'):
-            return get_response('please provide tax_ids', False)
+            return get_response('please select tax', False)
         try:
             for id in request.data.get('tax_ids'):
                 tax_id = self.queryset.get(id=int(id))
                 try:
                     tax_id.delete()
-                except:
-                    return get_response(f'can not delete tax {tax_id.tax_name}', False)
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'tax_id': tax_id}
+                    info_logger.info("tax deleted info ", dict_data)
+                except Exception as er:
+                    return get_response(f'You can not delete tax {tax_id.tax_name}, '
+                                        f'because this tax is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid tax_id {id}', False)
+            return get_response(f'please provide a valid tax id {id}', False)
         return get_response('tax were deleted successfully!', True)
 
     def search_filter_product_tax(self):
@@ -231,13 +236,14 @@ class ParentProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
-        'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
-        'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
-        'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor', 'parent_product_log', 'parent_product_log__updated_by'). \
-        only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
-             'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code', 'updated_at',
-             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory')\
-        .order_by('-id')
+         'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
+         'product_parent_product__product_pro_image', 'parent_product_pro_category__category', 'parent_product_log',
+         'product_parent_product__product_vendor_mapping', 'parent_product_pro_tax__tax', 'parent_product_pro_image',
+         'parent_product_log__updated_by', 'product_parent_product__product_vendor_mapping__vendor',)\
+        .only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
+              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
+              'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
+              'max_inventory').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -304,14 +310,18 @@ class ParentProductView(GenericAPIView):
 
         info_logger.info("Parent Product DELETE api called.")
         if not request.data.get('parent_product_id'):
-            return get_response('please provide parent_product_id', False)
+            return get_response('please select parent product', False)
         try:
             for id in request.data.get('parent_product_id'):
                 parent_product_id = self.queryset.get(id=int(id))
                 try:
                     parent_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'parent_product_id': parent_product_id}
+                    info_logger.info("parent_product deleted info ", dict_data)
                 except:
-                    return get_response(f'can not delete parent_product {parent_product_id.name}', False)
+                    return get_response(f'You can not delete parent product {parent_product_id.name}, '
+                                        f'because this parent product is mapped with child product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid parent_product_id {id}', False)
@@ -385,17 +395,19 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('parent_product').prefetch_related('product_pro_image',
-        'product_vendor_mapping', 'parent_product__parent_product_pro_image', 'child_product_log', 'child_product_log__updated_by',
-        'parent_product__parent_product_pro_category__category', 'parent_product__parent_product_pro_category',
-        'destination_product_pro', 'destination_product_pro__source_sku', 'destination_product_repackaging',
-        'packing_product_rt', 'packing_product_rt__packing_sku', 'parent_product__product_hsn',
-        'parent_product__product_parent_product__product_vendor_mapping', 'parent_product__parent_product_log',
-        'parent_product__parent_product_log__updated_by', 'parent_product__product_parent_product__product_vendor_mapping__vendor',
-        'product_vendor_mapping__vendor', 'parent_product__product_parent_product__product_vendor_mapping',
-        'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
-        'parent_product__parent_product_pro_tax__tax', 'product_pro_tax__tax',).order_by('-id')
+    queryset = ChildProduct.objects.select_related('parent_product')\
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
+                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
 
@@ -450,9 +462,9 @@ class ChildProductView(GenericAPIView):
         id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        parent_product_instance = id_instance['data'].last()
+        child_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
+        serializer = self.serializer_class(instance=child_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Child Product Updated Successfully.")
@@ -464,14 +476,18 @@ class ChildProductView(GenericAPIView):
 
         info_logger.info("Child Product DELETE api called.")
         if not request.data.get('child_product_id'):
-            return get_response('please provide child_product_id', False)
+            return get_response('please select child product', False)
         try:
             for id in request.data.get('child_product_id'):
                 child_product_id = self.queryset.get(id=int(id))
                 try:
                     child_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'child_product_id': child_product_id}
+                    info_logger.info("child_product deleted info ", dict_data)
                 except:
-                    return get_response(f'can not delete child_product {child_product_id.product_name}', False)
+                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
+                                        f'because this child product is mapped with product price', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid child_product_id {id}', False)
@@ -796,14 +812,18 @@ class WeightView(GenericAPIView):
 
         info_logger.info("Weight DELETE api called.")
         if not request.data.get('weight_ids'):
-            return get_response('please provide weight_ids', False)
+            return get_response('please select weight', False)
         try:
             for w_id in request.data.get('weight_ids'):
                 weight_id = self.queryset.get(id=int(w_id))
                 try:
                     weight_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'weight_id': weight_id}
+                    info_logger.info("weight deleted info ", dict_data)
                 except:
-                    return get_response(f'can not delete weight {weight_id.weight_name}', False)
+                    return get_response(f'You can not delete weight {weight_id.weight_name}, '
+                                        f'because this weight is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid weight id {w_id}', False)

@@ -7,7 +7,7 @@ from django.http import HttpResponse
 
 from rest_framework import serializers
 from brand.models import Brand, BrandPosition, BrandData, Vendor
-from products.api.v1.serializers import UserSerializers, LogSerializers
+from products.api.v1.serializers import LogSerializers
 from products.common_validators import get_validate_parent_brand
 from brand.common_function import BrandCls
 from products.models import ProductVendorMapping, Product, ParentProduct
@@ -130,6 +130,7 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             brand = Brand.objects.create(**validated_data)
+            BrandCls.create_brand_log(brand, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -140,11 +141,10 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             brand = super().update(instance, validated_data)
+            BrandCls.create_brand_log(brand, "updated")
         except Exception as e:
             error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-        BrandCls.create_brand_log(brand)
 
         return brand
 

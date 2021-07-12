@@ -145,8 +145,9 @@ class ExportCsvMixin:
                     items.append(str(packing_sku) if packing_sku else '-')
                     items.append(str(packing_sku.packing_sku_weight_per_unit_sku) if packing_sku else '-')
                     cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
-                    for param in cost_params:
-                        items.append(str(getattr(cost_obj, param)))
+                    if cost_obj:
+                        for param in cost_params:
+                            items.append(str(getattr(cost_obj, param)))
                 else:
                     items.append('-')
                     for param in cost_params:

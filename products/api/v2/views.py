@@ -1,17 +1,19 @@
 import logging
-from django.http import HttpResponse
 import csv
+from django.http import HttpResponse
+from django.core.exceptions import ObjectDoesNotExist
+
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
 
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ProductCategoryMappingSerializers, ParentProductImageSerializers, ChildProductImageSerializers, \
-    ParentProductBulkUploadSerializers, ChildProductBulkUploadSerializers, BulkProductTaxUpdateSerializers
+    ParentProductImageSerializers, ChildProductImageSerializers, ParentProductBulkUploadSerializers, \
+    ChildProductBulkUploadSerializers
+
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
@@ -102,7 +104,6 @@ class ChildProductsDownloadSampleCSV(APIView):
 
 class BulkUploadProductAttributes(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = BulkUploadForProductAttributes.objects.select_related('updated_by')\
         .only('id', 'file', 'upload_type', 'updated_by', 'created_at', 'updated_at').order_by('-id')
     serializer_class = UploadMasterDataSerializers
@@ -111,7 +112,6 @@ class BulkUploadProductAttributes(GenericAPIView):
         """ GET Bulk Log List for Bulk Uploaded Data """
 
         info_logger.info("Bulk Log GET api called.")
-
         if request.GET.get('id'):
             """ Get Bulk Log Detail for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -148,6 +148,24 @@ class BulkUploadProductAttributes(GenericAPIView):
             return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def delete(self, request):
+        """ Delete Bulk Attribute """
+
+        info_logger.info("Bulk Log DELETE api called.")
+        if not request.data.get('bulk_product_attribute_ids'):
+            return get_response('please provide bulk_product_attribute_id', False)
+        try:
+            for id in request.data.get('bulk_product_attribute_ids'):
+                bulk_product_attribute = self.queryset.get(id=int(id))
+                try:
+                    bulk_product_attribute.delete()
+                except:
+                    return get_response(f'can not delete bulk_product_attribute {bulk_product_attribute.file}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'{id} is invalid, please provide a valid bulk_product_attribute_id ', False)
+        return get_response('bulk product attribute were deleted successfully!', True)
+
     def search_filter_bulk_log(self):
         search_text = self.request.GET.get('search_text')
         # search using upload_type and uploaded_by
@@ -169,52 +187,6 @@ class BulkDownloadProductAttributes(GenericAPIView):
             response = serializer.save()
             info_logger.info("BulkDownloadProductAttributes Downloaded successfully")
             return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
-class ProductCategoryMapping(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ProductCategoryMappingSerializers
-
-    def post(self, request):
-        """ POST API for Updating ProductCategoryMapping """
-
-        info_logger.info("BulkDownloadProductAttributes POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("ProductCategoryMapping upload successfully")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
-class BulkProductTaxGSTUpdateSampleCSV(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-
-    def get(self, request):
-        filename = "bulk_product_tax_gst_update_sample.csv"
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-        writer = csv.writer(response)
-        writer.writerow(['parent_id', 'gst', 'cess'])
-        writer.writerow(['PHEATOY0006', 2, 12])
-        info_logger.info("bulk tax update Sample CSVExported successfully ")
-        return HttpResponse(response, content_type='text/csv')
-
-
-class BulkProductTaxUpdateView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = BulkProductTaxUpdateSerializers
-
-    def post(self, request):
-        """ POST API for Updating BulkProductTaxGST """
-
-        info_logger.info("BulkProductTaxUpdateView POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
-            info_logger.info("tax updated successfully")
-            return get_response('tax updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
