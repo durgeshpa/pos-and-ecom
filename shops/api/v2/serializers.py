@@ -94,6 +94,7 @@ class ShopDocSerializer(serializers.ModelSerializer):
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', )
 
+
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
     shop_owner_id = serializers.SerializerMethodField('get_user_id')
     first_name = serializers.SerializerMethodField('get_user_first_name')
@@ -103,7 +104,8 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('shop_owner_id', 'first_name', 'last_name', 'phone_number', 'email',)
+        fields = ('shop_owner_id', 'first_name',
+                  'last_name', 'phone_number', 'email',)
 
     def get_user_id(self, obj):
         return obj.shop_owner.id if obj.shop_owner else None
@@ -127,33 +129,35 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 #         model = Shop
 #         fields = ('shop_owner',)
 
+
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk', 'id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('pk', 'id', 'first_name', 'last_name',
+                  'phone_number', 'email', 'user_photo')
 
 
 class PinCodeAddressSerializer(serializers.ModelSerializer):
-    
+
     pincode_id = serializers.SerializerMethodField('get_pin_id_name')
     pincode = serializers.SerializerMethodField('get_pincode_name')
-    
+
     class Meta:
         model = Address
         fields = ('pincode_id', 'pincode',)
-    
+
     def get_pin_id_name(self, obj):
         return obj.pincode_link.id if obj.pincode_link else None
-    
+
     def get_pincode_name(self, obj):
         return obj.pincode_link.pincode if obj.pincode_link else None
 
 
 class CityAddressSerializer(serializers.ModelSerializer):
-    
+
     city_id = serializers.SerializerMethodField('get_city_id_from_city')
     city_name = serializers.SerializerMethodField('get_city_name_from_city')
-    
+
     class Meta:
         model = Address
         fields = ('city_id', 'city_name',)
@@ -162,13 +166,14 @@ class CityAddressSerializer(serializers.ModelSerializer):
         return obj.city.id
 
     def get_city_name_from_city(self, obj):
-        return obj.city.city_name    
+        return obj.city.city_name
+
 
 class StateAddressSerializer(serializers.ModelSerializer):
-    
+
     state_id = serializers.SerializerMethodField('get_state_id_from_state')
     state_name = serializers.SerializerMethodField('get_state_name_from_state')
-    
+
     class Meta:
         model = Address
         fields = ('state_id', 'state_name',)
@@ -177,22 +182,26 @@ class StateAddressSerializer(serializers.ModelSerializer):
         return obj.state.id
 
     def get_state_name_from_state(self, obj):
-        return obj.state.state_name    
+        return obj.state.state_name
+
 
 class PincodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
         fields = '__all__'
 
+
 class StateSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
         fields = '__all__'
 
+
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = '__all__'
+
 
 class AddressSerializer(serializers.ModelSerializer):
 
@@ -216,7 +225,8 @@ class AddressSerializer(serializers.ModelSerializer):
         response = super().to_representation(instance)
         response['city'] = CitySerializer(instance.city).data
         response['state'] = StateSerializer(instance.state).data
-        response['pincode_link'] = PincodeSerializer(instance.pincode_link).data
+        response['pincode_link'] = PincodeSerializer(
+            instance.pincode_link).data
         return response
 
 # class LogSerializers(serializers.ModelSerializer):
@@ -230,6 +240,7 @@ class AddressSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = CentralLog
 #         fields = ('update_at', 'updated_by',)
+
 
 class ShopCrudSerializers(serializers.ModelSerializer):
 
@@ -250,7 +261,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         model = Shop
         fields = ('id', 'shop_name', 'owner', 'parent_shop', 'address', 'pincode', 'city',
                   'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
-                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern',)# 'shop_log')
+                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern',)  # 'shop_log')
 
     def shop_approval_status(self, obj):
         return obj.get_approval_status_display()
@@ -295,7 +306,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         try:
             shop_instance = Shop.objects.create(**validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         self.create_shop_photo_doc_invoice(shop_instance)
@@ -309,29 +321,27 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         self.create_shop_photo_doc_invoice(shop_instance)
         # ShopCls.create_shop_log(shop_instance)
         return shop_instance
-    
+
     def create_shop_photo_doc_invoice(self, shop):
         ''' Create Shop Photos, Docs'''
         shop_photo = None
         shop_docs = None
         shop_invoice_pattern = None
 
-        if 'shop_photo' in self.initial_data and self.initial_data['shop_photo']:
-            shop_photo = self.initial_data['shop_photo']
+        if 'shop_photos' in self.initial_data and self.initial_data['shop_photos']:
+            shop_photo = self.initial_data['shop_photos']
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
             shop_docs = self.initial_data['shop_docs']
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
             shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
-        print(shop_photo)
-        print(shop_docs)
-        print(shop_invoice_pattern)
-        # ShopCls.upload_shop_photos(shop, shop_photo)
-        # ShopCls.create_shop_docs(shop, shop_docs)
-        # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern)
+        ShopCls.upload_shop_photos(shop, shop_photo)
+        ShopCls.create_shop_docs(shop, shop_docs)
+        ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern)

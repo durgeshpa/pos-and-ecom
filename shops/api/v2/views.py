@@ -7,13 +7,12 @@ from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGE
 from rest_framework.permissions import AllowAny
 from retailer_backend.utils import SmallOffsetPagination
 
-from addresses.models import Address
-from addresses.api.v1.serializers import AddressSerializer
-
 from .serializers import (
-    CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, StateAddressSerializer
 )
+
+from addresses.models import Address
 from shops.models import (
     ShopType, Shop
 )
@@ -90,7 +89,8 @@ class ShopDocumentTypeListView(generics.GenericAPIView):
         """ GET API for ShopDocumentList """
         info_logger.info("ShopDocumentList GET api called.")
         fields = ['id', 'status']
-        data = [dict(zip(fields, d)) for d in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES]
+        data = [dict(zip(fields, d))
+                for d in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
 
@@ -103,7 +103,8 @@ class ShopInvoiceStatusListView(generics.GenericAPIView):
         """ GET API for ShopInvoiceStatusList """
         info_logger.info("ShopInvoiceStatusList GET api called.")
         fields = ['id', 'status']
-        data = [dict(zip(fields, d)) for d in ShopInvoicePattern.SHOP_INVOICE_CHOICES]
+        data = [dict(zip(fields, d))
+                for d in ShopInvoicePattern.SHOP_INVOICE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
 
@@ -211,7 +212,7 @@ class ShopView(generics.GenericAPIView):
         serializer = self.serializer_class(shops_data, many=True)
         msg = "" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
-    
+
     def post(self, request):
         """ POST API for Shop Creation with Image Category & Tax """
 
@@ -246,7 +247,8 @@ class ShopView(generics.GenericAPIView):
             return get_response(id_instance['error'])
         shop_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=shop_instance, data=modified_data)
+        serializer = self.serializer_class(
+            instance=shop_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Updated Successfully.")
@@ -271,7 +273,6 @@ class ShopView(generics.GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid shop_id {id}', False)
         return get_response('shop were deleted successfully!', True)
-
 
     def search_filter_shops_data(self):
         search_text = self.request.GET.get('search_text')

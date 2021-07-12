@@ -6,15 +6,11 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from shops.models import *
-# from shops.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-#     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
-from categories.models import Category
-from wms.models import Out, WarehouseInventory, BinInventory
-# from shops.master_data import SetMasterData, UploadMasterData, DownloadMasterData
-# Get an instance of a logger
+
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
 
 class ShopCls(object):
     @classmethod
@@ -22,21 +18,43 @@ class ShopCls(object):
         """
             Create Weight Log
         """
-        shop_log = CentralLog.objects.create(shop=log_obj, updated_by=log_obj.updated_by)
+        shop_log = CentralLog.objects.create(
+            shop=log_obj, updated_by=log_obj.updated_by)
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
                      'shop': log_obj}
         info_logger.info("shop_log update info ", dict_data)
 
         return shop_log
-    
+
     @classmethod
-    def create_shop_docs(cls, shop, shop_docs):
+    def upload_shop_photos(cls, shop, photos):
         """
-            Create Shop Docs
+            Create shop_photos
         """
-        shop_docs = ShopDocument.objects.filter(shop_name=shop).all()
-        for doc in shop_docs:
+        # shop_photos = ShopPhoto.objects.filter(shop_name=shop).all()
+        if photos:
+            for photo in photos:
+                ShopPhoto.objects.create(shop_photo=photo, shop_name=photo.name.rsplit(".", 1)[0],
+                                         parent_product=shop)
+
+    @classmethod
+    def create_shop_docs(cls, shop, docs):
+        """
+            Create shop_docs
+        """
+        shop_documents = ShopDocument.objects.filter(shop_name=shop).all()
+        for doc in shop_documents:
             print(doc)
+
+    @classmethod
+    def create_shop_invoice_pattern(cls, shop, invoice_pattern):
+        """
+            Create shop_invoice_pattern
+        """
+        shop_invoice_pattern = ShopInvoicePattern.objects.filter(
+            shop=shop).all()
+        for invoice in shop_invoice_pattern:
+            print(invoice)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
@@ -47,7 +65,8 @@ def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
         result = {"is_success": True, "message": msg, "response_data": data}
     else:
         if data:
-            result = {"is_success": True, "message": msg, "response_data": data}
+            result = {"is_success": True,
+                      "message": msg, "response_data": data}
         else:
             status_code = status.HTTP_406_NOT_ACCEPTABLE
             result = {"is_success": False, "message": msg, "response_data": []}
@@ -72,7 +91,8 @@ def serializer_error(serializer):
 
 def get_excel_file_data(excel_file):
     headers = excel_file.pop(0)  # headers of the uploaded excel file
-    excelFile_headers = [str(ele).lower() for ele in headers]  # Converting headers into lowercase
+    # Converting headers into lowercase
+    excelFile_headers = [str(ele).lower() for ele in headers]
 
     uploaded_data_by_user_list = []
     excel_dict = {}
