@@ -217,6 +217,7 @@ class CommonInventoryStateFunctions(object):
 
 class CommonWarehouseInventoryFunctions(object):
     @classmethod
+    @transaction.atomic
     def create_warehouse_inventory_with_transaction_log(cls, warehouse, product, inventory_type, inventory_state, quantity,
                                                         transaction_type, transaction_id, in_stock=True, weight=0):
         """
