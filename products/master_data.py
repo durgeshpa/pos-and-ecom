@@ -41,7 +41,7 @@ class UploadMasterData(object):
     """
 
     @classmethod
-    def set_inactive_status(cls, csv_file_data_list):
+    def set_inactive_status(cls, csv_file_data_list, user):
         try:
             count = 0
             info_logger.info("Method Start to set Inactive status from excel file")
@@ -51,9 +51,9 @@ class UploadMasterData(object):
                     count += 1
                     product = child_product.filter(product_sku=row['sku_id'])
                     if 'mrp' in row.keys() and not row['mrp'] == '':
-                        product.update(status='deactivated', product_mrp=row['mrp'])
+                        product.update(status='deactivated', product_mrp=row['mrp'], updated_by=user)
                     else:
-                        product.update(status='deactivated')
+                        product.update(status='deactivated', updated_by=user)
                 else:
                     continue
             info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
@@ -63,7 +63,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Inactive Status Functionality' + {str(e)}")
 
     @classmethod
-    def set_sub_brand_and_brand(cls, csv_file_data_list):
+    def set_sub_brand_and_brand(cls, csv_file_data_list, user):
         """
             Updating Brand & Sub Brand
         """
@@ -81,7 +81,7 @@ class UploadMasterData(object):
                         if row['sub_brand_id'] == row['brand_id']:
                             continue
                         else:
-                            brand.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
+                            brand.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'], updated_by=user)
                 except:
                     sub_brand.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -92,7 +92,7 @@ class UploadMasterData(object):
                               f" + {str(e)}")
 
     @classmethod
-    def set_sub_category_and_category(cls, csv_file_data_list):
+    def set_sub_category_and_category(cls, csv_file_data_list, user):
         try:
             count = 0
             row_num = 1
@@ -107,7 +107,8 @@ class UploadMasterData(object):
                         if row['sub_category_id'] == row['category_id']:
                             continue
                         else:
-                            category.filter(id=row['sub_category_id']).update(category_parent=row['category_id'])
+                            category.filter(id=row['sub_category_id']).update(category_parent=row['category_id'],
+                                                                              updated_by=user)
                 except:
                     sub_category.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -118,7 +119,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Sub Category and Category Functionality' + {str(e)}")
 
     @classmethod
-    def set_parent_data(cls, csv_file_data_list):
+    def set_parent_data(cls, csv_file_data_list, user):
         try:
             count = 0
             row_num = 1
@@ -147,11 +148,11 @@ class UploadMasterData(object):
                         for col in available_fields:
 
                             if col == 'product_type':
-                                parent_product.update(product_type=row['product_type'])
+                                parent_product.update(product_type=row['product_type'], updated_by=user)
 
                             if col == 'hsn':
-                                parent_product.update(
-                                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+                                parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last(),
+                                                      updated_by=user)
 
                             if col == 'tax_1(gst)':
                                 tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -221,8 +222,7 @@ class UploadMasterData(object):
 
                             if col == 'is_lead_time_applicable':
                                 parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (is_lead_time_applicable=True if row[
-                                                                         'is_lead_time_applicable'].lower() == 'yes' else False)
+                                    (is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
 
                     except Exception as e:
                         parent_data.append(str(row_num) + ' ' + str(e))
@@ -235,7 +235,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
 
     @classmethod
-    def set_child_parent(cls, csv_file_data_list):
+    def set_child_parent(cls, csv_file_data_list, user):
         try:
             info_logger.info("Method Start to set the Child to Parent mapping from excel file")
             count = 0
@@ -250,7 +250,7 @@ class UploadMasterData(object):
                     try:
                         child_pro = child_product.filter(product_sku=row['sku_id'])
                         parent_pro = parent_product.filter(parent_id=row['parent_id']).last()
-                        child_pro.update(parent_product=parent_pro)
+                        child_pro.update(parent_product=parent_pro, updated_by=user)
                     except:
                         set_child.append(str(row_num))
 
@@ -262,7 +262,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
 
     @classmethod
-    def set_child_data(cls, csv_file_data_list):
+    def set_child_data(cls, csv_file_data_list, user):
         try:
             info_logger.info("Method Start to set the Child data from excel file")
             count = 0
@@ -274,7 +274,7 @@ class UploadMasterData(object):
                 count += 1
                 try:
                     child_product = product.filter(product_sku=row['sku_id'])
-                    child_product.update(product_name=row['sku_name'], status=row['status'])
+                    child_product.update(product_name=row['sku_name'], status=row['status'], updated_by=user)
                     fields = ['ean', 'mrp', 'weight_unit', 'weight_value']
                     available_fields = []
                     for col in fields:
@@ -311,7 +311,7 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Child Data Functionality' + {str(e)}")
 
     @classmethod
-    def set_product_tax(cls, csv_file_data_list):
+    def set_product_tax(cls, csv_file_data_list, user):
         """
             Updating Parent Product & Tax
         """
