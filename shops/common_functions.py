@@ -34,8 +34,7 @@ class ShopCls(object):
         # shop_photos = ShopPhoto.objects.filter(shop_name=shop).all()
         if photos:
             for photo in photos:
-                ShopPhoto.objects.create(shop_photo=photo, shop_name=photo.name.rsplit(".", 1)[0],
-                                         parent_product=shop)
+                ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
 
     @classmethod
     def create_shop_docs(cls, shop, docs):

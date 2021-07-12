@@ -1,4 +1,4 @@
-# import json
+import json
 
 
 def validate_id(queryset, id):
@@ -39,8 +39,9 @@ def validate_shop_owner_id(queryset, id):
 def validate_data_format(request):
     """ Validate shop data  """
     try:
-        # data = json.loads(request.data["data"])
-        data = request.data["data"]
+        data = json.loads(request.data["data"])
+        print(data)
+        # data = request.data["data"]
     except Exception as e:
         return {'error': "Invalid Data Format", }
 
