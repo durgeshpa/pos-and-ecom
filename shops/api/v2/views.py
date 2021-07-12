@@ -269,7 +269,7 @@ class ShopView(generics.GenericAPIView):
         id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        shop_instance = id_instance['data'].last()
+        shop_instance = id_instance['data']
 
         serializer = self.serializer_class(
             instance=shop_instance, data=modified_data)
