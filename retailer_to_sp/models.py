@@ -72,6 +72,7 @@ RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
+ECOM = 'EC0M'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -104,7 +105,8 @@ CART_TYPES = (
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
-    (BASIC, 'Basic')
+    (BASIC, 'Basic'),
+    (ECOM, 'Ecom')
 )
 
 

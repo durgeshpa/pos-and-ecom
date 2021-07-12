@@ -149,9 +149,9 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		Update offers on cart after any product (quantity) is updated
 		Check combo on product, check cart level discount
 	"""
-	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
-	elif instance.cart.cart_type == 'BASIC' and instance.product_type == 1 and instance.selling_price:
+	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type == 1 and instance.selling_price:
 		# Get combo coupon for product
 		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
 		# Check and apply/remove combo offers
@@ -170,9 +170,9 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 		Update offers on cart after any product is deleted
 		Remove combo on this product, check cart level discount
 	"""
-	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
-	elif instance.cart.cart_type == 'BASIC' and instance.product_type:
+	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type:
 		# Remove if any combo products added
 		offers_list = BasicCartOffers.update_combo(instance.retailer_product.id, instance.cart.offers, [])
 		# Recheck cart discount according to updated cart value
@@ -184,7 +184,7 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 def create_cart_no(sender, instance=None, created=False, **kwargs):
 	if not instance.cart_no and instance.seller_shop:
 		bill_add_id = instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk
-		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
+		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'ECOM']:
 			instance.cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'BULK':
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)

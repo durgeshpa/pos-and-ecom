@@ -82,6 +82,7 @@ from global_config.models import GlobalConfig
 from elasticsearch import Elasticsearch
 from pos.common_functions import check_pos_shop
 from marketing.models import ReferralCode
+from ecom.utils import check_ecom_user
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -845,16 +846,16 @@ class CartCentral(GenericAPIView):
                 shop_id
                 cart_type (retail-1 or basic-2)
         """
-        cart_type = self.request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             if self.request.GET.get('cart_id'):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def post(self, request, *args, **kwargs):
         """
@@ -865,13 +866,15 @@ class CartCentral(GenericAPIView):
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.retail_add_to_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.ecom_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
@@ -883,8 +886,8 @@ class CartCentral(GenericAPIView):
                 cart_id
                 qty
         """
-        cart_type = self.request.data.get('cart_type')
-        if cart_type == '2':
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
@@ -1216,6 +1219,38 @@ class CartCentral(GenericAPIView):
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
+    @check_pos_shop
+    @check_ecom_user
+    def ecom_add_to_cart(self, request, *args, **kwargs):
+        """
+            Add To Cart
+            For cart type 'ECOM'
+        """
+        with transaction.atomic():
+            # basic validations for inputs
+            shop = kwargs['shop']
+            initial_validation = self.post_ecom_validate(shop)
+            if 'error' in initial_validation:
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False)
+            product = initial_validation['product']
+            qty = initial_validation['quantity']
+
+            # Update or create cart for user for shop
+            cart = self.post_update_ecom_cart(shop)
+            # Check if product has to be removed
+            if int(qty) == 0:
+                delete_cart_mapping(cart, product, 'ecom')
+            else:
+                # Add quantity to cart
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                                                                           product_type=1)
+                cart_mapping.selling_price = product.selling_price
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            # serialize and return response
+            return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
     def post_retail_validate(self):
         """
             Add To Cart
@@ -1305,6 +1340,21 @@ class CartCentral(GenericAPIView):
             product.save()
         return {'product': product, 'quantity': qty, 'cart': cart}
 
+    def post_ecom_validate(self, shop, cart_id=None):
+        """
+            Add To Cart
+            Input validation for add to cart for cart type 'ECOM'
+        """
+        # Added Quantity check
+        qty = self.request.data.get('qty')
+        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            return {'error': "Qty Invalid!"}
+        try:
+            product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), status='active', shop=shop)
+        except ObjectDoesNotExist:
+            return {'error': "Product Not Found!"}
+        return {'product': product, 'quantity': qty}
+
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
             Create or update/add product to retail sp Cart
@@ -1357,6 +1407,16 @@ class CartCentral(GenericAPIView):
                         seller_shop=seller_shop)
             cart.approval_status = False
             cart.save()
+        return cart
+
+    def post_update_ecom_cart(self, seller_shop):
+        """
+            Create or update/add product to ecom Cart
+        """
+        user = self.request.user
+        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop)
+        cart.cart_status = 'active'
+        cart.save()
         return cart
 
     @staticmethod
