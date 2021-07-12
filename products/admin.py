@@ -311,7 +311,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/product_vendor_mapping_form.js'
         )
 
@@ -1101,8 +1101,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def save_model(self, request, obj, form, change):
         if 'repackaging_type' in form.changed_data and form.cleaned_data['repackaging_type'] == 'packing_material':
             self.update_weight_inventory(obj)
-        if 'repackaging_type' in form.cleaned_data and form.cleaned_data['repackaging_type'] == 'packing_material':
-            obj.status = 'pending_approval'
         super(ProductAdmin, self).save_model(request, obj, form, change)
 
     @staticmethod

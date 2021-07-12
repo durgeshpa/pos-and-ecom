@@ -129,7 +129,7 @@ INSTALLED_APPS = [
     'mathfilters',
     'wms',
     'audit',
-    # 'django_extensions',
+    'django_extensions',
     'franchise.apps.FranchiseConfig',
     'django_tables2',
     'tablib',
@@ -289,6 +289,13 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
 }
+# REST_FRAMEWORK = {
+#     # Use Django's standard `django.contrib.auth` permissions,
+#     # or allow read-only access for unauthenticated users.
+#     'DEFAULT_PERMISSION_CLASSES': (
+#         'rest_framework.permissions.AllowAny',
+#     ),
+# }
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
@@ -394,10 +401,10 @@ CRONJOBS = [
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
     ('30 21 * * *', 'products.cron.packing_sku_inventory_alert'),
     ('30 21 * * *', 'retailer_incentive.cron.update_scheme_status_cron'),
-    ('30 2 * * *', 'ars.cron.run_ars_cron'),
-    ('0 3 * * *', 'ars.cron.generate_po_cron'),
-    ('0 2 * * *', 'ars.cron.daily_average_sales_cron'),
-    ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
+    ('*/10 * * * *', 'ars.cron.run_ars_cron'),
+    ('*/6 * * * *', 'ars.cron.generate_po_cron'),
+    ('0 8 * * *', 'ars.cron.daily_average_sales_cron'),
+    ('30 * * * *', 'ars.cron.daily_approved_po_mail'),
 
 
 

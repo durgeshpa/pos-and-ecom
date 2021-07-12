@@ -53,7 +53,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
@@ -83,7 +83,8 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return qs
+            return qs.filter(po_status='PDA')
+
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
@@ -97,16 +98,16 @@ class CartAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
 
         def po_edit_link(obj):
-            # if request.user.is_superuser:
-            #     return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
-            # if request.user.has_perm('gram_to_brand.can_create_po'):
-            #     return format_html("%s" % obj.po_no)
+            if request.user.is_superuser:
+                return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
+            if request.user.has_perm('gram_to_brand.can_create_po'):
+                return format_html("%s" % obj.po_no)
             return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
 
         po_edit_link.short_description = 'Po No'
 
         return [po_edit_link, 'brand', 'supplier_state', 'supplier_name', 'po_creation_date', 'po_validity_date',
-                'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
+                    'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
@@ -187,8 +188,7 @@ class CartAdmin(admin.ModelAdmin):
         defaults = {}
         if request.user.is_superuser:
             defaults['form'] = POGenerationForm
-        elif obj is not None and obj.po_status == 'PDA' \
-                and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
             defaults['form'] = POGenerationForm

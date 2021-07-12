@@ -11,8 +11,6 @@ db.sqlite3
 retailer_backend.sock
 env/
 venv/
-prod_db_100621
-mydatabase
 # Distribution / packaging
 .Python
 env/
