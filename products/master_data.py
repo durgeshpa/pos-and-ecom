@@ -7,7 +7,7 @@ from django.db.models import Q
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping
+    Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping, ProductSourceMapping, ProductPackingMapping
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -343,6 +343,155 @@ class UploadMasterData(object):
             error_logger.info(f"Something went wrong, while working with update Parent Product with Tax Functionality'"
                               f" + {str(e)}")
 
+    @classmethod
+    def create_bulk_parent_product(cls, csv_file_data_list, user):
+        """
+            Create Parent Product
+        """
+        try:
+            info_logger.info('Method Start to create Parent Product')
+            for row in csv_file_data_list:
+                parent_product = ParentProduct.objects.create(
+                    name=row['name'].strip(),
+                    parent_brand=Brand.objects.filter(brand_name=row['brand_name'].strip()).last(),
+                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
+                    inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
+                    is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
+                    ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                    if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
+                    ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
+                    is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
+                    max_inventory=row['max_inventory_in_days'].lower(),
+                    is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
+                    created_by=user
+                )
+
+                parent_gst = int(row['gst'])
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last())
+
+                parent_cess = int(row['cess']) if row['cess'] else 0
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last())
+
+                parent_surcharge = float(row['surcharge']) if row['surcharge'] else 0
+                if Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).exists():
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last())
+                else:
+                    new_surcharge_tax = Tax.objects.create(tax_name='Surcharge - {}'.format(parent_surcharge),
+                                                           tax_type='surcharge',
+                                                           tax_percentage=parent_surcharge,
+                                                           tax_start_at=datetime.datetime.now())
+
+                    ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=new_surcharge_tax)
+
+                if Category.objects.filter(category_name=row['category_name'].strip()).exists():
+                    ParentProductCategory.objects.create(
+                        parent_product=parent_product,
+                        category=Category.objects.filter(category_name=row['category_name'].strip()).last())
+
+                else:
+                    categories = row['category_name'].split(',')
+                    for cat in categories:
+                        cat = cat.strip().replace("'", '')
+                        ParentProductCategory.objects.create(parent_product=parent_product,
+                                                             category=Category.objects.filter(
+                                                                 category_name=cat).last())
+
+            info_logger.info("Method complete to create the Parent Product from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with create Parent Product "
+                              f" + {str(e)}")
+
+    @classmethod
+    def create_bulk_child_product(cls, csv_file_data_list, user):
+        """
+            Create Child Product
+        """
+        try:
+            info_logger.info('Method Start to create Child Product')
+            for row in csv_file_data_list:
+                child_product = Product.objects.create(
+                    parent_product=ParentProduct.objects.filter(parent_id=row['parent_id']).last(),
+                    reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['name'],
+                    product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
+                    weight_value=float(row['weight_value']), weight_unit= str(row['weight_unit'].lower()),
+                    repackaging_type=row['repackaging_type'], created_by=user)
+
+                if row['repackaging_type'] == 'destination':
+                    source_map = []
+                    for product_skus in row['source_sku_id'].split(','):
+                        pro = product_skus.strip()
+                        if pro is not '' and pro not in source_map and \
+                                Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                            source_map.append(pro)
+                    for sku in source_map:
+                        pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
+                        ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_sku,
+                                                            status=True)
+                    DestinationRepackagingCostMapping.objects.create(destination=child_product,
+                                                                     raw_material=float(row['raw_material']),
+                                                                     wastage=float(row['wastage']),
+                                                                     fumigation=float(row['fumigation']),
+                                                                     label_printing=float(row['label_printing']),
+                                                                     packing_labour=float(row['packing_labour']),
+                                                                     primary_pm_cost=float(row['primary_pm_cost']),
+                                                                     secondary_pm_cost=float(row['secondary_pm_cost']))
+                    ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(product_sku=row['packing_sku_id']),
+                                                         packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
+
+            info_logger.info("Method complete to create the Child Product from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with create Child Product "
+                              f" + {str(e)}")
+
+    @classmethod
+    def create_bulk_category(cls, csv_file_data_list, user):
+        """
+            Create Category
+        """
+        try:
+            info_logger.info('Method Start to create Category')
+            for row in csv_file_data_list:
+                Category.objects.create(
+                    category_name=row['name'],
+                    category_slug=row['category_slug'],
+                    category_parent=Category.objects.get(brand_name=row['category_parent'].strip()),
+                    category_desc=row['category_desc'],
+                    category_sku_part=row['category_sku_part'],
+                    created_by=user)
+
+            info_logger.info("Method complete to create Category from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with create Category "
+                              f" + {str(e)}")
+
+    @classmethod
+    def create_bulk_brand(cls, csv_file_data_list, user):
+        """
+            Create Brand
+        """
+        try:
+            info_logger.info('Method Start to create Brand')
+
+            for row in csv_file_data_list:
+                Brand.objects.create(
+                    brand_name=row['name'],
+                    brand_slug=row['brand_slug'],
+                    brand_parent=Brand.objects.get(brand_name=row['brand_parent'].strip()),
+                    brand_description=row['brand_description'],
+                    brand_code=row['brand_code'],
+                    created_by=user)
+
+            info_logger.info("Method complete to create Brand from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with create Brand "
+                              f" + {str(e)}")
+
 
 class DownloadMasterData(object):
     """
@@ -622,6 +771,74 @@ class DownloadMasterData(object):
         writer.writerow(['PHEATOY0006', 2, 12, 4])
 
         info_logger.info("bulk tax update Sample CSVExported successfully ")
+        response.seek(0)
+        return response, csv_filename
+
+    @classmethod
+    def set_parent_product_sample_file(cls, validated_data):
+        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
+        columns = ["name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
+                   "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
+                   "max_inventory_in_days", "is_lead_time_applicable"]
+        writer.writerow(columns)
+        data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
+                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes"],
+                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no",
+                 " ", "", "no", "2", "yes"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Parent Product Sample CSVExported successfully ")
+        response.seek(0)
+        return response, csv_filename
+
+    @classmethod
+    def set_child_product_sample_file(cls, validated_data):
+        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_child_product_create_sample")
+        writer = csv.writer(response)
+        writer.writerow(["parent_id", "reason_for_child_sku", "name", "ean",
+                         "mrp", "weight_value", "weight_unit", "repackaging_type", "source_sku_id",
+                         'raw_material', 'wastage', 'fumigation', 'label_printing',
+                         'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
+                         "packing_material_weight"])
+        data = [["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"],
+                ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"],
+                ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
+                 "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
+                 "BPOBLKREG00000001", "10.00"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Child Product Sample CSVExported successfully ")
+        response.seek(0)
+        return response, csv_filename
+
+    @classmethod
+    def set_brand_sample_file(cls, validated_data):
+        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_brand_create_sample")
+        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code"]
+        writer.writerow(columns)
+
+        data = [["NatureLand", "natureland", "Dermanest", "", "NAT"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Brand Sample CSVExported successfully ")
+
+        info_logger.info("bulk tax update Sample CSVExported successfully ")
+        response.seek(0)
+        return response, csv_filename
+
+    @classmethod
+    def set_category_sample_file(cls, validated_data):
+        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_category_create_sample")
+        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part" ]
+        writer.writerow(columns)
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Category Sample CSVExported successfully ")
         response.seek(0)
         return response, csv_filename
 

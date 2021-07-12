@@ -311,6 +311,16 @@ def update_master_data(validated_data):
     if validated_data['upload_type'] == "product_tax_update":
         UploadMasterData.set_product_tax(uploaded_data_by_user_list)
 
+    if validated_data['upload_type'] == "create_child_product":
+        UploadMasterData.create_bulk_child_product(uploaded_data_by_user_list, validated_data['updated_by'])
+    if validated_data['upload_type'] == "create_parent_product":
+        UploadMasterData.create_bulk_parent_product(uploaded_data_by_user_list,
+                                                    validated_data['updated_by'])
+    if validated_data['upload_type'] == "create_category":
+        UploadMasterData.create_bulk_category(uploaded_data_by_user_list, validated_data['updated_by'])
+    if validated_data['upload_type'] == "create_brand":
+        UploadMasterData.create_bulk_brand(uploaded_data_by_user_list, validated_data['updated_by'])
+
 
 def download_sample_file_update_master_data(validated_data):
 
@@ -328,6 +338,15 @@ def download_sample_file_update_master_data(validated_data):
         response, csv_filename = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
     if validated_data['upload_type'] == "product_tax_update":
         response, csv_filename = DownloadMasterData.set_product_tax_sample_file(validated_data)
+
+    if validated_data['upload_type'] == "create_child_product":
+        response, csv_filename = DownloadMasterData.set_child_product_sample_file(validated_data)
+    if validated_data['upload_type'] == "create_parent_product":
+        response, csv_filename = DownloadMasterData.set_parent_product_sample_file(validated_data)
+    if validated_data['upload_type'] == "create_brand":
+        response, csv_filename = DownloadMasterData.set_brand_sample_file(validated_data)
+    if validated_data['upload_type'] == "create_category":
+        response, csv_filename = DownloadMasterData.set_category_sample_file(validated_data)
 
     return response, csv_filename
 
