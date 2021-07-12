@@ -1,11 +1,10 @@
 import logging
-from products.models import CentralLog
-from pyexcel_xlsx import get_data as xlsx_get
 
 from rest_framework import status
 from rest_framework.response import Response
 
-from shops.models import *
+from products.models import CentralLog
+from shops.models import ShopDocument, ShopInvoicePattern, ShopPhoto
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')

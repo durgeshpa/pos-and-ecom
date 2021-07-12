@@ -2,14 +2,14 @@ import logging
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import authentication
 from rest_framework import generics
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user, get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from rest_framework.permissions import AllowAny
 from retailer_backend.utils import SmallOffsetPagination
 
 from .serializers import (
     AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
-    ShopOwnerNameListSerializer, StateAddressSerializer
+    ShopOwnerNameListSerializer, StateAddressSerializer, UserSerializers
 )
 
 from addresses.models import Address
@@ -185,6 +185,30 @@ class AddressListView(generics.GenericAPIView):
 
         msg = "" if address_data else "no Address found"
         return get_response(msg, data, True)
+
+
+class RelatedUsersListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UserSerializers
+    queryset = get_user_model().objects.all()
+
+    def get(self, request):
+        """ GET API for RelatedUsersList """
+        info_logger.info("RelatedUsersList GET api called.")
+        if request.GET.get('id'):
+            """ Get User for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Users List """
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shops_data, many=True)
+        msg = ""
+        return get_response(msg, serializer.data, True)
 
 
 class ShopView(generics.GenericAPIView):

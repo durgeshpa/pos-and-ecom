@@ -72,7 +72,6 @@ class Shop(models.Model):
         (DISAPPROVED, 'Disapproved'),
     )
     shop_name = models.CharField(max_length=255)
-    shop_extra = models.CharField(max_length=255, null=True)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(), blank=True, related_name='related_shop_user')

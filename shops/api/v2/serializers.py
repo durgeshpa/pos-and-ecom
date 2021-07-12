@@ -1,16 +1,14 @@
-from retailer_backend.validators import PinCodeValidator
-from shops.api.v1.serializers import ShopSerializer
-from shops.common_functions import ShopCls
-from django.db import transaction
 from rest_framework import serializers
+from django.db import transaction
 from django.contrib.auth import get_user_model
 
 from addresses.models import Address, City, Pincode, State
-from products.models import CentralLog
 from products.api.v1.serializers import LogSerializers
+from retailer_backend.validators import PinCodeValidator
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
+from shops.common_functions import ShopCls
 
 User = get_user_model()
 
@@ -61,12 +59,6 @@ class ShopTypeListSerializers(serializers.ModelSerializer):
 '''
 For Shops Listing
 '''
-
-
-class RelatedUsersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('id', 'first_name', 'last_name',  'phone_number',  'email', )
 
 
 class ShopPhotoSerializers(serializers.ModelSerializer):
@@ -121,13 +113,6 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 
     def get_user_email(self, obj):
         return obj.shop_owner.email if obj.shop_owner else None
-
-# class ShopOwnerNameSerializer(serializers.ModelSerializer):
-#     shop_owner = UserSerializer(read_only=True, many=True)
-
-#     class Meta:
-#         model = Shop
-#         fields = ('shop_owner',)
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -244,7 +229,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class ShopCrudSerializers(serializers.ModelSerializer):
 
-    related_users = RelatedUsersSerializer(read_only=True, many=True)
+    related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
 
     approval_status = serializers.SerializerMethodField('shop_approval_status')
