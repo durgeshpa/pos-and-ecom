@@ -460,7 +460,7 @@ class UploadMasterData(object):
                 Category.objects.create(
                     category_name=row['name'],
                     category_slug=row['category_slug'],
-                    category_parent=Category.objects.get(brand_name=row['category_parent'].strip()),
+                    category_parent=Category.objects.get(category_name=row['category_parent'].strip()),
                     category_desc=row['category_desc'],
                     category_sku_part=row['category_sku_part'],
                     created_by=user)

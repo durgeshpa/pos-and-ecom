@@ -91,19 +91,20 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             update_master_data(validated_data)
-            attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
-            if attribute_id:
-                validated_data['file'].name = validated_data['upload_type'] + '-' + \
-                                              str(attribute_id['id'] + 1) + '.csv '
-            else:
-                validated_data['file'].name = validated_data['upload_type'] + '-' + str(1) + '.csv'
-            product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
-                                                                              updated_by=validated_data['updated_by'],
-                                                                              upload_type=validated_data['upload_type'])
-            return product_attribute
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
+        if attribute_id:
+            validated_data['file'].name = validated_data['upload_type'] + '-' + \
+                                          str(attribute_id['id'] + 1) + '.csv '
+        else:
+            validated_data['file'].name = validated_data['upload_type'] + '-' + str(1) + '.csv'
+        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
+                                                                          updated_by=validated_data['updated_by'],
+                                                                          upload_type=validated_data['upload_type'])
+        return product_attribute
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

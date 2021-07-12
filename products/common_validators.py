@@ -649,10 +649,18 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
             if 'name' in row.keys() and row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'name' in row.keys() and row['name']:
+                if Category.objects.filter(category_name=row['name'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                          f"'category name' already exists")
             if 'category_slug' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'category_slug' is a mandatory field")
             if 'category_slug' in row.keys() and row['category_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
+            if 'category_slug' in row.keys() and row['category_slug']:
+                if Category.objects.filter(category_slug=row['category_slug'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
+                                          f"'category_slug' already exists")
             if 'category_parent' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'category_parent' is a mandatory field")
             if 'category_parent' in row.keys() and row['category_parent'] == '':
@@ -729,7 +737,10 @@ def validate_row(uploaded_data_list, header_list, category):
                         if not categories.filter(category_name=cat).exists():
                             raise ValidationError(f"Row {row_num} | 'Category' {cat.strip()} "
                                                   f"doesn't exist in the system.")
-
+            if 'category_sku_part' in header_list and 'category_sku_part' in row.keys() and row['category_sku_part'] != '':
+                if categories.filter(category_sku_part=row['category_sku_part'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
+                                          f"'category_sku_part' already exists")
                 # if not categories.filter(category_name=row['category_name']).exists():
                 #     raise ValidationError(f"Row {row_num} | {row['category_name']} | "
                 #                           f"'Category_Name' doesn't exist in the system ")
