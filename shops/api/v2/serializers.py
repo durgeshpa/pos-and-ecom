@@ -1,14 +1,17 @@
-from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
-from addresses.models import Address, City, Pincode, State
-from products.api.v1.serializers import LogSerializers
+from rest_framework import serializers
+
 from retailer_backend.validators import PinCodeValidator
+
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
 from shops.common_functions import ShopCls
+
+from addresses.models import Address, City, Pincode, State
+from products.api.v1.serializers import LogSerializers
 
 User = get_user_model()
 

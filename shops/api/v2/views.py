@@ -1,20 +1,18 @@
 import logging
+
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth import get_user, get_user_model
+
 from rest_framework import authentication
 from rest_framework import generics
-from django.contrib.auth import get_user, get_user_model
-from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from rest_framework.permissions import AllowAny
+
+from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
 from .serializers import (
     AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, StateAddressSerializer, UserSerializers
-)
-
-from addresses.models import Address
-from shops.models import (
-    ShopType, Shop
 )
 from shops.common_functions import *
 from shops.services import (
@@ -22,6 +20,10 @@ from shops.services import (
 )
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
+)
+from addresses.models import Address
+from shops.models import (
+    ShopType, Shop
 )
 
 User = get_user_model()
