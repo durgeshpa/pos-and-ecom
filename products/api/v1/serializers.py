@@ -882,10 +882,10 @@ class TaxCrudSerializers(serializers.ModelSerializer):
                 if data['tax_end_at'] < data['tax_start_at']:
                     raise serializers.ValidationError("End date should be greater than start date.")
 
-        # if data['tax_name'] and data['tax_type'] and data['tax_percentage']:
-        #     if Tax.objects.filter(tax_name=data['tax_name'], tax_type=data['tax_type'],
-        #                           tax_percentage=data['tax_percentage']):
-        #         raise serializers.ValidationError("Tax already exists .")
+        if data['tax_name'] and data['tax_type'] and data['tax_percentage']:
+            if Tax.objects.filter(tax_name=data['tax_name'], tax_type=data['tax_type'],
+                                  tax_percentage=data['tax_percentage']):
+                raise serializers.ValidationError("Tax already exists .")
         return data
 
     @transaction.atomic

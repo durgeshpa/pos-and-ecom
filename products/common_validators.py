@@ -9,6 +9,7 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
 from categories.models import Category
 from shops.models import Shop
 
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
@@ -290,8 +291,7 @@ def read_file(csv_file, upload_master_data, category):
     """
     excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
     # Converting headers into lowercase
-    excel_file_headers = [str(ele).lower() for ele in
-                          excel_file_header_list]
+    excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
 
     if upload_master_data == "sub_brand_with_brand_mapping":
         required_header_list = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name']
@@ -321,6 +321,24 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "product_tax_update":
         required_header_list = ['parent_id', 'gst', 'cess', 'surcharge']
 
+    if upload_master_data == "create_child_product":
+        required_header_list = ['parent_id', 'name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                                'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
+                                'packing_material_weight',
+                                'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                                'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+
+    if upload_master_data == "create_brand":
+        required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_description', 'brand_code',]
+
+    if upload_master_data == "create_category":
+        required_header_list = ['name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',]
+
+    if upload_master_data == "create_parent_product":
+        required_header_list = ['name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
+                                'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
+                                'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+
     check_headers(excel_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
@@ -338,6 +356,7 @@ def check_headers(excel_file_headers, required_header_list):
 
 
 def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data, category):
+
     if upload_master_data == "sub_brand_with_brand_mapping":
         row_num = 1
         mandatory_columns = ['brand_id', 'brand_name']
@@ -478,6 +497,179 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'gst' in row.keys() and row['gst'] == '':
                 raise ValidationError(f"Row {row_num} | 'GST percentage ' can not be empty.")
 
+    if upload_master_data == "create_parent_product":
+        row_num = 1
+        mandatory_columns = ['name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
+                             'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
+                             'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'product_type' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'product_type' is a mandatory field")
+            if 'product_type' in row.keys() and row['product_type'] == '':
+                raise ValidationError(f"Row {row_num} | 'product_type' can't be empty")
+            if 'hsn' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'hsn' is a mandatory field")
+            if 'hsn' in row.keys() and row['hsn'] == '':
+                raise ValidationError(f"Row {row_num} | 'hsn' can't be empty")
+            if 'gst' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'gst' is a mandatory field")
+            if 'gst' in row.keys() and row['gst'] == '':
+                raise ValidationError(f"Row {row_num} | 'gst' can't be empty")
+            if 'cess' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'cess' is a mandatory field")
+            if 'surcharge' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'surcharge' is a mandatory field")
+            if 'cess' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'cess' is a mandatory field")
+            if 'surcharge' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'surcharge' is a mandatory field")
+            if 'inner_case_size' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'inner_case_size' is a mandatory field")
+            if 'inner_case_size' in row.keys() and row['inner_case_size'] == '':
+                raise ValidationError(f"Row {row_num} | 'inner_case_size' can't be empty")
+            if 'brand_name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_name' is a mandatory field")
+            if 'brand_name' in row.keys() and row['brand_name'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_name' can't be empty")
+            if 'category_name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'category_name' is a mandatory field")
+            if 'category_name' in row.keys() and row['hsn'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_name' can't be empty")
+            if 'is_ptr_applicable' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' is a mandatory field")
+            if 'is_ptr_applicable' in row.keys() and row['is_ptr_applicable'] == '':
+                raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' can't be empty")
+            if 'ptr_type' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'ptr_type' is a mandatory field")
+            if 'ptr_percent' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'ptr_percent' is a mandatory field")
+            if 'is_ars_applicable' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'is_ars_applicable' is a mandatory field")
+            if 'is_ars_applicable' in row.keys() and row['is_ars_applicable'] == '':
+                raise ValidationError(f"Row {row_num} | 'is_ars_applicable' can't be empty")
+            if 'max_inventory_in_days' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' is a mandatory field")
+            if 'max_inventory_in_days' in row.keys() and row['max_inventory_in_days'] == '':
+                raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' can't be empty")
+            if 'is_lead_time_applicable' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' is a mandatory field")
+            if 'max_inventory_in_days' in row.keys() and row['is_lead_time_applicable'] == '':
+                raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' can't be empty")
+
+    if upload_master_data == "create_child_product":
+        row_num = 1
+        mandatory_columns = ['parent_id', 'name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
+                             'weight_value', 'repackaging_type']
+
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'parent_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'parent_id' is a mandatory field")
+            if 'parent_id' in row.keys() and row['parent_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'parent_id' can't be empty")
+            if 'reason_for_child_sku' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'reason_for_child_sku' is a mandatory field")
+            if 'reason_for_child_sku' in row.keys() and row['reason_for_child_sku'] == '':
+                raise ValidationError(f"Row {row_num} | 'reason_for_child_sku' can't be empty")
+            if 'ean' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'ean' is a mandatory field")
+            if 'ean' in row.keys() and row['ean'] == '':
+                raise ValidationError(f"Row {row_num} | 'ean' can't be empty")
+            if 'mrp' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'mrp' is a mandatory field")
+            if 'mrp' in row.keys() and row['mrp'] == '':
+                raise ValidationError(f"Row {row_num} | 'mrp' can't be empty")
+            if 'weight_unit' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'weight_unit' is a mandatory field")
+            if 'weight_unit' in row.keys() and row['weight_unit'] == '':
+                raise ValidationError(f"Row {row_num} | 'weight_unit' can't be empty")
+            if 'weight_value' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'weight_value' is a mandatory field")
+            if 'weight_value' in row.keys() and row['weight_value'] == '':
+                raise ValidationError(f"Row {row_num} | 'weight_value' can't be empty")
+            # if 'status' not in row.keys():
+            #     raise ValidationError(f"Row {row_num} | 'Status can either be 'Active', 'Pending Approval' "
+            #                           f"or 'Deactivated'!" | 'Status cannot be empty')
+            # if 'status' in row.keys() and row['status'] == '':
+            #     raise ValidationError(f"Row {row_num} | 'Status' can't be empty")
+            # if 'repackaging_type' not in row.keys():
+            #     raise ValidationError(f"Row {row_num} | 'repackaging_type' is a mandatory field")
+            # if 'repackaging_type' in row.keys() and row['repackaging_type'] == '':
+            #     raise ValidationError(f"Row {row_num} | 'repackaging_type' can't be empty")
+
+    if upload_master_data == "create_brand":
+        row_num = 1
+        mandatory_columns = ['name', 'brand_slug', 'brand_parent', 'brand_code', ]
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'brand_slug' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_slug' is a mandatory field")
+            if 'brand_slug' in row.keys() and row['brand_slug'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_slug' can't be empty")
+            if 'brand_parent' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_parent' is a mandatory field")
+            if 'brand_parent' in row.keys() and row['brand_parent'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_parent' can't be empty")
+            if 'brand_code' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_code' is a mandatory field")
+            if 'brand_code' in row.keys() and row['brand_code'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_code' can't be empty")
+
+    if upload_master_data == "create_category":
+        row_num = 1
+        mandatory_columns = ['name', 'category_slug', 'category_parent', 'category_sku_part', ]
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'name' in row.keys() and row['name']:
+                if Category.objects.filter(category_name=row['name'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                          f"'category name' already exists")
+            if 'category_slug' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'category_slug' is a mandatory field")
+            if 'category_slug' in row.keys() and row['category_slug'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
+            if 'category_slug' in row.keys() and row['category_slug']:
+                if Category.objects.filter(category_slug=row['category_slug'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
+                                          f"'category_slug' already exists")
+            if 'category_parent' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'category_parent' is a mandatory field")
+            if 'category_parent' in row.keys() and row['category_parent'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_parent' can't be empty")
+            if 'category_sku_part' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'category_sku_part' is a mandatory field")
+            if 'category_sku_part' in row.keys() and row['category_sku_part'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_sku_part' can't be empty")
+
     validate_row(uploaded_data_list, header_list, category)
 
 
@@ -495,13 +687,30 @@ def validate_row(uploaded_data_list, header_list, category):
         row_num = 1
         for row in uploaded_data_list:
             row_num += 1
+            if 'name' in header_list and 'name' in row.keys() and row['name'] != '':
+                if not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row['name']):
+                    raise ValidationError(f"Row {row_num} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}.")
+
+            if 'ean' in header_list and 'ean' in row.keys() and row['ean'] != '':
+                if not re.match("^[a-zA-Z0-9\+\.\-]*$", row['ean'].replace("'", '')):
+                    raise ValidationError(f"Row {row_num} | 'ean' can only contain alphanumeric input.")
+
+            if 'brand_parent' in header_list and 'brand_parent' in row.keys() and row['brand_parent'] != '':
+                if not brand.filter(brand_name=row['brand_parent'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['brand_parent']} | "
+                                          f"'brand_parent' doesn't exist in the system ")
+
             if 'brand_id' in header_list and 'brand_id' in row.keys() and row['brand_id'] != '':
                 if not brand.filter(id=row['brand_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_id']} | "
                                           f"'Brand_ID' doesn't exist in the system ")
+            if 'category_parent' in header_list and 'category_parent' in row.keys() and row['category_parent'] != '':
+                if not categories.filter(category_name=row['category_parent'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_parent']} | "
+                                          f"'category_parent' doesn't exist in the system ")
 
             if 'brand_name' in header_list and 'brand_name' in row.keys() and row['brand_name'] != '':
-                if not brand.filter(brand_name=row['brand_name']).exists():
+                if not brand.filter(brand_name=row['brand_name'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_name']} | "
                                           f"'Brand_Name' doesn't exist in the system ")
 
@@ -522,8 +731,19 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'category_name' in header_list and 'category_name' in row.keys() and row['category_name'] != '':
                 if not categories.filter(category_name=row['category_name']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_name']} | "
-                                          f"'Category_Name' doesn't exist in the system ")
+                    category = row['category_name'].split(',')
+                    for cat in category:
+                        cat = cat.strip().replace("'", '')
+                        if not categories.filter(category_name=cat).exists():
+                            raise ValidationError(f"Row {row_num} | 'Category' {cat.strip()} "
+                                                  f"doesn't exist in the system.")
+            if 'category_sku_part' in header_list and 'category_sku_part' in row.keys() and row['category_sku_part'] != '':
+                if categories.filter(category_sku_part=row['category_sku_part'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
+                                          f"'category_sku_part' already exists")
+                # if not categories.filter(category_name=row['category_name']).exists():
+                #     raise ValidationError(f"Row {row_num} | {row['category_name']} | "
+                #                           f"'Category_Name' doesn't exist in the system ")
 
             if 'sub_category_id' in header_list and 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
                 if not categories.filter(id=row['sub_category_id']).exists():
@@ -619,8 +839,8 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'max_inventory_in_days' in header_list and 'max_inventory_in_days' in row.keys() \
                     and row['max_inventory_in_days'] != '':
-                if not re.match("^\d+$", str(row['max_inventory_in_days'])) or row['max_inventory_in_days'] < 1 \
-                        or row['max_inventory_in_days'] > 999:
+                if not re.match("^\d+$", str(row['max_inventory_in_days'])) or int(row['max_inventory_in_days']) < 1 \
+                        or int(row['max_inventory_in_days']) > 999:
                     raise ValidationError(f"Row {row_num} | {row['max_inventory_in_days']} |"
                                           f"'Max Inventory In Days' is invalid.")
 
@@ -644,8 +864,8 @@ def validate_row(uploaded_data_list, header_list, category):
                             'mark up', 'mark down']):
                     raise ValidationError(f"Row {row_num} | 'ptr_type' can either be 'Mark Up' or 'Mark Down' ")
                 elif row['is_ptr_applicable'].lower() == 'yes' \
-                        and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent']
-                             or row['ptr_percent'] < 0):
+                        and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < int(row['ptr_percent'])
+                             or int(row['ptr_percent']) < 0):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
@@ -673,21 +893,29 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'none','source', 'destination' or 'packing_material'!")
 
             if 'repackaging_type' in header_list and 'repackaging_type' in row.keys() and row['repackaging_type'] == 'destination':
-                mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing',
-                                    'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost',
-                                    'conversion_cost']
+                mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                                    'primary_pm_cost', 'secondary_pm_cost']
+
                 if 'source_sku_id' not in row.keys():
                     raise ValidationError(f"Row {row_num} | 'Source_SKU_ID' can't be empty when "
                                           f"repackaging_type is destination")
                 if 'source_sku_id' in row.keys() and row['source_sku_id'] == '':
                     raise ValidationError(f"Row {row_num} | 'Source_SKU_ID' can't be empty "
                                           f"when repackaging_type is destination")
-                if 'source_sku_name' not in row.keys():
-                    raise ValidationError(f"Row {row_num} | 'Source_SKU_Name' can't be empty "
-                                          f"when repackaging_type is destination")
-                if 'source_sku_name' in row.keys() and row['source_sku_name'] == '':
-                    raise ValidationError(f"Row {row_num} | 'Source_SKU_Name' can't be empty when "
+
+                if 'packing_sku_id' not in row.keys():
+                    raise ValidationError(f"Row {row_num} | 'packing_sku_id' can't be empty when "
                                           f"repackaging_type is destination")
+                if 'packing_sku_id' in row.keys() and row['packing_sku_id'] == '':
+                    raise ValidationError(f"Row {row_num} | 'packing_sku_id' can't be empty "
+                                          f"when repackaging_type is destination")
+
+                # if 'source_sku_name' not in row.keys():
+                #     raise ValidationError(f"Row {row_num} | 'Source_SKU_Name' can't be empty "
+                #                           f"when repackaging_type is destination")
+                # if 'source_sku_name' in row.keys() and row['source_sku_name'] == '':
+                #     raise ValidationError(f"Row {row_num} | 'Source_SKU_Name' can't be empty when "
+                #                           f"repackaging_type is destination")
                 for field in mandatory_fields:
                     if field not in header_list:
                         raise ValidationError(f"{mandatory_fields} are the essential headers and cannot be empty "
@@ -700,12 +928,30 @@ def validate_row(uploaded_data_list, header_list, category):
                                               f"can only be a numeric or decimal value.")
 
                 if 'source_sku_id' in header_list and 'source_sku_id' in row.keys() and row['source_sku_id'] != '':
-                    p = re.compile('\'')
-                    sku_ids = p.sub('\"', row['source_sku_id'])
-                    sku_id_data = json.loads(sku_ids)
-                    for sk in sku_id_data:
-                        if not child_product.filter(product_sku=sk).exists():
-                            raise ValidationError(f"Row {row_num} | {sk} | 'Source SKU ID' doesn't exist.")
+                    source_sku = False
+                    for pro in row['source_sku_id'].split(','):
+                        pro = pro.strip()
+                        if pro is not '':
+                            if child_product.filter(product_sku=pro, repackaging_type='source').exists():
+                                source_sku = True
+                            else:
+                                raise ValidationError(f"Row {row_num} | 'source_sku_id' {pro} is invalid.")
+                    if not source_sku:
+                        raise ValidationError(f"Row {row_num} |'Source SKU Mapping' is required for "
+                                                            f"Repackaging Type 'destination'.")
+
+                if 'packing_sku_id' in header_list and 'packing_sku_id' in row.keys() and row['packing_sku_id'] != '':
+                    if 'packing_material_weight' not in row.keys():
+                        raise ValidationError(f"Row {row_num} | 'packing_material_weight cannot be empty when "
+                                        f"Repackaging Type 'destination'.")
+
+                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row['packing_material_weight']):
+                        raise ValidationError(f"Row {row_num} | Invalid 'Packing Material Weight ")
+
+                    if not child_product.filter(product_sku=row['packing_sku_id'], repackaging_type='packing_material').exists():
+                        raise ValidationError(f"Row {row_num} | {row['packing_sku_id']} "
+                                              f"| 'packing_sku_id' doesn't exist.")
+
                 if 'source_sku_name' in header_list and 'source_sku_name' in row.keys() and row['source_sku_name'] != '':
                     q = re.compile('\'')
                     source_sku_name = q.sub('\"', row['source_sku_name'])
