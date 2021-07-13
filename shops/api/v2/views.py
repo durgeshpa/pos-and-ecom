@@ -279,7 +279,6 @@ class ShopView(generics.GenericAPIView):
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Updated Successfully.")
             return get_response('shop updated!', serializer.data)
-        print(serializer.errors)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):

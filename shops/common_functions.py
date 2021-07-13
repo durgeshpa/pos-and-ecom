@@ -30,29 +30,27 @@ class ShopCls(object):
         """
             Create shop_photos
         """
-        # shop_photos = ShopPhoto.objects.filter(shop_name=shop).all()
         if photos:
             for photo in photos:
                 ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
 
     @classmethod
-    def create_shop_docs(cls, shop, docs):
+    def create_shop_docs(cls, shop, docs, num, d_type):
         """
             Create shop_docs
         """
-        shop_documents = ShopDocument.objects.filter(shop_name=shop).all()
-        for doc in shop_documents:
-            print(doc)
+        for doc in docs:
+            ShopDocument.objects.create(
+                shop_document_photo=doc, shop_document_number=num, shop_document_type=d_type, shop_name=shop)
 
     @classmethod
-    def create_shop_invoice_pattern(cls, shop, invoice_pattern):
+    def create_shop_invoice_pattern(cls, shop, invoice_pattern, s_date, e_date, i_status):
         """
             Create shop_invoice_pattern
         """
-        shop_invoice_pattern = ShopInvoicePattern.objects.filter(
-            shop=shop).all()
-        for invoice in shop_invoice_pattern:
-            print(invoice)
+        for invoice in invoice_pattern:
+            ShopInvoicePattern.objects.create(
+                pattern=invoice, start_date=s_date, end_date=e_date, status=i_status, shop=shop)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
