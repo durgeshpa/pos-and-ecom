@@ -3778,6 +3778,7 @@ class OrderReturns(APIView):
             previous_ret_qty = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map).aggregate(
                 qty=Sum('return_qty'))['qty']
+            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
