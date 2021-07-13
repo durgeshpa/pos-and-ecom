@@ -39,6 +39,7 @@ def upload_file_to_s3(csv_file, csv_filename):
         # bucket_location = s3.get_bucket_location(Bucket=config('AWS_STORAGE_BUCKET_NAME'))
         # object_url = "https://s3-{0}.amazonaws.com/{1}/{2}".format(
         #     bucket_location['LocationConstraint'], config('AWS_STORAGE_BUCKET_NAME'), f"files/{csv_filename}.csv")
+
         res_obj = download_file_from_s3(csv_filename)
         info_logger.info(f"[products/api/v2/BulkDownloadProductAttributes] Successfully get the response from s3")
     except ClientError as e:
