@@ -1,5 +1,4 @@
 import re
-from shops.common_validators import get_validate_shop_documents
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
@@ -12,6 +11,7 @@ from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           )
 from addresses.models import Address, City, Pincode, State
 
+from shops.common_validators import get_validate_shop_documents
 from shops.common_functions import ShopCls
 from products.api.v1.serializers import LogSerializers
 
