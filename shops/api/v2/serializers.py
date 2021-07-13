@@ -89,7 +89,8 @@ class ShopDocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopDocument
-        fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo', )
+        fields = ('id', 'shop_document_type',
+                  'shop_document_number', 'shop_document_photo', )
 
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
@@ -249,7 +250,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'owner', 'parent_shop', 'address', 'pincode', 'city',
+        fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
+                  'owner', 'parent_shop', 'address', 'pincode', 'city',
                   'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
                   'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern', 'shop_log')
 
@@ -278,11 +280,12 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         return ShopInvoicePatternSerializer(obj.invoice_pattern.all(), read_only=True, many=True).data
 
     def validate(self, data):
-        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:   
-            shop_docs = get_validate_shop_documents(self.initial_data['id'], self.initial_data['shop_docs'])
+        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
+            shop_docs = get_validate_shop_documents(
+                self.initial_data['id'], self.initial_data['shop_docs'])
             if 'error' in shop_docs:
                 raise serializers.ValidationError((shop_docs["error"]))
-            
+
         # if 'shop_start_at' in self.initial_data and 'shop_end_at' in self.initial_data:
         #     if data['shop_start_at'] and data['shop_end_at']:
         #         if data['shop_end_at'] < data['shop_start_at']:
