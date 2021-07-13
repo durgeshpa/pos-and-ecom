@@ -5,6 +5,7 @@ import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
+
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
@@ -54,6 +55,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+
 
 logger = logging.getLogger('django')
 
@@ -1778,8 +1780,3 @@ def shipment_status(request):
         context['count'] = -1
     return HttpResponse(json.dumps(context))
 
-# def check_shipment_verified(shipment_list, trip_status,current_trip_status):
-#     shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED','PARTIALLY_DELIVERED_AND_VERIFIED','FULLY_DELIVERED_AND_VERIFIED']
-#     if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
-#         for shipment in shipment_list:
-#             if shipment.shipment_status not in shipment_status_verify:

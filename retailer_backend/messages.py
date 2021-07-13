@@ -117,3 +117,7 @@ ERROR_MESSAGES = {
     "1002": "Selected file status is QC pending, you can't download this file.",
     "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"
 }
+
+NOTIFICATIONS = {
+    "TRIP_START_MSG" : "Hi {}, Your order is out for delivery with {}({}). Total invoice value is {}."
+}
