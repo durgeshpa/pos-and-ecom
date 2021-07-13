@@ -8,9 +8,8 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
-    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, \
-    Tax, ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, \
-    Weight, CentralLog
+    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, \
+    ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, Weight, CentralLog
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
