@@ -1229,22 +1229,34 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
         qs = ReturnItems.objects.filter(return_id=obj, ordered_product__product_type=1)
         return_items = ReturnItemsGetSerializer(qs, many=True).data
 
+        product_offer_map, cart_free_product = {}, {}
+        for offer in obj.order.ordered_cart.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {'cart_free_product': 1, 'id': offer['free_item_id'], 'mrp': offer['free_item_mrp'],
+                                     'name': offer['free_item_name'], 'qty': offer['free_item_qty'],
+                                     'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip(
+                                         '0').rstrip('.')}
+
         free_products_return = obj.free_qty_map
         free_return_item_map = {}
         if free_products_return:
             for combo in free_products_return:
-                free_product = RetailerProduct.objects.get(id=combo['free_item_id'])
-                free_return_item_map[combo['item_id']] = 'Returned ' + str(combo['free_item_return_qty']) + ' items of ' \
-                                                         + free_product.name
+                free_return_item_map[combo['item_id']] = combo['free_item_return_qty']
 
         for ret in return_items:
             ret['free_product_return'] = 0
             if ret['product_id'] in free_return_item_map:
                 ret['free_product_return'] = 1
-                ret['free_product_text'] = free_return_item_map[ret['product_id']]
+                offer = product_offer_map[ret['product_id']]
+                ret['free_product_text'] = 'Returned ' + str(free_return_item_map[ret['product_id']]) + ' items of ' \
+                                           + offer['free_item_name'] + ' | Buy ' + str(offer['item_qty']) + ' Get ' + \
+                                           str(offer['free_item_qty'])
 
-        if 'free_product' in free_return_item_map:
-            return_items.append({'cart_free_product': 1, 'display_text': free_return_item_map['free_product']})
+        if 'free_product' in free_return_item_map and int(free_return_item_map['free_product']) > 0:
+            cart_free_product['return_qty'] = free_return_item_map['free_product']
+            return_items.append(cart_free_product)
 
         return return_items
 
