@@ -638,7 +638,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
                 obj.order_amount).rstrip('0').rstrip('.')
 
         returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0
+        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0.00
         for ret in returns:
             return_value += ret.return_value
             discount_adjusted += ret.discount_adjusted
@@ -647,7 +647,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         returned_oints_value = 0
         if obj.ordered_cart.redeem_factor:
             returned_oints_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
-        if refunded_amount:
+        if returns.exists():
             cb += 1
             block[cb] = dict()
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
@@ -1223,6 +1223,11 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
 class OrderReturnGetSerializer(serializers.ModelSerializer):
     return_items = serializers.SerializerMethodField()
     refund_points_value = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_refund_amount(obj):
+        return max(obj.refund_amount, 0)
 
     @staticmethod
     def get_return_items(obj):
