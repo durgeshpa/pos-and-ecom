@@ -5182,15 +5182,9 @@ class RetailerList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_manager(self):
-        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
-
-    def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(),
-                                              shop__shop_type__shop_type__in=['r', 'f', 'sp'],
-                                              status=True)
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
+        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all()\
+                                              .prefetch_related('employee_list').values('employee_list__employee_id'),
                                               shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_employee(self):
