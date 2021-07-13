@@ -1,4 +1,5 @@
 import re
+from shops.common_validators import get_validate_shop_documents
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
@@ -9,9 +10,9 @@ from retailer_backend.validators import PinCodeValidator
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
-from shops.common_functions import ShopCls
-
 from addresses.models import Address, City, Pincode, State
+
+from shops.common_functions import ShopCls
 from products.api.v1.serializers import LogSerializers
 
 User = get_user_model()
@@ -277,15 +278,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         return ShopInvoicePatternSerializer(obj.invoice_pattern.all(), read_only=True, many=True).data
 
     def validate(self, data):
-        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:        
-            if 'shop_document_type' in self.initial_data['shop_docs'] and self.initial_data['shop_docs']['shop_document_type'] not in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES:
-                raise serializers.ValidationError({'shop_document_type': 'Please enter valid Document Type'})
+        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:   
+            shop_docs = get_validate_shop_documents(self.initial_data['id'], self.initial_data['shop_docs'])
+            if 'error' in shop_docs:
+                raise serializers.ValidationError((shop_docs["error"]))
             
-            if 'shop_document_type' in self.initial_data['shop_docs'] and self.initial_data['shop_docs']['shop_document_type'] == ShopDocument.GSTIN:
-                gst_regex = "^([0]{1}[1-9]{1}|[1-2]{1}[0-9]{1}|[3]{1}[0-7]{1})([a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}[1-9a-zA-Z]{1}[zZ]{1}[0-9a-zA-Z]{1})+$"
-                if not re.match(gst_regex, self.initial_data['shop_docs']['shop_document_type']):
-                    raise serializers.ValidationError({'shop_document_number': 'Please enter valid GSTIN'})
-        
         # if 'shop_start_at' in self.initial_data and 'shop_end_at' in self.initial_data:
         #     if data['shop_start_at'] and data['shop_end_at']:
         #         if data['shop_end_at'] < data['shop_start_at']:
@@ -331,22 +328,22 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     def create_shop_photo_doc_invoice(self, shop):
         ''' Create Shop Photos, Docs'''
         shop_photo = None
-        # shop_docs = None
+        shop_docs = None
         # shop_invoice_pattern = None
 
-        # doc_num = None
-        # doc_type = None
+        doc_num = None
+        doc_type = None
         # s_date = None
         # e_date = None
         # invoice_status = None
 
         if 'shop_photos' in self.initial_data and self.initial_data['shop_photos']:
             shop_photo = self.initial_data['shop_photos']
-        # if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
-        #     shop_docs = self.initial_data['shop_docs']
+        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
+            shop_docs = self.initial_data['shop_docs']
         # if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
         #     shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
         ShopCls.upload_shop_photos(shop, shop_photo)
-        # ShopCls.create_shop_docs(shop, shop_docs, doc_num, doc_type)
+        ShopCls.create_shop_docs(shop, shop_docs)
         # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern, s_date, e_date, invoice_status)

@@ -35,13 +35,15 @@ class ShopCls(object):
                 ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
 
     @classmethod
-    def create_shop_docs(cls, shop, docs, num, d_type):
+    def create_shop_docs(cls, shop, docs):
         """
             Create shop_docs
         """
         for doc in docs:
-            ShopDocument.objects.create(
-                shop_document_photo=doc, shop_document_number=num, shop_document_type=d_type, shop_name=shop)
+            ShopDocument.objects.create(shop_document_photo=doc['shop_document_photo'],
+                                        shop_document_number=doc['shop_document_number'],
+                                        shop_document_type=doc['shop_document_type'],
+                                        shop_name=shop)
 
     @classmethod
     def create_shop_invoice_pattern(cls, shop, invoice_pattern, s_date, e_date, i_status):

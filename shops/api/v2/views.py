@@ -10,6 +10,12 @@ from rest_framework.permissions import AllowAny
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
+
+from addresses.models import Address
+from shops.models import (
+    ShopType, Shop
+)
+
 from .serializers import (
     AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, StateAddressSerializer, UserSerializers
@@ -19,11 +25,7 @@ from shops.services import (
     shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states
 )
 from shops.common_validators import (
-    validate_data_format, validate_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
-)
-from addresses.models import Address
-from shops.models import (
-    ShopType, Shop
+    validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
 )
 
 User = get_user_model()
@@ -268,10 +270,10 @@ class ShopView(generics.GenericAPIView):
             return get_response('please provide id to update shop', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(modified_data['id']))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-        shop_instance = id_instance['data']
+        id_validation = validate_shop_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shop_instance = id_validation['data']
 
         serializer = self.serializer_class(
             instance=shop_instance, data=modified_data)
