@@ -1251,11 +1251,11 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
                 ret['free_product_return'] = 1
                 offer = product_offer_map[ret['product_id']]
                 ret['free_product_text'] = 'Returned ' + str(free_return_item_map[ret['product_id']]) + ' items of ' \
-                                           + offer['free_item_name'] + '| Buy ' + str(offer['item_qty']) + ' Get ' + \
+                                           + offer['free_item_name'] + ' | Buy ' + str(offer['item_qty']) + ' Get ' + \
                                            str(offer['free_item_qty'])
 
         if 'free_product' in free_return_item_map and int(free_return_item_map['free_product']) > 0:
-            cart_free_product['return_qty'] = free_return_item_map['free_product']
+            cart_free_product['returned_qty'] = free_return_item_map['free_product']
             return_items.append(cart_free_product)
 
         return return_items
