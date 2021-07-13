@@ -288,14 +288,14 @@ def created_updated_by(log_obj, action):
     return action, create_updated_by
 
 
-def update_master_data(validated_data):
+def create_update_master_data(validated_data):
     csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
     excel_file_header_list = next(csv_file)  # headers of the uploaded excel file
     # Converting headers into lowercase
     excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
 
     uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
-
+    # update bulk
     if validated_data['upload_type'] == "product_status_update_inactive":
         UploadMasterData.set_inactive_status(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "sub_brand_with_brand_mapping":
@@ -310,12 +310,11 @@ def update_master_data(validated_data):
         UploadMasterData.set_parent_data(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "product_tax_update":
         UploadMasterData.set_product_tax(uploaded_data_by_user_list, validated_data['updated_by'])
-
+    # create bulk
     if validated_data['upload_type'] == "create_child_product":
         UploadMasterData.create_bulk_child_product(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "create_parent_product":
-        UploadMasterData.create_bulk_parent_product(uploaded_data_by_user_list,
-                                                    validated_data['updated_by'])
+        UploadMasterData.create_bulk_parent_product(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "create_category":
         UploadMasterData.create_bulk_category(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "create_brand":
@@ -323,31 +322,31 @@ def update_master_data(validated_data):
 
 
 def download_sample_file_update_master_data(validated_data):
-
+    # update bulk sample
     if validated_data['upload_type'] == "product_status_update_inactive":
-        response, csv_filename = DownloadMasterData.set_inactive_status_sample_file(validated_data)
+        response = DownloadMasterData.set_inactive_status_sample_file(validated_data)
     if validated_data['upload_type'] == "sub_brand_with_brand_mapping":
-        response, csv_filename = DownloadMasterData.brand_sub_brand_mapping_sample_file()
+        response = DownloadMasterData.brand_sub_brand_mapping_sample_file()
     if validated_data['upload_type'] == "sub_category_with_category_mapping":
-        response, csv_filename = DownloadMasterData.category_sub_category_mapping_sample_file()
+        response = DownloadMasterData.category_sub_category_mapping_sample_file()
     if validated_data['upload_type'] == "child_product_update":
-        response, csv_filename = DownloadMasterData.set_child_data_sample_file(validated_data)
+        response = DownloadMasterData.set_child_data_sample_file(validated_data)
     if validated_data['upload_type'] == "parent_product_update":
-        response, csv_filename = DownloadMasterData.set_parent_data_sample_file(validated_data)
+        response = DownloadMasterData.set_parent_data_sample_file(validated_data)
     if validated_data['upload_type'] == "child_parent_product_update":
-        response, csv_filename = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
+        response = DownloadMasterData.set_child_with_parent_sample_file(validated_data)
     if validated_data['upload_type'] == "product_tax_update":
-        response, csv_filename = DownloadMasterData.set_product_tax_sample_file(validated_data)
-
+        response = DownloadMasterData.set_product_tax_sample_file(validated_data)
+    # create bulk sample
     if validated_data['upload_type'] == "create_child_product":
-        response, csv_filename = DownloadMasterData.set_child_product_sample_file(validated_data)
+        response = DownloadMasterData.set_child_product_sample_file(validated_data)
     if validated_data['upload_type'] == "create_parent_product":
-        response, csv_filename = DownloadMasterData.set_parent_product_sample_file(validated_data)
+        response = DownloadMasterData.set_parent_product_sample_file(validated_data)
     if validated_data['upload_type'] == "create_brand":
-        response, csv_filename = DownloadMasterData.set_brand_sample_file(validated_data)
+        response = DownloadMasterData.set_brand_sample_file(validated_data)
     if validated_data['upload_type'] == "create_category":
-        response, csv_filename = DownloadMasterData.set_category_sample_file(validated_data)
+        response = DownloadMasterData.set_category_sample_file(validated_data)
 
-    return response, csv_filename
+    return response
 
 

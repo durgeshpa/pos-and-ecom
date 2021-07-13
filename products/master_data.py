@@ -508,15 +508,13 @@ class DownloadMasterData(object):
     def response_workbook(filename):
 
         csv_file_buffer = io.StringIO()
-        date = datetime.datetime.now().strftime('%d_%b_%y_%I_%M')
         writer = csv.writer(csv_file_buffer, dialect='excel', delimiter=',')
-        csv_filename = f'{date}-{filename}'
-        return csv_file_buffer, writer, csv_filename
+        return csv_file_buffer, writer
 
     @classmethod
     def set_inactive_status_sample_file(cls, validated_data):
 
-        response, writer, csv_filename = DownloadMasterData.response_workbook("active_inactive_status_sample")
+        response, writer = DownloadMasterData.response_workbook("active_inactive_status_sample")
         columns = ['sku_id', 'sku_name', 'mrp', 'status', ]
         writer.writerow(columns)
 
@@ -535,11 +533,11 @@ class DownloadMasterData(object):
 
         info_logger.info("Set Inactive Status Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def brand_sub_brand_mapping_sample_file(cls):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("active_inactive_status_sample")
+        response, writer = DownloadMasterData.response_workbook("active_inactive_status_sample")
         columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
         writer.writerow(columns)
 
@@ -562,12 +560,12 @@ class DownloadMasterData(object):
 
         info_logger.info("Brand and Sub Brand Mapping Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def category_sub_category_mapping_sample_file(cls):
 
-        response, writer, csv_filename = DownloadMasterData.response_workbook("subCategory-CategorySample")
+        response, writer = DownloadMasterData.response_workbook("subCategory-CategorySample")
         columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name', ]
         writer.writerow(columns)
 
@@ -589,11 +587,11 @@ class DownloadMasterData(object):
             writer.writerow(row)
         info_logger.info("Category and Sub Category Mapping Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_child_with_parent_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("child_parent_mapping_data_sample")
+        response, writer = DownloadMasterData.response_workbook("child_parent_mapping_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
         writer.writerow(columns)
 
@@ -614,11 +612,11 @@ class DownloadMasterData(object):
 
         info_logger.info("Child Parent Mapping Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_child_data_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("child_data_sample")
+        response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'status',
                    'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material', 'wastage',
                    'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
@@ -675,11 +673,11 @@ class DownloadMasterData(object):
 
         info_logger.info("Child Data Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_parent_data_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("parent_data_sample")
+        response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
                    'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
@@ -760,11 +758,11 @@ class DownloadMasterData(object):
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_product_tax_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
+        response, writer = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
         columns = ['parent_id', 'gst', 'cess', 'surcharge', ]
         writer.writerow(columns)
 
@@ -772,11 +770,11 @@ class DownloadMasterData(object):
 
         info_logger.info("bulk tax update Sample CSVExported successfully ")
         response.seek(0)
-        return response, csv_filename
+        return response,
 
     @classmethod
     def set_parent_product_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
+        response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
         columns = ["name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
                    "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
                    "max_inventory_in_days", "is_lead_time_applicable"]
@@ -790,11 +788,11 @@ class DownloadMasterData(object):
 
         info_logger.info("Parent Product Sample CSVExported successfully ")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_child_product_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_child_product_create_sample")
+        response, writer = DownloadMasterData.response_workbook("bulk_child_product_create_sample")
         writer = csv.writer(response)
         writer.writerow(["parent_id", "reason_for_child_sku", "name", "ean",
                          "mrp", "weight_value", "weight_unit", "repackaging_type", "source_sku_id",
@@ -811,11 +809,11 @@ class DownloadMasterData(object):
 
         info_logger.info("Child Product Sample CSVExported successfully ")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_brand_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_brand_create_sample")
+        response, writer = DownloadMasterData.response_workbook("bulk_brand_create_sample")
         columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code"]
         writer.writerow(columns)
 
@@ -827,11 +825,11 @@ class DownloadMasterData(object):
 
         info_logger.info("bulk tax update Sample CSVExported successfully ")
         response.seek(0)
-        return response, csv_filename
+        return response
 
     @classmethod
     def set_category_sample_file(cls, validated_data):
-        response, writer, csv_filename = DownloadMasterData.response_workbook("bulk_category_create_sample")
+        response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
         columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part" ]
         writer.writerow(columns)
         data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI"]]
@@ -840,7 +838,7 @@ class DownloadMasterData(object):
 
         info_logger.info("Category Sample CSVExported successfully ")
         response.seek(0)
-        return response, csv_filename
+        return response
 
 
 def get_ptr_type_text(ptr_type=None):

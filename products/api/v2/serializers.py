@@ -1,25 +1,20 @@
-import re
 import logging
 import codecs
 import csv
-import datetime
+
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-
 from collections import OrderedDict
 
 from rest_framework import serializers
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory, \
     Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping, ProductSourceMapping, \
     DestinationRepackagingCostMapping, ProductPackingMapping, ParentProductTaxMapping, BulkProductTaxUpdate
-from categories.models import Category
-from brand.models import Brand, Vendor
 
 from products.common_validators import read_file
 from categories.common_validators import get_validate_category
-from products.common_function import download_sample_file_update_master_data, update_master_data
+from products.common_function import download_sample_file_update_master_data, create_update_master_data
 from products.api.v1.serializers import UserSerializers
 from products.upload_file import upload_file_to_s3
 
@@ -90,7 +85,8 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         try:
-            update_master_data(validated_data)
+            create_update_master_data(validated_data)
+            # upload_file_to_s3(validated_data['file'], validated_data['file'].name)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -104,6 +100,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
                                                                           updated_by=validated_data['updated_by'],
                                                                           upload_type=validated_data['upload_type'])
+
         return product_attribute
 
     def to_representation(self, instance):
@@ -139,9 +136,8 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        response, csv_filename = download_sample_file_update_master_data(validated_data)
-        object_url = upload_file_to_s3(response, csv_filename)
-        return object_url
+        response = download_sample_file_update_master_data(validated_data)
+        return response
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):

@@ -1,6 +1,6 @@
 from django.conf.urls import url
-from .views import BulkCreateUpdateAttributesView, BulkDownloadProductAttributes, \
-    ParentProductMultiImageUploadView, ChildProductMultiImageUploadView
+from .views import BulkCreateUpdateAttributesView, BulkDownloadProductAttributes, ParentProductMultiImageUploadView, \
+    ChildProductMultiImageUploadView
 urlpatterns = [
 
     url(r'^upload/bulk-upload-master-data/', BulkCreateUpdateAttributesView.as_view(),

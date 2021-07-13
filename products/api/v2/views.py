@@ -58,6 +58,11 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
             d)Set the data for "Parent SKU"
             e)Mapping of Child SKU to Parent SKU
             f)Set the Child SKU Data
+            g)Create Child Product
+            h)Create Parent Product
+            i)Create Brand
+            j)Create Category
+
             After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
         """
 
