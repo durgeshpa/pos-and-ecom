@@ -1243,6 +1243,9 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
                 ret['free_product_return'] = 1
                 ret['free_product_text'] = free_return_item_map[ret['product_id']]
 
+        if 'free_product' in free_return_item_map:
+            return_items.append({'cart_free_product': 1, 'display_text': free_return_item_map['free_product']})
+
         return return_items
 
     @staticmethod

@@ -1668,13 +1668,13 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        # Auto apply highest applicable discount
-        auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
+            redeem_points = self.request.GET.get('redeem_points')
+            # Auto apply highest applicable discount
+            auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
             # Redeem reward points on order
-            redeem_points = self.request.GET.get('redeem_points')
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
