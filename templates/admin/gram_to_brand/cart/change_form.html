@@ -23,9 +23,8 @@
          </fieldset>
        </div>
     </div>
-
-        {{ block.super }}
         {%  if request.user.is_superuser or perms.gram_to_brand.can_approve_and_disapprove %}
+        {{ block.super }}
         <div class="submit-row">
                 <textarea rows="4" name="message" cols="50"></textarea>
                 <input type="submit" value="Approve" name="_approve">

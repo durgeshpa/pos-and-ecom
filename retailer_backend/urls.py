@@ -38,7 +38,6 @@ urlpatterns = [
     url(r'^otp/', include('otp.urls')),
     url(r'^marketing/', include('marketing.urls')),
     url(r'^api/', include('api.urls')),
-    url(r'^cms/', include('cms.urls')),
     url(r'^accounts/', include('accounts.urls')),
     url(r'^addresses/', include('addresses.urls')),
     url(r'^shops/', include('shops.urls')),

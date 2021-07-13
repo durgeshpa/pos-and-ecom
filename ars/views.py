@@ -268,15 +268,14 @@ def initiate_ars():
                 current_inventory = get_current_inventory(warehouse, parent_product)
                 max_inventory_in_days = parent_product.max_inventory
                 demand = (daily_average * max_inventory_in_days) - current_inventory
-
                 if demand <= 0:
                     continue
                 if parent_product.is_lead_time_applicable:
                     max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
+                    
                 min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
                 max_inventory = max_inventory_in_days * daily_average
                 min_inventory = min_inventory_in_days * daily_average
-
                 if demand >= (max_inventory - min_inventory):
                     is_eligible_to_raise_demand = True
 

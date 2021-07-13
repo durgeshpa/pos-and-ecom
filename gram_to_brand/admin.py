@@ -84,7 +84,6 @@ class CartAdmin(admin.ModelAdmin):
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             return qs.filter(po_status='PDA')
-
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
@@ -107,7 +106,7 @@ class CartAdmin(admin.ModelAdmin):
         po_edit_link.short_description = 'Po No'
 
         return [po_edit_link, 'brand', 'supplier_state', 'supplier_name', 'po_creation_date', 'po_validity_date',
-                    'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
+                'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
