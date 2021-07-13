@@ -1255,7 +1255,7 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
                                            str(offer['free_item_qty'])
 
         if 'free_product' in free_return_item_map and int(free_return_item_map['free_product']) > 0:
-            cart_free_product['returned_qty'] = free_return_item_map['free_product']
+            cart_free_product['return_qty'] = free_return_item_map['free_product']
             return_items.append(cart_free_product)
 
         return return_items
