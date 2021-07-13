@@ -11,7 +11,9 @@ delete_link_html = '<img src="/static/admin/img/icon-deletelink.svg" ' +
     'width="10" height="10" alt="Delete row" style="margin-top:0.5em" />';
 position_field = 'order'; // Name of inline model field (integer) used for ordering. Defaults to "position".
 
+var noOfItems;
 jQuery(function($) {
+    noOfItems= $("td.field-picked_pieces input").length
     changeExpPieces()
     changeval()
     changePickedPieces()
@@ -230,7 +232,7 @@ function changeval(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
@@ -250,7 +252,7 @@ function changePickedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-pickup_quantity']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
@@ -270,7 +272,7 @@ function changeDamagedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-damaged_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -330,7 +332,7 @@ function changeExpPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-expired_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -390,7 +392,7 @@ function changeMissingPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-missing_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -451,7 +453,7 @@ function changeRejectedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-rejected_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -512,7 +514,7 @@ function changeRejectedPieces(){
 function loadPickedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
@@ -530,7 +532,7 @@ function loadPickedPieces(){
 function loadToShip(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
@@ -548,7 +550,7 @@ function loadToShip(){
 function updateval(){
         xx = [0,1,2,3,4,5,6]
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
 //        var final_sum  = 0
         for (var j=0; j<10;j++){
