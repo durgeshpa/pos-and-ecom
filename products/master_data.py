@@ -325,70 +325,72 @@ class UploadMasterData(object):
             child_product = Product.objects.all()
             for row in csv_file_data_list:
                 row_num += 1
-                if not row['status'] == 'deactivated':
-                    count += 1
-                    try:
-                        child_pro = child_product.filter(product_sku=row['sku_id'])
-                        pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
-                        destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
-                        source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
-                        fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value',
-                                  'status', 'repackaging_type', 'source_sku_id',
-                                  'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
-                                  'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+                count += 1
+                try:
+                    child_pro = child_product.filter(product_sku=row['sku_id'])
+                    pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
+                    destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
+                    source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
+                    fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                              'status', 'repackaging_type', 'source_sku_id', 'status',
+                              'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
-                        available_fields = []
-                        for col in fields:
-                            if col in row.keys():
-                                if row[col] != '':
-                                    available_fields.append(col)
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys():
+                            if row[col] != '':
+                                available_fields.append(col)
 
-                        for col in available_fields:
+                    for col in available_fields:
+                        if col == 'ean':
+                            child_pro.update(product_ean_code=row['ean'])
+                        if col == 'status':
+                            child_pro.update(status=row['status'])
+                        if col == 'mrp':
+                            child_pro.update(product_mrp=row['mrp'])
+                        if col == 'weight_unit':
+                            child_pro.update(weight_unit=row['weight_unit'])
+                        if col == 'weight_value':
+                            child_pro.update(weight_value=row['weight_value'])
+                        if col == 'repackaging_type':
+                            child_pro.update(repackaging_type=row['repackaging_type'])
+                        if col == 'raw_material':
+                            destnation.update(raw_material=float(row['raw_material']))
+                        if col == 'wastage':
+                            destnation.update(wastage=float(row['wastage']))
+                        if col == 'fumigation':
+                            destnation.update(fumigation=float(row['fumigation']))
+                        if col == 'label_printing':
+                            destnation.update(label_printing=float(row['label_printing']))
+                        if col == 'packing_labour':
+                            destnation.update(packing_labour=float(row['packing_labour']))
+                        if col == 'primary_pm_cost':
+                            destnation.update(primary_pm_cost=float(row['primary_pm_cost']))
+                        if col == 'secondary_pm_cost':
+                            destnation.update(secondary_pm_cost=float(row['secondary_pm_cost']))
 
-                            if col == 'ean':
-                                child_pro.update(product_ean_code=row['ean'])
-                            if col == 'mrp':
-                                child_pro.update(product_mrp=row['mrp'])
-                            if col == 'weight_unit':
-                                child_pro.update(weight_unit=row['weight_unit'])
-                            if col == 'weight_value':
-                                child_pro.update(weight_value=row['weight_value'])
-                            if col == 'repackaging_type':
-                                child_pro.update(repackaging_type=row['repackaging_type'])
-                            if col == 'raw_material':
-                                destnation.update(raw_material=float(row['raw_material']))
-                            if col == 'wastage':
-                                destnation.update(wastage=float(row['wastage']))
-                            if col == 'fumigation':
-                                destnation.update(fumigation=float(row['fumigation']))
-                            if col == 'label_printing':
-                                destnation.update(label_printing=float(row['label_printing']))
-                            if col == 'packing_labour':
-                                destnation.update(packing_labour=float(row['packing_labour']))
-                            if col == 'primary_pm_cost':
-                                destnation.update(primary_pm_cost=float(row['primary_pm_cost']))
-                            if col == 'secondary_pm_cost':
-                                destnation.update(secondary_pm_cost=float(row['secondary_pm_cost']))
+                        if col == 'packing_sku_id':
+                            pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
+                            pack_pro.update(packing_sku=pack_sku)
+                        if col == 'packing_material_weight':
+                            pack_pro.update(packing_material_weight=float(row['packing_material_weight']))
 
-                            if col == 'packing_sku_id':
-                                pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
-                                pack_pro.update(packing_sku=pack_sku)
-                            if col == 'packing_material_weight':
-                                pack_pro.update(packing_material_weight=float(row['packing_material_weight']))
+                        if col == 'source_sku_id':
+                            source_map = []
+                            for product_skus in row['source_sku_id'].split(','):
+                                pro = product_skus.strip()
+                                if pro is not '' and pro not in source_map and \
+                                        Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                    source_map.append(pro)
+                            for sku in source_map:
+                                pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
+                                source_pro.update(source_sku=pro_sku)
 
-                            if col == 'source_sku_id':
-                                source_map = []
-                                for product_skus in row['source_sku_id'].split(','):
-                                    pro = product_skus.strip()
-                                    if pro is not '' and pro not in source_map and \
-                                            Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
-                                        source_map.append(pro)
-                                for sku in source_map:
-                                    pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
-                                    source_pro.update(source_sku=pro_sku)
+                        child_pro.update(updated_by=user)
 
-                    except:
-                        set_child.append(str(row_num))
+                except:
+                    set_child.append(str(row_num))
 
             info_logger.info("Total row executed :" + str(count))
             info_logger.info("Child SKU is not exist in these row :" + str(set_child))
