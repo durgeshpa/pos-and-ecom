@@ -270,17 +270,23 @@ def validate_bulk_data_format(request):
 
 
 def get_csv_file_data(csv_file, csv_file_headers):
-
+    entries = []
+    duplicate_entries = []
     uploaded_data_by_user_list = []
     excel_dict = {}
     count = 0
     for row in csv_file:
-        for ele in row:
-            excel_dict[csv_file_headers[count]] = ele
-            count += 1
-        uploaded_data_by_user_list.append(excel_dict)
-        excel_dict = {}
-        count = 0
+        if row[0] not in entries:
+            entries.append(row[0])
+            for ele in row:
+                excel_dict[csv_file_headers[count]] = ele
+                count += 1
+            uploaded_data_by_user_list.append(excel_dict)
+            excel_dict = {}
+            count = 0
+
+        else:
+            duplicate_entries.append(row[0])
 
     return uploaded_data_by_user_list
 
