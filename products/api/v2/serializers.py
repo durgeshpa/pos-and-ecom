@@ -45,7 +45,7 @@ DATA_TYPE_CHOICES = (
 class ChoiceField(serializers.ChoiceField):
     def to_internal_value(self, data):
         for key, val in self._choices.items():
-            if val == data:
+            if key == data:
                 return key
         self.fail('invalid_choice', input=data)
 
