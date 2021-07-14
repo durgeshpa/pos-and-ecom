@@ -151,25 +151,23 @@ class Shop(models.Model):
                 return "%s %s - %s" % (self.shop_owner.first_name, self.shop_owner.last_name, str(self.shop_owner.id))
 
             elif self.shop_owner.first_name:
-                return "%s" % (self.shop_owner.first_name)
+                return "%s - %s" % (self.shop_owner.first_name, str(self.shop_owner.id))
 
-            return "%s" % (str(self.shop_owner.phone_number))
+            return "%s - %s" % (str(self.shop_owner.phone_number), str(self.shop_owner.id))
         except:
             return None
 
     @property
     def get_shop_shipping_address(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
-                return address.address_line1
+            return self.shop_name_address_mapping.filter(address_type='shipping').last().address_line1
 
     get_shop_shipping_address.fget.short_description = 'Shipping Address'
 
     @property
     def get_shop_pin_code(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
-                return address.pincode
+            return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
 
     get_shop_pin_code.fget.short_description = 'PinCode'
 
