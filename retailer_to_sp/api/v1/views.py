@@ -4305,7 +4305,7 @@ def pdf_generation(request, ordered_product):
         pincode_gram = '-'
         cin = '-'
         list1 = []
-        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gte=0):
+        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             dict1 = {}
             flag = 0
             if len(list1) > 0:
