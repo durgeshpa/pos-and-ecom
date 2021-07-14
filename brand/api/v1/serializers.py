@@ -124,6 +124,9 @@ class BrandCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(brand_val['error'])
             data['brand_parent'] = brand_val['parent_brand']
 
+        if 'brand_logo' in self.initial_data and self.initial_data['brand_logo'] is None:
+            raise serializers.ValidationError("brand_logo is required")
+
         return data
 
     @transaction.atomic
