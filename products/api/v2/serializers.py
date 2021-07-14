@@ -16,7 +16,7 @@ from products.common_validators import read_file
 from categories.common_validators import get_validate_category
 from products.common_function import download_sample_file_update_master_data, create_update_master_data
 from products.api.v1.serializers import UserSerializers
-from products.upload_file import upload_file_to_s3
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,17 @@ DATA_TYPE_CHOICES = (
     ('sub_brand_with_brand_mapping', 'sub_brand_with_brand_mapping'),
     ('sub_category_with_category_mapping', 'sub_category_with_category_mapping'),
     ('child_parent_product_update', 'child_parent_product_update'),
-    ('child_product_update', 'child_product_update'),
-    ('parent_product_update', 'parent_product_update'),
     ('product_tax_update', 'product_tax_update'),
+
     ('create_child_product', 'create_child_product'),
     ('create_parent_product', 'create_parent_product'),
     ('create_category', 'create_category'),
     ('create_brand', 'create_brand'),
 
+    ('child_product_update', 'child_product_update'),
+    ('parent_product_update', 'parent_product_update'),
+    ('category_update', 'category_update'),
+    ('brand_update', 'brand_update'),
 )
 
 
@@ -60,8 +63,9 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
-        if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == "parent_product_update" \
-                or data['upload_type'] == "child_parent_product_update" or data['upload_type'] == "child_product_update":
+        if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == \
+                "child_parent_product_update" or data['upload_type'] == "parent_product_update"\
+                or data['upload_type'] == "child_product_update":
 
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
@@ -86,7 +90,6 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             create_update_master_data(validated_data)
-            # upload_file_to_s3(validated_data['file'], validated_data['file'].name)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

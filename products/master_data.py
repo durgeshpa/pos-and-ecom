@@ -119,149 +119,6 @@ class UploadMasterData(object):
                 f"Something went wrong, while working with 'Set Sub Category and Category Functionality' + {str(e)}")
 
     @classmethod
-    def set_parent_data(cls, csv_file_data_list, user):
-        try:
-            count = 0
-            row_num = 1
-            parent_data = []
-            info_logger.info("Method Start to set the data for Parent SKU")
-            parent_pro = ParentProduct.objects.all()
-            for row in csv_file_data_list:
-                row_num += 1
-                if not row['status'] == 'deactivated':
-                    count += 1
-                    try:
-                        parent_product = parent_pro.filter(parent_id=row['parent_id'])
-
-                        fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
-                                  'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
-                                  'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
-                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-                                  'is_lead_time_applicable']
-
-                        available_fields = []
-                        for col in fields:
-                            if col in row.keys():
-                                if row[col] != '':
-                                    available_fields.append(col)
-
-                        for col in available_fields:
-
-                            if col == 'product_type':
-                                parent_product.update(product_type=row['product_type'], updated_by=user)
-
-                            if col == 'hsn':
-                                parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last(),
-                                                      updated_by=user)
-
-                            if col == 'tax_1(gst)':
-                                tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='gst').update(tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst'). \
-                                        update(tax=tax[0])
-
-                            if col == 'tax_2(cess)':
-                                tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='cess').update(tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess'). \
-                                        update(tax=tax[0])
-
-                            if col == 'tax_3(surcharge)':
-                                tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='surcharge').update(
-                                    tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge'). \
-                                        update(tax=tax[0])
-
-                            if col == 'inner_case_size':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (inner_case_size=row['inner_case_size'])
-
-                            if col == 'sub_category_id':
-                                if row['sub_category_id'] == row['category_id']:
-                                    continue
-                                else:
-                                    ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
-                                        category=Category.objects.filter(id=row['sub_category_id']).last())
-
-                            if col == 'sub_brand_id':
-                                parent_pro.filter(parent_id=row['parent_id']).update(
-                                    parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
-
-                            if col == 'is_ptr_applicable':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
-
-                            if col == 'ptr_type':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (ptr_type=None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
-                                    if row[
-                                           'ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
-
-                            if col == 'ptr_percent':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
-                                        'ptr_percent'])
-
-                            if col == 'is_ars_applicable':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
-
-                            if col == 'max_inventory_in_days':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (max_inventory=row['max_inventory_in_days'])
-
-                            if col == 'is_lead_time_applicable':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
-
-                    except Exception as e:
-                        parent_data.append(str(row_num) + ' ' + str(e))
-            info_logger.info("Total row executed :" + str(count))
-            info_logger.info(
-                "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
-            info_logger.info("Method Complete to set the data for Parent SKU")
-        except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
-
-    @classmethod
-    def set_child_parent(cls, csv_file_data_list, user):
-        try:
-            info_logger.info("Method Start to set the Child to Parent mapping from excel file")
-            count = 0
-            row_num = 1
-            set_child = []
-            child_product = Product.objects.all()
-            parent_product = ParentProduct.objects.all()
-            for row in csv_file_data_list:
-                row_num += 1
-                if not row['status'] == 'deactivated':
-                    count += 1
-                    try:
-                        child_pro = child_product.filter(product_sku=row['sku_id'])
-                        parent_pro = parent_product.filter(parent_id=row['parent_id']).last()
-                        child_pro.update(parent_product=parent_pro, updated_by=user)
-                    except:
-                        set_child.append(str(row_num))
-
-            info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Child SKU is not exist in these row :" + str(set_child))
-            info_logger.info("Method complete to set the Child to Parent mapping from excel file")
-        except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
-
-    @classmethod
     def set_child_data(cls, csv_file_data_list, user):
         try:
             info_logger.info("Method Start to set the Child data from excel file")
@@ -344,6 +201,297 @@ class UploadMasterData(object):
                               f" + {str(e)}")
 
     @classmethod
+    def update_parent_data(cls, csv_file_data_list, user):
+        try:
+            count = 0
+            row_num = 1
+            parent_data = []
+            info_logger.info("Method Start to set the data for Parent SKU")
+            parent_pro = ParentProduct.objects.all()
+            for row in csv_file_data_list:
+                row_num += 1
+                count += 1
+                try:
+                    parent_product = parent_pro.filter(parent_id=row['parent_id'])
+
+                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
+                              'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
+                              'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
+                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                              'is_lead_time_applicable']
+
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys():
+                            if row[col] != '':
+                                available_fields.append(col)
+
+                    for col in available_fields:
+
+                        if col == 'product_type':
+                            parent_product.update(product_type=row['product_type'])
+
+                        if col == 'status':
+                            parent_product.update(status=row['status'])
+
+                        if col == 'hsn':
+                            parent_product.update(
+                                product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+
+                        if col == 'tax_1(gst)':
+                            tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='gst').update(tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst'). \
+                                    update(tax=tax[0])
+
+                        if col == 'tax_2(cess)':
+                            tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='cess').update(tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess'). \
+                                    update(tax=tax[0])
+
+                        if col == 'tax_3(surcharge)':
+                            tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='surcharge').update(
+                                tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge'). \
+                                    update(tax=tax[0])
+
+                        if col == 'inner_case_size':
+                            parent_pro.filter(parent_id=row['parent_id']).update \
+                                (inner_case_size=row['inner_case_size'])
+
+                        if col == 'sub_category_id':
+                            if row['sub_category_id'] == row['category_id']:
+                                continue
+                            else:
+                                ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                    category=Category.objects.filter(id=row['sub_category_id']).last())
+
+                        if col == 'sub_brand_id':
+                            parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+
+                        if col == 'is_ptr_applicable':
+                            parent_product.update(
+                                is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
+
+                        if col == 'ptr_type':
+                            parent_product.update(ptr_type=None if not row[
+                                                                           'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                            if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
+
+                        if col == 'ptr_percent':
+                            parent_product.update(
+                                ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
+                                    'ptr_percent'])
+
+                        if col == 'is_ars_applicable':
+                            parent_product.update(
+                                is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+
+                        if col == 'max_inventory_in_days':
+                            parent_product.update(max_inventory=row['max_inventory_in_days'])
+
+                        if col == 'is_lead_time_applicable':
+                            parent_product.update(is_lead_time_applicable=True if row[
+                                                                                      'is_lead_time_applicable'].lower() == 'yes' else False)
+
+                        parent_product.update(updated_by=user)
+
+                except Exception as e:
+                    parent_data.append(str(row_num) + ' ' + str(e))
+            info_logger.info("Total row executed :" + str(count))
+            info_logger.info(
+                "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
+            info_logger.info("Method Complete to set the data for Parent SKU")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
+
+    @classmethod
+    def update_child_data(cls, csv_file_data_list, user):
+        try:
+            info_logger.info("Method Start to set the Child to Parent mapping from excel file")
+            count = 0
+            row_num = 1
+            set_child = []
+            child_product = Product.objects.all()
+            for row in csv_file_data_list:
+                row_num += 1
+                count += 1
+                try:
+                    child_pro = child_product.filter(product_sku=row['sku_id'])
+                    pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
+                    destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
+                    source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
+                    fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                              'status', 'repackaging_type', 'source_sku_id', 'status',
+                              'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys():
+                            if row[col] != '':
+                                available_fields.append(col)
+
+                    for col in available_fields:
+                        if col == 'ean':
+                            child_pro.update(product_ean_code=row['ean'])
+                        if col == 'status':
+                            child_pro.update(status=row['status'])
+                        if col == 'mrp':
+                            child_pro.update(product_mrp=row['mrp'])
+                        if col == 'weight_unit':
+                            child_pro.update(weight_unit=row['weight_unit'])
+                        if col == 'weight_value':
+                            child_pro.update(weight_value=row['weight_value'])
+                        if col == 'repackaging_type':
+                            child_pro.update(repackaging_type=row['repackaging_type'])
+                        if col == 'raw_material':
+                            destnation.update(raw_material=float(row['raw_material']))
+                        if col == 'wastage':
+                            destnation.update(wastage=float(row['wastage']))
+                        if col == 'fumigation':
+                            destnation.update(fumigation=float(row['fumigation']))
+                        if col == 'label_printing':
+                            destnation.update(label_printing=float(row['label_printing']))
+                        if col == 'packing_labour':
+                            destnation.update(packing_labour=float(row['packing_labour']))
+                        if col == 'primary_pm_cost':
+                            destnation.update(primary_pm_cost=float(row['primary_pm_cost']))
+                        if col == 'secondary_pm_cost':
+                            destnation.update(secondary_pm_cost=float(row['secondary_pm_cost']))
+
+                        if col == 'packing_sku_id':
+                            pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
+                            pack_pro.update(packing_sku=pack_sku)
+                        if col == 'packing_material_weight':
+                            pack_pro.update(packing_material_weight=float(row['packing_material_weight']))
+
+                        if col == 'source_sku_id':
+                            source_map = []
+                            for product_skus in row['source_sku_id'].split(','):
+                                pro = product_skus.strip()
+                                if pro is not '' and pro not in source_map and \
+                                        Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                    source_map.append(pro)
+                            for sku in source_map:
+                                pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
+                                source_pro.update(source_sku=pro_sku)
+
+                        child_pro.update(updated_by=user)
+
+                except:
+                    set_child.append(str(row_num))
+
+            info_logger.info("Total row executed :" + str(count))
+            info_logger.info("Child SKU is not exist in these row :" + str(set_child))
+            info_logger.info("Method complete to set the Child to Parent mapping from excel file")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
+
+    @classmethod
+    def update_category_data(cls, csv_file_data_list, user):
+        try:
+            info_logger.info("Method Start to update category data from csv file")
+            count = 0
+            row_num = 1
+            cat_data = []
+            categories = Category.objects.all()
+            for row in csv_file_data_list:
+                row_num += 1
+                count += 1
+                try:
+                    category = categories.filter(id=row['category_id'])
+                    fields = ["name", "category_slug", "category_desc", "category_sku_part",
+                              "parent_category_id"]
+
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys() and row[col] != '':
+                            available_fields.append(col)
+
+                    for col in available_fields:
+                        if col == 'name':
+                            category.update(category_name=row['name'])
+                        if col == 'category_slug':
+                            category.update(category_slug=row['category_slug'])
+                        if col == 'category_desc':
+                            category.update(category_desc=row['category_desc'])
+                        if col == 'category_sku_part':
+                            category.update(category_sku_part=row['category_sku_part'])
+                        if col == 'parent_category_id':
+                            category.update(category_parent=Category.objects.get(id=int(row['parent_category_id'])))
+
+                        category.update(updated_by=user)
+
+                except Exception as e:
+                    cat_data.append(str(row_num) + ' ' + str(e))
+            info_logger.info("Total row executed :" + str(count))
+            info_logger.info(
+                "Some error found in these row while working with category update Functionality:" + str(cat_data))
+            info_logger.info("Script Complete to update category data")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Category Update Functionality' + {str(e)}")
+
+    @classmethod
+    def update_brand_data(cls, csv_file_data_list, user):
+        try:
+            info_logger.info("Method Start to update brand data from csv file")
+            count = 0
+            row_num = 1
+            brand_data = []
+            brands = Brand.objects.all()
+            for row in csv_file_data_list:
+                row_num += 1
+                count += 1
+                try:
+                    brand = brands.filter(id=row['brand_id'])
+                    fields = ["name", "brand_slug", "brand_description", "brand_code",
+                              "brand_parent_id", ]
+
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys() and row[col] != '':
+                            available_fields.append(col)
+
+                    for col in available_fields:
+                        if col == 'name':
+                            brand.update(brand_name=row['name'])
+                        if col == 'brand_slug':
+                            brand.update(brand_slug=row['brand_slug'])
+                        if col == 'brand_description':
+                            brand.update(brand_description=row['brand_description'])
+                        if col == 'brand_code':
+                            brand.update(brand_code=row['brand_code'])
+                        if col == 'brand_parent_id':
+                            brand.update(brand_parent=Brand.objects.get(id=row['brand_parent_id']))
+
+                        brand.update(updated_by=user)
+
+                except Exception as e:
+                    brand_data.append(str(row_num) + ' ' + str(e))
+            info_logger.info("Total row executed :" + str(count))
+            info_logger.info(
+                "Some error found in these row while working with category update Functionality:" + str(brand_data))
+            info_logger.info("Script Complete to update category data")
+        except Exception as e:
+            error_logger.info(
+                f"Something went wrong, while working with 'Category Update Functionality' + {str(e)}")
+
+    @classmethod
     def create_bulk_parent_product(cls, csv_file_data_list, user):
         """
             Create Parent Product
@@ -352,12 +500,13 @@ class UploadMasterData(object):
             info_logger.info('Method Start to create Parent Product')
             for row in csv_file_data_list:
                 parent_product = ParentProduct.objects.create(
-                    name=row['name'].strip(),
+                    name=row['product_name'].strip(),
                     parent_brand=Brand.objects.filter(brand_name=row['brand_name'].strip()).last(),
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
-                    ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                    ptr_type=(None if not row[
+                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
@@ -417,9 +566,9 @@ class UploadMasterData(object):
             for row in csv_file_data_list:
                 child_product = Product.objects.create(
                     parent_product=ParentProduct.objects.filter(parent_id=row['parent_id']).last(),
-                    reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['name'],
+                    reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
-                    weight_value=float(row['weight_value']), weight_unit= str(row['weight_unit'].lower()),
+                    weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user)
 
                 if row['repackaging_type'] == 'destination':
@@ -441,8 +590,10 @@ class UploadMasterData(object):
                                                                      packing_labour=float(row['packing_labour']),
                                                                      primary_pm_cost=float(row['primary_pm_cost']),
                                                                      secondary_pm_cost=float(row['secondary_pm_cost']))
-                    ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(product_sku=row['packing_sku_id']),
-                                                         packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
+                    ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(
+                        product_sku=row['packing_sku_id']),
+                                                         packing_sku_weight_per_unit_sku=float(
+                                                             row['packing_material_weight']))
 
             info_logger.info("Method complete to create the Child Product from csv file")
         except Exception as e:
@@ -523,7 +674,7 @@ class DownloadMasterData(object):
                      validated_data['category_id'].category_name))
 
         for product in products:
-            row=[]
+            row = []
             row.append(product['product_sku'])
             row.append(product['product_name'])
             row.append(product['product_mrp'])
@@ -536,8 +687,8 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def brand_sub_brand_mapping_sample_file(cls):
-        response, writer = DownloadMasterData.response_workbook("active_inactive_status_sample")
+    def set_brand_sub_brand_mapping_sample_file(cls):
+        response, writer = DownloadMasterData.response_workbook("brand_sub_brand_mapping_sample_file")
         columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
         writer.writerow(columns)
 
@@ -563,9 +714,9 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def category_sub_category_mapping_sample_file(cls):
+    def set_category_sub_category_mapping_sample_file(cls):
 
-        response, writer = DownloadMasterData.response_workbook("subCategory-CategorySample")
+        response, writer = DownloadMasterData.response_workbook("sub_category_and_category_mapping_sample_file")
         columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name', ]
         writer.writerow(columns)
 
@@ -590,7 +741,19 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def set_child_with_parent_sample_file(cls, validated_data):
+    def set_product_tax_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
+        columns = ['parent_id', 'gst', 'cess', 'surcharge', ]
+        writer.writerow(columns)
+
+        writer.writerow(['PHEATOY0006', 2, 12, 4])
+
+        info_logger.info("bulk tax update Sample CSVExported successfully ")
+        response.seek(0)
+        return response,
+
+    @classmethod
+    def update_child_with_parent_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_parent_mapping_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
         writer.writerow(columns)
@@ -615,17 +778,89 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def set_child_data_sample_file(cls, validated_data):
+    def create_parent_product_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
+
+        columns = ["product_name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
+                   "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
+                   "max_inventory_in_days", "is_lead_time_applicable"]
+        writer.writerow(columns)
+        data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
+                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes"],
+                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no",
+                 " ", "", "no", "2", "yes"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Parent Product Sample CSVExported successfully ")
+        response.seek(0)
+        return response
+
+    @classmethod
+    def create_child_product_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_child_product_create_sample")
+        writer = csv.writer(response)
+
+        writer.writerow(
+            ["parent_id", "reason_for_child_sku", "product_name", "ean", "mrp", "weight_value", "weight_unit",
+             "repackaging_type", "source_sku_id", 'raw_material', 'wastage', 'fumigation',
+             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
+             "packing_sku_id", "packing_material_weight"])
+        data = [["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "gm", "none"],
+                ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "gm", "source"],
+                ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "gm", "destination",
+                 "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
+                 "BPOBLKREG00000001", "10.00"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Child Product Sample CSVExported successfully ")
+        response.seek(0)
+        return response
+
+    @classmethod
+    def create_brand_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_brand_create_sample")
+        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code"]
+        writer.writerow(columns)
+
+        data = [["NatureLand", "natureland", "Dermanest", "", "NAT"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Brand Sample CSVExported successfully ")
+
+        info_logger.info("bulk tax update Sample CSVExported successfully ")
+        response.seek(0)
+        return response
+
+    @classmethod
+    def create_category_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
+        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part"]
+        writer.writerow(columns)
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI"]]
+        for row in data:
+            writer.writerow(row)
+
+        info_logger.info("Category Sample CSVExported successfully ")
+        response.seek(0)
+        return response
+
+    @classmethod
+    def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'status',
                    'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material', 'wastage',
                    'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                   'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+                   'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+
         writer.writerow(columns)
 
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
-                                          'weight_unit', 'weight_value', 'status', 'repackaging_type', ) \
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+                                          'weight_unit', 'weight_value', 'status', 'repackaging_type' ) \
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
             row = []
@@ -637,7 +872,7 @@ class DownloadMasterData(object):
             row.append(product['weight_value'])
             row.append(product['status'])
             row.append(product['repackaging_type'])
-            source_sku_name = Repackaging.objects.select_related('source_sku').filter(destination_sku=product['id'])
+            source_sku_name = ProductSourceMapping.objects.filter(destination_sku=product['id'])
             source_sku_ids = []
             source_sku_names = []
             for sourceSKU in source_sku_name:
@@ -646,18 +881,20 @@ class DownloadMasterData(object):
                 if sourceSKU.source_sku.product_name not in source_sku_names:
                     source_sku_names.append(sourceSKU.source_sku.product_name)
             if source_sku_ids:
-                row.append(str(source_sku_ids))
+                row.append(','.join(source_sku_ids))
             else:
                 row.append('')
             if source_sku_names:
-                row.append(str(source_sku_names))
+                row.append(','.join(source_sku_names))
             else:
                 row.append('')
             costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                      'label_printing', 'packing_labour',
                                                                      'primary_pm_cost', 'secondary_pm_cost',
                                                                      'final_fg_cost',
-                                                                     'conversion_cost').filter(destination=product['id'])
+                                                                     'conversion_cost').filter(
+                destination=product['id'])
+
             for cost in costs:
                 row.append(cost['raw_material'])
                 row.append(cost['wastage'])
@@ -666,8 +903,14 @@ class DownloadMasterData(object):
                 row.append(cost['packing_labour'])
                 row.append(cost['primary_pm_cost'])
                 row.append(cost['secondary_pm_cost'])
-                row.append(cost['final_fg_cost'])
-                row.append(cost['conversion_cost'])
+
+            pro_packing = ProductPackingMapping.objects.values('packing_sku_id',
+                                                               'packing_sku_weight_per_unit_sku').filter(
+                sku=product['id'])
+            for pro_pack in pro_packing:
+                pro_sku = Product.objects.get(id=pro_pack['packing_sku_id'])
+                row.append(pro_sku.product_sku)
+                row.append(pro_pack['packing_sku_weight_per_unit_sku'])
 
             writer.writerow(row)
 
@@ -676,7 +919,7 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def set_parent_data_sample_file(cls, validated_data):
+    def update_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
@@ -761,82 +1004,39 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def set_product_tax_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("bulk_product_tax_gst_update_sample")
-        columns = ['parent_id', 'gst', 'cess', 'surcharge', ]
+    def update_category_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_category_update_sample")
+        columns = ["category_id", "name", "category_slug", "category_desc", "category_sku_part",
+                   "parent_category_id", "parent_category_name"]
         writer.writerow(columns)
+        categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc',
+                                             'category_sku_part', 'category_parent', 'category_parent__category_name')
 
-        writer.writerow(['PHEATOY0006', 2, 12, 4])
+        for category in categories:
+            row = [category['id'], category['category_name'], category['category_slug'], category['category_desc'],
+                   category['category_sku_part'], category['category_parent'],
+                   category['category_parent__category_name']]
 
-        info_logger.info("bulk tax update Sample CSVExported successfully ")
-        response.seek(0)
-        return response,
-
-    @classmethod
-    def set_parent_product_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
-        columns = ["name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
-                   "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
-                   "max_inventory_in_days", "is_lead_time_applicable"]
-        writer.writerow(columns)
-        data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes"],
-                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no",
-                 " ", "", "no", "2", "yes"]]
-        for row in data:
             writer.writerow(row)
-
-        info_logger.info("Parent Product Sample CSVExported successfully ")
+        info_logger.info("Update Category Sample File has been Successfully Downloaded")
         response.seek(0)
         return response
 
     @classmethod
-    def set_child_product_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("bulk_child_product_create_sample")
-        writer = csv.writer(response)
-        writer.writerow(["parent_id", "reason_for_child_sku", "name", "ean",
-                         "mrp", "weight_value", "weight_unit", "repackaging_type", "source_sku_id",
-                         'raw_material', 'wastage', 'fumigation', 'label_printing',
-                         'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
-                         "packing_material_weight"])
-        data = [["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"],
-                ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"],
-                ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
-                 "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
-                 "BPOBLKREG00000001", "10.00"]]
-        for row in data:
-            writer.writerow(row)
-
-        info_logger.info("Child Product Sample CSVExported successfully ")
-        response.seek(0)
-        return response
-
-    @classmethod
-    def set_brand_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("bulk_brand_create_sample")
-        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code"]
+    def update_brand_sample_file(cls, validated_data):
+        response, writer = DownloadMasterData.response_workbook("bulk_brand_update_sample")
+        columns = ["brand_id", "name", "brand_slug", "brand_description", "brand_code", "brand_parent_id",
+                   "brand_parent"]
         writer.writerow(columns)
 
-        data = [["NatureLand", "natureland", "Dermanest", "", "NAT"]]
-        for row in data:
+        brands = Brand.objects.values('id', 'brand_name', 'brand_slug', 'brand_description', 'brand_code',
+                                      'brand_parent_id', 'brand_parent__brand_name')
+        for brand in brands:
+            row = [brand['id'], brand['brand_name'], brand['brand_slug'], brand['brand_description'],
+                   brand['brand_code'], brand['brand_parent_id'], brand['brand_parent__brand_name']]
+
             writer.writerow(row)
-
-        info_logger.info("Brand Sample CSVExported successfully ")
-
-        info_logger.info("bulk tax update Sample CSVExported successfully ")
-        response.seek(0)
-        return response
-
-    @classmethod
-    def set_category_sample_file(cls, validated_data):
-        response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
-        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part" ]
-        writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI"]]
-        for row in data:
-            writer.writerow(row)
-
-        info_logger.info("Category Sample CSVExported successfully ")
+        info_logger.info("Update Brand Sample CSVExported successfully ")
         response.seek(0)
         return response
 
