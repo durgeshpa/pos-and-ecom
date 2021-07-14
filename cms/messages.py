@@ -50,4 +50,5 @@ ERROR_MESSAGES = {
 	"PAGE_CREATE_FAIL": "Page Creation Failed",
 	"PAGE_PATCH_FAIL": "Page not Patched Successfully",
 
+	"PAGE_NOT_PUBLISHED": "Page is not published yet"
 }
