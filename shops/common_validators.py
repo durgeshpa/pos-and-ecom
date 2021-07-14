@@ -1,6 +1,8 @@
 import logging
 import json
 import re
+import traceback
+
 from shops.models import ShopDocument
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,15 @@ def get_validate_images(images):
     return {'image': images}
 
 
+def validate_shop_doc_photo(shop_photo):
+    """validate shop photo"""
+    filename = shop_photo.split('/')[-1:][0]
+    resp = get_validate_images(filename)
+    if 'error' in resp:
+        return resp
+    return {'shop_photo': shop_photo}
+
+
 def validate_shop_doc_type(shop_type):
     """validate shop type"""
     if not (any(shop_type in i for i in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)):
@@ -42,20 +53,29 @@ def validate_gstin_number(document_num):
 
 def get_validate_shop_documents(shop, shop_documents):
     """ validate shop_documents that belong to a ShopDocument model"""
+    shop_doc_list = []
     for shop_doc in shop_documents:
+        shop_doc_obj = {}
         try:
-            # if 'id' in shop_doc:
-            #     validated_document = ShopDocument.objects.get(shop=shop, id=shop_doc['id'])
+            # if 'shop_document_photo' in shop_doc:
+            #     shop_doc_photo = validate_shop_doc_photo(shop_doc['shop_document_photo'])
+            #     if 'error' in shop_doc_photo:
+            #         return shop_doc_photo
+            #     shop_doc_obj['shop_document_photo'] = shop_doc_photo['shop_photo']
             if 'shop_document_type' in shop_doc:
                 shop_doc_type = validate_shop_doc_type(shop_doc['shop_document_type'])
                 if 'error' in shop_doc_type:
                     return shop_doc_type
+                shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
             if 'shop_document_number' in shop_doc and 'shop_document_type' in shop_doc and shop_doc['shop_document_type']  == ShopDocument.GSTIN:
                 shop_doc_num = validate_gstin_number(shop_doc['shop_document_number'])
                 if 'error' in shop_doc_num:
                     return shop_doc_num
+                shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
+            shop_doc_list.append(shop_doc_obj)
         except Exception as e:
             logger.error(e)
+            traceback.print_exc()
             return {'error': 'please provide a valid shop_document id'}
     return {'data': shop_documents}
 
@@ -68,7 +88,7 @@ def validate_data_format(request):
         return {'error': "Invalid Data Format", }
 
     if request.FILES.getlist('shop_photos'):
-        data['shop_photos'] = request.FILES.getlist('shop_photos')
+        data['shop_photos'] = get_validate_images(request.FILES.getlist('shop_photos'))['image']
 
     return data
 

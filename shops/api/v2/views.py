@@ -1,4 +1,9 @@
+import csv
+from decimal import Decimal
 import logging
+
+from django.db.models.aggregates import Sum
+from retailer_to_sp.models import Order, OrderedProductMapping
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user, get_user_model
@@ -6,6 +11,7 @@ from django.contrib.auth import get_user, get_user_model
 from rest_framework import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
@@ -17,7 +23,7 @@ from shops.models import (
 )
 
 from .serializers import (
-    AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, StateAddressSerializer, UserSerializers
 )
 from shops.common_functions import *
@@ -339,3 +345,94 @@ class ShopView(generics.GenericAPIView):
                 filter(approval_status=approval_status)
 
         return self.queryset
+
+
+class ShopSalesReportView(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_sales_report(self, shop_id, start_date, end_date):
+        seller_shop = Shop.objects.get(pk=shop_id)
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
+            .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
+        if start_date:
+            orders = orders.using('readonly').filter(created_at__gte = start_date)
+        if end_date:
+            orders = orders.using('readonly').filter(created_at__lte = end_date)
+        ordered_list=[]
+        ordered_items = {}
+        for order in orders:
+            order_shipments = OrderedProductMapping.objects.using('readonly').filter(
+                ordered_product__order = order
+                )
+            for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
+                product = cart_product_mapping.cart_product
+                product_id = cart_product_mapping.cart_product.id
+                product_name = cart_product_mapping.cart_product.product_name
+                product_sku = cart_product_mapping.cart_product.product_sku
+                product_brand = cart_product_mapping.cart_product.product_brand.brand_name
+                ordered_qty = cart_product_mapping.no_of_pieces
+                all_tax_list = cart_product_mapping.cart_product.product_pro_tax
+                # shopName = seller_shop
+
+                product_shipments = order_shipments.filter(product=product)
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
+                if not product_shipments:
+                    product_shipments = 0
+                tax_sum, get_tax_val = 0, 0
+                if all_tax_list.exists():
+                    for tax in all_tax_list.using('readonly').all():
+                        tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
+                    tax_sum = round(tax_sum, 2)
+                    get_tax_val = tax_sum / 100
+                seller_shop = Shop.objects.filter(id=order.seller_shop_id).last()
+                buyer_shop = Shop.objects.filter(id=order.buyer_shop_id).last()
+                try:
+                    product_price_to_retailer = cart_product_mapping.get_cart_product_price(seller_shop,
+                                                            buyer_shop).get_per_piece_price(cart_product_mapping.qty)
+                except:
+                    product_price_to_retailer = 0
+                ordered_amount = (Decimal(product_price_to_retailer) * Decimal(ordered_qty)) / (Decimal(get_tax_val) + 1)
+                ordered_tax_amount = (ordered_amount * Decimal(get_tax_val))
+                delivered_amount = float((Decimal(product_price_to_retailer) * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1))
+                delivered_tax_amount = float((delivered_amount * float(get_tax_val)))
+                if product_sku in ordered_items:
+                    ordered_items['ordered_qty'] += ordered_qty
+                    ordered_items['ordered_amount'] += ordered_amount
+                    ordered_items['ordered_tax_amount'] += ordered_tax_amount
+                    ordered_items['delivered_qty'] += product_shipments
+                    ordered_items['delivered_amount'] += delivered_amount
+                    ordered_items['delivered_tax_amount'] += delivered_tax_amount
+                else:
+                    ordered_items = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
+                    ordered_list.append(ordered_items)
+        data = ordered_list
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            logger.error(self.request, 'End date cannot be less than the start date')
+            return get_response("End date cannot be less than the start date", {}, True)
+        data = self.get_sales_report(shop_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
+        for dic in data:
+            writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'],dic['seller_shop']])
+
+        return response
+
+class ServicePartnerShopsListView(generics.ListAPIView):
+    queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', ]).all()
+    serializer_class = ServicePartnerShopsSerializer
+    permission_classes = (AllowAny,)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return get_response("", serializer.data, True)
+
