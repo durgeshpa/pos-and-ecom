@@ -379,15 +379,20 @@ class UploadMasterData(object):
                             pack_pro.update(packing_material_weight=float(row['packing_material_weight']))
 
                         if col == 'source_sku_id':
+                            if source_pro.exists():
+                                source_pro.delete()
                             source_map = []
                             for product_skus in row['source_sku_id'].split(','):
                                 pro = product_skus.strip()
                                 if pro is not '' and pro not in source_map and \
-                                        Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                        child_product.filter(product_sku=pro, repackaging_type='source').exists():
                                     source_map.append(pro)
                             for sku in source_map:
-                                pro_sku = Product.objects.filter(product_sku=sku, repackaging_type='source').last()
-                                source_pro.update(source_sku=pro_sku)
+                                pro_sku = child_product.filter(product_sku=sku, repackaging_type='source').last()
+                                source_sku_id = Product.objects.get(id=pro_sku.id)
+                                ProductSourceMapping.objects.create(destination_sku=child_pro,
+                                                                    source_sku=source_sku_id)
+                                # source_pro.update(source_sku=pro_sku)
 
                         child_pro.update(updated_by=user)
 
@@ -777,6 +782,7 @@ class DownloadMasterData(object):
         response.seek(0)
         return response
 
+    # create bulk sample file
     @classmethod
     def create_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
@@ -847,18 +853,20 @@ class DownloadMasterData(object):
         response.seek(0)
         return response
 
+    # update bulk sample file
     @classmethod
     def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
-        columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'status',
-                   'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material', 'wastage',
+        columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                   'status', 'repackaging_type', 'source_sku_id', 'raw_material', 'wastage',
                    'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
 
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
-                                          'weight_unit', 'weight_value', 'status', 'repackaging_type' ) \
+                                          'weight_unit', 'weight_value', 'status', 'repackaging_type',
+                                          'parent_product__parent_id', 'parent_product__name',) \
             .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
             'category_id'].category_name))
 
@@ -866,28 +874,26 @@ class DownloadMasterData(object):
             row = []
             row.append(product['product_sku'])
             row.append(product['product_name'])
+            row.append(product['parent_product__parent_id'])
+            row.append(product['parent_product__name'])
             row.append(product['product_ean_code'])
             row.append(product['product_mrp'])
             row.append(product['weight_unit'])
             row.append(product['weight_value'])
             row.append(product['status'])
             row.append(product['repackaging_type'])
-            source_sku_name = ProductSourceMapping.objects.filter(destination_sku=product['id'])
+
+            source_sku_obj = ProductSourceMapping.objects.filter(destination_sku=product['id'])
             source_sku_ids = []
-            source_sku_names = []
-            for sourceSKU in source_sku_name:
-                if sourceSKU.source_sku.product_sku not in source_sku_ids:
-                    source_sku_ids.append(sourceSKU.source_sku.product_sku)
-                if sourceSKU.source_sku.product_name not in source_sku_names:
-                    source_sku_names.append(sourceSKU.source_sku.product_name)
+            for source_skus in source_sku_obj:
+                if source_skus.source_sku.product_sku not in source_sku_ids:
+                    source_sku_ids.append(source_skus.source_sku.product_sku)
+
             if source_sku_ids:
                 row.append(','.join(source_sku_ids))
             else:
                 row.append('')
-            if source_sku_names:
-                row.append(','.join(source_sku_names))
-            else:
-                row.append('')
+
             costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                      'label_printing', 'packing_labour',
                                                                      'primary_pm_cost', 'secondary_pm_cost',
