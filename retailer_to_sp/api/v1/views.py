@@ -5250,7 +5250,8 @@ class SellerOrderList(generics.ListAPIView):
             'new': [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
                     Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH],
             'in_transit': [Order.DISPATCHED],
-            'completed': [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]
+            'completed': [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED],
+            'cancelled': [Order.CANCELLED]
         }
         return order_status_dict.get(status)
 
