@@ -1,13 +1,19 @@
-from addresses.models import Address
+import re
 from django.db import transaction
+from django.contrib.auth import get_user_model
+
 from rest_framework import serializers
+
+from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern
                           )
-from django.contrib.auth import get_user_model
-from accounts.api.v1.serializers import UserSerializer
+from addresses.models import Address, City, Pincode, State
 
+from shops.common_validators import get_validate_shop_documents
+from shops.common_functions import ShopCls
+from products.api.v1.serializers import LogSerializers
 
 User = get_user_model()
 
@@ -60,12 +66,6 @@ For Shops Listing
 '''
 
 
-class RelatedUsersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('id', 'first_name', 'last_name',  'phone_number',  'email', )
-
-
 class ShopPhotoSerializers(serializers.ModelSerializer):
 
     class Meta:
@@ -89,43 +89,66 @@ class ShopDocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopDocument
-        fields = ('id', 'shop_document_type', 'shop_document_number', )
+        fields = ('id', 'shop_document_type',
+                  'shop_document_number', 'shop_document_photo', )
 
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
-    shop_owner = UserSerializer()
+    shop_owner_id = serializers.SerializerMethodField('get_user_id')
+    first_name = serializers.SerializerMethodField('get_user_first_name')
+    last_name = serializers.SerializerMethodField('get_user_last_name')
+    phone_number = serializers.SerializerMethodField('get_user_phone_number')
+    email = serializers.SerializerMethodField('get_user_email')
 
     class Meta:
         model = Shop
-        fields = ('shop_owner',)
+        fields = ('shop_owner_id', 'first_name',
+                  'last_name', 'phone_number', 'email',)
 
-class UserSerializer(serializers.ModelSerializer):
+    def get_user_id(self, obj):
+        return obj.shop_owner.id if obj.shop_owner else None
+
+    def get_user_first_name(self, obj):
+        return obj.shop_owner.first_name if obj.shop_owner else None
+
+    def get_user_last_name(self, obj):
+        return obj.shop_owner.last_name if obj.shop_owner else None
+
+    def get_user_phone_number(self, obj):
+        return obj.shop_owner.phone_number if obj.shop_owner else None
+
+    def get_user_email(self, obj):
+        return obj.shop_owner.email if obj.shop_owner else None
+
+
+class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk', 'id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('pk', 'id', 'first_name', 'last_name',
+                  'phone_number', 'email', 'user_photo')
 
 
-class PinCodeSerializer(serializers.ModelSerializer):
-    
+class PinCodeAddressSerializer(serializers.ModelSerializer):
+
     pincode_id = serializers.SerializerMethodField('get_pin_id_name')
     pincode = serializers.SerializerMethodField('get_pincode_name')
-    
+
     class Meta:
         model = Address
         fields = ('pincode_id', 'pincode',)
-    
+
     def get_pin_id_name(self, obj):
         return obj.pincode_link.id if obj.pincode_link else None
-    
+
     def get_pincode_name(self, obj):
         return obj.pincode_link.pincode if obj.pincode_link else None
 
 
-class CitySerializer(serializers.ModelSerializer):
-    
+class CityAddressSerializer(serializers.ModelSerializer):
+
     city_id = serializers.SerializerMethodField('get_city_id_from_city')
     city_name = serializers.SerializerMethodField('get_city_name_from_city')
-    
+
     class Meta:
         model = Address
         fields = ('city_id', 'city_name',)
@@ -134,13 +157,14 @@ class CitySerializer(serializers.ModelSerializer):
         return obj.city.id
 
     def get_city_name_from_city(self, obj):
-        return obj.city.city_name    
+        return obj.city.city_name
 
-class StateSerializer(serializers.ModelSerializer):
-    
+
+class StateAddressSerializer(serializers.ModelSerializer):
+
     state_id = serializers.SerializerMethodField('get_state_id_from_state')
     state_name = serializers.SerializerMethodField('get_state_name_from_state')
-    
+
     class Meta:
         model = Address
         fields = ('state_id', 'state_name',)
@@ -149,14 +173,74 @@ class StateSerializer(serializers.ModelSerializer):
         return obj.state.id
 
     def get_state_name_from_state(self, obj):
-        return obj.state.state_name    
+        return obj.state.state_name
+
+
+class PincodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pincode
+        fields = '__all__'
+
+
+class StateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = '__all__'
+
+
+class CitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = City
+        fields = '__all__'
+
+
+class AddressSerializer(serializers.ModelSerializer):
+
+    pincode = serializers.CharField(max_length=6, min_length=6,
+                                    validators=[PinCodeValidator])
+
+    class Meta:
+        model = Address
+        fields = '__all__'
+        extra_kwargs = {
+            'city': {'required': True},
+            'state': {'required': True},
+            'shop_name': {'required': True},
+            'pincode': {'required': True},
+            'address_line1': {'required': True},
+            'address_contact_number': {'required': True},
+            'address_contact_name': {'required': True},
+        }
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['city'] = CitySerializer(instance.city).data
+        response['state'] = StateSerializer(instance.state).data
+        response['pincode_link'] = PincodeSerializer(
+            instance.pincode_link).data
+        return response
+
+# class LogSerializers(serializers.ModelSerializer):
+#     updated_by = UserSerializers(read_only=True)
+
+#     def to_representation(self, instance):
+#         representation = super().to_representation(instance)
+#         representation['update_at'] = instance.update_at.strftime("%b %d %Y %I:%M%p")
+#         return representation
+
+#     class Meta:
+#         model = CentralLog
+#         fields = ('update_at', 'updated_by',)
+
 
 class ShopCrudSerializers(serializers.ModelSerializer):
 
-    related_users = RelatedUsersSerializer(read_only=True, many=True)
+    related_users = UserSerializers(read_only=True, many=True)
+    shop_log = LogSerializers(many=True, read_only=True)
 
     approval_status = serializers.SerializerMethodField('shop_approval_status')
     shop_type = serializers.SerializerMethodField('get_shop_type_name')
+    address = serializers.SerializerMethodField('get_addresses')
     pincode = serializers.SerializerMethodField('get_pin_code')
     city = serializers.SerializerMethodField('get_city_name')
     shop_photo = serializers.SerializerMethodField('get_shop_photos')
@@ -166,15 +250,19 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('shop_name', 'owner', 'parent_shop', 'pincode', 'city',
+        fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
+                  'owner', 'parent_shop', 'address', 'pincode', 'city',
                   'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
-                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern')
+                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern', 'shop_log')
 
     def shop_approval_status(self, obj):
         return obj.get_approval_status_display()
 
     def get_shop_type_name(self, obj):
         return obj.shop_type.get_shop_type_display()
+
+    def get_addresses(self, obj):
+        return AddressSerializer(obj.shop_name_address_mapping.all(), read_only=True, many=True).data
 
     def get_pin_code(self, obj):
         return obj.pin_code
@@ -191,24 +279,74 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     def get_shop_invoices(self, obj):
         return ShopInvoicePatternSerializer(obj.invoice_pattern.all(), read_only=True, many=True).data
 
-    # def validate(self, data):
-    #     if 'shop_start_at' in self.initial_data and 'shop_end_at' in self.initial_data:
-    #         if data['shop_start_at'] and data['shop_end_at']:
-    #             if data['shop_end_at'] < data['shop_start_at']:
-    #                 raise serializers.ValidationError("End date should be greater than start date.")
+    def validate(self, data):
+        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
+            shop_docs = get_validate_shop_documents(
+                self.initial_data['id'], self.initial_data['shop_docs'])
+            if 'error' in shop_docs:
+                raise serializers.ValidationError((shop_docs["error"]))
 
-    #     # if data['shop_name'] and data['shop_type'] and data['shop_percentage']:
-    #     #     if Shop.objects.filter(shop_name=data['shop_name'], shop_type=data['shop_type'],
-    #     #                           shop_percentage=data['shop_percentage']):
-    #     #         raise serializers.ValidationError("Shop already exists .")
-    #     return data
+        # if 'shop_start_at' in self.initial_data and 'shop_end_at' in self.initial_data:
+        #     if data['shop_start_at'] and data['shop_end_at']:
+        #         if data['shop_end_at'] < data['shop_start_at']:
+        #             raise serializers.ValidationError("End date should be greater than start date.")
+
+        # if data['shop_name'] and data['shop_type'] and data['shop_percentage']:
+        #     if Shop.objects.filter(shop_name=data['shop_name'], shop_type=data['shop_type'],
+        #                           shop_percentage=data['shop_percentage']):
+        #         raise serializers.ValidationError("Shop already exists .")
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
-        """create a new shop"""
-        return Shop.objects.create(**validated_data)
+        """create a new Shop with image category & tax"""
 
+        try:
+            shop_instance = Shop.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        self.create_shop_photo_doc_invoice(shop_instance)
+        ShopCls.create_shop_log(shop_instance)
+        return shop_instance
+
+    @transaction.atomic
     def update(self, instance, validated_data):
-        """update shop"""
-        instance = super().update(instance, validated_data)
-        return instance
+        """ This method is used to update an instance of the Shop's attribute. """
+
+        try:
+            # call super to save modified instance along with the validated data
+            shop_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        self.create_shop_photo_doc_invoice(shop_instance)
+        ShopCls.create_shop_log(shop_instance)
+        return shop_instance
+
+    def create_shop_photo_doc_invoice(self, shop):
+        ''' Create Shop Photos, Docs'''
+        shop_photo = None
+        shop_docs = None
+        # shop_invoice_pattern = None
+
+        doc_num = None
+        doc_type = None
+        # s_date = None
+        # e_date = None
+        # invoice_status = None
+
+        if 'shop_photos' in self.initial_data and self.initial_data['shop_photos']:
+            shop_photo = self.initial_data['shop_photos']
+        if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
+            shop_docs = self.initial_data['shop_docs']
+        # if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
+        #     shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
+
+        ShopCls.upload_shop_photos(shop, shop_photo)
+        ShopCls.create_shop_docs(shop, shop_docs)
+        # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern, s_date, e_date, invoice_status)
