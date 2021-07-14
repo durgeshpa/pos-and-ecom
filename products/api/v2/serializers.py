@@ -204,9 +204,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
         return data_value
 
     def to_representation(self, instance):
-        result = OrderedDict()
-        result['data'] = str(instance)
-        return result
+        return instance
 
 
 class ChildProductImageSerializers(serializers.ModelSerializer):
@@ -263,9 +261,7 @@ class ChildProductImageSerializers(serializers.ModelSerializer):
         return data_value
 
     def to_representation(self, instance):
-        result = OrderedDict()
-        result['data'] = str(instance)
-        return result
+        return instance
 
 
 class BrandImageSerializers(serializers.ModelSerializer):
@@ -321,14 +317,11 @@ class BrandImageSerializers(serializers.ModelSerializer):
         return data_value
 
     def to_representation(self, instance):
-        result = OrderedDict()
-        result['data'] = str(instance)
-        return result
+        return instance
 
 
 class CategoryImageSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating category images."""
-
     image = serializers.ListField(
         child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=True, ), write_only=True)
 
@@ -374,11 +367,9 @@ class CategoryImageSerializers(serializers.ModelSerializer):
             'total_count': total_count,
             'upload_count': upload_count,
             'aborted_count': aborted_count,
-            'uploaded_data': data
+            'uploaded_data': data,
         }
         return data_value
 
     def to_representation(self, instance):
-        result = OrderedDict()
-        result['data'] = str(instance)
-        return result
+        return instance
