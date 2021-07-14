@@ -7,13 +7,14 @@ from rest_framework import serializers
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
-                          ShopDocument, ShopInvoicePattern
+                          ShopDocument, ShopInvoicePattern, ShopUserMapping
                           )
 from addresses.models import Address, City, Pincode, State
 
 from shops.common_validators import get_validate_shop_documents
 from shops.common_functions import ShopCls
 from products.api.v1.serializers import LogSerializers
+from accounts.api.v1.serializers import GroupSerializer
 
 User = get_user_model()
 
@@ -124,7 +125,7 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk', 'id', 'first_name', 'last_name',
+        fields = ('id', 'first_name', 'last_name',
                   'phone_number', 'email', 'user_photo')
 
 
@@ -357,3 +358,26 @@ class ServicePartnerShopsSerializer(serializers.ModelSerializer):
         return "%s - %s - %s - %s" % (obj.shop_name, str(
             obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
 
+
+class ManagerSerializers(serializers.ModelSerializer):
+
+    manager_name = serializers.SerializerMethodField('get_manager_repr')
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('id', 'manager_name')
+
+    def get_manager_repr(self, obj):
+        if obj.employee:
+            return str(obj.employee)
+
+
+class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
+    shop = ServicePartnerShopsSerializer()
+    employee = UserSerializers()
+    manager = ManagerSerializers()
+    employee_group = GroupSerializer()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = '__all__'
