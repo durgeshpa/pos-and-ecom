@@ -272,7 +272,10 @@ function changeDamagedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-damaged_qty']").keyup(function(){
-    for(var i=0;i<noOfItems;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -323,7 +326,6 @@ function changeDamagedPieces(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
         }
-        }
         });
     })
 }
@@ -332,7 +334,10 @@ function changeExpPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-expired_qty']").keyup(function(){
-    for(var i=0;i<noOfItems;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -382,7 +387,6 @@ function changeExpPieces(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
         }
-        }
         });
     })
 }
@@ -392,7 +396,11 @@ function changeMissingPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-missing_qty']").keyup(function(){
-    for(var i=0;i<noOfItems;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
+
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -443,7 +451,6 @@ function changeMissingPieces(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-missing_qty` + "]").val(sum);
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
-        }
         }
         });
     })
@@ -453,7 +460,11 @@ function changeRejectedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-rejected_qty']").keyup(function(){
-    for(var i=0;i<noOfItems;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
+
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -504,7 +515,6 @@ function changeRejectedPieces(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-rejected_qty` + "]").val(sum);
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
-        }
         }
         });
     })
@@ -550,9 +560,10 @@ function loadToShip(){
 function updateval(){
         xx = [0,1,2,3,4,5,6]
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
-    for(var i=0;i<noOfItems;i++){
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
-//        var final_sum  = 0
         for (var j=0; j<10;j++){
             var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
             var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
@@ -571,7 +582,6 @@ function updateval(){
             sum +=tot
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(sum);
 
-        }
         }
     })
 }
