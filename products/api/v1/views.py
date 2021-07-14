@@ -57,7 +57,7 @@ class CategoryListView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name')
+    queryset = Category.objects.select_related('category_parent').only('id', 'category_name', 'category_parent')
     serializer_class = CategorySerializers
 
     def get(self, request):

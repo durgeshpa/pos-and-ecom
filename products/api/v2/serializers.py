@@ -44,10 +44,12 @@ DATA_TYPE_CHOICES = (
 
 class ChoiceField(serializers.ChoiceField):
     def to_internal_value(self, data):
-        for key, val in self._choices.items():
-            if key == data:
-                return key
-        self.fail('invalid_choice', input=data)
+        # for key, val in self._choices.items():
+        #     if key == data:
+        #         return key
+        # self.fail('invalid_choice', input=data)
+        if not (any(data in i for i in DATA_TYPE_CHOICES)):
+            raise serializers.ValidationError(_('Sorry! Not a Valid Option.'))
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):

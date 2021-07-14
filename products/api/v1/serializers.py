@@ -54,6 +54,18 @@ class ProductHSNSerializers(serializers.ModelSerializer):
 
 
 class CategorySerializers(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField('get_category_names')
+
+    def get_category_names(self, obj):
+        full_path = [obj.category_name]
+        k = obj.category_parent
+
+        while k is not None:
+            full_path.append(k.category_name)
+            k = k.category_parent
+
+        return ' -> '.join(full_path[::-1])
+
     class Meta:
         model = Category
 
