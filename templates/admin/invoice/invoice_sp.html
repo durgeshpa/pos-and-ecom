@@ -157,7 +157,6 @@ table tr td,th,h4,span,address{
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
 
                     {% for m in shipment.rt_order_product_order_product_mapping.all %}
-								{% if m.shipped_qty != 0 %}
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
 									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
@@ -173,7 +172,6 @@ table tr td,th,h4,span,address{
 								<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
 								<td class="text-right"><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong></td>
     							</tr>
-								{% endif %}
 								{% endfor %}
     							<tr>
 									<td></td>

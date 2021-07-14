@@ -4438,7 +4438,10 @@ def pdf_generation(request, ordered_product):
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
-        product_special_cess = round(m.total_product_cess_amount)
+        try:
+            product_special_cess = round(m.total_product_cess_amount)
+        except:
+            product_special_cess = 0
         amount = total_amount
         total_amount = total_amount + tcs_tax
         total_amount_int = round(total_amount)
