@@ -557,14 +557,20 @@ class PageDetailView(APIView):
             }
 
             latest_page_version_no = page.active_version_no
-            latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-            data = PageLatestDetailSerializer(page, context = {'version': latest_page_version}).data
+            if latest_page_version_no == None:
+                message_to_cache = {
+                "is_success": False,
+                "message": ERROR_MESSAGES["PAGE_NOT_PUBLISHED"],
+                }
+            else: 
+                latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
+                data = PageLatestDetailSerializer(page, context = {'version': latest_page_version}).data
 
-            message_to_cache = {
-                "is_success": True,
-                "message": "OK",
-                "data": data
-            }
+                message_to_cache = {
+                    "is_success": True,
+                    "message": "OK",
+                    "data": data
+                }
 
             # custom_message = dict(message)
             # custom_message["message"] = SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"]
@@ -605,6 +611,12 @@ class PageVersionDetailView(APIView):
             return Response(message, status = status.HTTP_204_NO_CONTENT)
         
         latest_page_version_no = page.active_version_no
+        if latest_page_version_no == None:
+            message = {
+            "is_success": False,
+            "message": ERROR_MESSAGES["PAGE_NOT_PUBLISHED"],
+            }
+            return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
         serializer = self.serializer_class(page, context = {'version': latest_page_version})
         message = {
