@@ -688,7 +688,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
     if upload_master_data == "create_category":
         row_num = 1
-        mandatory_columns = ['name', 'category_slug', 'category_parent', 'category_sku_part', ]
+        mandatory_columns = ['name', 'category_slug', 'category_sku_part', ]
         for ele in mandatory_columns:
             if ele not in header_list:
                 raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
@@ -710,10 +710,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 if Category.objects.filter(category_slug=row['category_slug'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
                                           f"'category_slug' already exists")
-            if 'category_parent' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'category_parent' is a mandatory field")
-            if 'category_parent' in row.keys() and row['category_parent'] == '':
-                raise ValidationError(f"Row {row_num} | 'category_parent' can't be empty")
             if 'category_sku_part' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'category_sku_part' is a mandatory field")
             if 'category_sku_part' in row.keys() and row['category_sku_part'] == '':
