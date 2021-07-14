@@ -73,7 +73,7 @@ from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer
+    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
@@ -1668,13 +1668,13 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        # Auto apply highest applicable discount
-        auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
+            redeem_points = self.request.GET.get('redeem_points')
+            # Auto apply highest applicable discount
+            auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
             # Redeem reward points on order
-            redeem_points = self.request.GET.get('redeem_points')
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
@@ -2867,9 +2867,9 @@ class OrderCentral(APIView):
            Get Order
            Cart type basic
         """
-        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
-                                                          'invoice': 1})
-        return serializer.data
+        if int(self.request.GET.get('summary', 0)) == 1:
+            return BasicOrderDetailSerializer(order).data
+        return BasicOrderSerializer(order).data
 
     def post_serialize_process_sp(self, order, parent_mapping):
         """
@@ -3485,6 +3485,20 @@ class OrderReturns(APIView):
     """
 
     @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("Order Not Found!")
+
+        returns = OrderReturn.objects.filter(order=order, status='completed').order_by('-created_at')
+        if returns.exists():
+            data = OrderReturnGetSerializer(returns, many=True).data
+            return api_response("Order Returns", data, status.HTTP_200_OK, True)
+        else:
+            return api_response("No Returns For This Order", None, status.HTTP_200_OK, False)
+
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Returns for any order
@@ -3517,13 +3531,11 @@ class OrderReturns(APIView):
                 ordered_product_map = return_product['ordered_product_map']
                 return_qty = return_product['return_qty']
                 previous_ret_qty = return_product['previous_ret_qty']
-                changed_sp = return_product['changed_sp']
-                price_change = return_product['price_change']
                 # if return quantity of product is greater than zero
-                if return_qty > 0 or price_change:
+                if return_qty > 0:
                     changed_products += [product_id]
-                    self.return_item(order_return, ordered_product_map, return_qty, changed_sp)
-                    if product_id in product_combo_map and return_qty > 0:
+                    self.return_item(order_return, ordered_product_map, return_qty)
+                    if product_id in product_combo_map:
                         existing_prod_qty = ordered_product_map.shipped_qty - previous_ret_qty
                         new_prod_qty = ordered_product_map.shipped_qty - (return_qty + previous_ret_qty)
                         for offer in product_combo_map[product_id]:
@@ -3538,16 +3550,13 @@ class OrderReturns(APIView):
                                     self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
                                 free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                              return_free_qty)
-                    new_cart_value += (ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * changed_sp
-                # elif price_change:
-                #     self.return_item(order_return, ordered_product_map, 0, changed_sp)
-                #     new_cart_value += ordered_product_map.shipped_qty * changed_sp
+                    new_cart_value += (ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
-                    new_cart_value += (ordered_product_map.shipped_qty - previous_ret_qty) * changed_sp
+                    new_cart_value += (ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
             # check if free product offered on order value is still valid
@@ -3590,8 +3599,7 @@ class OrderReturns(APIView):
             if prod.retailer_product_id not in given_products:
                 return_items.append({
                     "product_id": int(prod.retailer_product_id),
-                    "qty": 0,
-                    "new_sp": float(prod.selling_price)
+                    "qty": 0
                 })
                 # return {'error': 'Please provide details for all purchased products'}
         modified = 0
@@ -3601,7 +3609,7 @@ class OrderReturns(APIView):
             if 'error' in product_validate:
                 return product_validate
             else:
-                if product_validate['return_qty'] > 0 or product_validate['price_change']:
+                if product_validate['return_qty'] > 0:
                     modified = 1
                 return_details.append(product_validate)
         if not modified:
@@ -3619,6 +3627,7 @@ class OrderReturns(APIView):
         redeem_factor = order.ordered_cart.redeem_factor
 
         # previous returns
+        prev_discount_adjusted = 0
         prev_refund_amount = 0
         prev_refund_points = 0
         if order.order_status == Order.PARTIALLY_RETURNED:
@@ -3626,6 +3635,7 @@ class OrderReturns(APIView):
             for ret in previous_returns:
                 prev_refund_amount += ret.refund_amount if ret.refund_amount > 0 else 0
                 prev_refund_points += ret.refund_points
+                prev_discount_adjusted += ret.discount_adjusted
         prev_refund_points_value = round(prev_refund_points / redeem_factor, 2) if prev_refund_points else 0
         prev_refund_total = prev_refund_points_value + prev_refund_amount
 
@@ -3634,6 +3644,12 @@ class OrderReturns(APIView):
         redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
         order_amount = float(order.order_amount)
         order_total = order_amount + redeem_value
+        discount = 0
+        offers = order.ordered_cart.offers
+        for offer in offers:
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                discount += float(offer['discount_value'])
+        discount = round(discount, 2)
 
         # Current total refund value
         total_refund_value = round(order_total - prev_refund_total - float(new_cart_value), 2)
@@ -3641,8 +3657,10 @@ class OrderReturns(APIView):
         if total_refund_value < 0:
             refund_amount = total_refund_value
             refund_points = 0
+            discount_adjusted = order_return.return_value
         # Refund cash first, then points
         else:
+            discount_adjusted = max(0, discount - prev_discount_adjusted)
             refund_amount = min(order_amount - prev_refund_total, total_refund_value)
             refund_amount = max(refund_amount, 0)
             refund_points_value = total_refund_value - refund_amount
@@ -3650,7 +3668,7 @@ class OrderReturns(APIView):
 
         order_return.refund_amount = refund_amount
         order_return.refund_points = refund_points
-        order_return.new_order_total = round(new_cart_value, 2)
+        order_return.discount_adjusted = discount_adjusted
         order_return.save()
 
     @staticmethod
@@ -3716,13 +3734,12 @@ class OrderReturns(APIView):
         free_returns[free_item_id] = qty + free_returns[free_item_id] if free_item_id in free_returns else qty
         return free_returns
 
-    def return_item(self, order_return, ordered_product_map, return_qty, changed_sp=0):
+    def return_item(self, order_return, ordered_product_map, return_qty):
         """
             Update return for a product
         """
         return_item, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                            ordered_product=ordered_product_map)
-        return_item.new_sp = changed_sp
         return_item.return_qty = return_qty
         return_item.save()
 
@@ -3732,7 +3749,7 @@ class OrderReturns(APIView):
         """
         order_return = OrderReturn.objects.filter(order=order, status='created').last()
         if not order_return:
-            order_return = OrderReturn.objects.create(order=order, status='created', new_order_total=0)
+            order_return = OrderReturn.objects.create(order=order, status='created')
         order_return.processed_by = self.request.user
         order_return.return_reason = return_reason
         order_return.save()
@@ -3743,52 +3760,31 @@ class OrderReturns(APIView):
             Validate return detail - product_id, qty, amt (refund amount) - provided for a product
         """
         # product id
-        if 'product_id' not in return_product or 'qty' not in return_product or 'new_sp' not in return_product:
-            return {'error': "Provide product product_id, qty, new_sp for each product"}
+        if 'product_id' not in return_product or 'qty' not in return_product:
+            return {'error': "Provide product product_id, qty for each product"}
         product_id = return_product['product_id']
         qty = return_product['qty']
-        new_sp = float(return_product['new_sp'])
-        if qty < 0 or new_sp < 0:
-            return {'error': "Provide valid qty and new_sp for product {}".format(product_id)}
+        if qty < 0:
+            return {'error': "Provide valid qty for product {}".format(product_id)}
         # ordered product
         try:
             ordered_product_map = ShipmentProducts.objects.get(ordered_product=ordered_product, product_type=1,
                                                                retailer_product_id=product_id)
         except:
             return {'error': "{} is not a purchased product in this order".format(product_id)}
-        # Last selling price, previous returns account
-        order_sp = float(ordered_product_map.selling_price)
+
         previous_ret_qty = 0
         if order_status == Order.PARTIALLY_RETURNED:
-            previous_returns = ReturnItems.objects.filter(return_id__status='completed',
-                                                          ordered_product=ordered_product_map)
-            if previous_returns.exists():
-                previous_ret_qty = previous_returns.aggregate(qty=Sum('return_qty'))['qty']
-                order_sp = previous_returns.last().new_sp
-        # New total return quantity should be greater than equal to sum of previous return qty
-        # if qty < previous_ret_qty:
-        #     return {'error': "{} quantity of product {} have already been returned.".format(previous_ret_qty,
-        #                                                                                     product_id)}
-        price_change = 0
-        changed_sp = new_sp
-        if new_sp > order_sp:
-            return {'error': "New selling price cannot be greater than ordered product's last selling price for product"
-                             " {}".format(product_id)}
-        elif new_sp < order_sp:
-            if (qty + previous_ret_qty) == ordered_product_map.shipped_qty:
-                return {
-                    'error': "Total Returned Quantity Equals Purchase Quantity. No item left to change selling price for"
-                             " product {}".format(product_id)}
-            # if qty != 0:
-            #     return {'error': "Either of return qty or new selling price can be changed. Error in return details "
-            #                      "for product {}".format(product_id)}
-            price_change = 1
-        # check return qty
+            previous_ret_qty = ReturnItems.objects.filter(return_id__status='completed',
+                                                          ordered_product=ordered_product_map).aggregate(
+                qty=Sum('return_qty'))['qty']
+            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
+
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
-        # qty = qty - previous_ret_qty
+
         return {'ordered_product_map': ordered_product_map, 'return_qty': qty, 'product_id': product_id,
-                'changed_sp': changed_sp, 'price_change': price_change, 'previous_ret_qty': previous_ret_qty}
+                'previous_ret_qty': previous_ret_qty}
 
     def process_free_products(self, ordered_product, order_return, free_returns):
         """
@@ -3809,7 +3805,6 @@ class OrderReturns(APIView):
             free_return, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                                ordered_product=ordered_product_map_free)
             free_return.return_qty = return_qty
-            free_return.new_sp = ordered_product_map_free.selling_price
             free_return.save()
 
 
