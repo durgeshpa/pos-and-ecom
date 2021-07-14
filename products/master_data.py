@@ -210,103 +210,105 @@ class UploadMasterData(object):
             parent_pro = ParentProduct.objects.all()
             for row in csv_file_data_list:
                 row_num += 1
-                if not row['status'] == 'deactivated':
-                    count += 1
-                    try:
-                        parent_product = parent_pro.filter(parent_id=row['parent_id'])
+                count += 1
+                try:
+                    parent_product = parent_pro.filter(parent_id=row['parent_id'])
 
-                        fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
-                                  'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
-                                  'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
-                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-                                  'is_lead_time_applicable']
+                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
+                              'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
+                              'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
+                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                              'is_lead_time_applicable']
 
-                        available_fields = []
-                        for col in fields:
-                            if col in row.keys():
-                                if row[col] != '':
-                                    available_fields.append(col)
+                    available_fields = []
+                    for col in fields:
+                        if col in row.keys():
+                            if row[col] != '':
+                                available_fields.append(col)
 
-                        for col in available_fields:
+                    for col in available_fields:
 
-                            if col == 'product_type':
-                                parent_product.update(product_type=row['product_type'])
+                        if col == 'product_type':
+                            parent_product.update(product_type=row['product_type'])
 
-                            if col == 'hsn':
-                                parent_product.update(
-                                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+                        if col == 'status':
+                            parent_product.update(status=row['status'])
 
-                            if col == 'tax_1(gst)':
-                                tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='gst').update(tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst'). \
-                                        update(tax=tax[0])
+                        if col == 'hsn':
+                            parent_product.update(
+                                product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
 
-                            if col == 'tax_2(cess)':
-                                tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='cess').update(tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess'). \
-                                        update(tax=tax[0])
+                        if col == 'tax_1(gst)':
+                            tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='gst').update(tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst'). \
+                                    update(tax=tax[0])
 
-                            if col == 'tax_3(surcharge)':
-                                tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                       tax__tax_type='surcharge').update(
-                                    tax=tax[0])
-                                if 'sku_id' in row.keys() and row['sku_id'] != '':
-                                    product = Product.objects.filter(product_sku=row['sku_id'])
-                                    ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge'). \
-                                        update(tax=tax[0])
+                        if col == 'tax_2(cess)':
+                            tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='cess').update(tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess'). \
+                                    update(tax=tax[0])
 
-                            if col == 'inner_case_size':
-                                parent_pro.filter(parent_id=row['parent_id']).update \
-                                    (inner_case_size=row['inner_case_size'])
+                        if col == 'tax_3(surcharge)':
+                            tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
+                            ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
+                                                                   tax__tax_type='surcharge').update(
+                                tax=tax[0])
+                            if 'sku_id' in row.keys() and row['sku_id'] != '':
+                                product = Product.objects.filter(product_sku=row['sku_id'])
+                                ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge'). \
+                                    update(tax=tax[0])
 
-                            if col == 'sub_category_id':
-                                if row['sub_category_id'] == row['category_id']:
-                                    continue
-                                else:
-                                    ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
-                                        category=Category.objects.filter(id=row['sub_category_id']).last())
+                        if col == 'inner_case_size':
+                            parent_pro.filter(parent_id=row['parent_id']).update \
+                                (inner_case_size=row['inner_case_size'])
 
-                            if col == 'sub_brand_id':
-                                parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+                        if col == 'sub_category_id':
+                            if row['sub_category_id'] == row['category_id']:
+                                continue
+                            else:
+                                ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                    category=Category.objects.filter(id=row['sub_category_id']).last())
 
-                            if col == 'is_ptr_applicable':
-                                parent_product.update(
-                                    is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
+                        if col == 'sub_brand_id':
+                            parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
-                            if col == 'ptr_type':
-                                parent_product.update(ptr_type=None if not row[
-                                                                               'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
-                                if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
+                        if col == 'is_ptr_applicable':
+                            parent_product.update(
+                                is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
 
-                            if col == 'ptr_percent':
-                                parent_product.update(
-                                    ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
-                                        'ptr_percent'])
+                        if col == 'ptr_type':
+                            parent_product.update(ptr_type=None if not row[
+                                                                           'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                            if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 
-                            if col == 'is_ars_applicable':
-                                parent_product.update(
-                                    is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+                        if col == 'ptr_percent':
+                            parent_product.update(
+                                ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
+                                    'ptr_percent'])
 
-                            if col == 'max_inventory_in_days':
-                                parent_product.update(max_inventory=row['max_inventory_in_days'])
+                        if col == 'is_ars_applicable':
+                            parent_product.update(
+                                is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
 
-                            if col == 'is_lead_time_applicable':
-                                parent_product.update(is_lead_time_applicable=True if row[
-                                                                                          'is_lead_time_applicable'].lower() == 'yes' else False)
+                        if col == 'max_inventory_in_days':
+                            parent_product.update(max_inventory=row['max_inventory_in_days'])
 
-                            parent_product.update(updated_by=user)
+                        if col == 'is_lead_time_applicable':
+                            parent_product.update(is_lead_time_applicable=True if row[
+                                                                                      'is_lead_time_applicable'].lower() == 'yes' else False)
 
-                    except Exception as e:
-                        parent_data.append(str(row_num) + ' ' + str(e))
+                        parent_product.update(updated_by=user)
+
+                except Exception as e:
+                    parent_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
             info_logger.info(
                 "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
