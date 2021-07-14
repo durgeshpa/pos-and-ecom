@@ -24,21 +24,21 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
 DATA_TYPE_CHOICES = (
-    ('product_status_update_inactive', 'product_status_update_inactive'),
-    ('sub_brand_with_brand_mapping', 'sub_brand_with_brand_mapping'),
-    ('sub_category_with_category_mapping', 'sub_category_with_category_mapping'),
-    ('child_parent_product_update', 'child_parent_product_update'),
-    ('product_tax_update', 'product_tax_update'),
+    # ('product_status_update_inactive', 'product_status_update_inactive'),
+    # ('sub_brand_with_brand_mapping', 'sub_brand_with_brand_mapping'),
+    # ('sub_category_with_category_mapping', 'sub_category_with_category_mapping'),
+    # ('child_parent_product_update', 'child_parent_product_update'),
+    # ('product_tax_update', 'product_tax_update'),
 
-    ('create_child_product', 'create_child_product'),
-    ('create_parent_product', 'create_parent_product'),
-    ('create_category', 'create_category'),
-    ('create_brand', 'create_brand'),
+    ('create_child_product', 'Create Child Product'),
+    ('create_parent_product', 'Create Parent Product'),
+    ('create_category', 'Create Category'),
+    ('create_brand', 'Create Brand'),
 
-    ('child_product_update', 'child_product_update'),
-    ('parent_product_update', 'parent_product_update'),
-    ('category_update', 'category_update'),
-    ('brand_update', 'brand_update'),
+    ('child_product_update', 'Update Child Product'),
+    ('parent_product_update', 'Update Parent Product'),
+    ('category_update', 'Update Category'),
+    ('brand_update', 'Update Brand'),
 )
 
 

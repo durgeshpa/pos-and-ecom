@@ -11,7 +11,7 @@ from products.models import BulkUploadForProductAttributes, ParentProduct, Produ
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ParentProductImageSerializers, ChildProductImageSerializers
+    ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -100,6 +100,20 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
         if search_text:
             self.queryset = bulk_log_search(self.queryset, search_text)
         return self.queryset
+
+
+class BulkChoiseView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET BulkChoice List for Bulk Uploaded Data """
+
+        info_logger.info("BulkChoice GET api called.")
+        """ GET BulkChoice List """
+        fields = ['upload_type', 'upload_type_name', ]
+        data = [dict(zip(fields, d)) for d in DATA_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
 
 
 class BulkDownloadProductAttributes(GenericAPIView):
