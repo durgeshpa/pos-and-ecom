@@ -30,26 +30,31 @@ DATA_TYPE_CHOICES = (
     # ('child_parent_product_update', 'child_parent_product_update'),
     # ('product_tax_update', 'product_tax_update'),
 
-    ('create_child_product', 'Create Child Product'),
-    ('create_parent_product', 'Create Parent Product'),
-    ('create_category', 'Create Category'),
-    ('create_brand', 'Create Brand'),
-
-    ('child_product_update', 'Update Child Product'),
-    ('parent_product_update', 'Update Parent Product'),
-    ('category_update', 'Update Category'),
-    ('brand_update', 'Update Brand'),
+    ('create_data', (
+        ('create_child_product', 'Create Child Product'),
+        ('create_parent_product', 'Create Parent Product'),
+        ('create_category', 'Create Category'),
+        ('create_brand', 'Create Brand'),
+    )
+    ),
+    ('update_data', (
+        ('child_product_update', 'Update Child Product'),
+        ('parent_product_update', 'Update Parent Product'),
+        ('category_update', 'Update Category'),
+        ('brand_update', 'Update Brand'),
+    )
+    ),
 )
 
 
 class ChoiceField(serializers.ChoiceField):
     def to_internal_value(self, data):
-        # for key, val in self._choices.items():
-        #     if key == data:
-        #         return key
-        # self.fail('invalid_choice', input=data)
-        if not (any(data in i for i in DATA_TYPE_CHOICES)):
-            raise serializers.ValidationError(_('Sorry! Not a Valid Option.'))
+        for key, val in self._choices.items():
+            if key == data:
+                return key
+        self.fail('invalid_choice', input=data)
+        # if not (any(data in i for i in DATA_TYPE_CHOICES)):
+        #     raise serializers.ValidationError(_('Sorry! Not a Valid Option.'))
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):

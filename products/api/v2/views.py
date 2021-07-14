@@ -111,7 +111,10 @@ class BulkChoiseView(GenericAPIView):
         info_logger.info("BulkChoice GET api called.")
         """ GET BulkChoice List """
         fields = ['upload_type', 'upload_type_name', ]
-        data = [dict(zip(fields, d)) for d in DATA_TYPE_CHOICES]
+        data = {}
+        for key, val in DATA_TYPE_CHOICES:
+            data[key] = [dict(zip(fields, d)) for d in val]
+
         msg = ""
         return get_response(msg, data, True)
 
