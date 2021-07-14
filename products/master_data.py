@@ -390,9 +390,8 @@ class UploadMasterData(object):
                             for sku in source_map:
                                 pro_sku = child_product.filter(product_sku=sku, repackaging_type='source').last()
                                 source_sku_id = Product.objects.get(id=pro_sku.id)
-                                ProductSourceMapping.objects.create(destination_sku=child_pro,
+                                ProductSourceMapping.objects.create(destination_sku=child_pro.last(),
                                                                     source_sku=source_sku_id)
-                                # source_pro.update(source_sku=pro_sku)
 
                         child_pro.update(updated_by=user)
 
