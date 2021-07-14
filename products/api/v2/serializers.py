@@ -11,7 +11,8 @@ from rest_framework import serializers
 from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory, \
     Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping, ProductSourceMapping, \
     DestinationRepackagingCostMapping, ProductPackingMapping, ParentProductTaxMapping, BulkProductTaxUpdate
-
+from categories.models import Category
+from brand.models import Brand
 from products.common_validators import read_file
 from categories.common_validators import get_validate_category
 from products.common_function import download_sample_file_update_master_data, create_update_master_data
@@ -247,6 +248,122 @@ class ChildProductImageSerializers(serializers.ModelSerializer):
                     'url': img_instance.image.url,
                     'product_sku': child_product.product_sku,
                     'product_name': child_product.product_name
+                }
+                upload_count += 1
+
+            total_count = upload_count + aborted_count
+            data.append(val_data)
+
+        data_value = {
+            'total_count': total_count,
+            'upload_count': upload_count,
+            'aborted_count': aborted_count,
+            'uploaded_data': data
+        }
+        return data_value
+
+    def to_representation(self, instance):
+        result = OrderedDict()
+        result['data'] = str(instance)
+        return result
+
+
+class BrandImageSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating brand images."""
+    image = serializers.ListField(
+        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=True, ), write_only=True)
+
+    class Meta:
+        model = Brand
+        fields = ('image',)
+
+    def create(self, validated_data):
+        images_data = validated_data['image']
+
+        data = []
+        aborted_count = 0
+        upload_count = 0
+
+        for img in images_data:
+            file_name = img.name
+            brand_id = file_name.rsplit(".", 1)[0]
+            try:
+                Brand.objects.get(id=int(brand_id))
+            except:
+                val_data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Brand found with Brand ID {}'.format(brand_id),
+                    'url': '#'
+                }
+                aborted_count += 1
+
+            else:
+                brand_obj = Brand.objects.filter(id=int(brand_id))
+                brand_obj.update(id=brand_obj.last().id, brand_logo=img, updated_by=validated_data['updated_by'])
+                val_data = {
+                    'is_valid': True,
+                    'url': brand_obj.last().brand_logo.url,
+                    'brand_id': brand_id,
+                    'brand_name': brand_obj.last().brand_name,
+                }
+                upload_count += 1
+
+            total_count = upload_count + aborted_count
+            data.append(val_data)
+
+        data_value = {
+            'total_count': total_count,
+            'upload_count': upload_count,
+            'aborted_count': aborted_count,
+            'uploaded_data': data
+        }
+        return data_value
+
+    def to_representation(self, instance):
+        result = OrderedDict()
+        result['data'] = str(instance)
+        return result
+
+
+class CategoryImageSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating category images."""
+
+    image = serializers.ListField(
+        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=True, ), write_only=True)
+
+    class Meta:
+        model = Category
+        fields = ('image',)
+
+    def create(self, validated_data):
+        images_data = validated_data['image']
+
+        data = []
+        aborted_count = 0
+        upload_count = 0
+
+        for img in images_data:
+            file_name = img.name
+            cat_id = file_name.rsplit(".", 1)[0]
+            try:
+                Category.objects.get(id=int(cat_id))
+            except:
+                val_data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Category found with Category ID {}'.format(cat_id),
+                    'url': '#'
+                }
+                aborted_count += 1
+            else:
+                cat_obj = Category.objects.filter(id=int(cat_id))
+                cat_obj.update(id=cat_obj.last().id, category_image=img, updated_by=validated_data['updated_by'])
+                val_data = {
+                    'is_valid': True,
+                    'url': cat_obj.last().category_image.url,
+                    'category_id': cat_id,
+                    'category_name': cat_obj.last().category_name
                 }
                 upload_count += 1
 

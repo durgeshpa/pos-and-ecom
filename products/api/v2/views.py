@@ -10,8 +10,8 @@ from rest_framework.views import APIView
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
-from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, \
-    ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES
+from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
+    ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -145,7 +145,7 @@ class ParentProductMultiImageUploadView(GenericAPIView):
         info_logger.info("ParentProductMultiPhotoUpload POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             info_logger.info("ParentProductMultiPhotoUpload upload successfully")
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -161,7 +161,39 @@ class ChildProductMultiImageUploadView(GenericAPIView):
         info_logger.info("ChildProductMultiImageUploadView POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             info_logger.info("ChildProductMultiImageUploadView upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class CategoryMultiImageUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = CategoryImageSerializers
+
+    def post(self, request):
+        """ POST API for Updating Category Images """
+
+        info_logger.info("CategoryMultiImageUploadView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("CategoryMultiImage upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class BrandMultiImageUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BrandImageSerializers
+
+    def post(self, request):
+        """ POST API for Updating BrandImages """
+
+        info_logger.info("BrandMultiImageUploadView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("BrandMultiImageUploadView upload successfully")
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)
