@@ -39,7 +39,6 @@ class BrandListView(GenericAPIView):
         Get Brand List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Brand.objects.select_related('brand_parent').only('id', 'brand_name', 'brand_parent', )
     serializer_class = BrandSerializers
 
@@ -58,7 +57,6 @@ class CategoryListView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Category.objects.select_related('category_parent').only('id', 'category_name', 'category_parent',)
     serializer_class = CategorySerializers
 

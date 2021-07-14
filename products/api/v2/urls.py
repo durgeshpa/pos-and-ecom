@@ -11,6 +11,6 @@ urlpatterns = [
         name='upload/parent-product-multiple-image-upload'),
     url(r'^upload/child-product-multiple-image-upload/', ChildProductMultiImageUploadView.as_view(),
         name='upload/child-product-multiple-image-upload'),
-    url(r'^upload_type/bulk-choise/', BulkChoiseView.as_view(),
-        name='upload_type/bulk-choise'),
+    url(r'^upload_type/bulk-choice/', BulkChoiseView.as_view(),
+        name='upload_type/bulk-choice'),
 ]
