@@ -119,5 +119,5 @@ ERROR_MESSAGES = {
 }
 
 NOTIFICATIONS = {
-    "TRIP_START_MSG" : "Hi {}, Your order is out for delivery with {}({}). Total invoice value is {}."
+    "TRIP_START_MSG" : "Hi {}, Your order is out for delivery with {}({}). Total invoice value is {}.  Thanks, Team GramFactory"
 }
