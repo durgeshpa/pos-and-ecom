@@ -59,7 +59,7 @@ class AppVersionSerializer(serializers.ModelSerializer):
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ('name',)
+        fields = ('id', 'name',)
 
 class DeliveryAppVersionSerializer(serializers.ModelSerializer):
     class Meta:

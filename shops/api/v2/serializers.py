@@ -7,13 +7,14 @@ from rest_framework import serializers
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
-                          ShopDocument, ShopInvoicePattern
+                          ShopDocument, ShopInvoicePattern, ShopUserMapping
                           )
 from addresses.models import Address, City, Pincode, State
 
 from shops.common_validators import get_validate_shop_documents
 from shops.common_functions import ShopCls
 from products.api.v1.serializers import LogSerializers
+from accounts.api.v1.serializers import GroupSerializer
 
 User = get_user_model()
 
@@ -124,7 +125,7 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk', 'id', 'first_name', 'last_name',
+        fields = ('id', 'first_name', 'last_name',
                   'phone_number', 'email', 'user_photo')
 
 
@@ -219,18 +220,6 @@ class AddressSerializer(serializers.ModelSerializer):
         response['pincode_link'] = PincodeSerializer(
             instance.pincode_link).data
         return response
-
-# class LogSerializers(serializers.ModelSerializer):
-#     updated_by = UserSerializers(read_only=True)
-
-#     def to_representation(self, instance):
-#         representation = super().to_representation(instance)
-#         representation['update_at'] = instance.update_at.strftime("%b %d %Y %I:%M%p")
-#         return representation
-
-#     class Meta:
-#         model = CentralLog
-#         fields = ('update_at', 'updated_by',)
 
 
 class ShopCrudSerializers(serializers.ModelSerializer):
@@ -332,21 +321,63 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ''' Create Shop Photos, Docs'''
         shop_photo = None
         shop_docs = None
-        # shop_invoice_pattern = None
-
-        doc_num = None
-        doc_type = None
-        # s_date = None
-        # e_date = None
-        # invoice_status = None
+        shop_invoice_pattern = None
 
         if 'shop_photos' in self.initial_data and self.initial_data['shop_photos']:
             shop_photo = self.initial_data['shop_photos']
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
             shop_docs = self.initial_data['shop_docs']
-        # if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
-        #     shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
+        if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
+            shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
-        ShopCls.upload_shop_photos(shop, shop_photo)
-        ShopCls.create_shop_docs(shop, shop_docs)
-        # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern, s_date, e_date, invoice_status)
+        # print(shop_photo)
+        # print(shop_docs)
+        # ShopCls.upload_shop_photos(shop, shop_photo)
+        # ShopCls.create_shop_docs(shop, shop_docs)
+        # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern)
+
+
+class ServicePartnerShopsSerializer(serializers.ModelSerializer):
+    shop = serializers.SerializerMethodField('get_shop_repr')
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop')
+
+    def get_shop_repr(self, obj):
+        if obj.shop_owner.first_name and obj.shop_owner.last_name:
+            return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
+                obj.shop_owner.phone_number), obj.shop_owner.first_name,
+                obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
+
+        elif obj.shop_owner.first_name:
+            return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
+                obj.shop_owner.phone_number), obj.shop_owner.first_name,
+                str(obj.shop_type), str(obj.id))
+
+        return "%s - %s - %s - %s" % (obj.shop_name, str(
+            obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
+
+
+class ManagerSerializers(serializers.ModelSerializer):
+
+    manager_name = serializers.SerializerMethodField('get_manager_repr')
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('id', 'manager_name')
+
+    def get_manager_repr(self, obj):
+        if obj.employee:
+            return str(obj.employee)
+
+
+class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
+    shop = ServicePartnerShopsSerializer()
+    employee = UserSerializers()
+    manager = ManagerSerializers()
+    employee_group = GroupSerializer()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = '__all__'

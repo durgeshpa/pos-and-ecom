@@ -1,9 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import authentication, permissions, generics
 from rest_framework.response import Response
-from .serializers import (UserSerializer, UserDocumentSerializer, 
+from .serializers import (GroupSerializer, UserSerializer, UserDocumentSerializer, 
     AppVersionSerializer, DeliveryAppVersionSerializer)
 from rest_framework.views import APIView
 from rest_framework import status
@@ -124,3 +125,12 @@ class CheckDeliveryAppVersion(APIView):
         app_version_serializer = DeliveryAppVersionSerializer(app_version)
         return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
 
+class GroupsListView(generics.ListAPIView):
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = (AllowAny,)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        group_serializer = self.get_serializer(queryset, many=True)
+        return Response({"is_success": True, "message": [""], "response_data": group_serializer.data})

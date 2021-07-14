@@ -17,23 +17,38 @@ def shop_search(queryset, search_text):
         retiler_mapping__parent__shop_name__icontains=search_text))
     return queryset
 
+
 def get_distinct_pin_codes(queryset):
     '''
     Fetch unique pincodes from the queryset
     '''
-    queryset = queryset.only('pincode_link__id', 'pincode_link__pincode').distinct('pincode_link__id')
+    queryset = queryset.only(
+        'pincode_link__id', 'pincode_link__pincode').distinct('pincode_link__id')
     return queryset
+
 
 def get_distinct_cities(queryset):
     '''
     Fetch unique cities from the queryset
     '''
-    queryset = queryset.only('city__id', 'city__city_name').distinct('city__id')
+    queryset = queryset.only(
+        'city__id', 'city__city_name').distinct('city__id')
     return queryset
+
 
 def get_distinct_states(queryset):
     '''
     Fetch unique states from the queryset
     '''
-    queryset = queryset.only('state_id', 'state__state_name').distinct('state_id')
+    queryset = queryset.only(
+        'state_id', 'state__state_name').distinct('state_id')
+    return queryset
+
+
+def shop_user_mapping_search(queryset, search_text):
+    '''
+    search using shop name, employee group, employee's phone number based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(shop__shop_name__icontains=search_text) | Q(
+        employee_group__permissions__codename__icontains=search_text) | Q(employee__phone_number__icontains=search_text))
     return queryset
