@@ -32,7 +32,6 @@ class ShopCls(object):
         """
         if photos:
             for photo in photos:
-                print(photo)
                 ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
 
     @classmethod

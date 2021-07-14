@@ -1,7 +1,6 @@
 import logging
 import json
 import re
-import traceback
 
 from shops.models import ShopDocument
 logger = logging.getLogger(__name__)
@@ -75,7 +74,6 @@ def get_validate_shop_documents(shop, shop_documents):
             shop_doc_list.append(shop_doc_obj)
         except Exception as e:
             logger.error(e)
-            traceback.print_exc()
             return {'error': 'please provide a valid shop_document id'}
     return {'data': shop_documents}
 
