@@ -200,3 +200,10 @@ class BrandExportAsCSVSerializers(serializers.ModelSerializer):
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
+
+class BrandListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Brand
+        fields = ('id', 'brand_name',)
