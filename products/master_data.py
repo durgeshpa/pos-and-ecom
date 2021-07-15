@@ -183,6 +183,10 @@ class UploadMasterData(object):
                             if col == 'inner_case_size':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
                                     (inner_case_size=row['inner_case_size'])
+
+                            if col == 'category_id':
+                                ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                    category=Category.objects.filter(id=row['category_id']).last())
                             if col == 'sub_category_id':
                                 if row['sub_category_id'] == row['category_id']:
                                     continue
