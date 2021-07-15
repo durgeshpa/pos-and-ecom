@@ -1544,6 +1544,7 @@ class OrderedProduct(models.Model):  # Shipment
                                                       verbose_name="No. Of Packets Collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="No. Of Sacks Collected")
+    is_customer_notified = models.BooleanField(default=False)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
@@ -2701,11 +2702,18 @@ class OrderReturn(models.Model):
     )
     refund_amount = models.FloatField(default=0)
     refund_points = models.IntegerField(default=0)
-    new_order_total = models.FloatField(default=0)
+    discount_adjusted = models.FloatField(default=0)
     refund_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def return_value(self):
+        return_value = 0
+        for item in self.rt_return_list.all():
+            return_value += item.return_value
+        return return_value
 
 
 class ReturnItems(models.Model):
@@ -2713,9 +2721,12 @@ class ReturnItems(models.Model):
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
     return_qty = models.PositiveIntegerField(default=0)
-    new_sp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def return_value(self):
+        return self.return_qty * self.ordered_product.selling_price
 
 
 def update_full_part_order_status(shipment):

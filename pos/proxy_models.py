@@ -1,5 +1,6 @@
 from coupon.models import Coupon, RuleSetProductMapping, CouponRuleSet
-from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping
+from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping, OrderReturn,\
+    ReturnItems
 
 
 class RetailerCouponRuleSet(CouponRuleSet):
@@ -42,6 +43,25 @@ class RetailerOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
         verbose_name = 'Ordered Product Mapping'
+
+
+class RetailerOrderReturn(OrderReturn):
+    class Meta:
+        proxy = True
+        verbose_name = 'Return'
+
+    @property
+    def order_no(self):
+        return self.order.order_no
+
+
+class RetailerReturnItems(ReturnItems):
+    class Meta:
+        proxy = True
+        verbose_name = 'Return Item'
+
+    def __str__(self):
+        return ''
 
 
 # class InventoryStatePos(PosInventoryState):
