@@ -31,7 +31,7 @@ class GetSlotBrandListView(APIView):
 
     permission_classes = (AllowAny,)
 
-    def get(self,*args,**kwargs):
+    def get(self, *args, **kwargs):
         pos_name = self.kwargs.get('slot_position_name')
         shop_id = self.request.GET.get('shop_id')
         brand_slots = BrandData.objects.filter(brand_data__active_status='active')

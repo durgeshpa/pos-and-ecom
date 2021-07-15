@@ -934,7 +934,7 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
                 product_type_list = ['b2b', 'b2c', 'both']
-                if row['product_type'] not in product_type_list:
+                if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'b2b', 'b2c' or 'both'!")
 
