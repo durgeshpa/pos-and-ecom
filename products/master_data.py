@@ -807,13 +807,13 @@ class DownloadMasterData(object):
         writer = csv.writer(response)
 
         writer.writerow(
-            ["parent_id", "reason_for_child_sku", "product_name", "ean", "mrp", "weight_value", "weight_unit",
+            ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
              "repackaging_type", "source_sku_id", 'raw_material', 'wastage', 'fumigation',
              'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
              "packing_sku_id", "packing_material_weight"])
-        data = [["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "gm", "none"],
-                ["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "gm", "source"],
-                ["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "gm", "destination",
+        data = [["TestChild1",  "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none"],
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:

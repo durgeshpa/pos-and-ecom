@@ -19,7 +19,7 @@ def validate_data_format(request):
     except:
         return {'error': "Invalid Data Format", }
 
-    if 'brand_logo' in data:
+    if 'brand_logo' in data and data['brand_logo']:
         try:
             validate = URLValidator()
             validate(data['brand_logo'])
