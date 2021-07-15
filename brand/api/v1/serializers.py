@@ -115,10 +115,6 @@ class BrandCrudSerializers(serializers.ModelSerializer):
         """
             brand_slug validation.
         """
-        if hasattr(self, 'initial_data'):
-            unknown_keys = set(self.initial_data.keys()) - set(self.fields.keys())
-            if unknown_keys:
-                raise serializers.ValidationError("Got unknown fields: {}".format(unknown_keys))
 
         if not 'brand_slug' in self.initial_data or not self.initial_data['brand_slug']:
             data['brand_slug'] = slugify(data.get('brand_slug'))
