@@ -1104,8 +1104,12 @@ class ShipmentSerializer(serializers.ModelSerializer):
 
     def get_sales_executive(self, obj):
         shop_user_mapping = obj.order.buyer_shop.shop_user.filter(status=True, employee_group__name='Sales Executive').last()
-        serializer = ShopExecutiveUserSerializer(shop_user_mapping.employee)
+        sales_executive = None
+        if shop_user_mapping:
+            sales_executive = shop_user_mapping.employee
+        serializer = ShopExecutiveUserSerializer(sales_executive)
         return serializer.data
+
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
