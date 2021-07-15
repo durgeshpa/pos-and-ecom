@@ -387,23 +387,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_name' in row.keys() and row['brand_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'Brand_Name' can't be empty")
 
-    if upload_master_data == "brand_update":
-        row_num = 1
-        mandatory_columns = ['brand_id', 'name']
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Update Brand'")
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'brand_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_id can't be empty")
-            if 'brand_id' in row.keys() and row['brand_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
-            if 'name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-            if 'name' in row.keys() and row['name'] == '':
-                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-
     if upload_master_data == "sub_category_with_category_mapping":
         row_num = 1
         mandatory_columns = ['category_id', 'category_name']
@@ -421,36 +404,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'Category_Name' can't be empty")
             if 'category_name' in row.keys() and row['category_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'Category_Name' can't be empty")
-
-    if upload_master_data == "category_update":
-        row_num = 1
-        mandatory_columns = ['category_id', 'name']
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns"
-                                      f" for 'Update Category'")
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'category_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'Sub_Category_ID' can't be empty")
-            if 'category_id' in row.keys() and row['category_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'Category_ID' can't be empty")
-            if 'name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-            if 'name' in row.keys() and row['name'] == '':
-                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-            if 'name' in row.keys() and row['name']:
-                if Category.objects.filter(category_name=row['name'].strip()).exclude(id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'category name' already exists")
-            if 'category_slug' in row.keys() and row['category_slug']:
-                if Category.objects.filter(category_slug=row['category_slug'].strip()).exclude(id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                          f"'category_slug' already exists")
-            if 'category_sku_part' in row.keys() and row['category_sku_part']:
-                if Category.objects.filter(category_sku_part=row['category_sku_part'].strip()).exclude(id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                          f"'category_sku_part' already exists")
 
     if upload_master_data == "product_status_update_inactive":
         row_num = 1
@@ -473,45 +426,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'SKU_Name' can't be empty")
             if 'sku_name' in row.keys() and row['sku_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'SKU_Name' can't be empty")
-
-    if upload_master_data == "parent_product_update":
-        row_num = 1
-        mandatory_columns = ['parent_id', 'parent_name', 'status']
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'parent_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'Parent_ID' is a mandatory field")
-            if 'parent_id' in row.keys() and row['parent_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'Parent_ID' can't be empty")
-            if 'parent_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'Parent_Name' is a mandatory field")
-            if 'parent_name' in row.keys() and row['parent_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'Parent_Name' can't be empty")
-            if 'status' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
-                      'Status cannot be empty')
-            if 'status' in row.keys() and row['status'] == '':
-                raise ValidationError(f"Row {row_num} | 'Status' can't be empty")
-
-    if upload_master_data == "child_product_update":
-        mandatory_columns = ['sku_id', 'sku_name']
-        row_num = 1
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Child Data'")
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'sku_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'sku_id' can't be empty")
-            if 'sku_id' in row.keys() and row['sku_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'sku_id' can't be empty")
-            if 'sku_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'sku_name' can't be empty")
-            if 'sku_name' in row.keys() and row['sku_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'sku_name' can't be empty")
 
     if upload_master_data == "child_parent_product_update":
         row_num = 1
@@ -551,6 +465,107 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'GST' can not be empty.")
             if 'gst' in row.keys() and row['gst'] == '':
                 raise ValidationError(f"Row {row_num} | 'GST percentage ' can not be empty.")
+
+    if upload_master_data == "category_update":
+        row_num = 1
+        mandatory_columns = ['category_id', 'name']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns"
+                                      f" for 'Update Category'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'category_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'Sub_Category_ID' can't be empty")
+            if 'category_id' in row.keys() and row['category_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'Category_ID' can't be empty")
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'name' in row.keys() and row['name']:
+                if Category.objects.filter(category_name=row['name'].strip()).exclude(id=row['category_id']).exists():
+                    raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                          f"'category name' already exists")
+            if 'category_slug' in row.keys() and row['category_slug']:
+                if Category.objects.filter(category_slug=row['category_slug'].strip()).exclude(id=row['category_id']).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
+                                          f"'category_slug' already exists")
+            if 'category_sku_part' in row.keys() and row['category_sku_part']:
+                if Category.objects.filter(category_sku_part=row['category_sku_part'].strip()).exclude(id=row['category_id']).exists():
+                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
+                                          f"'category_sku_part' already exists")
+
+    if upload_master_data == "brand_update":
+        row_num = 1
+        mandatory_columns = ['brand_id', 'name']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Update Brand'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'brand_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_id can't be empty")
+            if 'brand_id' in row.keys() and row['brand_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
+            if 'name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+            if 'name' in row.keys() and row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+
+            if 'name' in row.keys() and row['name']:
+                if Brand.objects.filter(brand_name=row['name'].strip()).exclude(id=int(row['brand_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                          f"'brand name' already exists")
+            if 'brand_slug' in row.keys() and row['brand_slug']:
+                if Brand.objects.filter(brand_slug=row['brand_slug'].strip()).exclude(
+                        id=int(row['brand_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
+                                          f"'brand_slug' already exists")
+            if 'brand_code' in row.keys() and row['brand_code']:
+                if Brand.objects.filter(brand_code=row['brand_code'].strip()).exclude(
+                        id=int(row['brand_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
+                                          f"'brand_code' already exists")
+
+    if upload_master_data == "parent_product_update":
+        row_num = 1
+        mandatory_columns = ['parent_id', 'parent_name', 'status']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'parent_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'Parent_ID' is a mandatory field")
+            if 'parent_id' in row.keys() and row['parent_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'Parent_ID' can't be empty")
+            if 'parent_name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'Parent_Name' is a mandatory field")
+            if 'parent_name' in row.keys() and row['parent_name'] == '':
+                raise ValidationError(f"Row {row_num} | 'Parent_Name' can't be empty")
+            if 'status' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
+                      'Status cannot be empty')
+            if 'status' in row.keys() and row['status'] == '':
+                raise ValidationError(f"Row {row_num} | 'Status' can't be empty")
+
+    if upload_master_data == "child_product_update":
+        mandatory_columns = ['sku_id', 'sku_name']
+        row_num = 1
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Child Data'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'sku_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'sku_id' can't be empty")
+            if 'sku_id' in row.keys() and row['sku_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'sku_id' can't be empty")
+            if 'sku_name' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'sku_name' can't be empty")
+            if 'sku_name' in row.keys() and row['sku_name'] == '':
+                raise ValidationError(f"Row {row_num} | 'sku_name' can't be empty")
 
     if upload_master_data == "create_parent_product":
         row_num = 1
@@ -691,6 +706,19 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'brand_code' is a mandatory field")
             if 'brand_code' in row.keys() and row['brand_code'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_code' can't be empty")
+
+            if 'name' in row.keys() and row['name']:
+                if Brand.objects.filter(brand_name=row['name'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                          f"'brand name' already exists")
+            if 'brand_slug' in row.keys() and row['brand_slug']:
+                if Brand.objects.filter(brand_slug=row['brand_slug'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
+                                          f"'brand_slug' already exists")
+            if 'brand_code' in row.keys() and row['brand_code']:
+                if Brand.objects.filter(brand_code=row['brand_code'].strip()):
+                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
+                                          f"'brand_code' already exists")
 
     if upload_master_data == "create_category":
         row_num = 1
