@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from marketing.models import ReferralCode, RewardPoint, RewardLog
+from shops.models import Shop
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -51,3 +52,15 @@ class RewardsSerializer(serializers.ModelSerializer):
         model = RewardPoint
         fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'redeemable_discount', 'direct_earned',
                   'indirect_earned', 'points_used', 'welcome_points')
+
+
+class UserLocationSerializer(serializers.Serializer):
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+
+
+class ShopSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')

@@ -32,12 +32,15 @@ def nearby_shops(lat, lng, radius=10, limit=1):
     """
 
     query = """SELECT * from (
-               SELECT id (6367*acos(cos(radians(%2f))
+               SELECT shops_shop.id, (6367*acos(cos(radians(%2f))
                *cos(radians(latitude))*cos(radians(longitude)-radians(%2f))
                +sin(radians(%2f))*sin(radians(latitude))))
-               AS distance FROM shops_shop) as shop_loc
-               where distance < %2f ORDER BY distance LIMIT 0, %d""" % (float(lat), float(lng), float(lat), radius,
-                                                                        limit)
+               AS distance FROM shops_shop 
+               left join shops_shoptype on shops_shoptype.id=shops_shop.shop_type_id
+               where shops_shoptype.shop_type='f' and shops_shop.status=True and shops_shop.approval_status=2
+               and shops_shop.pos_enabled=True) as shop_loc
+               where distance < %2f ORDER BY distance LIMIT %d OFFSET 0""" % (float(lat), float(lng), float(lat),
+                                                                              radius, limit)
 
     queryset = Shop.objects.raw(query)
     return queryset[0] if queryset else None
