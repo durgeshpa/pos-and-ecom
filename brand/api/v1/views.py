@@ -1,6 +1,6 @@
 import logging
 from django.core.exceptions import ObjectDoesNotExist
-import datetime
+from datetime import datetime
 from django.http import HttpResponse
 
 from rest_framework.views import APIView
