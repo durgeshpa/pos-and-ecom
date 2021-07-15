@@ -38,7 +38,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
-from ecom.utils import check_ecom_user
+from ecom.utils import check_ecom_user, check_ecom_user_shop
 
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
@@ -880,6 +880,8 @@ class CartCentral(GenericAPIView):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -997,6 +999,23 @@ class CartCentral(GenericAPIView):
         try:
             cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'),
                                     cart_type='BASIC')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+        # Refresh cart prices
+        self.refresh_cart_prices(cart)
+        # Refresh - add/remove/update combo, get nearest cart offer over cart value
+        next_offer = BasicCartOffers.refresh_offers_cart(cart)
+        return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
+
+    @check_ecom_user_shop
+    def get_ecom_cart(self, request, *args, **kwargs):
+        """
+            Get Cart
+            For cart_type "ecom"
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
         # Refresh cart prices
@@ -1251,8 +1270,7 @@ class CartCentral(GenericAPIView):
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
-    @check_pos_shop
-    @check_ecom_user
+    @check_ecom_user_shop
     def ecom_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
@@ -1446,8 +1464,7 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop)
-        cart.cart_status = 'active'
+        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop, cart_status='active')
         cart.save()
         return cart
 

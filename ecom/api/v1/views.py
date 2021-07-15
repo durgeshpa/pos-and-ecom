@@ -43,6 +43,7 @@ class ShopView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    @check_ecom_user
     def get(self, request, *args, **kwargs):
         """
         Get nearest franchise retailer from user location - latitude, longitude
