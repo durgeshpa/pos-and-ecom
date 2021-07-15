@@ -326,7 +326,7 @@ class UploadMasterData(object):
     @classmethod
     def update_child_data(cls, csv_file_data_list, user):
         try:
-            info_logger.info("Method Start to set the Child to Parent mapping from excel file")
+            info_logger.info("Method Start to Update the Child to Parent mapping from excel file")
             count = 0
             row_num = 1
             set_child = []
@@ -909,8 +909,7 @@ class DownloadMasterData(object):
             costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                      'label_printing', 'packing_labour',
                                                                      'primary_pm_cost', 'secondary_pm_cost',
-                                                                     'final_fg_cost',
-                                                                     'conversion_cost').filter(
+                                                                     'final_fg_cost', 'conversion_cost').filter(
                 destination=product['id'])
 
             for cost in costs:
