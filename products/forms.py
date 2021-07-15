@@ -903,7 +903,7 @@ class UploadMasterDataAdminForm(forms.Form):
 
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
-                        if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
+                        if not row['repackaging_type'].lower() in ['none', 'source', 'destination', 'packing_material']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
                                   f"'source', 'destination' or 'packing_material'!"))
