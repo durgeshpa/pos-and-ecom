@@ -890,7 +890,7 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'brand_code' only allow three characters in upper case for SKU ")
 
             if 'category_sku_part' in header_list and 'category_sku_part' in row.keys():
-                if not len(str(row['category_sku_part'])) == 3 or not str(row['brand_code']).isupper():
+                if not len(str(row['category_sku_part'])) == 3 or not str(row['category_sku_part']).isupper():
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' only allow three characters in upper case for SKU  ")
 

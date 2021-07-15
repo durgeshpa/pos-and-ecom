@@ -605,10 +605,9 @@ class UploadMasterData(object):
                                                                      packing_labour=float(row['packing_labour']),
                                                                      primary_pm_cost=float(row['primary_pm_cost']),
                                                                      secondary_pm_cost=float(row['secondary_pm_cost']))
+
                     ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(
-                        product_sku=row['packing_sku_id']),
-                                                         packing_sku_weight_per_unit_sku=float(
-                                                             row['packing_material_weight']))
+                        product_sku=row['packing_sku_id']), packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
 
             info_logger.info("Method complete to create the Child Product from csv file")
         except Exception as e:
