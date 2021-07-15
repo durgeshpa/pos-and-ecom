@@ -4,10 +4,15 @@ import datetime
 import csv
 
 from django.db.models import Q
+
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
     Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping, ProductSourceMapping, ProductPackingMapping
+
+from products.common_function import ParentProductCls, ProductCls
+from categories.common_function import CategoryCls
+from brand.common_function import BrandCls
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -306,6 +311,7 @@ class UploadMasterData(object):
                                                                                       'is_lead_time_applicable'].lower() == 'yes' else False)
 
                         parent_product.update(updated_by=user)
+                        ParentProductCls.create_parent_product_log(parent_product, "updated")
 
                 except Exception as e:
                     parent_data.append(str(row_num) + ' ' + str(e))
@@ -333,7 +339,7 @@ class UploadMasterData(object):
                     pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
                     destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
                     source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
-                    fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                    fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
                               'status', 'repackaging_type', 'source_sku_id', 'status',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                               'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
@@ -347,6 +353,8 @@ class UploadMasterData(object):
                     for col in available_fields:
                         if col == 'ean':
                             child_pro.update(product_ean_code=row['ean'])
+                        if col == 'parent_id':
+                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
                         if col == 'status':
                             child_pro.update(status=row['status'])
                         if col == 'mrp':
@@ -394,6 +402,7 @@ class UploadMasterData(object):
                                                                     source_sku=source_sku_id)
 
                         child_pro.update(updated_by=user)
+                        ProductCls.create_child_product_log(child_pro.last(), "updated")
 
                 except:
                     set_child.append(str(row_num))
@@ -436,9 +445,10 @@ class UploadMasterData(object):
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
                         if col == 'parent_category_id':
-                            category.update(category_parent=Category.objects.get(id=int(row['parent_category_id'])))
+                            category.update(category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
 
                         category.update(updated_by=user)
+                        CategoryCls.create_category_log(category.last(), "updated")
 
                 except Exception as e:
                     cat_data.append(str(row_num) + ' ' + str(e))
@@ -481,19 +491,18 @@ class UploadMasterData(object):
                         if col == 'brand_code':
                             brand.update(brand_code=row['brand_code'])
                         if col == 'brand_parent_id':
-                            brand.update(brand_parent=Brand.objects.get(id=row['brand_parent_id']))
+                            brand.update(brand_parent=Brand.objects.filter(id=int(row['brand_parent_id'])).last())
 
                         brand.update(updated_by=user)
+                    BrandCls.create_brand_log(brand.last(), "updated")
 
                 except Exception as e:
                     brand_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info(
-                "Some error found in these row while working with category update Functionality:" + str(brand_data))
+            info_logger.info("Some error found in these row while working with category update Functionality:" + str(brand_data))
             info_logger.info("Script Complete to update category data")
         except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Category Update Functionality' + {str(e)}")
+            error_logger.info(f"Something went wrong, while working with 'Category Update Functionality' + {str(e)}")
 
     @classmethod
     def create_bulk_parent_product(cls, csv_file_data_list, user):
@@ -517,6 +526,7 @@ class UploadMasterData(object):
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
                 )
+                ParentProductCls.create_parent_product_log(parent_product, "created")
 
                 parent_gst = int(row['gst'])
                 ParentProductTaxMapping.objects.create(
@@ -574,6 +584,8 @@ class UploadMasterData(object):
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user)
 
+                ProductCls.create_child_product_log(child_product, "created")
+
                 if row['repackaging_type'] == 'destination':
                     source_map = []
                     for product_skus in row['source_sku_id'].split(','):
@@ -611,13 +623,14 @@ class UploadMasterData(object):
         try:
             info_logger.info('Method Start to create Category')
             for row in csv_file_data_list:
-                Category.objects.create(
+                cat_obj = Category.objects.create(
                     category_name=row['name'],
                     category_slug=row['category_slug'],
                     category_parent=Category.objects.filter(category_name=row['category_parent'].strip()).last(),
                     category_desc=row['category_desc'],
                     category_sku_part=row['category_sku_part'],
                     created_by=user)
+                CategoryCls.create_category_log(cat_obj, "created")
 
             info_logger.info("Method complete to create Category from csv file")
         except Exception as e:
@@ -633,13 +646,14 @@ class UploadMasterData(object):
             info_logger.info('Method Start to create Brand')
 
             for row in csv_file_data_list:
-                Brand.objects.create(
+                brand_obj = Brand.objects.create(
                     brand_name=row['name'],
                     brand_slug=row['brand_slug'],
                     brand_parent=Brand.objects.get(brand_name=row['brand_parent'].strip()),
                     brand_description=row['brand_description'],
                     brand_code=row['brand_code'],
                     created_by=user)
+                BrandCls.create_brand_log(brand_obj, "created")
 
             info_logger.info("Method complete to create Brand from csv file")
         except Exception as e:
@@ -649,7 +663,7 @@ class UploadMasterData(object):
 
 class DownloadMasterData(object):
     """
-        This function will be used for following operations:
+   brand.update(brand_parent=Brand.objects.filter(id=int(row['brand_parent_id'])).last())     This function will be used for following operations:
         a)return an Sample File in xlsx format which can be used for uploading the master_data
         b)return an Sample File in xlsx format which can be used for Status to "Deactivated" for a Product
         c)return an Sample File in xlsx format which can be used for Mapping of "Sub Brand" to "Brand"

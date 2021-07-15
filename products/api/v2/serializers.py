@@ -4,7 +4,6 @@ import csv
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-from collections import OrderedDict
 
 from rest_framework import serializers
 
@@ -15,7 +14,7 @@ from categories.models import Category
 from brand.models import Brand
 from products.common_validators import read_file
 from categories.common_validators import get_validate_category
-from products.common_function import download_sample_file_update_master_data, create_update_master_data
+from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
 from products.api.v1.serializers import UserSerializers
 
 
