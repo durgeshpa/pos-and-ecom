@@ -5,6 +5,8 @@ import json
 import requests
 from datetime import datetime, timedelta
 from operator import itemgetter
+from num2words import num2words
+from elasticsearch import Elasticsearch
 
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
@@ -12,76 +14,76 @@ from django.db.models import F, Sum, Q
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.contrib.auth import get_user_model
-from rest_framework.generics import GenericAPIView
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from rest_framework.generics import GenericAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, viewsets, permissions, authentication
-
+from rest_framework import status, generics, permissions, authentication
 from wkhtmltopdf.views import PDFTemplateResponse
-from num2words import num2words
 
-from retailer_backend.utils import SmallOffsetPagination
-from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping, getShop
-from retailer_backend.messages import ERROR_MESSAGES
-
-from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen
-from wms.views import shipment_reschedule_inventory_change
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer
-                          )
-from products.models import ProductPrice, ProductOption, Product
-from sp_to_gram.models import OrderedProductReserved
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
-from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return)
-from retailer_to_sp.common_function import check_date_range, capping_check
-from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
-                                     Order as GramMappedOrder
-                                     )
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
-from brand.models import Brand
+from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address
-from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
-from common.data_wrapper_view import DataWrapperViewSet
-from common.data_wrapper import format_serializer_errors
-from sp_to_gram.tasks import es_search, upload_shop_stock
-from coupon.serializers import CouponSerializer
-from coupon.models import Coupon, CusotmerCouponUsage
+from audit.views import BlockUnblockProduct
+
+from barCodeGenerator import barcodeGen
+from brand.models import Brand
+
+from categories import models as categorymodel
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
-                                 whatsapp_order_refund)
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
-    PosInventoryChange
-from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+from common.data_wrapper_view import DataWrapperViewSet
+from coupon.serializers import CouponSerializer
+from coupon.models import Coupon, CusotmerCouponUsage
+
+from ecom.utils import check_ecom_user
+
+from global_config.models import GlobalConfig
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList)
+
+from marketing.models import ReferralCode
+
+from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
+                                    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
+                                    OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
+                                    OrderReturnGetSerializer, BasicOrderDetailSerializer)
+from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
+                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
+                                  serializer_error, check_pos_shop)
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
-    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
-from retailer_backend.settings import AWS_MEDIA_URL
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
-from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from global_config.models import GlobalConfig
-from elasticsearch import Elasticsearch
-from pos.common_functions import check_pos_shop
-from marketing.models import ReferralCode
+from products.models import ProductPrice, ProductOption, Product
+
+from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
+from retailer_backend.messages import ERROR_MESSAGES
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder)
+from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
+                                   OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems)
+from retailer_to_sp.common_function import check_date_range, capping_check
+
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
+from sp_to_gram.models import OrderedProductReserved
+from sp_to_gram.tasks import es_search, upload_shop_stock
+
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.views import shipment_reschedule_inventory_change
+
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
+                          OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
+                          GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
+                          OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
+                          OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer)
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -89,11 +91,8 @@ User = get_user_model()
 
 logger = logging.getLogger('django')
 
-today = datetime.today()
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
-cron_logger = logging.getLogger('cron_log')
 
 
 class PickerDashboardViewSet(DataWrapperViewSet):
@@ -255,13 +254,14 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
         elif search_type == '2':
-            results = self.rp_normal_search(shop_id)
+            results = self.rp_normal_search(shop_id, app_type)
         else:
             return api_response("Please Provide A Valid Search Type")
         if results:
@@ -280,13 +280,16 @@ class SearchProducts(APIView):
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
         return self.process_rp(output_type, body, shop_id)
 
-    def rp_normal_search(self, shop_id):
+    def rp_normal_search(self, shop_id, app_type=None):
         """
             Search Retailer Shop Catalogue On Similar Match
         """
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         body = dict()
+        body['query'] = dict()
+        if app_type == '3':
+            body['query']["bool"] = {"filter": [{"term": {"status": 'active'}}]}
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
@@ -299,7 +302,7 @@ class SearchProducts(APIView):
                 keyword = keyword.strip()
                 body['query'] = {
                     "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
-        return self.process_rp(output_type, body, shop_id)
+        return self.process_rp(output_type, body, shop_id, app_type)
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -356,7 +359,7 @@ class SearchProducts(APIView):
                 response['products'] = gf_results
         return response
 
-    def process_rp(self, output_type, body, shop_id):
+    def process_rp(self, output_type, body, shop_id, app_type=None):
         """
             Modify Es results for response based on output_type - Raw OR Processed
         """
@@ -364,6 +367,14 @@ class SearchProducts(APIView):
         body["size"] = int(self.request.GET.get('pro_count', 50))
         body["sort"] = {"modified_at": "desc"}
         p_list = []
+        cart_check = False
+        # Ecom Cart
+        if app_type == '3' and self.request.user.id:
+            cart = Cart.objects.filter(cart_type='ECOM', seller_shop_id=shop_id, buyer=self.request.user,
+                                       cart_status='active').prefetch_related('rt_cart_list').last()
+            if cart:
+                cart_check = True
+                cart_products = cart.rt_cart_list.all()
         # Raw Output
         if output_type == '1':
             body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
@@ -382,12 +393,31 @@ class SearchProducts(APIView):
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     # Combo Offers On Products
-                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 10,
+                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 1,
                                                                                       ["coupon_code", "coupon_type"])
+                    if cart_check:
+                        p = self.modify_rp_cart_product_es(cart, cart_products, p)
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
         return p_list
+
+    @staticmethod
+    def modify_rp_cart_product_es(cart, cart_products, p):
+        for c_p in cart_products:
+            if c_p.retailer_product_id != p["_source"]["id"]:
+                continue
+            if cart.offers:
+                cart_offers = cart.offers
+                combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
+                for offer in combo_offers:
+                    if offer['item_id'] == c_p.retailer_product_id:
+                        p["_source"]["free_product_text"] = 'Free - ' + str(
+                            offer['free_item_qty_added']) + ' items of ' + str(
+                            offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
+                            offer['free_item_qty'])
+            p["_source"]["cart_qty"] = c_p.qty or 0
+        return p
 
     def gf_search(self):
         """
@@ -417,7 +447,8 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('Product not found in GramFactory catalog. Please add new Product.', None, status.HTTP_200_OK)
+                return api_response('Product not found in GramFactory catalog. Please add new Product.', None,
+                                    status.HTTP_200_OK)
 
     def gf_exact_search(self):
         """
@@ -841,16 +872,16 @@ class CartCentral(GenericAPIView):
                 shop_id
                 cart_type (retail-1 or basic-2)
         """
-        cart_type = self.request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             if self.request.GET.get('cart_id'):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def post(self, request, *args, **kwargs):
         """
@@ -861,13 +892,15 @@ class CartCentral(GenericAPIView):
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.retail_add_to_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.ecom_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
@@ -879,8 +912,8 @@ class CartCentral(GenericAPIView):
                 cart_id
                 qty
         """
-        cart_type = self.request.data.get('cart_type')
-        if cart_type == '2':
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
@@ -893,7 +926,7 @@ class CartCentral(GenericAPIView):
         # Check If Cart Exists
         try:
             cart = Cart.objects.get(id=kwargs['pk'], cart_status__in=['active', 'pending'],
-                                    seller_shop=kwargs['shop'])
+                                    seller_shop=kwargs['shop'], cart_type='BASIC')
         except:
             return api_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
@@ -952,7 +985,8 @@ class CartCentral(GenericAPIView):
             else:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def get_basic_cart(self, request, *args, **kwargs):
@@ -961,7 +995,8 @@ class CartCentral(GenericAPIView):
             For cart_type "basic"
         """
         try:
-            cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'))
+            cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'),
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
         # Refresh cart prices
@@ -985,7 +1020,10 @@ class CartCentral(GenericAPIView):
         """
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop=kwargs['shop'],
-                                                                                             cart_status__in=['active', 'pending']).order_by('-modified_at')
+                                                                                             cart_status__in=['active',
+                                                                                                              'pending'],
+                                                                                             cart_type='BASIC').order_by(
+            '-modified_at')
         if search_text:
             carts = carts.filter(Q(cart_no__icontains=search_text) |
                                  Q(buyer__first_name__icontains=search_text) |
@@ -1172,7 +1210,8 @@ class CartCentral(GenericAPIView):
             return api_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop),
                                 status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def basic_add_to_cart(self, request, *args, **kwargs):
@@ -1206,6 +1245,38 @@ class CartCentral(GenericAPIView):
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            # serialize and return response
+            return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
+    @check_pos_shop
+    @check_ecom_user
+    def ecom_add_to_cart(self, request, *args, **kwargs):
+        """
+            Add To Cart
+            For cart type 'ECOM'
+        """
+        with transaction.atomic():
+            # basic validations for inputs
+            shop = kwargs['shop']
+            initial_validation = self.post_ecom_validate(shop)
+            if 'error' in initial_validation:
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False)
+            product = initial_validation['product']
+            qty = initial_validation['quantity']
+
+            # Update or create cart for user for shop
+            cart = self.post_update_ecom_cart(shop)
+            # Check if product has to be removed
+            if int(qty) == 0:
+                delete_cart_mapping(cart, product, 'ecom')
+            else:
+                # Add quantity to cart
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                                                                           product_type=1)
+                cart_mapping.selling_price = product.selling_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
@@ -1278,7 +1349,7 @@ class CartCentral(GenericAPIView):
         # Check if existing or new cart
         cart = None
         if cart_id:
-            cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+            cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
             if not cart:
                 return {'error': "Cart Doesn't Exist!"}
             elif cart.cart_status == Cart.ORDERED:
@@ -1300,6 +1371,21 @@ class CartCentral(GenericAPIView):
             product.status = 'active'
             product.save()
         return {'product': product, 'quantity': qty, 'cart': cart}
+
+    def post_ecom_validate(self, shop, cart_id=None):
+        """
+            Add To Cart
+            Input validation for add to cart for cart type 'ECOM'
+        """
+        # Added Quantity check
+        qty = self.request.data.get('qty')
+        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            return {'error': "Qty Invalid!"}
+        try:
+            product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), status='active', shop=shop)
+        except ObjectDoesNotExist:
+            return {'error': "Product Not Found!"}
+        return {'product': product, 'quantity': qty}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -1355,6 +1441,16 @@ class CartCentral(GenericAPIView):
             cart.save()
         return cart
 
+    def post_update_ecom_cart(self, seller_shop):
+        """
+            Create or update/add product to ecom Cart
+        """
+        user = self.request.user
+        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop)
+        cart.cart_status = 'active'
+        cart.save()
+        return cart
+
     @staticmethod
     def retail_ordered_quantity(capping, product, buyer_shop):
         """
@@ -1390,7 +1486,8 @@ class CartCentral(GenericAPIView):
         cart_mapping, created = CartProductMapping.objects.get_or_create(cart=cart,
                                                                          cart_product=product)
         cart_mapping.qty = qty
-        available_qty = shop_products_dict.get(int(product.id), 0) // int(cart_mapping.cart_product.product_inner_case_size)
+        available_qty = shop_products_dict.get(int(product.id), 0) // int(
+            cart_mapping.cart_product.product_inner_case_size)
         if int(qty) <= available_qty:
             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
             cart_mapping.capping_error_msg = ''
@@ -1550,7 +1647,8 @@ class CartUserView(APIView):
         cart = initial_validation['cart']
 
         # Create / update customer
-        customer = update_customer_pos_cart(self.request.GET.get('phone_number'), cart.seller_shop.id, self.request.user)
+        customer = update_customer_pos_cart(self.request.GET.get('phone_number'), cart.seller_shop.id,
+                                            self.request.user)
 
         # add customer to cart
         cart.buyer = customer
@@ -1583,7 +1681,8 @@ class CartUserView(APIView):
         # Create / update customer
         serializer_data = serializer.data
         customer = update_customer_pos_cart(serializer_data['phone_number'], cart.seller_shop.id, self.request.user,
-                                            None, None, None, serializer_data['is_mlm'], serializer_data['referral_code'])
+                                            None, None, None, serializer_data['is_mlm'],
+                                            serializer_data['referral_code'])
 
         # add customer to cart
         cart.buyer = customer
@@ -1604,7 +1703,7 @@ class CartUserView(APIView):
             Cart Customer Get Validate
         """
         # Check cart
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+        cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!", 'error_code': None}
         elif cart.cart_status == Cart.ORDERED:
@@ -1664,7 +1763,8 @@ class CartCheckout(APIView):
         """
         cart_id = self.request.GET.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
         with transaction.atomic():
@@ -1686,7 +1786,8 @@ class CartCheckout(APIView):
             Delete any applied cart offers
         """
         try:
-            cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
         # Refresh redeem reward
@@ -1709,7 +1810,8 @@ class CartCheckout(APIView):
         """
         cart_id = self.request.data.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return {'error': "Cart Does Not Exist / Already Closed"}
         if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
@@ -2438,7 +2540,8 @@ class OrderCentral(APIView):
             return api_response(['Order'], self.get_serialize_process_gf(order, parent_mapping), status.HTTP_200_OK,
                                 True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def get_basic_order(self, request, *args, **kwargs):
@@ -2524,7 +2627,8 @@ class OrderCentral(APIView):
                     return api_response(['Available Quantity Is None'], None, status.HTTP_200_OK)
         # Shop type neither sp nor gf
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def post_basic_order(self, request, *args, **kwargs):
@@ -2632,7 +2736,7 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+        cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -2908,7 +3012,8 @@ class OrderCentral(APIView):
         redeem_factor = order.ordered_cart.redeem_factor
         redeem_points = order.ordered_cart.redeem_points
         if redeem_points:
-            RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user, order.order_no)
+            RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
+                                             order.order_no)
         # Loyalty points credit
         shops_str = GlobalConfig.objects.get(key='pos_loyalty_shop_ids').value
         shops_str = str(shops_str) if shops_str else ''
@@ -3221,7 +3326,8 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text))
             return api_response(['Order'], self.get_serialize_process_gf(qs, parent_mapping), status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     def get_retail_validate(self):
         """
@@ -3549,13 +3655,15 @@ class OrderReturns(APIView):
                                     self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
                                 free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                              return_free_qty)
-                    new_cart_value += (ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
+                    new_cart_value += (
+                                                  ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
-                    new_cart_value += (ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
+                    new_cart_value += (
+                                                  ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
             # check if free product offered on order value is still valid
@@ -5240,7 +5348,8 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if ShipmentRescheduling.objects.filter(shipment=request.data.get('shipment')).exists():
-            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once.'], 'response_data': None}
+            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once.'],
+                   'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
