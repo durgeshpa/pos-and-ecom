@@ -509,12 +509,11 @@ class UploadMasterData(object):
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
-                    ptr_type=(None if not row[
-                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                    ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
-                    max_inventory=row['max_inventory_in_days'].lower(),
+                    max_inventory=int(row['max_inventory_in_days']),
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
                 )
