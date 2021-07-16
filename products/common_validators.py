@@ -1077,11 +1077,6 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | {row['max_inventory_in_days']} |"
                                           f"'Max Inventory In Days' is invalid.")
 
-            # if 'product_special_cess' in header_list and 'product_special_cess' in row.keys() and \
-            #         str(row['product_special_cess']) != '':
-            #     if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
-            #         raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
-
             if 'is_ars_applicable' in header_list and 'is_ars_applicable' in row.keys() and row[
                 'is_ars_applicable'] != '':
                 if str(row['is_ars_applicable']).lower() not in ['yes', 'no']:
@@ -1100,7 +1095,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | {row['is_ptr_applicable']} | "
                                           f"'is_ptr_applicable' can only be 'Yes' or 'No' ")
 
-                if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() == 'no':
+                elif row['is_ptr_applicable'].lower() == 'no':
                     if 'ptr_type' in row.keys() and row['ptr_type'] is not '':
                         raise ValidationError(f"Row {row_num} | 'ptr_type' should be blank' ")
 
@@ -1127,6 +1122,11 @@ def validate_row(uploaded_data_list, header_list, category):
             if 'mrp' in header_list and 'mrp' in row.keys() and row['mrp'] != '':
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
                     raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
+
+            if 'product_special_cess' in header_list and 'product_special_cess' in row.keys() \
+                    and row['product_special_cess'] != '':
+                if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
+                    raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
 
             if 'weight_unit' in header_list and 'weight_unit' in row.keys() and row['weight_unit'] != '':
                 if str(row['weight_unit']).lower() not in ['gm']:
