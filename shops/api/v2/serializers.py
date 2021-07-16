@@ -1,4 +1,5 @@
 import re
+from django.contrib.postgres import fields
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
@@ -11,7 +12,7 @@ from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           )
 from addresses.models import Address, City, Pincode, State
 
-from shops.common_validators import get_validate_shop_documents
+from shops.common_validators import get_validate_images, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents
 from shops.common_functions import ShopCls
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
@@ -221,6 +222,15 @@ class AddressSerializer(serializers.ModelSerializer):
             instance.pincode_link).data
         return response
 
+# class ShopDocumentSerializer(serializers.ModelSerializer):
+#     shop_document_photo = Base64ImageField(
+#         max_length=None, use_url=True,required=False
+#     )
+
+#     class Meta:
+#         model = ShopDocument
+#         fields = '__all__'
+
 
 class ShopCrudSerializers(serializers.ModelSerializer):
 
@@ -269,21 +279,28 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         return ShopInvoicePatternSerializer(obj.invoice_pattern.all(), read_only=True, many=True).data
 
     def validate(self, data):
+
+        if 'related_users' in self.initial_data and self.initial_data['related_users']:
+            related_users = get_validate_related_users(
+                self.initial_data['related_users'])
+            if 'error' in related_users:
+                raise serializers.ValidationError((related_users["error"]))
+            data['related_users'] = related_users['related_users']
+
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
             shop_docs = get_validate_shop_documents(
                 self.initial_data['id'], self.initial_data['shop_docs'])
             if 'error' in shop_docs:
                 raise serializers.ValidationError((shop_docs["error"]))
+            data['shop_docs'] = shop_docs
 
-        # if 'shop_start_at' in self.initial_data and 'shop_end_at' in self.initial_data:
-        #     if data['shop_start_at'] and data['shop_end_at']:
-        #         if data['shop_end_at'] < data['shop_start_at']:
-        #             raise serializers.ValidationError("End date should be greater than start date.")
+        if 'address' in self.initial_data and self.initial_data['address']:
+            addresses = get_validate_shop_address(
+                self.initial_data['address'])
+            if 'error' in addresses:
+                raise serializers.ValidationError((addresses["error"]))
+            data['address'] = addresses['addresses']
 
-        # if data['shop_name'] and data['shop_type'] and data['shop_percentage']:
-        #     if Shop.objects.filter(shop_name=data['shop_name'], shop_type=data['shop_type'],
-        #                           shop_percentage=data['shop_percentage']):
-        #         raise serializers.ValidationError("Shop already exists .")
         return data
 
     @transaction.atomic
@@ -297,7 +314,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.create_shop_photo_doc_invoice(shop_instance)
+        self.create_upadte_shop_address_photos_docs_invoices(shop_instance)
         ShopCls.create_shop_log(shop_instance)
         return shop_instance
 
@@ -313,16 +330,19 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.create_shop_photo_doc_invoice(shop_instance)
+        self.create_upadte_shop_address_photos_docs_invoices(shop_instance)
         ShopCls.create_shop_log(shop_instance)
         return shop_instance
 
-    def create_shop_photo_doc_invoice(self, shop):
-        ''' Create Shop Photos, Docs'''
+    def create_upadte_shop_address_photos_docs_invoices(self, shop):
+        ''' Create Shop Address, Photos, Docs, Invoice Pattern'''
+        shop_address = None
         shop_photo = None
         shop_docs = None
         shop_invoice_pattern = None
 
+        if 'address' in self.initial_data and self.initial_data['address']:
+            shop_address = self.initial_data['address']
         if 'shop_photos' in self.initial_data and self.initial_data['shop_photos']:
             shop_photo = self.initial_data['shop_photos']
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
@@ -330,9 +350,9 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
             shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
-        # print(shop_photo)
+        ShopCls.create_update_shop_address(shop, shop_address)
+        ShopCls.upload_shop_photos(shop, shop_photo)
         # print(shop_docs)
-        # ShopCls.upload_shop_photos(shop, shop_photo)
         # ShopCls.create_shop_docs(shop, shop_docs)
         # ShopCls.create_shop_invoice_pattern(shop, shop_invoice_pattern)
 
