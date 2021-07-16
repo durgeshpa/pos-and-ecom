@@ -1091,7 +1091,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     if 'ptr_type' in row.keys() and row['ptr_type'] != " ":
                         raise ValidationError(f"Row {row_num} | 'ptr_type' should be blank' ")
 
-                    elif 'ptr_percent' in row.keys() and row['ptr_percent'] != " ":
+                    elif 'ptr_percent' in row.keys() and row['ptr_percent'] != '':
                         raise ValidationError(f"Row {row_num} | 'ptr_percent' should be blank' ")
 
                 elif row['is_ptr_applicable'].lower() == 'yes' and \
