@@ -578,11 +578,12 @@ class UploadMasterData(object):
             info_logger.info('Method Start to create Child Product')
             for row in csv_file_data_list:
                 child_product = Product.objects.create(
-                    parent_product=ParentProduct.objects.filter(parent_id=row['parent_id']).last(),
+                    parent_product=ParentProduct.objects.filter(parent_id=row['parent_id'].strip()).last(),
                     reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
-                    repackaging_type=row['repackaging_type'], created_by=user)
+                    repackaging_type=row['repackaging_type'], created_by=user, status=row['status'],
+                    product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
 
@@ -820,12 +821,11 @@ class DownloadMasterData(object):
 
         writer.writerow(
             ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
-             "repackaging_type", "source_sku_id", 'raw_material', 'wastage', 'fumigation',
-             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
-             "packing_sku_id", "packing_material_weight"])
-        data = [["TestChild1",  "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination",
+             "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage', 'fumigation',
+             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"])
+        data = [["TestChild1",  "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ", "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ", "pending_approval",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:
