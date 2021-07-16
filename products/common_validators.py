@@ -1101,12 +1101,10 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'is_ptr_applicable' can only be 'Yes' or 'No' ")
 
                 if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() == 'no':
-                    if 'ptr_type' in row.keys() and (row['ptr_type'] != '' or row['ptr_type'] is not None
-                                                     or not row['ptr_type'] == ""):
+                    if 'ptr_type' in row.keys() and row['ptr_type'] is not '':
                         raise ValidationError(f"Row {row_num} | 'ptr_type' should be blank' ")
 
-                    elif 'ptr_percent' in row.keys() and (row['ptr_percent'] != '' or row['ptr_percent'] is not None or
-                                                          not row['ptr_percent'] == "" ):
+                    elif 'ptr_percent' in row.keys() and row['ptr_percent'] is not '':
                         raise ValidationError(f"Row {row_num} | 'ptr_percent' should be blank' ")
 
                 elif row['is_ptr_applicable'].lower() == 'yes' and \
