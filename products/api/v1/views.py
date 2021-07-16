@@ -398,18 +398,19 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by')\
+    queryset = ChildProduct.objects.select_related('parent_product',  'updated_by', 'created_by')\
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image',
                           'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
-                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
                           'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
                           'destination_product_repackaging', 'packing_product_rt__packing_sku',
                           'parent_product__product_parent_product__product_vendor_mapping',
                           'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
-                          'parent_product__product_parent_product__product_vendor_mapping__vendor',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
                           'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
                           'parent_product__product_parent_product__product_vendor_mapping',
-                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
                           'parent_product__parent_product_pro_tax__tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
