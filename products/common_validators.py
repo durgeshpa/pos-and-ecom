@@ -323,8 +323,7 @@ def read_file(csv_file, upload_master_data, category):
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'raw_material',
                                 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                                'secondary_pm_cost', 'final_fg_cost', 'conversion_cost', "packing_sku_id",
-                                "packing_material_weight"]
+                                'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
     if upload_master_data == "child_parent_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
@@ -598,7 +597,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         row_num = 1
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Child Data'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Update Child Product'")
         product_name_list = []
         for row in uploaded_data_list:
             row_num += 1
@@ -708,7 +707,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
     if upload_master_data == "create_child_product":
         row_num = 1
         mandatory_columns = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
-                             'weight_value', 'repackaging_type', 'status']
+                             'weight_value', 'repackaging_type']
 
         for ele in mandatory_columns:
             if ele not in header_list:
@@ -762,9 +761,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
-            if 'status' in row.keys() and row['status'] == '':
-                raise ValidationError(f"Row {row_num} | 'status can either be 'Active', 'Pending Approval' "
-                                      f"or 'Deactivated'!" | 'status cannot be empty')
+            # if 'status' in row.keys() and row['status'] == '':
+            #     raise ValidationError(f"Row {row_num} | 'status can either be 'Active', 'Pending Approval' "
+            #                           f"or 'Deactivated'!" | 'status cannot be empty')
 
             if 'repackaging_type' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'repackaging_type' is a mandatory field")
@@ -1124,7 +1123,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
 
             if 'product_special_cess' in header_list and 'product_special_cess' in row.keys() \
-                    and row['product_special_cess'] != " ":
+                    and row['product_special_cess'] != '':
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
                     raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
 

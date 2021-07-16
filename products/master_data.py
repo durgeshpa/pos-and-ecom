@@ -340,7 +340,7 @@ class UploadMasterData(object):
                     destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
                     source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
                     fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
-                              'status', 'repackaging_type', 'source_sku_id', 'status',
+                              'status', 'repackaging_type', 'source_sku_id', 'status', 'product_special_cess',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                               'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
@@ -379,7 +379,8 @@ class UploadMasterData(object):
                             destnation.update(primary_pm_cost=float(row['primary_pm_cost']))
                         if col == 'secondary_pm_cost':
                             destnation.update(secondary_pm_cost=float(row['secondary_pm_cost']))
-
+                        if col == 'product_special_cess':
+                            child_pro.update(product_special_cess=float(row['product_special_cess']))
                         if col == 'packing_sku_id':
                             pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
                             pack_pro.update(packing_sku=pack_sku)
@@ -582,7 +583,7 @@ class UploadMasterData(object):
                     reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
-                    repackaging_type=row['repackaging_type'], created_by=user, status=row['status'],
+                    repackaging_type=row['repackaging_type'], created_by=user, status='pending_approval' if row['status'] is None else row['status'],
                     product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
