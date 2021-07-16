@@ -38,7 +38,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
-from ecom.utils import check_ecom_user
+from ecom.utils import check_ecom_user, check_ecom_user_shop
 
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
@@ -49,7 +49,7 @@ from marketing.models import ReferralCode
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
-                                    OrderReturnGetSerializer, BasicOrderDetailSerializer)
+                                    OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop)
@@ -83,7 +83,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
                           OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer)
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer)
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -880,6 +881,8 @@ class CartCentral(GenericAPIView):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -1004,6 +1007,39 @@ class CartCentral(GenericAPIView):
         # Refresh - add/remove/update combo, get nearest cart offer over cart value
         next_offer = BasicCartOffers.refresh_offers_cart(cart)
         return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
+
+    @check_ecom_user_shop
+    def get_ecom_cart(self, request, *args, **kwargs):
+        """
+            Get Cart
+            For cart_type "ecom"
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+
+        # Auto apply highest applicable discount
+        auto_apply = self.request.GET.get('auto_apply')
+        with transaction.atomic():
+            # Refresh cart prices
+            self.refresh_cart_prices(cart)
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
+            # Redeem reward points on order
+            redeem_points = self.request.GET.get('redeem_points')
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            cart_data = self.get_serialize_process_basic(cart, next_offer)
+            checkout = CartCheckout()
+            cart_data.update(checkout.serialize(cart, offers))
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            cart_data.update({'default_address': address})
+            return api_response('Cart', cart_data, status.HTTP_200_OK, True)
 
     @staticmethod
     def refresh_cart_prices(cart):
@@ -1251,8 +1287,7 @@ class CartCentral(GenericAPIView):
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
-    @check_pos_shop
-    @check_ecom_user
+    @check_ecom_user_shop
     def ecom_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
@@ -1446,8 +1481,7 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop)
-        cart.cart_status = 'active'
+        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop, cart_status='active')
         cart.save()
         return cart
 
@@ -3885,6 +3919,7 @@ class OrderReturns(APIView):
             previous_ret_qty = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map).aggregate(
                 qty=Sum('return_qty'))['qty']
+            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
@@ -4539,7 +4574,10 @@ def pdf_generation(request, ordered_product):
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
-        product_special_cess = round(m.total_product_cess_amount)
+        try:
+            product_special_cess = round(m.total_product_cess_amount)
+        except:
+            product_special_cess = 0
         amount = total_amount
         total_amount = total_amount + tcs_tax
         total_amount_int = round(total_amount)
@@ -5284,6 +5322,43 @@ class RetailerShopsList(APIView):
             return Response({"message": ["User is not exists"], "response_data": None, "is_success": False,
                              "is_user_mapped_with_same_sp": False})
 
+class RetailerList(generics.ListAPIView):
+    serializer_class = SellerOrderListSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all()\
+                                              .prefetch_related('employee_list').values('employee_list__employee_id'),
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_employee(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user,
+                                              employee_group__permissions__codename='can_sales_person_add_shop',
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_queryset(self):
+        shop_emp = self.get_employee()
+        if not shop_emp.exists():
+            shop_emp = self.get_shops()
+        return shop_emp.values('shop')
+
+    def list(self, request, *args, **kwargs):
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        shop_list = self.get_queryset()
+        queryset = Shop.objects.filter(id__in=shop_list, status=True).order_by('shop_name')
+
+        params = request.query_params
+        info_logger.info("RetailerList|query_params {}".format(request.query_params))
+        if params.get('retailer_name') is not None:
+            queryset = queryset.filter(shop_name__icontains=params.get('retailer_name') )
+
+        if queryset.exists():
+            serializer = ShopSerializer(queryset, many=True)
+            if serializer.data:
+                msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+
 
 class SellerOrderList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
@@ -5309,6 +5384,16 @@ class SellerOrderList(generics.ListAPIView):
                                               employee_group__permissions__codename='can_sales_person_add_shop',
                                               shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
+    def get_order_status(self, status):
+        order_status_dict = {
+            'new': [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                    Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH],
+            'in_transit': [Order.DISPATCHED],
+            'completed': [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED],
+            'cancelled': [Order.CANCELLED]
+        }
+        return order_status_dict.get(status)
+
     def get_queryset(self):
         shop_emp = self.get_employee()
         if not shop_emp.exists():
@@ -5321,9 +5406,21 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by(
-            '-created_at') if self.is_manager else Order.objects.filter(buyer_shop__id__in=shop_list,
-                                                                        ordered_by=request.user).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
+                    else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
+                                      .order_by('-created_at')
+
+        params = request.query_params
+        info_logger.info("SellerOrderList|query_params {}".format(request.query_params))
+        if params.get('order_status') is not None:
+            order_status_list = self.get_order_status(params['order_status'])
+            if order_status_list is not None:
+                queryset = queryset.filter(order_status__in=order_status_list)
+
+        if params.get('retailer_id') is not None:
+            queryset = queryset.filter(buyer_shop_id=params.get('retailer_id') )
+        elif params.get('retailer_name') is not None:
+            queryset = queryset.filter(buyer_shop__shop_name__icontains=params.get('retailer_name'))
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:

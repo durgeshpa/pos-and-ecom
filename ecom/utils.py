@@ -5,6 +5,8 @@ from rest_framework import status
 
 from shops.models import Shop
 
+from .models import Address
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -18,6 +20,23 @@ def check_ecom_user(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         if not request.user.is_ecom_user:
             return api_response("User Not Registered For E-commerce!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
+def check_ecom_user_shop(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not request.user.is_ecom_user:
+            return api_response("User Not Registered For E-commerce!")
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        kwargs['shop'] = shop
+        kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
@@ -44,3 +63,14 @@ def nearby_shops(lat, lng, radius=10, limit=1):
 
     queryset = Shop.objects.raw(query)
     return queryset[0] if queryset else None
+
+
+def validate_address_id(func):
+    @wraps(func)
+    def _wrapped_view_func(self, request, pk):
+        user_address = Address.objects.filter(user=request.user, id=pk).last()
+        if not user_address:
+            return api_response("Invalid Address Id")
+        return func(self, request, pk)
+
+    return _wrapped_view_func

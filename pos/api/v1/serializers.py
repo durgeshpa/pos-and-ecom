@@ -5,8 +5,7 @@ import re
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
-from django.db.models import Q, Sum
-from django.core import validators
+from django.db.models import Q
 
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
@@ -21,6 +20,7 @@ from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
+from ecom.models import Address
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -638,7 +638,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
                 obj.order_amount).rstrip('0').rstrip('.')
 
         returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0
+        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0.00
         for ret in returns:
             return_value += ret.return_value
             discount_adjusted += ret.discount_adjusted
@@ -647,7 +647,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         returned_oints_value = 0
         if obj.ordered_cart.redeem_factor:
             returned_oints_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
-        if refunded_amount:
+        if returns.exists():
             cb += 1
             block[cb] = dict()
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
@@ -1223,6 +1223,11 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
 class OrderReturnGetSerializer(serializers.ModelSerializer):
     return_items = serializers.SerializerMethodField()
     refund_points_value = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_refund_amount(obj):
+        return max(obj.refund_amount, 0)
 
     @staticmethod
     def get_return_items(obj):
@@ -1251,7 +1256,7 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
                 ret['free_product_return'] = 1
                 offer = product_offer_map[ret['product_id']]
                 ret['free_product_text'] = 'Returned ' + str(free_return_item_map[ret['product_id']]) + ' items of ' \
-                                           + offer['free_item_name'] + '| Buy ' + str(offer['item_qty']) + ' Get ' + \
+                                           + offer['free_item_name'] + ' | Buy ' + str(offer['item_qty']) + ' Get ' + \
                                            str(offer['free_item_qty'])
 
         if 'free_product' in free_return_item_map and int(free_return_item_map['free_product']) > 0:
@@ -1399,3 +1404,10 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
+
+
+class AddressCheckoutSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Address
+        fields = ('type', 'complete_address')

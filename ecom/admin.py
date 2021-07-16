@@ -6,6 +6,7 @@ from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 
 from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
+from .models import Address
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -121,6 +122,28 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
         )
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+@admin.register(Address)
+class EcomAddressAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    fields = ('user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city', 'state',
+              'default', 'created_at', 'modified_at', 'deleted_at')
+    list_display = fields
+    search_fields = ('user__phone_number', 'user__first_name', 'contact_number', 'contact_name', 'pincode',
+                     'city')
 
     def has_change_permission(self, request, obj=None):
         return False
