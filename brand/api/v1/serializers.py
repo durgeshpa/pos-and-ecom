@@ -115,6 +115,7 @@ class BrandCrudSerializers(serializers.ModelSerializer):
         """
             brand_slug validation.
         """
+
         if not 'brand_slug' in self.initial_data or not self.initial_data['brand_slug']:
             data['brand_slug'] = slugify(data.get('brand_slug'))
 
@@ -199,3 +200,10 @@ class BrandExportAsCSVSerializers(serializers.ModelSerializer):
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
+
+class BrandListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Brand
+        fields = ('id', 'brand_name',)

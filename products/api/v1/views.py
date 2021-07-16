@@ -1,5 +1,6 @@
 import logging
-import datetime
+
+from datetime import datetime
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
@@ -39,7 +40,7 @@ class BrandListView(GenericAPIView):
         Get Brand List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.values('id', 'brand_name')
+    queryset = Brand.objects.select_related('brand_parent').only('id', 'brand_name', 'brand_parent', )
     serializer_class = BrandSerializers
 
     def get(self, request):
@@ -57,7 +58,7 @@ class CategoryListView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name')
+    queryset = Category.objects.select_related('category_parent').only('id', 'category_name', 'category_parent',)
     serializer_class = CategorySerializers
 
     def get(self, request):
@@ -234,6 +235,7 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
          'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
          'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
@@ -243,6 +245,7 @@ class ParentProductView(GenericAPIView):
               'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
               'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
               'max_inventory').order_by('-id')
+    count_db_data = queryset.count()
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -260,7 +263,7 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.search_filter_parent_product()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = "" if parent_product else "no product product found"
+        msg = f"total count {self.count_db_data}" if parent_product else "no product product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -394,21 +397,24 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.select_related('parent_product')\
+    permission_classes = (AllowAny,)
+    queryset = ChildProduct.objects.select_related('parent_product',  'updated_by', 'created_by')\
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image',
                           'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
-                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
                           'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
                           'destination_product_repackaging', 'packing_product_rt__packing_sku',
                           'parent_product__product_parent_product__product_vendor_mapping',
                           'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
-                          'parent_product__product_parent_product__product_vendor_mapping__vendor',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
                           'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
                           'parent_product__product_parent_product__product_vendor_mapping',
-                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax', 'product_pro_tax',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
                           'parent_product__parent_product_pro_tax__tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
+    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
@@ -426,7 +432,8 @@ class ChildProductView(GenericAPIView):
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
-        msg = "" if child_product else "no child product found"
+
+        msg = f"total count {self.count_db_data}" if child_product else "no child product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):

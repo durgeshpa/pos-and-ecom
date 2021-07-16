@@ -1,6 +1,6 @@
 import logging
 from django.core.exceptions import ObjectDoesNotExist
-import datetime
+from datetime import datetime
 from django.http import HttpResponse
 
 from rest_framework.views import APIView
@@ -9,8 +9,9 @@ from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
-from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, \
-    ProductVendorMapSerializers, BrandExportAsCSVSerializers
+from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers, \
+    BrandExportAsCSVSerializers, BrandListSerializers
+
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
 from shops.models import Shop, ParentRetailerMapping
@@ -28,10 +29,9 @@ debug_logger = logging.getLogger('file-debug')
 
 
 class GetSlotBrandListView(APIView):
-
     permission_classes = (AllowAny,)
 
-    def get(self,*args,**kwargs):
+    def get(self, *args, **kwargs):
         pos_name = self.kwargs.get('slot_position_name')
         shop_id = self.request.GET.get('shop_id')
         brand_slots = BrandData.objects.filter(brand_data__active_status='active')
@@ -41,15 +41,16 @@ class GetSlotBrandListView(APIView):
             brand_data_serializer = BrandDataSerializer(brand_slots, many=True)
         elif pos_name and shop_id == '-1':
             brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
-            brand_data_serializer = BrandDataSerializer(brand_slots,many=True)
+            brand_data_serializer = BrandDataSerializer(brand_slots, many=True)
 
         elif pos_name and shop_id:
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status = True).parent
+                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 brand_subbrands = []
                 # get list of brand ids with available inventory
                 stock_available_brands_list = get_stock_available_brand_list(parent)
-                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
+                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by(
+                    'brand_data_order')
                 for brand_slot in brand_slots:
                     if brand_slot.brand_data.id in stock_available_brands_list:
                         brand_subbrands.append(brand_slot)
@@ -58,13 +59,14 @@ class GetSlotBrandListView(APIView):
                             if active_sub_brand.id in stock_available_brands_list:
                                 brand_subbrands.append(brand_slot)
                                 break
-                brand_data_serializer = BrandDataSerializer(brand_subbrands,many=True)
+                brand_data_serializer = BrandDataSerializer(brand_subbrands, many=True)
             else:
-                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
-                brand_data_serializer = BrandDataSerializer(brand_slots,many=True)
+                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by(
+                    'brand_data_order')
+                brand_data_serializer = BrandDataSerializer(brand_slots, many=True)
         else:
             brand_slots = brand_slots.order_by('brand_data_order')
-            brand_data_serializer = BrandDataSerializer(brand_slots,many=True)
+            brand_data_serializer = BrandDataSerializer(brand_slots, many=True)
 
         is_success = True if brand_slots else False
 
@@ -72,7 +74,6 @@ class GetSlotBrandListView(APIView):
 
 
 class GetSubBrandsListView(APIView):
-
     permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
@@ -92,13 +93,31 @@ class GetSubBrandsListView(APIView):
                 brand_data_serializer = SubBrandSerializer(sub_brands_with_available_products, many=True)
             else:
                 product_subbrands = []
-                brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
+                brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
         else:
             product_subbrands = brand.brnd_parent.filter(active_status='active')
-            brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
+            brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
 
         is_success = True if product_subbrands else False
-        return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
+        return Response({"message": [""], "response_data": brand_data_serializer.data, "is_success": is_success})
+
+
+class BrandListView(GenericAPIView):
+    """
+        Get Brand List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Brand.objects.values('id', 'brand_name', )
+    serializer_class = BrandListSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = brand_search(self.queryset, search_text)
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data, True)
 
 
 class BrandView(GenericAPIView):
@@ -111,7 +130,8 @@ class BrandView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log', 'brand_log__updated_by').\
+    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log',
+                                                                             'brand_log__updated_by'). \
         only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',
              'brand_logo', 'status').order_by('-id')
 
@@ -215,7 +235,7 @@ class BrandVendorMappingView(GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ParentProduct.objects.select_related('parent_brand').prefetch_related(
         'product_parent_product', 'product_parent_product__product_vendor_mapping',
-        'product_parent_product__product_vendor_mapping__vendor',).only('parent_brand',).order_by('-id')
+        'product_parent_product__product_vendor_mapping__vendor', ).only('parent_brand', ).order_by('-id')
     serializer_class = ProductVendorMapSerializers
 
     def get(self, request):

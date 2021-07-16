@@ -21,7 +21,7 @@ def validate_data_format(request):
     except:
         return {'error': "Invalid Data Format", }
 
-    if 'category_image' in data:
+    if 'category_image' in data and data['category_image']:
         try:
             validate = URLValidator()
             validate(data['category_image'])

@@ -35,7 +35,38 @@ class GetParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'name')
 
 
+class CategorySerializers(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField('get_category_parent_category_name')
+
+    def get_category_parent_category_name(self, obj):
+        full_path = [obj.category_name]
+        parent_category_obj = obj.category_parent
+
+        while parent_category_obj is not None:
+            full_path.append(parent_category_obj.category_name)
+            parent_category_obj = parent_category_obj.category_parent
+
+        return ' -> '.join(full_path[::-1])
+
+    class Meta:
+        model = Category
+
+        fields = ('id', 'category_name',)
+
+
 class BrandSerializers(serializers.ModelSerializer):
+    brand_name = serializers.SerializerMethodField('get_brand_parent_brand_name')
+
+    def get_brand_parent_brand_name(self, obj):
+        full_path = [obj.brand_name]
+        brand_obj = obj.brand_parent
+
+        while brand_obj is not None:
+            full_path.append(brand_obj.brand_name)
+            brand_obj = brand_obj.brand_parent
+
+        return ' -> '.join(full_path[::-1])
+
     class Meta:
         model = Brand
         fields = ('id', 'brand_name',)
@@ -51,13 +82,6 @@ class ProductHSNSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductHSN
         fields = ('id', 'product_hsn_code')
-
-
-class CategorySerializers(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-
-        fields = ('id', 'category_name',)
 
 
 class ParentProductCategorySerializers(serializers.ModelSerializer):
@@ -665,7 +689,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
                   'product_pro_image', 'parent_product', 'product_pro_tax', 'destination_product_pro', 'product_images',
-                  'destination_product_repackaging', 'packing_product_rt', 'product_vendor_mapping', 'child_product_logs')
+                  'destination_product_repackaging', 'packing_product_rt', 'product_vendor_mapping',
+                  'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
