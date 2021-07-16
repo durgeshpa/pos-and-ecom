@@ -1546,6 +1546,7 @@ class OrderedProduct(models.Model):  # Shipment
                                                       verbose_name="No. Of Packets Collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="No. Of Sacks Collected")
+    is_customer_notified = models.BooleanField(default=False)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)

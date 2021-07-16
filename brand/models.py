@@ -14,7 +14,6 @@ from shops.models import Shop
 from categories.models import Category
 from django.contrib.postgres.fields import ArrayField
 
-
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
     ("unpaid", "Un-Paid"),

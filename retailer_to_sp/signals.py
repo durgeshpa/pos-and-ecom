@@ -4,7 +4,7 @@ from django.utils.crypto import get_random_string
 from django.db.models import Sum
 
 from shops.models import ParentRetailerMapping
-from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart
+from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart, Trip
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
 
@@ -47,6 +47,7 @@ from retailer_backend import common_function
 #             picking_status="picking_pending",
 #             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
 #             )
+from .utils import send_sms_on_trip_start
 
 
 class ReservedOrder(object):
@@ -190,3 +191,9 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':
 			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
+
+@receiver(post_save, sender=Trip)
+def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
+	if instance.trip_status == Trip.STARTED:
+		send_sms_on_trip_start(instance)
+

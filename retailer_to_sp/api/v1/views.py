@@ -83,7 +83,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
                           OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer)
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer)
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -1800,13 +1801,13 @@ class CartCheckout(APIView):
                                     cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        # Auto apply highest applicable discount
-        auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
+            redeem_points = self.request.GET.get('redeem_points')
+            # Auto apply highest applicable discount
+            auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
             # Redeem reward points on order
-            redeem_points = self.request.GET.get('redeem_points')
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
@@ -3918,6 +3919,7 @@ class OrderReturns(APIView):
             previous_ret_qty = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map).aggregate(
                 qty=Sum('return_qty'))['qty']
+            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
@@ -4572,7 +4574,10 @@ def pdf_generation(request, ordered_product):
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
-        product_special_cess = round(m.total_product_cess_amount)
+        try:
+            product_special_cess = round(m.total_product_cess_amount)
+        except:
+            product_special_cess = 0
         amount = total_amount
         total_amount = total_amount + tcs_tax
         total_amount_int = round(total_amount)
@@ -5317,6 +5322,43 @@ class RetailerShopsList(APIView):
             return Response({"message": ["User is not exists"], "response_data": None, "is_success": False,
                              "is_user_mapped_with_same_sp": False})
 
+class RetailerList(generics.ListAPIView):
+    serializer_class = SellerOrderListSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all()\
+                                              .prefetch_related('employee_list').values('employee_list__employee_id'),
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_employee(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user,
+                                              employee_group__permissions__codename='can_sales_person_add_shop',
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
+
+    def get_queryset(self):
+        shop_emp = self.get_employee()
+        if not shop_emp.exists():
+            shop_emp = self.get_shops()
+        return shop_emp.values('shop')
+
+    def list(self, request, *args, **kwargs):
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        shop_list = self.get_queryset()
+        queryset = Shop.objects.filter(id__in=shop_list, status=True).order_by('shop_name')
+
+        params = request.query_params
+        info_logger.info("RetailerList|query_params {}".format(request.query_params))
+        if params.get('retailer_name') is not None:
+            queryset = queryset.filter(shop_name__icontains=params.get('retailer_name') )
+
+        if queryset.exists():
+            serializer = ShopSerializer(queryset, many=True)
+            if serializer.data:
+                msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+
 
 class SellerOrderList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
@@ -5342,6 +5384,16 @@ class SellerOrderList(generics.ListAPIView):
                                               employee_group__permissions__codename='can_sales_person_add_shop',
                                               shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
+    def get_order_status(self, status):
+        order_status_dict = {
+            'new': [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                    Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH],
+            'in_transit': [Order.DISPATCHED],
+            'completed': [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED],
+            'cancelled': [Order.CANCELLED]
+        }
+        return order_status_dict.get(status)
+
     def get_queryset(self):
         shop_emp = self.get_employee()
         if not shop_emp.exists():
@@ -5354,9 +5406,21 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by(
-            '-created_at') if self.is_manager else Order.objects.filter(buyer_shop__id__in=shop_list,
-                                                                        ordered_by=request.user).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
+                    else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
+                                      .order_by('-created_at')
+
+        params = request.query_params
+        info_logger.info("SellerOrderList|query_params {}".format(request.query_params))
+        if params.get('order_status') is not None:
+            order_status_list = self.get_order_status(params['order_status'])
+            if order_status_list is not None:
+                queryset = queryset.filter(order_status__in=order_status_list)
+
+        if params.get('retailer_id') is not None:
+            queryset = queryset.filter(buyer_shop_id=params.get('retailer_id') )
+        elif params.get('retailer_name') is not None:
+            queryset = queryset.filter(buyer_shop__shop_name__icontains=params.get('retailer_name'))
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:

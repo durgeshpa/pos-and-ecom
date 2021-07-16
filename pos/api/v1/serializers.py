@@ -638,7 +638,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
                 obj.order_amount).rstrip('0').rstrip('.')
 
         returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0
+        return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0.00
         for ret in returns:
             return_value += ret.return_value
             discount_adjusted += ret.discount_adjusted
@@ -647,7 +647,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         returned_oints_value = 0
         if obj.ordered_cart.redeem_factor:
             returned_oints_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
-        if refunded_amount:
+        if returns.exists():
             cb += 1
             block[cb] = dict()
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
@@ -1089,6 +1089,8 @@ class InventoryLogReportSerializer(serializers.ModelSerializer):
 
 
 class SalesReportSerializer(serializers.Serializer):
+    offset = serializers.IntegerField(default=0)
+    limit = serializers.IntegerField(default=10)
     report_type = serializers.ChoiceField(choices=('daily', 'monthly', 'invoice'), default='daily')
     date_filter = serializers.ChoiceField(choices=('today', 'yesterday', 'this_week', 'last_week', 'this_month',
                                                    'last_month', 'this_year'), required=False, allow_null=True,
@@ -1149,7 +1151,7 @@ class CustomerReportSerializer(serializers.Serializer):
     def validate(self, attrs):
         sort_by = attrs.get('sort_by')
         sort_by = sort_by if sort_by else 'date'
-        attrs['sort_by'] = 'created_at__' + sort_by if sort_by in ['date'] else sort_by
+        attrs['sort_by'] = 'created_at' if sort_by in ['date'] else sort_by
 
         if attrs['start_date'] > attrs['end_date']:
             raise serializers.ValidationError("End Date Must Be Greater Than Start Date")
@@ -1179,6 +1181,7 @@ class CustomerReportResponseSerializer(serializers.Serializer):
 
 
 class CustomerReportDetailResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
     order_id = serializers.CharField(read_only=True)
     points_added = serializers.IntegerField(read_only=True)
     points_redeemed = serializers.IntegerField(read_only=True)
@@ -1198,6 +1201,7 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
     """
     product_id = serializers.SerializerMethodField()
     product_name = serializers.SerializerMethodField()
+    selling_price = serializers.SerializerMethodField()
 
     @staticmethod
     def get_product_id(obj):
@@ -1207,33 +1211,57 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
     def get_product_name(obj):
         return obj.ordered_product.retailer_product.name
 
+    @staticmethod
+    def get_selling_price(obj):
+        return obj.ordered_product.selling_price
+
     class Meta:
         model = ReturnItems
-        fields = ('product_id', 'product_name', 'return_qty', 'return_value')
+        fields = ('product_id', 'product_name', 'selling_price', 'return_qty', 'return_value')
 
 
 class OrderReturnGetSerializer(serializers.ModelSerializer):
     return_items = serializers.SerializerMethodField()
     refund_points_value = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_refund_amount(obj):
+        return max(obj.refund_amount, 0)
 
     @staticmethod
     def get_return_items(obj):
         qs = ReturnItems.objects.filter(return_id=obj, ordered_product__product_type=1)
         return_items = ReturnItemsGetSerializer(qs, many=True).data
 
+        product_offer_map, cart_free_product = {}, {}
+        for offer in obj.order.ordered_cart.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {'cart_free_product': 1, 'id': offer['free_item_id'], 'mrp': offer['free_item_mrp'],
+                                     'name': offer['free_item_name'], 'qty': offer['free_item_qty'],
+                                     'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip(
+                                         '0').rstrip('.')}
+
         free_products_return = obj.free_qty_map
         free_return_item_map = {}
         if free_products_return:
             for combo in free_products_return:
-                free_product = RetailerProduct.objects.get(id=combo['free_item_id'])
-                free_return_item_map[combo['item_id']] = 'Returned ' + str(combo['free_item_return_qty']) + ' items of ' \
-                                                         + free_product.name
+                free_return_item_map[combo['item_id']] = combo['free_item_return_qty']
 
         for ret in return_items:
             ret['free_product_return'] = 0
             if ret['product_id'] in free_return_item_map:
                 ret['free_product_return'] = 1
-                ret['free_product_text'] = free_return_item_map[ret['product_id']]
+                offer = product_offer_map[ret['product_id']]
+                ret['free_product_text'] = 'Returned ' + str(free_return_item_map[ret['product_id']]) + ' items of ' \
+                                           + offer['free_item_name'] + ' | Buy ' + str(offer['item_qty']) + ' Get ' + \
+                                           str(offer['free_item_qty'])
+
+        if 'free_product' in free_return_item_map and int(free_return_item_map['free_product']) > 0:
+            cart_free_product['return_qty'] = free_return_item_map['free_product']
+            return_items.append(cart_free_product)
 
         return return_items
 
@@ -1257,6 +1285,11 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     order_summary = serializers.SerializerMethodField()
     return_summary = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
+    creation_date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_creation_date(obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     def get_order_summary(self, obj):
         order_summary = dict()
@@ -1370,7 +1403,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'items', 'order_summary', 'return_summary')
+        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):

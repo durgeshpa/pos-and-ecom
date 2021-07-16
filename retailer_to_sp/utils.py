@@ -1,4 +1,6 @@
 import io
+import logging
+
 import xlsxwriter
 import csv
 import codecs
@@ -14,9 +16,13 @@ from django.urls import reverse
 from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
+from marketing.sms import SendSms
 from products.models import Product
+from retailer_backend.messages import NOTIFICATIONS
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 
+# Logger
+info_logger = logging.getLogger('file-info')
 
 def add_cart_user(form, request):
 	cart = form.save(commit=False)
@@ -432,3 +438,28 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             invoice.get('cn_amount'),
         ])
     return response
+
+
+def send_sms_on_trip_start(trip_instance):
+    shipments = trip_instance.rt_invoice_trip.filter(is_customer_notified=False)
+    if shipments.count() == 0:
+        return
+    delivery_boy_name = trip_instance.delivery_boy.first_name
+    delivery_boy_number = trip_instance.delivery_boy.phone_number
+    info_logger.info("send_sms_on_trip_start| trip{}".format(trip_instance))
+    for shipment in shipments:
+        if shipment.invoice_amount > 0:
+            try:
+                buyer_name = shipment.order.buyer_shop.shop_owner.first_name
+                text = NOTIFICATIONS['TRIP_START_MSG'].format(buyer_name, delivery_boy_name, delivery_boy_number,
+                                                                     shipment.invoice_amount)
+                phone_no = shipment.order.buyer_shop.shop_owner.phone_number
+                info_logger.info("send_sms_on_trip_start| message {}, phone no {} ".format(text, phone_no))
+                message = SendSms(phone=phone_no, body=text)
+                message.send()
+                shipment.is_customer_notified = True
+                shipment.save()
+            except Exception as e:
+                info_logger.info("Exception|send_sms_on_trip_start| e {} ".format(e))
+                info_logger.error(e)
+

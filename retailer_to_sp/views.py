@@ -5,6 +5,7 @@ import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
+
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
@@ -54,6 +55,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+
 
 logger = logging.getLogger('django')
 
@@ -341,12 +343,14 @@ def ordered_product_mapping_shipment(request):
             .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
         # pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no).order_by('sku')
+        pickup_quantity = 0
         for item in cart_products:
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
             pick_up_obj = Pickup.objects.filter(sku=Product.objects.filter(id=item['cart_product'])[0],
                                                 pickup_type_id=Order.objects.filter(id=order_id).last().order_no)\
                                         .exclude(status='picking_cancelled')
+            pickup_quantity += pick_up_obj[0].pickup_quantity
             if shipment_product:
                 shipment_product_dict = shipment_product[0]
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
@@ -372,6 +376,12 @@ def ordered_product_mapping_shipment(request):
                     'shipped_qty': pick_up_obj[0].pickup_quantity,
                     'picked_pieces': pick_up_obj[0].pickup_quantity
                 })
+        if pickup_quantity <= 0:
+            messages.error(request, "This order {} has zero picking so you can not create shipment!".format(pick_up_obj[0].pickup_type_id))
+            return render(request,
+                'admin/retailer_to_sp/OrderedProductMappingShipment.html',
+                {'ordered_form': form}
+            )
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
 
@@ -1778,8 +1788,3 @@ def shipment_status(request):
         context['count'] = -1
     return HttpResponse(json.dumps(context))
 
-# def check_shipment_verified(shipment_list, trip_status,current_trip_status):
-#     shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED','PARTIALLY_DELIVERED_AND_VERIFIED','FULLY_DELIVERED_AND_VERIFIED']
-#     if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
-#         for shipment in shipment_list:
-#             if shipment.shipment_status not in shipment_status_verify:
