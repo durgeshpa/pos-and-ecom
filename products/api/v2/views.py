@@ -1,11 +1,9 @@
 import logging
-import csv
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import authentication
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView
 
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \

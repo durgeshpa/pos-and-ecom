@@ -1082,15 +1082,18 @@ def validate_row(uploaded_data_list, header_list, category):
                           f"'is_lead_time_applicable' can only be 'Yes' or 'No' ")
 
             if 'is_ptr_applicable' in header_list and 'is_ptr_applicable' in row.keys():
-                if str(row['is_ptr_applicable']).lower() == 'no' or str(row['is_ptr_applicable']) is None:
-                    if 'ptr_type' in row.keys() and row['ptr_type'] is not None:
-                        raise ValidationError(f"Row {row_num} | 'ptr_type' should be blank' ")
-                    elif 'ptr_percent' in row.keys() and row['ptr_percent'] is not None:
-                        raise ValidationError(f"Row {row_num} | 'ptr_percent' should be blank' ")
 
                 if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() not in ['yes', 'no']:
                     raise ValidationError(f"Row {row_num} | {row['is_ptr_applicable']} | "
                                           f"'is_ptr_applicable' can only be 'Yes' or 'No' ")
+
+                if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() == 'no':
+                    if 'ptr_type' in row.keys() and row['ptr_type'] != " ":
+                        raise ValidationError(f"Row {row_num} | 'ptr_type' should be blank' ")
+
+                    elif 'ptr_percent' in row.keys() and row['ptr_percent'] != " ":
+                        raise ValidationError(f"Row {row_num} | 'ptr_percent' should be blank' ")
+
                 elif row['is_ptr_applicable'].lower() == 'yes' and \
                         ('ptr_type' not in row.keys() or row['ptr_type'] == '' or row['ptr_type'].lower() not in [
                             'mark up', 'mark down']):
