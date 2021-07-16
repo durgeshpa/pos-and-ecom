@@ -252,3 +252,51 @@ def es_mget_by_ids(index, body):
 	return es.mget(index=create_es_index(index), body=body)
 
 
+@task
+def update_shop_product_es_cat(shop, product_id):
+	try:
+		product = Product.objects.filter(id=product_id).last()
+		products_update_category_es(shop, product)
+	except Exception as e:
+		pass
+
+
+def products_update_category_es(shop, product):
+	product_category = [str(c.category) for c in product.parent_product.parent_product_pro_category.filter(status=True)]
+	detail = {
+		"category": product_category,
+		"id": product.id,
+	}
+	es_index = shop if shop else 'all_products'
+
+	info_logger.info(product.product_sku)
+	try:
+		es.update(index=create_es_index(es_index), doc_type='product', id=product.id, body={"doc": detail})
+	except Exception as e:
+		info_logger.info("error in products_update_category_es")
+		info_logger.info(e)
+
+
+@task
+def update_shop_product_es_brand(shop, product_id):
+	try:
+		product = Product.objects.filter(id=product_id).last()
+		products_update_brand_es(shop, product)
+	except Exception as e:
+		pass
+
+
+def products_update_brand_es(shop, product):
+	detail = {
+		"brand": str(product.product_brand),
+		"brand_lower": str(product.product_brand).lower(),
+		"id": product.id,
+	}
+	es_index = shop if shop else 'all_products'
+
+	info_logger.info(product.product_sku)
+	try:
+		es.update(index=create_es_index(es_index), doc_type='product', id=product.id, body={"doc": detail})
+	except Exception as e:
+		info_logger.info("error in products_update_brand_es")
+		info_logger.info(e)
