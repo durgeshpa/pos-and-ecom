@@ -775,7 +775,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 if Brand.objects.filter(brand_code=row['brand_code'].strip()):
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
                                           f"'brand_code' already exists")
-                elif row['brand_code'].strip() in brand_slug_list:
+                elif row['brand_code'].strip() in brand_code_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
                                           f"'brand_code' getting repeated in csv file")
                 brand_code_list.append(row['brand_code'].strip())
