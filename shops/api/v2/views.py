@@ -19,11 +19,11 @@ from retailer_backend.utils import SmallOffsetPagination
 
 from addresses.models import Address
 from shops.models import (
-    ShopType, Shop, ShopUserMapping
+    ParentRetailerMapping, ShopType, Shop, ShopUserMapping
 )
 
 from .serializers import (
-    AddressSerializer, CityAddressSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers
 )
 from shops.common_functions import *
@@ -442,6 +442,17 @@ class ShopSalesReportView(APIView):
 class ServicePartnerShopsListView(generics.ListAPIView):
     queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', ]).all()
     serializer_class = ServicePartnerShopsSerializer
+    permission_classes = (AllowAny,)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return get_response("", serializer.data, True)
+
+
+class ParentShopsListView(generics.ListAPIView):
+    queryset = ParentRetailerMapping.objects.only('parent').distinct('parent')
+    serializer_class = ParentShopsListSerializer
     permission_classes = (AllowAny,)
 
     def list(self, request):

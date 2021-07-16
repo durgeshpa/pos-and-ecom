@@ -1,15 +1,13 @@
-from os import stat
-from addresses.models import Address, City, Pincode, State
+from addresses.models import City, Pincode, State
 import logging
 import json
 import re
 
 from django.contrib.auth import get_user_model
-from shops.base64_image import Base64ImageField
 from shops.common_functions import convert_base64_to_image
 from addresses.models import address_type_choices
 
-from shops.models import ShopDocument
+from shops.models import ShopDocument, ShopInvoicePattern, ShopPhoto
 logger = logging.getLogger(__name__)
 
 VALID_IMAGE_EXTENSIONS = [
@@ -68,8 +66,8 @@ def get_validate_shop_documents(shop, shop_documents):
                 # shop_doc_photo = convert_base64_to_image(shop_doc['shop_document_photo'])
                 # if 'error' in shop_doc_photo:
                 #     return shop_doc_photo
-                shop_doc_photo = Base64ImageField(
-                    shop_doc['shop_document_photo'])
+                # shop_doc_photo = to_file(shop_doc['shop_document_photo'])
+                shop_doc_photo = shop_doc['shop_document_photo']
                 shop_doc_obj['shop_document_photo'] = shop_doc_photo
             if 'shop_document_type' in shop_doc:
                 shop_doc_type = validate_shop_doc_type(
@@ -88,6 +86,26 @@ def get_validate_shop_documents(shop, shop_documents):
             logger.error(e)
             return {'error': 'please provide a valid shop_document id'}
     return {'data': shop_documents}
+
+
+def get_validate_existing_shop_photos(photos):
+    """ 
+    validate ids that belong to a User model also
+    checking shop_photo shouldn't repeat else through error 
+    """
+    photos_list = []
+    photos_obj = []
+    for photos_data in photos:
+        try:
+            shop_photo = ShopPhoto.objects.get(id=photos_data['id'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} shop_photo not found'.format(photos_data['id'])}
+        photos_obj.append(shop_photo)
+        if shop_photo in photos_list:
+            return {'error': '{} do not repeat same shop_photo for one shop'.format(shop_photo)}
+        photos_list.append(shop_photo)
+    return {'photos': photos_obj}
 
 
 def get_validate_related_users(related_users):
@@ -136,6 +154,20 @@ def get_validate_shop_address(addresses):
     return {'addresses': addresses_obj}
 
 
+def get_validate_shop_invoice_pattern(shop_invoice_patterns):
+    """ 
+    validate address's state, city, pincode
+    """
+    for sip_data in shop_invoice_patterns:
+        if 'start_date' in sip_data and sip_data['start_date'] and 'end_date' in sip_data and sip_data['end_date']:
+            if sip_data['start_date'] < sip_data['end_date']:
+                return {'error': 'Please select a valid start and end date of Invoice Pattern.'}
+
+        if not ('status' in sip_data and (any(sip_data['status'] in i for i in ShopInvoicePattern.SHOP_INVOICE_CHOICES))):
+            return {'error': 'Please select a valid status of Invoice Pattern.'}
+    return {'shop_invoice_pattern': shop_invoice_patterns}
+
+
 def validate_data_format(request):
     """ Validate shop data  """
     try:
@@ -143,9 +175,9 @@ def validate_data_format(request):
     except Exception as e:
         return {'error': "Invalid Data Format", }
 
-    if request.FILES.getlist('shop_photos'):
-        data['shop_photos'] = get_validate_images(
-            request.FILES.getlist('shop_photos'))['image']
+    if request.FILES.getlist('shop_images'):
+        data['shop_images'] = get_validate_images(
+            request.FILES.getlist('shop_images'))['image']
 
     return data
 

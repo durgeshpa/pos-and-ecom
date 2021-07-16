@@ -1,11 +1,12 @@
-from addresses.models import Address
 import logging
 
 from rest_framework import status
 from rest_framework.response import Response
 
+from addresses.models import Address
 from products.models import CentralLog
 from shops.models import ShopDocument, ShopInvoicePattern, ShopPhoto
+from shops.base64_to_file import to_file
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -29,16 +30,17 @@ class ShopCls(object):
     @classmethod
     def create_update_shop_address(cls, shop, addresses):
         """
-        Create / Update Shop Address
+            Delete Shop Address if not in the request
+            Create / Update Shop Address
         """
-        ids = []
         if addresses:
+            ids = []
             for image in addresses:
                 if 'id' in image:
                     ids.append(image['id'])
 
-        Address.objects.filter(shop_name=shop).exclude(id__in=ids).delete()
-        if addresses:
+            Address.objects.filter(shop_name=shop).exclude(id__in=ids).delete()
+
             for address in addresses:
                 address['shop_name'] = shop
                 add_id = None
@@ -47,10 +49,18 @@ class ShopCls(object):
                 Address.objects.update_or_create(defaults=address, id=add_id)
 
     @classmethod
-    def upload_shop_photos(cls, shop, photos):
+    def upload_shop_photos(cls, shop, existing_photos, photos):
         """
-            Create shop_photos
+            Delete Shop Photos if not in the request
+            Create Shop Photos
         """
+        ids = []
+        if existing_photos:
+            for image in existing_photos:
+                ids.append(image.id)
+
+        ShopPhoto.objects.filter(shop_name=shop).exclude(id__in=ids).delete()
+
         if photos:
             for photo in photos:
                 ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
@@ -58,14 +68,28 @@ class ShopCls(object):
     @classmethod
     def create_shop_docs(cls, shop, docs):
         """
+            Delete Shop Documents if not in the request
             Create shop_docs
         """
         if docs:
-            for doc in docs:
-                ShopDocument.objects.create(shop_document_photo=doc['shop_document_photo'],
-                                            shop_document_number=doc['shop_document_number'],
-                                            shop_document_type=doc['shop_document_type'],
-                                            shop_name=shop)
+            new_docs = []
+            ids = []
+            for image in docs:
+                if 'id' in image:
+                    ids.append(image['id'])
+                else:
+                    new_docs.append(image)
+
+            ShopDocument.objects.filter(
+                shop_name=shop).exclude(id__in=ids).delete()
+
+            for doc in new_docs:
+                shop_doc = ShopDocument.objects.create(shop_document_number=doc['shop_document_number'],
+                                                       shop_document_type=doc['shop_document_type'],
+                                                       shop_name=shop)
+                shop_doc.shop_document_photo = to_file(
+                    doc['shop_document_photo'])
+                shop_doc.save()
 
     @classmethod
     def create_shop_invoice_pattern(cls, shop, invoice_pattern):
@@ -73,9 +97,19 @@ class ShopCls(object):
             Create shop_invoice_pattern
         """
         if invoice_pattern:
+            ids = []
+            for ip in invoice_pattern:
+                if 'id' in ip:
+                    ids.append(ip['id'])
+
+            ShopInvoicePattern.objects.filter(shop=shop).exclude(id__in=ids).delete()
+
             for invoice in invoice_pattern:
-                invoice.pop('shop')
-                ShopInvoicePattern.objects.create(shop=shop, **invoice)
+                invoice['shop'] = shop
+                ip_id = None
+                if 'id' in invoice:
+                    ip_id = invoice.pop('id')
+                ShopInvoicePattern.objects.update_or_create(defaults=invoice, id=ip_id)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
