@@ -1124,7 +1124,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
 
             if 'product_special_cess' in header_list and 'product_special_cess' in row.keys() \
-                    and row['product_special_cess'] != '':
+                    and row['product_special_cess'] != " ":
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
                     raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
 
