@@ -818,7 +818,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 if Category.objects.filter(category_sku_part=row['category_sku_part'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' already exists")
-                elif row['category_sku_part'].strip() in category_slug_list:
+                elif row['category_sku_part'].strip() in category_sku_part_list:
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' getting repeated in csv file")
                 category_sku_part_list.append(row['category_sku_part'].strip())
