@@ -135,7 +135,13 @@ class ShopCls(object):
         """
             Update Parent Shop of the Shop
         """
-        ParentRetailerMapping.objects.create(retailer=shop, parent=parent_shop)
+        obj, created = ParentRetailerMapping.objects.update_or_create(
+            retailer=shop, parent=parent_shop,
+            defaults={},
+        )
+        return obj
+
+        # ParentRetailerMapping.objects.create(retailer=shop, parent=parent_shop)
 
 
 def created_updated_by(log_obj, action):

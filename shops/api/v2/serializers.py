@@ -423,8 +423,6 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_parent_shop:
                 raise serializers.ValidationError(shop_parent_shop['error'])
 
-        print(shop_parent_shop)
-
         if 'related_users' in self.validated_data and self.validated_data['related_users']:
             related_usrs = self.validated_data['related_users']
 
@@ -436,11 +434,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
         ShopCls.update_related_users_and_favourite_products(shop, related_usrs, favourite_prd)
-        # if action == "updated":
-        #     ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
-        # elif action == "created":
-        #     ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
-        ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
+        if action == "updated":
+            ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
+        elif action == "created":
+            obj = ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
+        # ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
