@@ -1,8 +1,11 @@
 from rest_framework import serializers
 
 from accounts.models import User
+from addresses.models import Pincode
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
+
+from ecom.models import Address
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -60,7 +63,45 @@ class UserLocationSerializer(serializers.Serializer):
 
 
 class ShopSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Shop
         fields = ('id', 'shop_name')
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    city_name = serializers.CharField(required=False)
+    state_name = serializers.CharField(required=False)
+
+    class Meta:
+        model = Address
+        fields = ('id', 'user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city_name',
+                  'state_name', 'default')
+        read_only_fields = ['id', 'user']
+
+    def validate(self, attrs):
+        # Validate Pin Code
+        pin_code_obj = Pincode.objects.filter(pincode=attrs.get('pincode')).select_related('city', 'city__state').last()
+        if not pin_code_obj:
+            raise serializers.ValidationError("Invalid Pin Code")
+        # Check for address id in case of update
+        pk = self.context.get('pk', None)
+        user = self.context.get('user')
+        if pk:
+            try:
+                Address.objects.get(user=user, id=pk)
+                attrs['id'] = pk
+            except:
+                raise serializers.ValidationError("Invalid Address Id")
+        attrs['user'] = user
+        return attrs
+
+    def create(self, validated_data):
+        return Address.objects.create(**validated_data)
+
+    def update(self, add_id, validated_data):
+        add = Address.objects.get(id=add_id)
+        add.type, add.address, add.contact_name = validated_data['type'], validated_data['address'], validated_data[
+            'contact_name']
+        add.contact_number, add.pincode, add.default = validated_data['contact_number'], validated_data[
+            'pincode'], validated_data['default']
+        add.save()

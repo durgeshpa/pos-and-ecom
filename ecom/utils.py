@@ -5,6 +5,8 @@ from rest_framework import status
 
 from shops.models import Shop
 
+from .models import Address
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -61,3 +63,14 @@ def nearby_shops(lat, lng, radius=10, limit=1):
 
     queryset = Shop.objects.raw(query)
     return queryset[0] if queryset else None
+
+
+def validate_address_id(func):
+    @wraps(func)
+    def _wrapped_view_func(self, request, pk):
+        user_address = Address.objects.filter(user=request.user, id=pk).last()
+        if not user_address:
+            return api_response("Invalid Address Id")
+        return func(self, request, pk)
+
+    return _wrapped_view_func
