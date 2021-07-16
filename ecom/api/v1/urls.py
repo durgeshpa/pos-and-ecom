@@ -4,11 +4,9 @@ from .views import AccountView, RewardsView, ShopView, AddressView, AddressListV
 
 urlpatterns = [
     url(r'^shop/', ShopView.as_view(), name='ecom-shop'),
-    url(r'^account/', AccountView.as_view(), name='ecom-account'),
-    url(r'^rewards/', RewardsView.as_view(), name='user-rewards'),
-
-    url('^address/$', AddressView.as_view(), name='ecom-address'),
-    url('^address/(?P<pk>\d+)/$', AddressView.as_view()),
-    
-    url(r'^address-list/', AddressListView.as_view(), name='ecom-address-list'),
+    url(r'^account/', AccountView.as_view(), name='ecom-user-account'),
+    url(r'^rewards/', RewardsView.as_view(), name='ecom-user-rewards'),
+    url(r'^address/$', AddressView.as_view(), name='ecom-user-address'),
+    url(r'^address/(?P<pk>\d+)/$', AddressView.as_view(), name='ecom-user-address-create'),
+    url(r'^address-list/', AddressListView.as_view(), name='ecom-user-address-list'),
 ]

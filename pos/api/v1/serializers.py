@@ -5,8 +5,7 @@ import re
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
-from django.db.models import Q, Sum
-from django.core import validators
+from django.db.models import Q
 
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
@@ -21,6 +20,7 @@ from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
+from ecom.models import Address
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -1371,3 +1371,10 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'order_status', 'items', 'order_summary', 'return_summary')
+
+
+class AddressCheckoutSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Address
+        fields = ('type', 'complete_address')

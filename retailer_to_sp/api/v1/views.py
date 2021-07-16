@@ -49,7 +49,7 @@ from marketing.models import ReferralCode
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
-                                    OrderReturnGetSerializer, BasicOrderDetailSerializer)
+                                    OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop)
@@ -1018,11 +1018,27 @@ class CartCentral(GenericAPIView):
                                     cart_status='active')
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
-        # Refresh cart prices
-        self.refresh_cart_prices(cart)
-        # Refresh - add/remove/update combo, get nearest cart offer over cart value
-        next_offer = BasicCartOffers.refresh_offers_cart(cart)
-        return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
+
+        # Auto apply highest applicable discount
+        auto_apply = self.request.GET.get('auto_apply')
+        with transaction.atomic():
+            # Refresh cart prices
+            self.refresh_cart_prices(cart)
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
+            # Redeem reward points on order
+            redeem_points = self.request.GET.get('redeem_points')
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            cart_data = self.get_serialize_process_basic(cart, next_offer)
+            checkout = CartCheckout()
+            cart_data.update(checkout.serialize(cart, offers))
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            cart_data.update({'default_address': address})
+            return api_response('Cart', cart_data, status.HTTP_200_OK, True)
 
     @staticmethod
     def refresh_cart_prices(cart):

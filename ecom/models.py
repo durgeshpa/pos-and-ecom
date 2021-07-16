@@ -15,7 +15,7 @@ class Address(models.Model):
         (OFFICE_TYPE, "Office"),
         (OTHER_TYPE, "Other"),
     )
-    user = models.ForeignKey(User, related_name='user_address', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='ecom_user_address', on_delete=models.CASCADE)
     type = models.CharField(max_length=20, default='other', choices=TYPE_CHOICES)
     address = models.CharField(max_length=255, validators=[AddressNameValidator])
     contact_name = models.CharField(max_length=255)
@@ -45,6 +45,10 @@ class Address(models.Model):
     @property
     def state_name(self):
         return self.city.state.state_name
+
+    @property
+    def complete_address(self):
+        return str(self.address) + ', ' + self.city_name + ' - ' + str(self.pincode)
 
 
 class EcomOrderAddress(models.Model):
