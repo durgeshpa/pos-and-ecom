@@ -469,7 +469,7 @@ def update_product_on_category_update(instance, shops):
             qs = product.product_pro_price.filter(status=True)
             qs = qs.filter(seller_shop__id__in=shops) if shops else qs
             for prod_price in qs.distinct('seller_shop').values('seller_shop', 'product'):
-                update_shop_product_es_cat(prod_price['seller_shop'], prod_price['product'])
+                update_shop_product_es_cat.delay(prod_price['seller_shop'], prod_price['product'])
 
 
 @receiver(post_save, sender=Brand)
@@ -491,4 +491,4 @@ def update_product_on_brand_update(instance, shops):
             qs = product.product_pro_price.filter(status=True)
             qs = qs.filter(seller_shop__id__in=shops) if shops else qs
             for prod_price in qs.distinct('seller_shop').values('seller_shop', 'product'):
-                update_shop_product_es_brand(prod_price['seller_shop'], prod_price['product'])
+                update_shop_product_es_brand.delay(prod_price['seller_shop'], prod_price['product'])
