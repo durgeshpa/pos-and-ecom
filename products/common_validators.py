@@ -728,7 +728,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
     if upload_master_data == "create_brand":
         row_num = 1
-        mandatory_columns = ['name', 'brand_slug', 'brand_parent', 'brand_code', ]
+        mandatory_columns = ['name', 'brand_slug', 'brand_code', ]
         for ele in mandatory_columns:
             if ele not in header_list:
                 raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
@@ -745,10 +745,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'brand_slug' is a mandatory field")
             if 'brand_slug' in row.keys() and row['brand_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_slug' can't be empty")
-            if 'brand_parent' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_parent' is a mandatory field")
-            if 'brand_parent' in row.keys() and row['brand_parent'] == '':
-                raise ValidationError(f"Row {row_num} | 'brand_parent' can't be empty")
             if 'brand_code' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'brand_code' is a mandatory field")
             if 'brand_code' in row.keys() and row['brand_code'] == '':

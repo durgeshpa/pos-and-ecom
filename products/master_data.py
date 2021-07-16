@@ -648,7 +648,7 @@ class UploadMasterData(object):
                 brand_obj = Brand.objects.create(
                     brand_name=row['name'],
                     brand_slug=row['brand_slug'],
-                    brand_parent=Brand.objects.get(brand_name=row['brand_parent'].strip()),
+                    brand_parent=Brand.objects.filter(brand_name=row['brand_parent'].strip()).last(),
                     brand_description=row['brand_description'],
                     brand_code=row['brand_code'],
                     created_by=user)
