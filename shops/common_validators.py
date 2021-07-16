@@ -1,13 +1,17 @@
-from addresses.models import City, Pincode, State
 import logging
 import json
 import re
+import traceback
 
 from django.contrib.auth import get_user_model
-from shops.common_functions import convert_base64_to_image
+
+from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopType
+from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 
-from shops.models import ShopDocument, ShopInvoicePattern, ShopPhoto
+from shops.common_functions import convert_base64_to_image
+from shops.base64_to_file import to_file
+
 logger = logging.getLogger(__name__)
 
 VALID_IMAGE_EXTENSIONS = [
@@ -40,8 +44,15 @@ def validate_shop_doc_photo(shop_photo):
     return {'shop_photo': shop_photo}
 
 
+def get_validate_approval_status(approval_status):
+    """validate shop approval status"""
+    if not (any(approval_status in i for i in Shop.APPROVAL_STATUS_CHOICES)):
+        return {'error': 'please provide a valid shop approval status'}
+    return {'data': approval_status}
+
+
 def validate_shop_doc_type(shop_type):
-    """validate shop type"""
+    """validate shop document type"""
     if not (any(shop_type in i for i in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)):
         return {'error': 'please provide a valid shop_document type'}
     return {'shop_type': shop_type}
@@ -55,20 +66,16 @@ def validate_gstin_number(document_num):
     return {'document_num': document_num}
 
 
-def get_validate_shop_documents(shop, shop_documents):
+def get_validate_shop_documents(shop_documents):
     """ validate shop_documents that belong to a ShopDocument model"""
     shop_doc_list = []
     for shop_doc in shop_documents:
-        shop_doc_obj = {}
+        shop_doc_obj = shop_doc
         try:
             if 'shop_document_photo' in shop_doc and shop_doc['shop_document_photo']:
-                # shop_doc_photo = validate_shop_doc_photo(shop_doc['shop_document_photo'])
-                # shop_doc_photo = convert_base64_to_image(shop_doc['shop_document_photo'])
-                # if 'error' in shop_doc_photo:
-                #     return shop_doc_photo
-                # shop_doc_photo = to_file(shop_doc['shop_document_photo'])
-                shop_doc_photo = shop_doc['shop_document_photo']
-                shop_doc_obj['shop_document_photo'] = shop_doc_photo
+                if 'id' not in shop_doc:
+                    shop_doc_photo = to_file(shop_doc['shop_document_photo'])
+                    shop_doc_obj['shop_document_photo'] = shop_doc_photo
             if 'shop_document_type' in shop_doc:
                 shop_doc_type = validate_shop_doc_type(
                     shop_doc['shop_document_type'])
@@ -85,7 +92,7 @@ def get_validate_shop_documents(shop, shop_documents):
         except Exception as e:
             logger.error(e)
             return {'error': 'please provide a valid shop_document id'}
-    return {'data': shop_documents}
+    return {'data': shop_doc_list}
 
 
 def get_validate_existing_shop_photos(photos):
@@ -117,7 +124,8 @@ def get_validate_related_users(related_users):
     related_users_obj = []
     for related_users_data in related_users:
         try:
-            related_user = get_user_model().objects.get(id=related_users_data['id'])
+            related_user = get_user_model().objects.get(
+                id=related_users_data['id'])
         except Exception as e:
             logger.error(e)
             return {'error': '{} related_user not found'.format(related_users_data['id'])}
@@ -126,6 +134,27 @@ def get_validate_related_users(related_users):
             return {'error': '{} do not repeat same related_user for one shop'.format(related_user)}
         related_users_list.append(related_user)
     return {'related_users': related_users_obj}
+
+
+def get_validate_favourite_products(favourite_products):
+    """ 
+    validate ids that belong to a User model also
+    checking related_user shouldn't repeat else through error 
+    """
+    favourite_products_list = []
+    favourite_products_obj = []
+    for favourite_products_data in favourite_products:
+        try:
+            favourite_product = Product.objects.get(
+                id=favourite_products_data['id'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} favourite_product not found'.format(favourite_products_data['id'])}
+        favourite_products_obj.append(favourite_product)
+        if favourite_product in favourite_products_list:
+            return {'error': '{} do not repeat same favourite_product for one shop'.format(favourite_product)}
+        favourite_products_list.append(favourite_product)
+    return {'favourite_products': favourite_products_obj}
 
 
 def get_validate_shop_address(addresses):
@@ -168,6 +197,14 @@ def get_validate_shop_invoice_pattern(shop_invoice_patterns):
     return {'shop_invoice_pattern': shop_invoice_patterns}
 
 
+def get_validated_parent_shop(id):
+    """ Validate Parent Shop id """
+    shop = ParentRetailerMapping.objects.filter(parent__id=id).exists()
+    if not shop:
+        return {'error': 'please provide a valid parent id'}
+    return {'data': shop}
+
+
 def validate_data_format(request):
     """ Validate shop data  """
     try:
@@ -180,6 +217,15 @@ def validate_data_format(request):
             request.FILES.getlist('shop_images'))['image']
 
     return data
+
+
+def get_validated_shop(shop_id):
+    """Validate Shop by Id"""
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except:
+        return {'error': 'please provide a valid id'}
+    return {'data': shop}
 
 
 def validate_id(queryset, id):
@@ -232,6 +278,7 @@ def get_validate_city_id(id):
         return {'error': 'please provide a valid city id'}
     return {'data': city}
 
+
 def get_validate_address_type(add_type):
     """validate Address Type """
     if not (any(add_type in i for i in address_type_choices)):
@@ -252,3 +299,21 @@ def validate_shop_owner_id(queryset, id):
     if not queryset.filter(shop_owner__id=id).exists():
         return {'error': 'please provide a valid shop_owner id'}
     return {'data': queryset.filter(shop_owner__id=id)}
+
+def get_validate_user(user_id):
+    try:
+        user = get_user_model().objects.get(id=user_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} user not found'.format(user_id)}
+    return {'data': user}
+
+
+def get_validate_shop_type(id):
+    """validate shop type"""
+    try:
+        shop_type = ShopType.objects.get(id=id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} shop_type not found'.format(id)}
+    return {'data': shop_type}

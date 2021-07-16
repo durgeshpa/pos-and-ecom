@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from addresses.models import Address
 from products.models import CentralLog
-from shops.models import ShopDocument, ShopInvoicePattern, ShopPhoto
+from shops.models import ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto
 from shops.base64_to_file import to_file
 
 info_logger = logging.getLogger('file-info')
@@ -15,13 +15,13 @@ debug_logger = logging.getLogger('file-debug')
 
 class ShopCls(object):
     @classmethod
-    def create_shop_log(cls, log_obj):
+    def create_shop_log(cls, log_obj, action):
         """
-            Create Weight Log
+            Create Shop Log
         """
-        shop_log = CentralLog.objects.create(
-            shop=log_obj, updated_by=log_obj.updated_by)
-        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.modified_at,
+        action, create_updated_by = created_updated_by(log_obj, action)
+        shop_log = CentralLog.objects.create(shop=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': shop_log.updated_by, 'updated_at': shop_log.update_at,
                      'shop': log_obj}
         info_logger.info("shop_log update info ", dict_data)
 
@@ -30,7 +30,7 @@ class ShopCls(object):
     @classmethod
     def create_update_shop_address(cls, shop, addresses):
         """
-            Delete Shop Address if not in the request
+            Delete existing Shop Address if not in the request
             Create / Update Shop Address
         """
         if addresses:
@@ -49,9 +49,9 @@ class ShopCls(object):
                 Address.objects.update_or_create(defaults=address, id=add_id)
 
     @classmethod
-    def upload_shop_photos(cls, shop, existing_photos, photos):
+    def create_upadte_shop_photos(cls, shop, existing_photos, photos):
         """
-            Delete Shop Photos if not in the request
+            Delete existing Shop Photos if not in the request
             Create Shop Photos
         """
         ids = []
@@ -66,9 +66,9 @@ class ShopCls(object):
                 ShopPhoto.objects.create(shop_photo=photo, shop_name=shop)
 
     @classmethod
-    def create_shop_docs(cls, shop, docs):
+    def create_upadte_shop_docs(cls, shop, docs):
         """
-            Delete Shop Documents if not in the request
+            Delete existing Shop Documents if not in the request
             Create shop_docs
         """
         if docs:
@@ -84,16 +84,12 @@ class ShopCls(object):
                 shop_name=shop).exclude(id__in=ids).delete()
 
             for doc in new_docs:
-                shop_doc = ShopDocument.objects.create(shop_document_number=doc['shop_document_number'],
-                                                       shop_document_type=doc['shop_document_type'],
-                                                       shop_name=shop)
-                shop_doc.shop_document_photo = to_file(
-                    doc['shop_document_photo'])
-                shop_doc.save()
+                ShopDocument.objects.create(shop_name=shop, **doc)
 
     @classmethod
-    def create_shop_invoice_pattern(cls, shop, invoice_pattern):
+    def create_upadte_shop_invoice_pattern(cls, shop, invoice_pattern):
         """
+            Delete existing Shop Invoice Patterns if not in the request
             Create shop_invoice_pattern
         """
         if invoice_pattern:
@@ -102,14 +98,53 @@ class ShopCls(object):
                 if 'id' in ip:
                     ids.append(ip['id'])
 
-            ShopInvoicePattern.objects.filter(shop=shop).exclude(id__in=ids).delete()
+            ShopInvoicePattern.objects.filter(
+                shop=shop).exclude(id__in=ids).delete()
 
             for invoice in invoice_pattern:
                 invoice['shop'] = shop
                 ip_id = None
                 if 'id' in invoice:
                     ip_id = invoice.pop('id')
-                ShopInvoicePattern.objects.update_or_create(defaults=invoice, id=ip_id)
+                ShopInvoicePattern.objects.update_or_create(
+                    defaults=invoice, id=ip_id)
+
+    @classmethod
+    def update_related_users_and_favourite_products(cls, shop, related_users, favourite_products):
+        """
+            Update Related users of the Shop
+        """
+        if related_users:
+            for user in related_users:
+                shop.related_users.add(user)
+
+        if favourite_products:
+            for prd in favourite_products:
+                shop.favourite_products.add(prd)
+
+    @classmethod
+    def update_parent_shop(cls, shop, parent_shop):
+        """
+            Update Parent Shop of the Shop
+        """
+        shop.retiler_mapping.filter(
+            status=True).all().update(parent=parent_shop)
+
+    @classmethod
+    def create_parent_shop(cls, shop, parent_shop):
+        """
+            Update Parent Shop of the Shop
+        """
+        ParentRetailerMapping.objects.create(retailer=shop, parent=parent_shop)
+
+
+def created_updated_by(log_obj, action):
+    if action == "created":
+        create_updated_by = log_obj.created_by
+    else:
+        create_updated_by = log_obj.updated_by
+
+    return action, create_updated_by
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

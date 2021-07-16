@@ -451,7 +451,7 @@ class ServicePartnerShopsListView(generics.ListAPIView):
 
 
 class ParentShopsListView(generics.ListAPIView):
-    queryset = ParentRetailerMapping.objects.only('parent').distinct('parent')
+    queryset = ParentRetailerMapping.objects.filter(status=True).only('parent').distinct('parent')
     serializer_class = ParentShopsListSerializer
     permission_classes = (AllowAny,)
 
