@@ -632,7 +632,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'product_name' is a mandatory field")
             if 'product_name' in row.keys() and row['product_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_name' can't be empty")
-
             if 'product_name' in row.keys() and row['product_name']:
                 if ParentProduct.objects.filter(name=row['product_name'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['product_name']} | "
@@ -641,58 +640,65 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     raise ValidationError(f"Row {row_num} | {row['product_name']} | "
                                           f"'product_name' getting repeated in csv file")
                 product_name_list.append(row['product_name'].strip())
-                
+
             if 'product_type' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'product_type' is a mandatory field")
             if 'product_type' in row.keys() and row['product_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_type' can't be empty")
+
             if 'hsn' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'hsn' is a mandatory field")
             if 'hsn' in row.keys() and row['hsn'] == '':
                 raise ValidationError(f"Row {row_num} | 'hsn' can't be empty")
+
             if 'gst' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'gst' is a mandatory field")
             if 'gst' in row.keys() and row['gst'] == '':
                 raise ValidationError(f"Row {row_num} | 'gst' can't be empty")
+
             if 'cess' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'cess' is a mandatory field")
             if 'surcharge' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'surcharge' is a mandatory field")
-            if 'cess' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'cess' is a mandatory field")
-            if 'surcharge' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'surcharge' is a mandatory field")
+
             if 'inner_case_size' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' is a mandatory field")
             if 'inner_case_size' in row.keys() and row['inner_case_size'] == '':
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' can't be empty")
+
             if 'brand_name' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'brand_name' is a mandatory field")
             if 'brand_name' in row.keys() and row['brand_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_name' can't be empty")
+
             if 'category_name' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'category_name' is a mandatory field")
-            if 'category_name' in row.keys() and row['hsn'] == '':
+            if 'category_name' in row.keys() and row['category_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_name' can't be empty")
+
             if 'is_ptr_applicable' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' is a mandatory field")
             if 'is_ptr_applicable' in row.keys() and row['is_ptr_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' can't be empty")
+
             if 'ptr_type' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'ptr_type' is a mandatory field")
             if 'ptr_percent' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'ptr_percent' is a mandatory field")
+
             if 'is_ars_applicable' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'is_ars_applicable' is a mandatory field")
             if 'is_ars_applicable' in row.keys() and row['is_ars_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ars_applicable' can't be empty")
+
             if 'max_inventory_in_days' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' is a mandatory field")
             if 'max_inventory_in_days' in row.keys() and row['max_inventory_in_days'] == '':
                 raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' can't be empty")
+
             if 'is_lead_time_applicable' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' is a mandatory field")
-            if 'max_inventory_in_days' in row.keys() and row['is_lead_time_applicable'] == '':
+            if 'is_lead_time_applicable' in row.keys() and row['is_lead_time_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' can't be empty")
 
     if upload_master_data == "create_child_product":
