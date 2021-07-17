@@ -5,22 +5,43 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 
+from categories.models import Category
 from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
     ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
     ProductSourceMapping, Weight
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
-    ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers
+    ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
+    CategoryListSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
-from products.services import bulk_log_search
+from products.services import bulk_log_search, category_search
+
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class CategoryListView(GenericAPIView):
+    """
+        Get Category List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Category.objects.values('id', 'category_name',)
+    serializer_class = CategoryListSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
 
 
 class BulkCreateUpdateAttributesView(GenericAPIView):

@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
+
+class CategoryListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Category
+
+        fields = ('id', 'category_name',)
+
+
 DATA_TYPE_CHOICES = (
     # ('product_status_update_inactive', 'product_status_update_inactive'),
     # ('sub_brand_with_brand_mapping', 'sub_brand_with_brand_mapping'),

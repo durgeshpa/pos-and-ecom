@@ -2,6 +2,7 @@ import logging
 import json
 import re
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
@@ -987,9 +988,10 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not child_product.filter(product_sku=row['sku_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist.")
                 product = child_product.filter(product_sku=row['sku_id'])
-                if not child_product.filter(id=product[0].id,
-                                            parent_product__parent_product_pro_category__category__category_name__icontains=
-                                            category.category_name).exists():
+                sub_cat = Category.objects.filter(category_parent=category)
+                if not child_product.filter(Q(parent_product__parent_product_pro_category__category=category) |
+                                            Q(parent_product__parent_product_pro_category__category__in=sub_cat)).\
+                        filter(id=product[0].id).exists():
                     raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                           f"({category.category_name}) that you have selected in Dropdown Only! ")
             if 'sku_name' in header_list and 'sku_name' in row.keys() and row['sku_name'] != '':
@@ -1013,7 +1015,8 @@ def validate_row(uploaded_data_list, header_list, category):
                         raise ValidationError(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist.")
                 parent_product = parent_products.filter(parent_id=row['parent_id'])
                 if category and 'sku_id' not in row.keys():
-                    if not ParentProductCategory.objects.filter(category=category.id,
+                    sub_cat = Category.objects.filter(category_parent=category)
+                    if not ParentProductCategory.objects.filter(Q(category__in=sub_cat) | Q(category=category.id)).filter(
                                                                 parent_product=parent_product[0].id).exists():
                         raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                               f"{category.category_name}) that you have selected in Dropdown Only! ")
@@ -1107,9 +1110,8 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | 'ptr_type' can either be 'Mark Up' or 'Mark Down' ")
 
                 elif row['is_ptr_applicable'].lower() == 'yes' \
-                        and (
-                        'ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < int(row['ptr_percent'])
-                        or int(row['ptr_percent']) < 0):
+                        and ('ptr_percent' not in row.keys() or str(row['ptr_percent']) == '' or 100 < float(row['ptr_percent'])
+                        or float(row['ptr_percent']) < 0):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':

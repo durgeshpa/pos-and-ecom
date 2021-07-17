@@ -354,7 +354,8 @@ class UploadMasterData(object):
                         if col == 'ean':
                             child_pro.update(product_ean_code=row['ean'])
                         if col == 'parent_id':
-                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
+                            child_pro.update(
+                                parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
                         if col == 'status':
                             child_pro.update(status=row['status'])
                         if col == 'mrp':
@@ -446,7 +447,8 @@ class UploadMasterData(object):
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
                         if col == 'parent_category_id':
-                            category.update(category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
+                            category.update(
+                                category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
 
                         category.update(updated_by=user)
                         CategoryCls.create_category_log(category.last(), "updated")
@@ -500,7 +502,8 @@ class UploadMasterData(object):
                 except Exception as e:
                     brand_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Some error found in these row while working with category update Functionality:" + str(brand_data))
+            info_logger.info(
+                "Some error found in these row while working with category update Functionality:" + str(brand_data))
             info_logger.info("Script Complete to update category data")
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with 'Category Update Functionality' + {str(e)}")
@@ -519,7 +522,8 @@ class UploadMasterData(object):
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
-                    ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                    ptr_type=(None if not row[
+                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
@@ -583,8 +587,10 @@ class UploadMasterData(object):
                     reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
-                    repackaging_type=row['repackaging_type'], created_by=user, status='pending_approval' if row['status'] is None else row['status'],
-                    product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
+                    repackaging_type=row['repackaging_type'], created_by=user,
+                    status='pending_approval' if row['status'] is None else row['status'],
+                    product_special_cess=(
+                        None if not row['product_special_cess'] else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
 
@@ -609,7 +615,8 @@ class UploadMasterData(object):
                                                                      secondary_pm_cost=float(row['secondary_pm_cost']))
 
                     ProductPackingMapping.objects.create(sku=child_product, packing_sku=Product.objects.get(
-                        product_sku=row['packing_sku_id']), packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
+                        product_sku=row['packing_sku_id']), packing_sku_weight_per_unit_sku=float(
+                        row['packing_material_weight']))
 
             info_logger.info("Method complete to create the Child Product from csv file")
         except Exception as e:
@@ -822,11 +829,15 @@ class DownloadMasterData(object):
 
         writer.writerow(
             ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
-             "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage', 'fumigation',
-             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"])
-        data = [["TestChild1",  "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ", "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ", "pending_approval",
+             "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage',
+             'fumigation',
+             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
+             "packing_material_weight"])
+        data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
+                 "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
+                 "pending_approval",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:
@@ -875,12 +886,12 @@ class DownloadMasterData(object):
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
-
+        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
                                           'weight_unit', 'weight_value', 'status', 'repackaging_type',
-                                          'parent_product__parent_id', 'parent_product__name',) \
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
-            'category_id'].category_name))
+                                          'parent_product__parent_id', 'parent_product__name', ) \
+            .filter(Q(parent_product__parent_product_pro_category__category=validated_data['category_id']) |
+                    Q(parent_product__parent_product_pro_category__category__in=sub_cat)).distinct('id')
 
         for product in products:
             row = []
@@ -944,6 +955,7 @@ class DownloadMasterData(object):
                    'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
         writer.writerow(columns)
 
+        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                                'parent_product__name', 'parent_product__product_type',
                                                                'parent_product__product_hsn__product_hsn_code',
@@ -962,7 +974,8 @@ class DownloadMasterData(object):
                                                                'parent_product__is_ars_applicable',
                                                                'parent_product__max_inventory',
                                                                'parent_product__is_lead_time_applicable').filter(
-            category=validated_data['category_id'])
+            Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
+
         for product in parent_products:
             row = []
             tax_list = ['', '', '']
