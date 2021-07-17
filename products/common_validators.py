@@ -322,8 +322,8 @@ def read_file(csv_file, upload_master_data, category):
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
     if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
-                                'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'raw_material',
-                                'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                                'weight_value', 'status', 'product_special_cess', 'repackaging_type', 'category_name',
+                                'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                                 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
     if upload_master_data == "child_parent_product_update":
@@ -994,10 +994,10 @@ def validate_row(uploaded_data_list, header_list, category):
                         filter(id=product[0].id).exists():
                     raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                           f"({category.category_name}) that you have selected in Dropdown Only! ")
-            if 'sku_name' in header_list and 'sku_name' in row.keys() and row['sku_name'] != '':
-                if not child_product.filter(product_name=row['sku_name']).exists():
-                    raise ValidationError(
-                        f"Row {row_num} | {row['sku_name']} | 'SKU Name' doesn't exist in the system.")
+            # if 'sku_name' in header_list and 'sku_name' in row.keys() and row['sku_name'] != '':
+            #     if not child_product.filter(product_name=row['sku_name']).exists():
+            #         raise ValidationError(
+            #             f"Row {row_num} | {row['sku_name']} | 'SKU Name' doesn't exist in the system.")
 
             if 'ean' in header_list and 'ean' in row.keys() and row['ean'] != '':
                 if not re.match("^[a-zA-Z0-9\+\.\-]*$", row['ean'].replace("'", '')):

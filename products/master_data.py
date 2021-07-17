@@ -339,7 +339,7 @@ class UploadMasterData(object):
                     pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
                     destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
                     source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
-                    fields = ['sku_id', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
+                    fields = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
                               'status', 'repackaging_type', 'source_sku_id', 'status', 'product_special_cess',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                               'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
@@ -353,6 +353,8 @@ class UploadMasterData(object):
                     for col in available_fields:
                         if col == 'ean':
                             child_pro.update(product_ean_code=row['ean'])
+                        if col == 'sku_name':
+                            child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
                             child_pro.update(
                                 parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
@@ -881,7 +883,7 @@ class DownloadMasterData(object):
     def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
-                   'status', 'repackaging_type', 'source_sku_id', 'raw_material', 'wastage',
+                   'status', 'product_special_cess', 'repackaging_type', 'category_name', 'source_sku_id', 'raw_material', 'wastage',
                    'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
@@ -889,7 +891,8 @@ class DownloadMasterData(object):
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
                                           'weight_unit', 'weight_value', 'status', 'repackaging_type',
-                                          'parent_product__parent_id', 'parent_product__name', ) \
+                                          'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
+                                          'parent_product__parent_product_pro_category__category__category_name') \
             .filter(Q(parent_product__parent_product_pro_category__category=validated_data['category_id']) |
                     Q(parent_product__parent_product_pro_category__category__in=sub_cat)).distinct('id')
 
@@ -904,7 +907,9 @@ class DownloadMasterData(object):
             row.append(product['weight_unit'])
             row.append(product['weight_value'])
             row.append(product['status'])
+            row.append(product['product_special_cess'])
             row.append(product['repackaging_type'])
+            row.append(product['parent_product__parent_product_pro_category__category__category_name'])
 
             source_sku_obj = ProductSourceMapping.objects.filter(destination_sku=product['id'])
             source_sku_ids = []
