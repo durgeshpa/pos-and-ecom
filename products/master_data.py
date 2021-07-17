@@ -320,8 +320,7 @@ class UploadMasterData(object):
                 "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
         except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
+            error_logger.info(f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
 
     @classmethod
     def update_child_data(cls, csv_file_data_list, user):
@@ -339,6 +338,7 @@ class UploadMasterData(object):
                     pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
                     destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
                     source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
+
                     fields = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
                               'status', 'repackaging_type', 'source_sku_id', 'status', 'product_special_cess',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
@@ -356,16 +356,15 @@ class UploadMasterData(object):
                         if col == 'sku_name':
                             child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
-                            child_pro.update(
-                                parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
+                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
                         if col == 'status':
                             child_pro.update(status=row['status'])
                         if col == 'mrp':
-                            child_pro.update(product_mrp=row['mrp'])
+                            child_pro.update(product_mrp=float(row['mrp']))
                         if col == 'weight_unit':
                             child_pro.update(weight_unit=row['weight_unit'])
                         if col == 'weight_value':
-                            child_pro.update(weight_value=row['weight_value'])
+                            child_pro.update(weight_value=float(row['weight_value']))
                         if col == 'repackaging_type':
                             child_pro.update(repackaging_type=row['repackaging_type'])
                         if col == 'raw_material':
@@ -415,8 +414,7 @@ class UploadMasterData(object):
             info_logger.info("Child SKU is not exist in these row :" + str(set_child))
             info_logger.info("Method complete to set the Child to Parent mapping from excel file")
         except Exception as e:
-            error_logger.info(
-                f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
+            error_logger.info(f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
 
     @classmethod
     def update_category_data(cls, csv_file_data_list, user):
