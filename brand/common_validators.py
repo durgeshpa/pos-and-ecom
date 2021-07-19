@@ -8,6 +8,8 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
 
+from brand.models import Brand
+
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
@@ -40,3 +42,22 @@ def validate_data_format(request):
         data['brand_logo'] = request.FILES['brand_logo']
 
     return data
+
+
+def validate_brand_name(brand_name, brand_id):
+    """ validate brand_name already exist in Brand Model  """
+    if Brand.objects.filter(brand_name__iexact=brand_name).exclude(id=brand_id).exists():
+        return {'error': 'brand name already exist'}
+
+
+def validate_brand_code(brand_code, brand_id):
+    """ validate brand_code already exist in Brand Model  """
+    if Brand.objects.filter(brand_code__iexact=brand_code).exclude(id=brand_id).exists():
+        return {'error': 'brand code already exist'}
+
+
+def validate_brand_slug(brand_slug, brand_id):
+    """ validate brand_slug already exist in Brand Model  """
+
+    if Brand.objects.filter(brand_slug__iexact=brand_slug).exclude(id=brand_id).exists():
+        return {'error': 'brand slug already exist'}

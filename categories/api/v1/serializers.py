@@ -11,7 +11,8 @@ from brand.models import Brand
 from categories.models import Category
 from products.api.v1.serializers import UserSerializers, LogSerializers
 from categories.common_function import CategoryCls
-from categories.common_validators import get_validate_category
+from categories.common_validators import get_validate_category, validate_category_name, validate_category_sku_part, \
+    validate_category_slug
 
 
 class SubCategorySerializer(serializers.Serializer):
@@ -83,6 +84,12 @@ class SubCategorySerializers(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_name', 'category_desc', 'category_slug',
                   'category_sku_part', 'category_image', 'status',)
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_name']:
+            representation['category_name'] = representation['category_name'].title()
+        return representation
+
 
 class CategoryCrudSerializers(serializers.ModelSerializer):
     sub_category = SubCategorySerializers(many=True, read_only=True)
@@ -109,6 +116,22 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(cat_val['error'])
             data['category_parent'] = cat_val['category']
 
+        cat_id = self.instance.id if self.instance else None
+        if 'category_name' in self.initial_data and self.initial_data['category_name'] is not None:
+            cat_obj = validate_category_name(self.initial_data['category_name'], cat_id)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
+        if 'category_sku_part' in self.initial_data and self.initial_data['category_sku_part'] is not None:
+            cat_obj = validate_category_sku_part(self.initial_data['category_sku_part'], cat_id)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
+        if 'category_slug' in self.initial_data and self.initial_data['category_slug'] is not None:
+            cat_obj = validate_category_slug(self.initial_data['category_slug'], cat_id)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
         return data
 
     @transaction.atomic
@@ -132,6 +155,12 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return category
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_name']:
+            representation['category_name'] = representation['category_name'].title()
+        return representation
 
 
 class CategoryExportAsCSVSerializers(serializers.ModelSerializer):

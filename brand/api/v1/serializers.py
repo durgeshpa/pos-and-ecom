@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from rest_framework import serializers
 from brand.models import Brand, BrandPosition, BrandData, Vendor
 from products.api.v1.serializers import LogSerializers
+from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
 from products.common_validators import get_validate_parent_brand
 from brand.common_function import BrandCls
 from products.models import ProductVendorMapping, Product, ParentProduct
@@ -55,12 +56,24 @@ class SubBrandSerializer(serializers.ModelSerializer):
         model = Brand
         fields = ('id', "brand_name", "brand_logo", "brand_code")
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['brand_name']:
+            representation['brand_name'] = representation['brand_name'].title()
+        return representation
+
 
 class ParentBrandSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand
 
         fields = ('id', 'brand_name')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['brand_name']:
+            representation['brand_name'] = representation['brand_name'].title()
+        return representation
 
 
 class VendorSerializers(serializers.ModelSerializer):
@@ -125,6 +138,22 @@ class BrandCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(brand_val['error'])
             data['brand_parent'] = brand_val['parent_brand']
 
+        brand_id = self.instance.id if self.instance else None
+        if 'brand_name' in self.initial_data and self.initial_data['brand_name'] is not None:
+            brand_obj = validate_brand_name(self.initial_data['brand_name'], brand_id)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise serializers.ValidationError(brand_obj['error'])
+
+        if 'brand_code' in self.initial_data and self.initial_data['brand_code'] is not None:
+            brand_obj = validate_brand_code(self.initial_data['brand_code'], brand_id)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise serializers.ValidationError(brand_obj['error'])
+
+        if 'brand_slug' in self.initial_data and self.initial_data['brand_slug'] is not None:
+            brand_obj = validate_brand_slug(self.initial_data['brand_slug'], brand_id)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise serializers.ValidationError(brand_obj['error'])
+
         return data
 
     @transaction.atomic
@@ -148,6 +177,12 @@ class BrandCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return brand
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['brand_name']:
+            representation['brand_name'] = representation['brand_name'].title()
+        return representation
 
 
 class ProductVendorMapSerializers(serializers.ModelSerializer):
@@ -207,3 +242,9 @@ class BrandListSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand
         fields = ('id', 'brand_name',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['brand_name']:
+            representation['brand_name'] = representation['brand_name'].title()
+        return representation

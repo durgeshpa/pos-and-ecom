@@ -19,7 +19,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
-    get_validate_child_product_image_ids
+    get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name
 from products.common_function import ParentProductCls, ProductCls
 
 
@@ -242,6 +242,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_(tax_val["error"]))
         # data['parent_product_pro_tax'] = tax_val['tax']
 
+        parent_pro_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name'] is not None:
+            pro_obj = validate_parent_product_name(self.initial_data['name'], parent_pro_id)
+            if pro_obj is not None and 'error' in pro_obj:
+                raise serializers.ValidationError(pro_obj['error'])
+
         return data
 
     class Meta:
@@ -255,6 +261,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         if not representation['is_ptr_applicable']:
             representation['ptr_type'] = representation['ptr_percent'] = None
+        if representation['name']:
+            representation['name'] = representation['name'].title()
         return representation
 
     @transaction.atomic
@@ -749,6 +757,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
             if 'error' in packing_product:
                 raise serializers.ValidationError(_(packing_product["error"]))
 
+        child_pro_id = self.instance.id if self.instance else None
+        if 'product_name' in self.initial_data and self.initial_data['product_name'] is not None:
+            pro_obj = validate_parent_product_name(self.initial_data['product_name'], child_pro_id)
+            if pro_obj is not None and 'error' in pro_obj:
+                raise serializers.ValidationError(pro_obj['error'])
+
         return data
 
     @transaction.atomic
@@ -819,6 +833,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
         ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
         ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
         ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['product_name']:
+            representation['product_name'] = representation['product_name'].title()
+        return representation
 
 
 class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
@@ -937,6 +957,8 @@ class TaxCrudSerializers(serializers.ModelSerializer):
             representation['tax_start_at'] = instance.tax_start_at.strftime("%b %d %Y %I:%M%p")
         if instance.tax_end_at:
             representation['tax_end_at'] = instance.tax_end_at.strftime("%b %d %Y %I:%M%p")
+        if representation['weight_name']:
+            representation['weight_name'] = representation['weight_name'].title()
         return representation
 
 
@@ -945,7 +967,7 @@ class WeightSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Weight
-        fields = ('id', 'weight_value', 'weight_unit', 'status', 'weight_name', 'weight_log')
+        fields = ('id', 'weight_name', 'weight_value', 'weight_unit', 'status', 'weight_log')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -968,6 +990,12 @@ class WeightSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['weight_name']:
+            representation['weight_name'] = representation['weight_name'].title()
+        return representation
 
 
 class TaxExportAsCSVSerializers(serializers.ModelSerializer):
