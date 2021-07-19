@@ -759,7 +759,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         child_pro_id = self.instance.id if self.instance else None
         if 'product_name' in self.initial_data and self.initial_data['product_name'] is not None:
-            pro_obj = validate_parent_product_name(self.initial_data['product_name'], child_pro_id)
+            pro_obj = validate_child_product_name(self.initial_data['product_name'], child_pro_id)
             if pro_obj is not None and 'error' in pro_obj:
                 raise serializers.ValidationError(pro_obj['error'])
 

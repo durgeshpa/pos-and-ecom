@@ -9,7 +9,8 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage
 from categories.models import Category
 from shops.models import Shop
-
+from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
+from categories.common_validators import validate_category_name, validate_category_sku_part, validate_category_slug
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 # Get an instance of a logger
@@ -503,30 +504,29 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' in row.keys() and row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
             if 'name' in row.keys() and row['name']:
-                if Category.objects.filter(category_name__iexact=row['name'].strip()).exclude(
-                        id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'category name' already exists")
+                cat_obj = validate_category_name(row['name'].strip(), int(row['category_id']))
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
                 elif row['name'].strip() in category_name_list:
                     raise ValidationError(f"Row {row_num} | {row['name']} | "
                                           f"'name' getting repeated in csv file")
                 category_name_list.append(row['name'].strip())
 
             if 'category_slug' in row.keys() and row['category_slug']:
-                if Category.objects.filter(category_slug__iexact=row['category_slug'].strip()).exclude(
-                        id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                          f"'category_slug' already exists")
+                cat_obj = validate_category_slug(row['category_slug'].strip(), int(row['category_id']))
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
+
                 elif row['category_slug'].strip() in category_slug_list:
                     raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
                                           f"'category_slug' getting repeated in csv file")
                 category_slug_list.append(row['category_slug'].strip())
 
             if 'category_sku_part' in row.keys() and row['category_sku_part']:
-                if Category.objects.filter(category_sku_part=row['category_sku_part'].strip()).exclude(
-                        id=row['category_id']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                          f"'category_sku_part' already exists")
+                cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), int(row['category_id']))
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
+
                 elif row['category_sku_part'].strip() in category_sku_part_list:
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' getting repeated in csv file")
@@ -559,27 +559,27 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' in row.keys() and row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
             if 'name' in row.keys() and row['name']:
-                if Brand.objects.filter(brand_name__iexact=row['name'].strip()).exclude(id=int(row['brand_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['name']} | 'brand name' already exists")
+                brand_obj = validate_brand_name(row['name'].strip(), int(row['brand_id']))
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['name']} | {brand_obj['error']}")
                 elif row['name'].strip() in brand_name_list:
                     raise ValidationError(f"Row {row_num} | {row['name']} | "
                                           f"'name' getting repeated in csv file")
                 brand_name_list.append(row['name'].strip())
 
             if 'brand_slug' in row.keys() and row['brand_slug']:
-                if Brand.objects.filter(brand_slug__iexact=row['brand_slug'].strip()).exclude(
-                        id=int(row['brand_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
-                                          f"'brand_slug' already exists")
+                brand_obj = validate_brand_slug(row['brand_slug'].strip(), int(row['brand_id']))
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | {brand_obj['error']}")
                 elif row['brand_slug'].strip() in brand_slug_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
                                           f"'brand_slug' getting repeated in csv file")
                 brand_slug_list.append(row['brand_slug'].strip())
 
             if 'brand_code' in row.keys() and row['brand_code']:
-                if Brand.objects.filter(brand_code=row['brand_code'].strip()).exclude(id=int(row['brand_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
-                                          f"'brand_code' already exists")
+                brand_obj = validate_brand_code(row['brand_code'].strip(), int(row['brand_id']))
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | {brand_obj['error']} ")
                 elif row['brand_code'].strip() in brand_code_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
                                           f"'brand_code' getting repeated in csv file")
@@ -653,6 +653,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 if Product.objects.filter(product_name__iexact=row['sku_name'].strip()).exclude(
                         product_sku=row['sku_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sku_name']} | 'sku_name' already exists")
+
                 elif row['sku_name'].strip() in product_name_list:
                     raise ValidationError(f"Row {row_num} | {row['sku_name']} | "
                                           f"'sku_name' getting repeated in csv file")
@@ -825,9 +826,10 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' in row.keys() and row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
             if 'name' in row.keys() and row['name']:
-                if Brand.objects.filter(brand_name__iexact=row['name'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'brand name' already exists")
+
+                brand_obj = validate_brand_name(row['name'].strip(), None)
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['name']} | {brand_obj['error']}")
                 elif row['name'].strip() in brand_name_list:
                     raise ValidationError(f"Row {row_num} | {row['name']} | "
                                           f"'name' getting repeated in csv file")
@@ -838,9 +840,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_code' in row.keys() and row['brand_code'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_code' can't be empty")
             if 'brand_code' in row.keys() and row['brand_code']:
-                if Brand.objects.filter(brand_code=row['brand_code'].strip()):
-                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
-                                          f"'brand_code' already exists")
+                brand_obj = validate_brand_code(row['brand_code'].strip(), None)
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | {brand_obj['error']} ")
                 elif row['brand_code'].strip() in brand_code_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
                                           f"'brand_code' getting repeated in csv file")
@@ -851,9 +853,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_slug' in row.keys() and row['brand_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_slug' can't be empty")
             if 'brand_slug' in row.keys() and row['brand_slug']:
-                if Brand.objects.filter(brand_slug__iexact=row['brand_slug'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
-                                          f"'brand_slug' already exists")
+                brand_obj = validate_brand_slug(row['brand_slug'].strip(), None)
+                if brand_obj is not None and 'error' in brand_obj:
+                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | {brand_obj['error']}")
                 elif row['brand_slug'].strip() in brand_slug_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
                                           f"'brand_slug' getting repeated in csv file")
@@ -875,9 +877,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' in row.keys() and row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
             if 'name' in row.keys() and row['name']:
-                if Category.objects.filter(category_name__iexact=row['name'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'category name' already exists")
+                cat_obj = validate_category_name(row['name'].strip(), None)
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
                 elif row['name'].strip() in category_name_list:
                     raise ValidationError(f"Row {row_num} | {row['name']} | "
                                           f"'name' getting repeated in csv file")
@@ -888,9 +890,10 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'category_slug' in row.keys() and row['category_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
             if 'category_slug' in row.keys() and row['category_slug']:
-                if Category.objects.filter(category_slug__iexact=row['category_slug'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                          f"'category_slug' already exists")
+                cat_obj = validate_category_slug(row['category_slug'].strip(), None)
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
+
                 elif row['category_slug'].strip() in category_slug_list:
                     raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
                                           f"'category_slug' getting repeated in csv file")
@@ -901,9 +904,10 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'category_sku_part' in row.keys() and row['category_sku_part'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_sku_part' can't be empty")
             if 'category_sku_part' in row.keys() and row['category_sku_part']:
-                if Category.objects.filter(category_sku_part=row['category_sku_part'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                          f"'category_sku_part' already exists")
+                cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), None)
+                if cat_obj is not None and 'error' in cat_obj:
+                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
+
                 elif row['category_sku_part'].strip() in category_sku_part_list:
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' getting repeated in csv file")
