@@ -112,6 +112,7 @@ class CategoryView(GenericAPIView):
         only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by',
              'category_parent', 'status', 'category_slug').order_by('-id')
     serializer_class = CategoryCrudSerializers
+    category_total_count = queryset.count()
 
     def get(self, request):
 
@@ -127,7 +128,7 @@ class CategoryView(GenericAPIView):
             self.queryset = self.search_filter_category()
             category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
-        msg = "" if category else "no category found"
+        msg = f"total count {self.category_total_count}" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):

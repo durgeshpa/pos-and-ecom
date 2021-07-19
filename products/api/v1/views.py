@@ -130,6 +130,7 @@ class TaxView(GenericAPIView):
         order_by('-id')
 
     serializer_class = TaxCrudSerializers
+    tax_total_count = queryset.count()
 
     def get(self, request):
         """ GET API for Tax """
@@ -147,7 +148,7 @@ class TaxView(GenericAPIView):
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
-        msg = "" if product_tax else "no tax found"
+        msg = f"total count {self.tax_total_count}" if product_tax else "no tax found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
@@ -764,6 +765,7 @@ class WeightView(GenericAPIView):
         .only('id', 'weight_value', 'weight_unit', 'status', 'weight_name').order_by('-id')
 
     serializer_class = WeightSerializers
+    weight_total_count = queryset.count()
 
     def get(self, request):
         """ GET API for Weight """
@@ -779,7 +781,7 @@ class WeightView(GenericAPIView):
             """ GET Weight List """
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_tax, many=True)
-        msg = "" if product_tax else "no weight found"
+        msg = f"total count {self.weight_total_count}" if product_tax else "no weight found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
