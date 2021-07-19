@@ -931,6 +931,11 @@ class TaxCrudSerializers(serializers.ModelSerializer):
             tax_obj = validate_tax_name(self.initial_data['name'], tax_id)
             if tax_obj is not None and 'error' in tax_obj:
                 raise serializers.ValidationError(tax_obj['error'])
+        if 'tax_type' in self.initial_data and 'tax_percentage' in self.initial_data:
+            if data['tax_type'] and data['tax_percentage'] and \
+                    Tax.objects.filter(tax_type=data['tax_type'], tax_percentage=data['tax_percentage']).exclude(id=tax_id).exists():
+                raise serializers.ValidationError("tax with this tax type & tax percentage already exists .")
+
         return data
 
     @transaction.atomic
