@@ -170,13 +170,14 @@ class In(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     in_type = models.CharField(max_length=20, null=True, blank=True)
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins+')
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    manufacturing_date = models.DateField(null=True)
     expiry_date = models.DateField(null=True)
 
     def save(self, *args, **kwargs):

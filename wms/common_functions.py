@@ -109,22 +109,25 @@ class PutawayCommonFunctions(object):
 class InCommonFunctions(object):
 
     @classmethod
-    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type, weight=0):
+    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type,
+                  weight=0, manufacturing_date=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
-                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id), weight=weight)
+                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id), weight=weight,
+                                       manufacturing_date=manufacturing_date)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
                                                   in_obj.inventory_type)
             return in_obj
 
     @classmethod
-    def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type, weight=0):
+    def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type, weight=0,
+                       manufacturing_date=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id),
-                                       inventory_type=inventory_type, weight=weight)
+                                       inventory_type=inventory_type, weight=weight, manufacturing_date=manufacturing_date)
             return in_obj
 
     @classmethod
@@ -1570,7 +1573,8 @@ def get_expiry_date_db(batch_id):
         expiry_date_db = datetime.datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
     return expiry_date_db
 
-
+def get_manufacturing_date(batch_id):
+    return '2021-01-01'
 
 def set_expiry_date(batch_id):
     """
@@ -2126,9 +2130,9 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
 def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
                            initial_type, initial_stage, final_stage, bin_obj, shipped=True):
-
+    manufacturing_date = get_manufacturing_date(batch_id)
     InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
-                                     final_type[0])
+                                     final_type[0],0, manufacturing_date)
 
     putaway = PutawayCommonFunctions.create_putaway(warehouse, transaction_type, transaction_id, sku, batch_id,
                                                     quantity, quantity, final_type[0])

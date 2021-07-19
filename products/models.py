@@ -151,6 +151,8 @@ class ParentProduct(models.Model):
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
     is_lead_time_applicable = models.BooleanField(default=False)
+    discounted_life_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
+                                                  validators=[PercentageValidator])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -232,6 +234,7 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.save()
 
 class Product(models.Model):
+    PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'),(1, 'DISCOUNTED', 'discounted'))
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
@@ -267,6 +270,8 @@ class Product(models.Model):
     )
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
     moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
+    discounted_sku = models.OneToOneField('self', related_name='discounted_sku', on_delete=models.CASCADE, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -1020,6 +1025,7 @@ class Repackaging(models.Model):
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
+    manufacturing_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

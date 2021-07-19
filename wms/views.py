@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes, get_stock, update_visibility
+    get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -726,9 +726,11 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 for inv_type, qty in in_quantity_dict.items():
                     # if qty <= 0:
                     #     continue
+
+                    manufacturing_date = get_manufacturing_date(batch_id)
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
-                                                         batch_id, qty, qty, inv_type)
+                                                         batch_id, qty, qty, inv_type, manufacturing_date)
                     transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
                                                                                         putaway_type=in_obj.in_type,
                                                                                         putaway_type_id=in_obj.id,

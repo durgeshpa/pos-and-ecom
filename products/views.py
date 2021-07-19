@@ -36,9 +36,9 @@ from categories.models import Category
 from brand.models import Brand, Vendor
 from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin,\
     WarehouseInternalInventoryChange, Out
-from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions,\
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange,\
-    InternalStockCorrectionChange, inventory_in_and_out_weight
+from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions, \
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange, \
+    InternalStockCorrectionChange, inventory_in_and_out_weight, get_manufacturing_date
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -2459,9 +2459,10 @@ def packing_material_inventory(request):
                         inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                         transaction_type = 'stock_correction_in_type'
                         for inv_type, weight in in_quantity_dict.items():
+                            manufacturing_date = get_manufacturing_date(batch_id)
                             in_obj = InCommonFunctions.create_only_in(warehouse_obj, stock_correction_type,
                                                                       stock_movement_obj[0].id, product_obj, batch_id,
-                                                                      0, inv_type, weight)
+                                                                      0, inv_type, weight, manufacturing_date)
                             inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type,
                                                         inventory_state, weight, transaction_type, in_obj.id)
                             # Create data in Stock Correction change Model
