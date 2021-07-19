@@ -1,9 +1,11 @@
 from django.utils.safestring import mark_safe
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
+from addresses.models import City, State
 from shops.models import Shop
 from products.models import Product
-from retailer_backend.validators import ProductNameValidator, NameValidator
+from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from accounts.models import User
 
 PAYMENT_MODE_POS = (
@@ -109,3 +111,20 @@ class Payment(models.Model):
                                      on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class Vendor(models.Model):
+    company_name = models.CharField(max_length=255)
+    vendor_name = models.CharField(max_length=255)
+    contact_person_name = models.CharField(max_length=255)
+    phone_number = models.CharField(max_length=10)
+    alternate_phone_number = models.CharField(max_length=10, null=True)
+    email = models.EmailField(_('email address'))
+    address = models.CharField(max_length=255, validators=[AddressNameValidator])
+    pincode = models.CharField(validators=[PinCodeValidator], max_length=6)
+    gst_number = models.CharField(max_length=100)
+    retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE)
+    status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.vendor_name
