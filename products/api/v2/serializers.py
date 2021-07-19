@@ -51,6 +51,10 @@ DATA_TYPE_CHOICES = (
         ('parent_product_update', 'Update Parent Product'),
         ('category_update', 'Update Category'),
         ('brand_update', 'Update Brand'),
+        ('child_product_image_update', 'Update Child Product Images'),
+        ('parent_product_image_update', 'Update Parent Product Images'),
+        ('category_image_update', 'Update Category Images'),
+        ('brand__image_update', 'Update Brand Images'),
     )
     ),
 )
