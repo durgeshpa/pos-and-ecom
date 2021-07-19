@@ -127,7 +127,7 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
         return self.queryset
 
 
-class BulkChoiseView(GenericAPIView):
+class BulkChoiceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request):

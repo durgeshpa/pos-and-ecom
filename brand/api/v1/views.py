@@ -129,7 +129,6 @@ class BrandView(GenericAPIView):
         Update Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log',
                                                                              'brand_log__updated_by'). \
         only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',

@@ -177,13 +177,13 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_log = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
-    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
-                                           write_only=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    parent_id = serializers.CharField(read_only=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
+    parent_id = serializers.CharField(read_only=True)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
+    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
+                                           write_only=True)
 
     def validate(self, data):
         """

@@ -107,7 +107,6 @@ class CategoryView(GenericAPIView):
         Category View
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Category.objects.select_related('updated_by', 'category_parent').prefetch_related('category_log', 'category_log__updated_by', 'sub_category').\
         only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by',
              'category_parent', 'status', 'category_slug').order_by('-id')

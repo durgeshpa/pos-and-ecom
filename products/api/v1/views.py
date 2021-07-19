@@ -124,7 +124,6 @@ class TaxListView(GenericAPIView):
 
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Tax.objects.prefetch_related('tax_log', 'tax_log__updated_by')\
         .only('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at', 'status').\
         order_by('-id')
@@ -236,7 +235,6 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
          'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
          'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
