@@ -19,7 +19,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
-    get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name
+    get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name, validate_tax_name
 from products.common_function import ParentProductCls, ProductCls
 
 
@@ -926,10 +926,11 @@ class TaxCrudSerializers(serializers.ModelSerializer):
                 if data['tax_end_at'] < data['tax_start_at']:
                     raise serializers.ValidationError("End date should be greater than start date.")
 
-        if data['tax_name'] and data['tax_type'] and data['tax_percentage']:
-            if Tax.objects.filter(tax_name=data['tax_name'], tax_type=data['tax_type'],
-                                  tax_percentage=data['tax_percentage']):
-                raise serializers.ValidationError("Tax already exists .")
+        tax_id = self.instance.id if self.instance else None
+        if 'tax_name' in self.initial_data and self.initial_data['tax_name'] is not None:
+            tax_obj = validate_tax_name(self.initial_data['name'], tax_id)
+            if tax_obj is not None and 'error' in tax_obj:
+                raise serializers.ValidationError(tax_obj['error'])
         return data
 
     @transaction.atomic

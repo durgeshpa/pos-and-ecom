@@ -32,13 +32,19 @@ def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
 def validate_parent_product_name(parent_pro_name, pro_id):
     """ validate parent_product_name already exist in Parent Product Model  """
     if ParentProduct.objects.filter(name__iexact=parent_pro_name).exclude(id=pro_id).exists():
-        return {'error': 'parent product name already exist'}
+        return {'error': 'parent product with this product name already exists'}
 
 
 def validate_child_product_name(child_pro_name, pro_id):
     """ validate chld_product_name already exist in Product Model  """
     if Product.objects.filter(product_name__iexact=child_pro_name).exclude(id=pro_id).exists():
-        return {'error': 'child product name already exist'}
+        return {'error': 'child product with this product name already exists'}
+
+
+def validate_tax_name(tax_name, tax_id):
+    """ validate tax name already exist in Tax Model  """
+    if Tax.objects.filter(tax_name__iexact=tax_name).exclude(id=tax_id).exists():
+        return {'error': 'tax with this tax name already exists'}
 
 
 def validate_id(queryset, id):
