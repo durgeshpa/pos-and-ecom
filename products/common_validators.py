@@ -567,28 +567,28 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 brand_obj = validate_brand_name(row['name'].strip(), int(row['brand_id']))
                 if brand_obj is not None and 'error' in brand_obj:
                     raise ValidationError(f"Row {row_num} | {row['name']} | {brand_obj['error']}")
-                elif row['name'].strip() in brand_name_list:
+                elif row['name'].strip().lower() in brand_name_list:
                     raise ValidationError(f"Row {row_num} | {row['name']} | "
                                           f"'name' getting repeated in csv file")
-                brand_name_list.append(row['name'].strip())
+                brand_name_list.append(row['name'].strip().lower())
 
             if 'brand_slug' in row.keys() and row['brand_slug']:
                 brand_obj = validate_brand_slug(row['brand_slug'].strip(), int(row['brand_id']))
                 if brand_obj is not None and 'error' in brand_obj:
                     raise ValidationError(f"Row {row_num} | {row['brand_slug']} | {brand_obj['error']}")
-                elif row['brand_slug'].strip() in brand_slug_list:
+                elif row['brand_slug'].strip().lower() in brand_slug_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
                                           f"'brand_slug' getting repeated in csv file")
-                brand_slug_list.append(row['brand_slug'].strip())
+                brand_slug_list.append(row['brand_slug'].strip().lower())
 
             if 'brand_code' in row.keys() and row['brand_code']:
                 brand_obj = validate_brand_code(row['brand_code'].strip(), int(row['brand_id']))
                 if brand_obj is not None and 'error' in brand_obj:
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | {brand_obj['error']} ")
-                elif row['brand_code'].strip() in brand_code_list:
+                elif row['brand_code'].strip().lower() in brand_code_list:
                     raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
                                           f"'brand_code' getting repeated in csv file")
-                brand_code_list.append(row['brand_code'].strip())
+                brand_code_list.append(row['brand_code'].strip().lower())
 
     if upload_master_data == "parent_product_update":
         row_num = 1
