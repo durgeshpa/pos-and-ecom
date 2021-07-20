@@ -665,7 +665,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                              'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for to Create Parent Product")
         product_name_list = []
 
         for row in uploaded_data_list:
@@ -866,7 +866,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         mandatory_columns = ['name', 'category_slug', 'category_sku_part', ]
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns to Create Category")
         category_slug_list = []
         category_sku_part_list = []
         category_name_list = []
