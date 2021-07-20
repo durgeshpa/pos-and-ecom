@@ -14,7 +14,7 @@ from addresses.models import Address, City, Pincode, State
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, get_validated_shop, validate_shop_id
 from shops.common_functions import ShopCls
-from shops.base64_to_file import to_file
+
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
 
@@ -126,8 +126,7 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('shop_owner_id', 'first_name',
-                  'last_name', 'phone_number', 'email',)
+        fields = ('shop_owner_id', 'first_name', 'last_name', 'phone_number', 'email',)
 
     def get_user_id(self, obj):
         return obj.shop_owner.id if obj.shop_owner else None
@@ -148,8 +147,7 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'first_name', 'last_name',
-                  'phone_number', 'email', 'user_photo')
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
 
 
 class PinCodeAddressSerializer(serializers.ModelSerializer):
@@ -529,6 +527,14 @@ class ManagerSerializers(serializers.ModelSerializer):
     def get_manager_repr(self, obj):
         if obj.employee:
             return str(obj.employee)
+
+
+class ShopManagerSerializers(serializers.ModelSerializer):
+    pass
+
+
+class ShopEmployeeSerializers(serializers.ModelSerializer):
+    pass
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):

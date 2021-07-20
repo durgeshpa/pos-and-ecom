@@ -5,6 +5,7 @@ import logging
 from django.db.models.aggregates import Sum
 from retailer_to_sp.models import Order, OrderedProductMapping
 
+from products.common_function import get_response, serializer_error
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user, get_user_model
 
@@ -18,18 +19,14 @@ from retailer_backend.utils import SmallOffsetPagination
 
 
 from addresses.models import Address
-from shops.models import (
-    ParentRetailerMapping, ShopType, Shop, ShopUserMapping
-)
+from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping)
 
 from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
-    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers
+    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers, ShopBasicSerializer
 )
 from shops.common_functions import *
-from shops.services import (
-    shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states, shop_user_mapping_search
-)
+from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states, shop_user_mapping_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
 )
@@ -37,6 +34,11 @@ from shops.common_validators import (
 User = get_user_model()
 
 logger = logging.getLogger('shop-api-v2')
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 '''
 @author Kamal Agarwal
@@ -462,6 +464,24 @@ class ParentShopsListView(generics.ListAPIView):
         return get_response("", serializer.data, True)
 
 
+class ShopListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.values('id', 'shop_name').order_by('-id')
+    serializer_class = ShopBasicSerializer
+
+    def get(self, request):
+        info_logger.info("Shop GET api called.")
+        """ GET Shop List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+
 class ShopUserMappingList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -488,6 +508,42 @@ class ShopUserMappingList(generics.GenericAPIView):
         serializer = self.serializer_class(shops_data, many=True)
         msg = f"total count {self.count_db_data}" if shops_data else "no shop mapping found"
         return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Shop Mapping"""
+
+        info_logger.info("Shop POST api called.")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Shop Mapping Created Successfully.")
+            return get_response('shop mapping created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Shop Mapping Updation """
+
+        info_logger.info("Shop Mapping PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update shop mapping', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        tax_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Shop Mapping Updated Successfully.")
+            return get_response('shop mapping updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
     def search_filter_shop_user_mapping_data(self):
         search_text = self.request.GET.get('search_text')
