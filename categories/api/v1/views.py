@@ -13,7 +13,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop, ParentRetailerMapping
 from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer, CategoryDataSerializer, BrandSerializer, AllCategorySerializer, \
-    SubbCategorySerializer, CategoryCrudSerializers, CategoryExportAsCSVSerializers
+    SubCategorySerializer, CategoryCrudSerializers, CategoryExportAsCSVSerializers
 from categories.models import Category, CategoryData, CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -84,7 +84,7 @@ class GetSubCategoriesListView(APIView):
             categories_with_products = get_stock_available_category_list()
         category = Category.objects.get(pk=category_id)
         sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
-        sub_category_data_serializer = SubbCategorySerializer(sub_categories, many=True)
+        sub_category_data_serializer = SubCategorySerializer(sub_categories, many=True)
 
         is_success = True if sub_categories else False
         return Response({"message": [""], "response_data": sub_category_data_serializer.data, "is_success": is_success})

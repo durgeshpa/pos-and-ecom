@@ -226,6 +226,7 @@ class ShopView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Shop.objects.order_by('-id')
     serializer_class = ShopCrudSerializers
+    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for Shop """
@@ -244,7 +245,7 @@ class ShopView(generics.GenericAPIView):
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
-        msg = "" if shops_data else "no shop found"
+        msg = f"total count {self.count_db_data}" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -466,6 +467,7 @@ class ShopUserMappingList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.order_by('-id')
     serializer_class = ShopUserMappingCrudSerializers
+    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for ShopUserMapping """
@@ -484,7 +486,7 @@ class ShopUserMappingList(generics.GenericAPIView):
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
-        msg = "" if shops_data else "no shop found"
+        msg = f"total count {self.count_db_data}" if shops_data else "no shop mapping found"
         return get_response(msg, serializer.data, True)
 
     def search_filter_shop_user_mapping_data(self):

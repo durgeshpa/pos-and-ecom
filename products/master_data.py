@@ -237,11 +237,10 @@ class UploadMasterData(object):
                             parent_product.update(product_type=row['product_type'])
 
                         if col == 'status':
-                            parent_product.update(status=row['status'])
+                            parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
-                            parent_product.update(
-                                product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+                            parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
 
                         if col == 'tax_1(gst)':
                             tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -356,9 +355,9 @@ class UploadMasterData(object):
                         if col == 'sku_name':
                             child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
-                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
+                            child_pro.update(parent_product=ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).last())
                         if col == 'status':
-                            child_pro.update(status=row['status'])
+                            child_pro.update(status=str(row['status'].lower()))
                         if col == 'mrp':
                             child_pro.update(product_mrp=float(row['mrp']))
                         if col == 'weight_unit':
@@ -430,7 +429,7 @@ class UploadMasterData(object):
                 try:
                     category = categories.filter(id=row['category_id'])
                     fields = ["name", "category_slug", "category_desc", "category_sku_part",
-                              "parent_category_id"]
+                              "parent_category_id", "status"]
 
                     available_fields = []
                     for col in fields:
@@ -446,6 +445,8 @@ class UploadMasterData(object):
                             category.update(category_desc=row['category_desc'])
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
+                        if col == 'status':
+                            category.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'parent_category_id':
                             category.update(
                                 category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
@@ -477,7 +478,7 @@ class UploadMasterData(object):
                 try:
                     brand = brands.filter(id=row['brand_id'])
                     fields = ["name", "brand_slug", "brand_description", "brand_code",
-                              "brand_parent_id", ]
+                              "brand_parent_id", "status"]
 
                     available_fields = []
                     for col in fields:
@@ -493,6 +494,8 @@ class UploadMasterData(object):
                             brand.update(brand_description=row['brand_description'])
                         if col == 'brand_code':
                             brand.update(brand_code=row['brand_code'])
+                        if col == 'status':
+                            brand.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'brand_parent_id':
                             brand.update(brand_parent=Brand.objects.filter(id=int(row['brand_parent_id'])).last())
 
@@ -528,6 +531,7 @@ class UploadMasterData(object):
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
                 )
@@ -588,9 +592,8 @@ class UploadMasterData(object):
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user,
-                    status='pending_approval' if row['status'] is None else row['status'],
-                    product_special_cess=(
-                        None if not row['product_special_cess'] else float(row['product_special_cess'])))
+                    status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
+                    product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
 
@@ -637,6 +640,7 @@ class UploadMasterData(object):
                     category_parent=Category.objects.filter(category_name=row['category_parent'].strip()).last(),
                     category_desc=row['category_desc'],
                     category_sku_part=row['category_sku_part'],
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     created_by=user)
                 CategoryCls.create_category_log(cat_obj, "created")
 
@@ -660,6 +664,7 @@ class UploadMasterData(object):
                     brand_parent=Brand.objects.filter(brand_name=row['brand_parent'].strip()).last(),
                     brand_description=row['brand_description'],
                     brand_code=row['brand_code'],
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     created_by=user)
                 BrandCls.create_brand_log(brand_obj, "created")
 
@@ -783,10 +788,9 @@ class DownloadMasterData(object):
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
         writer.writerow(columns)
 
-        products = Product.objects.values('product_sku', 'product_name',
-                                          'parent_product__parent_id', 'parent_product__name', 'status') \
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
-            'category_id'].category_name))
+        products = Product.objects.values('product_sku', 'product_name', 'parent_product__parent_id',
+                                          'parent_product__name', 'status')\
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
 
         for product in products:
             row = []
@@ -809,12 +813,13 @@ class DownloadMasterData(object):
 
         columns = ["product_name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
                    "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
-                   "max_inventory_in_days", "is_lead_time_applicable"]
+                   "max_inventory_in_days", "is_lead_time_applicable", "status"]
         writer.writerow(columns)
         data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes"],
+                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
                 ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no",
-                 " ", "", "no", "2", "yes"]]
+                 " ", "", "no", "2", "yes", "active"]]
+
         for row in data:
             writer.writerow(row)
 
@@ -830,14 +835,11 @@ class DownloadMasterData(object):
         writer.writerow(
             ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
              "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage',
-             'fumigation',
-             'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
+             'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
              "packing_material_weight"])
         data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
-                 "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
-                 "pending_approval",
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ", "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ", "deactivated",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:
@@ -850,10 +852,11 @@ class DownloadMasterData(object):
     @classmethod
     def create_brand_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_brand_create_sample")
-        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code"]
+        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code", "status"]
         writer.writerow(columns)
 
-        data = [["NatureLand", "natureland", "Dermanest", "", "NAT"]]
+        data = [["NatureLand", "natureland", "Dermanest", "", "NAT", "active"],
+                ["Top", "top", "Dermanest", "", "NST", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -866,9 +869,10 @@ class DownloadMasterData(object):
     @classmethod
     def create_category_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
-        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part"]
+        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI"]]
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI", "active"],
+                ["Electronics", "electronics", "XYZ", "Processed Food", "KGF", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -881,8 +885,8 @@ class DownloadMasterData(object):
     def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
-                   'status', 'product_special_cess', 'repackaging_type', 'category_name', 'source_sku_id', 'raw_material', 'wastage',
-                   'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                   'status', 'product_special_cess', 'repackaging_type', 'category_name', 'source_sku_id',
+                   'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
@@ -955,7 +959,7 @@ class DownloadMasterData(object):
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
                    'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
-                   'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+                   'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
@@ -1020,7 +1024,7 @@ class DownloadMasterData(object):
                 row.append(product['category__category_parent_id'])
                 row.append(product['category__category_parent__category_name'])
 
-            if type(product['parent_product__status']):
+            if product['parent_product__status'] == True:
                 row.append("active")
             else:
                 row.append("deactivated")
@@ -1040,15 +1044,16 @@ class DownloadMasterData(object):
     def update_category_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_category_update_sample")
         columns = ["category_id", "name", "category_slug", "category_desc", "category_sku_part",
-                   "parent_category_id", "parent_category_name"]
+                   "parent_category_id", "parent_category_name", "status"]
         writer.writerow(columns)
-        categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc',
+        categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
                                              'category_sku_part', 'category_parent', 'category_parent__category_name')
 
         for category in categories:
             row = [category['id'], category['category_name'], category['category_slug'], category['category_desc'],
                    category['category_sku_part'], category['category_parent'],
-                   category['category_parent__category_name']]
+                   category['category_parent__category_name'],
+                   'active' if category['status'] is True else 'deactivated']
 
             writer.writerow(row)
         info_logger.info("Update Category Sample File has been Successfully Downloaded")
@@ -1059,14 +1064,15 @@ class DownloadMasterData(object):
     def update_brand_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_brand_update_sample")
         columns = ["brand_id", "name", "brand_slug", "brand_description", "brand_code", "brand_parent_id",
-                   "brand_parent"]
+                   "brand_parent", "status"]
         writer.writerow(columns)
 
         brands = Brand.objects.values('id', 'brand_name', 'brand_slug', 'brand_description', 'brand_code',
-                                      'brand_parent_id', 'brand_parent__brand_name')
+                                      'brand_parent_id', 'brand_parent__brand_name', 'status')
         for brand in brands:
             row = [brand['id'], brand['brand_name'], brand['brand_slug'], brand['brand_description'],
-                   brand['brand_code'], brand['brand_parent_id'], brand['brand_parent__brand_name']]
+                   brand['brand_code'], brand['brand_parent_id'], brand['brand_parent__brand_name'],
+                   'active' if brand['status'] is True else 'deactivated']
 
             writer.writerow(row)
         info_logger.info("Update Brand Sample CSVExported successfully ")

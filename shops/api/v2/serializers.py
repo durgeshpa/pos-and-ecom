@@ -32,7 +32,7 @@ class ChoiceField(serializers.ChoiceField):
     #     # To support inserts with the value
     #     if data == '' and self.allow_blank:
     #         return ''
-
+    #
     #     for key, val in self._choices.items():
     #         if val == data:
     #             return key

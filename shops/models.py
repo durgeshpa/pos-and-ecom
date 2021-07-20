@@ -481,7 +481,6 @@ class ShopUserMapping(models.Model):
         else:
             ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group,
                                            status=True).update(status=False)
-            # ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         if self.status == True and self.employee_group.name == 'Sales Executive':
             ShopUserMapping.objects.filter(shop=self.shop, manager=self.manager, employee_group__name='Sales Executive',
@@ -490,7 +489,7 @@ class ShopUserMapping(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return "%s" % (self.employee)
+        return "%s" % self.employee
 
 
 class SalesAppVersion(models.Model):
