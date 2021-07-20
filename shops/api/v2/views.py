@@ -513,14 +513,10 @@ class ShopUserMappingList(generics.GenericAPIView):
         """ POST API for Shop Mapping"""
 
         info_logger.info("Shop POST api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
+            # serializer.save(created_by=request.user)
+            serializer.save()
             info_logger.info("Shop Mapping Created Successfully.")
             return get_response('shop mapping created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)

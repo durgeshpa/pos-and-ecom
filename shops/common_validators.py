@@ -5,14 +5,16 @@ import traceback
 
 from django.contrib.auth import get_user_model
 
-from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopType
+from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopType, ShopUserMapping
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
-
+from django.contrib.auth.models import Group
 from shops.common_functions import convert_base64_to_image
 from shops.base64_to_file import to_file
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 VALID_IMAGE_EXTENSIONS = [
     ".jpg",
@@ -317,3 +319,43 @@ def get_validate_shop_type(id):
         logger.error(e)
         return {'error': '{} shop_type not found'.format(id)}
     return {'data': shop_type}
+
+
+def validate_shop(shop_id):
+    """validate shop id"""
+    try:
+        shop_obj = Shop.objects.get(id=shop_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} shop not found'.format(shop_id)}
+    return {'data': shop_obj}
+
+
+def validate_manager(manager_id):
+    """validate manager id"""
+    try:
+        shop_obj = ShopUserMapping.objects.get(id=manager_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} manager not found'.format(manager_id)}
+    return {'data': shop_obj}
+
+
+def validate_employee(emp_id):
+    """validate employee """
+    try:
+        shop_obj = User.objects.get(id=emp_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} employee not found'.format(emp_id)}
+    return {'data': shop_obj}
+
+
+def validate_employee_group(emp_grp_id):
+    """validate employee group id"""
+    try:
+        shop_obj = Group.objects.get(id=emp_grp_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} employee group not found'.format(emp_grp_id)}
+    return {'data': shop_obj}

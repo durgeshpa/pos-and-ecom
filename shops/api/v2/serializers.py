@@ -12,7 +12,10 @@ from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           )
 from addresses.models import Address, City, Pincode, State
 
-from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, get_validated_shop, validate_shop_id
+from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
+    get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents,\
+    get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
+    get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -538,11 +541,52 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
-    shop = ServicePartnerShopsSerializer()
-    employee = UserSerializers()
-    manager = ManagerSerializers()
-    employee_group = GroupSerializer()
+    shop = ServicePartnerShopsSerializer(read_only=True)
+    employee = UserSerializers(read_only=True)
+    manager = ManagerSerializers(read_only=True)
+    employee_group = GroupSerializer(read_only=True)
 
     class Meta:
         model = ShopUserMapping
         fields = '__all__'
+
+    def validate(self, data):
+
+        if 'shop' in self.initial_data and self.initial_data['shop']:
+            shop_id = validate_shop(self.initial_data['shop'])
+            if 'error' in shop_id:
+                raise serializers.ValidationError((shop_id["error"]))
+            data['shop'] = shop_id['data']
+
+        if 'employee' in self.initial_data and self.initial_data['employee']:
+            employee_id = validate_employee(self.initial_data['shop'])
+            if 'error' in employee_id:
+                raise serializers.ValidationError((employee_id["error"]))
+            data['employee'] = employee_id['data']
+
+        if 'manager' in self.initial_data and self.initial_data['manager']:
+            manager_id = validate_manager(self.initial_data['manager'])
+            if 'error' in manager_id:
+                raise serializers.ValidationError((manager_id["error"]))
+            data['manager'] = manager_id['data']
+
+        if 'employee_group' in self.initial_data and self.initial_data['employee_group']:
+            employee_group_id = validate_employee_group(self.initial_data['employee_group'])
+            if 'error' in employee_group_id:
+                raise serializers.ValidationError((employee_group_id["error"]))
+            data['employee_group'] = employee_group_id['data']
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create shop user mapping"""
+        # manager_obj = validated_data.pop('manager', None)
+        try:
+            shop_user_map = ShopUserMapping.objects.create(**validated_data)
+            # ShopCls.create_shop_log(shop_user_map, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_user_map
