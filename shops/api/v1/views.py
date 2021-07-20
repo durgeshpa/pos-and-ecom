@@ -5,13 +5,13 @@ from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
 
-from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
+from .serializers import (PosShopUserMappingCrudSerializers, RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
         FavouriteProductSerializer, AddFavouriteProductSerializer,
         ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
+from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
     FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback)
 from rest_framework import generics
 from addresses.models import City, Area, Address
@@ -45,6 +45,9 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework import mixins, viewsets
 from retailer_backend.utils import SmallOffsetPagination
+from shops.services import pos_shop_user_mapping_search
+from shops.common_functions import get_response, serializer_error
+from shops.common_validators import validate_data_format, validate_id, validate_psu_id
 
 
 logger = logging.getLogger('shop-api')
@@ -1021,3 +1024,111 @@ def set_shop_map_cron():
                 ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
     except Exception as error:
         logger.exception(error)
+
+
+class PosShopUserMappingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PosShopUserMapping.objects.order_by('-id')
+    serializer_class = PosShopUserMappingCrudSerializers
+
+    def get(self, request):
+        """ GET API for PosShopUserMapping """
+
+        if request.GET.get('id'):
+            """ Get PosShopUserMapping for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shop_user_data = id_validation['data']
+        else:
+            """ GET PosShopUserMapping List """
+            self.queryset = self.search_filter_shop_user_data()
+            shop_user_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shop_user_data, many=True)
+        msg = "" if shop_user_data else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for PosShopUserMapping Creation with Image Category & Tax """
+
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('shop created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for PosShopUserMapping Updation with Image Category & Tax """
+
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shop', False)
+
+        # validations for input id
+        id_validation = validate_psu_id(
+            self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shop_instance = id_validation['data']
+
+        serializer = self.serializer_class(
+            instance=shop_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('Shop User Mapping updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete PosShopUserMapping with image """
+
+        if not request.data.get('psu_id'):
+            return get_response('please provide psu_id', False)
+        try:
+            for id in request.data.get('psu_id'):
+                psu_id = self.queryset.get(id=int(id))
+                try:
+                    psu_id.delete()
+                except:
+                    return get_response(f'can not delete shop {psu_id.__str__()}', False)
+        except ObjectDoesNotExist as e:
+            logger.exception(e)
+            return get_response(f'please provide a valid psu_id {id}', False)
+        return get_response('shop were deleted successfully!', True)
+
+    def search_filter_shop_user_data(self):
+        search_text = self.request.GET.get('search_text')
+        user_type = self.request.GET.get('user_type')
+        user = self.request.GET.get('user')
+        shop = self.request.GET.get('shop')
+        status = self.request.GET.get('status')
+
+        '''search using user_id, user phone_num, shop_name and parent_shop based on criteria that matches'''
+        if search_text:
+            self.queryset = pos_shop_user_mapping_search(self.queryset, search_text)
+
+        '''Filters using user_type, user, pin_code, shop, status, approval_status'''
+        if user_type:
+            self.queryset = self.queryset.filter(user_type=user_type)
+
+        if user:
+            self.queryset = self.queryset.filter(user__id=user)
+
+        if shop:
+            self.queryset = self.queryset.filter(shop__id=shop)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        return self.queryset

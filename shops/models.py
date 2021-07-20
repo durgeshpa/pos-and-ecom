@@ -35,6 +35,11 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
+USER_TYPE_CHOICES = (
+    ('manager', 'Manager'),
+    ('cashier', 'Cashier')
+)
+
 
 class RetailerType(models.Model):
     retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='gm')
@@ -481,6 +486,31 @@ class ShopUserMapping(models.Model):
 
     def __str__(self):
         return "%s" % (self.employee)
+
+
+class PosShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='pos_shop', on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(), related_name='pos_shop_user', on_delete=models.CASCADE)
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default="cashier")
+    status = models.BooleanField(default=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='pos_shop_created_by', null=True, blank=True,
+                                   on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'POS Shop User Mapping'
+        verbose_name_plural = 'POS Shop User Mappings'
+
+    def save(self, *args, **kwargs):
+        if self._state.adding is True:
+            qs = PosShopUserMapping.objects.filter(shop=self.shop, user_type=self.user_type, status=True)
+            if qs:
+                qs.update(status=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "%s" % (self.user)
 
 
 class SalesAppVersion(models.Model):

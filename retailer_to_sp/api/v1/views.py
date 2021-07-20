@@ -74,6 +74,7 @@ from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
     PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
+from pos.common_validators import validate_user_type_for_pos_shop
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
@@ -1186,6 +1187,7 @@ class CartCentral(GenericAPIView):
             cart_id = kwargs['pk'] if 'pk' in kwargs else None
             shop = kwargs['shop']
             initial_validation = self.post_basic_validate(shop, cart_id)
+            print(initial_validation)
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
@@ -1256,6 +1258,11 @@ class CartCentral(GenericAPIView):
             return {'error': "Qty Invalid!"}
 
         if not self.request.data.get('product_id'):
+            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+            if 'error' in pos_shop_user_obj:
+                if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                    return {'error': 'Unauthorised user to add new product.'}
+                return pos_shop_user_obj
             name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'), \
                             self.request.data.get('product_ean_code')
             if not (name and sp and ean):
@@ -1291,6 +1298,11 @@ class CartCentral(GenericAPIView):
         # Check if selling price is less than equal to mrp if price change
         price_change = self.request.data.get('price_change')
         if price_change in [1, 2]:
+            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+            if 'error' in pos_shop_user_obj:
+                if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                    return {'error': 'Unauthorised user to update product price.'}
+                return pos_shop_user_obj
             selling_price = self.request.data.get('selling_price')
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
