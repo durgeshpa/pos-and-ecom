@@ -23,7 +23,8 @@ from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping
 
 from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
-    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers, ShopBasicSerializer
+    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers, ShopBasicSerializer,
+    ShopEmployeeSerializers, ShopManagerSerializers
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states, shop_user_mapping_search)
@@ -469,6 +470,43 @@ class ShopListView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Shop.objects.values('id', 'shop_name').order_by('-id')
     serializer_class = ShopBasicSerializer
+
+    def get(self, request):
+        info_logger.info("Shop GET api called.")
+        """ GET Shop List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShopManagerListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
+        distinct('employee')
+    serializer_class = ShopManagerSerializers
+
+    def get(self, request):
+        info_logger.info("Shop GET api called.")
+        """ GET Shop List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShopEmployeeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = ShopEmployeeSerializers
 
     def get(self, request):
         info_logger.info("Shop GET api called.")

@@ -532,12 +532,19 @@ class ManagerSerializers(serializers.ModelSerializer):
             return str(obj.employee)
 
 
-class ShopManagerSerializers(serializers.ModelSerializer):
-    pass
-
-
 class ShopEmployeeSerializers(serializers.ModelSerializer):
-    pass
+    class Meta:
+        model = User
+        fields = ('id', 'phone_number', 'first_name', 'last_name')
+
+
+class ShopManagerSerializers(serializers.ModelSerializer):
+    employee = ShopEmployeeSerializers()
+
+    class Meta:
+
+        model = ShopUserMapping
+        fields = ('id', 'employee')
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
@@ -551,6 +558,13 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
+
+        if 'shop' not in self.initial_data or self.initial_data['shop'] is None:
+            raise serializers.ValidationError("shop is required")
+        if 'employee' not in self.initial_data or self.initial_data['employee'] is None:
+            raise serializers.ValidationError("employee is required")
+        if 'employee_group' not in self.initial_data or self.initial_data['employee_group'] is None:
+            raise serializers.ValidationError("employee_group is required")
 
         if 'shop' in self.initial_data and self.initial_data['shop']:
             shop_id = validate_shop(self.initial_data['shop'])

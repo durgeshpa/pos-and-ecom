@@ -125,6 +125,7 @@ class CheckDeliveryAppVersion(APIView):
         app_version_serializer = DeliveryAppVersionSerializer(app_version)
         return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
 
+
 class GroupsListView(generics.ListAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer

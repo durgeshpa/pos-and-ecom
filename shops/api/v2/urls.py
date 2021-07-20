@@ -4,7 +4,7 @@ from django.urls import path
 
 from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView, ShopDocumentTypeListView,
                                 ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeDetailView, ShopUserMappingList, ShopView,
-                                ShopListView)
+                                ShopListView, ShopManagerListView, ShopEmployeeListView)
 
 router = routers.DefaultRouter()
 
@@ -28,6 +28,8 @@ urlpatterns = [
     url('sp-shop/', ServicePartnerShopsListView.as_view(), name='sp-shop'),
     url('parent-shop/', ParentShopsListView.as_view(), name='parent-shop'),
     url('shop-users/', ShopUserMappingList.as_view(), name='shop-users'),
+    url('shop-managers/', ShopManagerListView.as_view(), name='shop-managers'),
+    url('shop-employees/', ShopEmployeeListView.as_view(), name='shop-employees'),
 
 ]
 
