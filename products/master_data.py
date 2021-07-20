@@ -237,7 +237,7 @@ class UploadMasterData(object):
                             parent_product.update(product_type=row['product_type'])
 
                         if col == 'status':
-                            parent_product.update(status=True if str(row['status']) == 'active' else False)
+                            parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
                             parent_product.update(
@@ -356,10 +356,9 @@ class UploadMasterData(object):
                         if col == 'sku_name':
                             child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
-                            child_pro.update(
-                                parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
+                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
                         if col == 'status':
-                            child_pro.update(status=str(row['status']))
+                            child_pro.update(status=str(row['status'].lower()))
                         if col == 'mrp':
                             child_pro.update(product_mrp=float(row['mrp']))
                         if col == 'weight_unit':
@@ -448,7 +447,7 @@ class UploadMasterData(object):
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
                         if col == 'status':
-                            category.update(status=True if str(row['status']) == 'active' else False)
+                            category.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'parent_category_id':
                             category.update(
                                 category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
@@ -497,7 +496,7 @@ class UploadMasterData(object):
                         if col == 'brand_code':
                             brand.update(brand_code=row['brand_code'])
                         if col == 'status':
-                            brand.update(status=True if str(row['status']) == 'active' else False)
+                            brand.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'brand_parent_id':
                             brand.update(brand_parent=Brand.objects.filter(id=int(row['brand_parent_id'])).last())
 
@@ -533,7 +532,7 @@ class UploadMasterData(object):
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
-                    status=True if str(row['status']) == 'active' else False,
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
                 )
@@ -594,7 +593,7 @@ class UploadMasterData(object):
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user,
-                    status='pending_approval' if row['status'] is None else row['status'],
+                    status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
                     product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
@@ -642,7 +641,7 @@ class UploadMasterData(object):
                     category_parent=Category.objects.filter(category_name=row['category_parent'].strip()).last(),
                     category_desc=row['category_desc'],
                     category_sku_part=row['category_sku_part'],
-                    status=True if str(row['status']) == 'active' else False,
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     created_by=user)
                 CategoryCls.create_category_log(cat_obj, "created")
 
@@ -666,7 +665,7 @@ class UploadMasterData(object):
                     brand_parent=Brand.objects.filter(brand_name=row['brand_parent'].strip()).last(),
                     brand_description=row['brand_description'],
                     brand_code=row['brand_code'],
-                    status=True if str(row['status']) == 'active' else False,
+                    status=True if str(row['status'].lower()) == 'active' else False,
                     created_by=user)
                 BrandCls.create_brand_log(brand_obj, "created")
 

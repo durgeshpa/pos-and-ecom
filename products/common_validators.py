@@ -1047,7 +1047,7 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'status' in header_list and 'status' in row.keys() and row['status'] != '':
                 status_list = ['active', 'deactivated', 'pending_approval']
-                if row['status'] not in status_list:
+                if row['status'].lower() not in status_list:
                     raise ValidationError(f"Row {row_num} | {row['status']} | 'please enter valid status'!")
 
             if 'ean' in header_list and 'ean' in row.keys() and row['ean'] != '':
