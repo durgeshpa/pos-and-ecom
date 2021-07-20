@@ -46,12 +46,14 @@ def validate_data_format(request):
 
 def validate_brand_name(brand_name, brand_id):
     """ validate brand_name already exist in Brand Model  """
+
     if Brand.objects.filter(brand_name__iexact=brand_name, status=True).exclude(id=brand_id).exists():
         return {'error': 'brand with this brand name already exists'}
 
 
 def validate_brand_code(brand_code, brand_id):
     """ validate brand_code already exist in Brand Model  """
+
     if Brand.objects.filter(brand_code__iexact=brand_code, status=True).exclude(id=brand_id).exists():
         return {'error': 'brand with this brand code already exists'}
 

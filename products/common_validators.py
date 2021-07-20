@@ -31,19 +31,19 @@ def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
 
 def validate_parent_product_name(parent_pro_name, pro_id):
     """ validate parent_product_name already exist in Parent Product Model  """
-    if ParentProduct.objects.filter(name__iexact=parent_pro_name).exclude(id=pro_id).exists():
+    if ParentProduct.objects.filter(name__iexact=parent_pro_name, status=True).exclude(id=pro_id).exists():
         return {'error': 'parent product with this product name already exists'}
 
 
 def validate_child_product_name(child_pro_name, pro_id):
     """ validate chld_product_name already exist in Product Model  """
-    if Product.objects.filter(product_name__iexact=child_pro_name).exclude(id=pro_id).exists():
+    if Product.objects.filter(product_name__iexact=child_pro_name, status='active').exclude(id=pro_id).exists():
         return {'error': 'child product with this product name already exists'}
 
 
 def validate_tax_name(tax_name, tax_id):
     """ validate tax name already exist in Tax Model  """
-    if Tax.objects.filter(tax_name__iexact=tax_name).exclude(id=tax_id).exists():
+    if Tax.objects.filter(tax_name__iexact=tax_name, status=True).exclude(id=tax_id).exists():
         return {'error': 'tax with this tax name already exists'}
 
 
@@ -316,7 +316,7 @@ def read_file(csv_file, upload_master_data, category):
     """
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
-    csv_file_header_list = next(csv_file)  # headers of the uploaded excel file
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
     # Converting headers into lowercase
     csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
 
@@ -326,9 +326,14 @@ def read_file(csv_file, upload_master_data, category):
         required_header_list = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name']
     if upload_master_data == "product_status_update_inactive":
         required_header_list = ['sku_id', 'sku_name', 'mrp', 'status']
+    if upload_master_data == "child_parent_product_update":
+        required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
+    if upload_master_data == "product_tax_update":
+        required_header_list = ['parent_id', 'gst', 'cess', 'surcharge']
 
     if upload_master_data == "brand_update":
-        required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code", "brand_parent_id",
+        required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code",
+                                "brand_parent_id",
                                 "brand_parent", 'status']
     if upload_master_data == "category_update":
         required_header_list = ["category_id", "name", "category_slug", "category_desc", "category_sku_part",
@@ -341,30 +346,23 @@ def read_file(csv_file, upload_master_data, category):
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
     if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
-                                'weight_value', 'status', 'product_special_cess', 'repackaging_type', 'category_name',
+                                'weight_value', 'status', 'product_special_cess', 'repackaging_type',
+                                'category_name',
                                 'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing',
                                 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
                                 "packing_material_weight", 'status']
-
-    if upload_master_data == "child_parent_product_update":
-        required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
-
-    if upload_master_data == "product_tax_update":
-        required_header_list = ['parent_id', 'gst', 'cess', 'surcharge']
 
     if upload_master_data == "create_child_product":
         required_header_list = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
                                 'packing_material_weight', 'raw_material', 'wastage', 'fumigation', 'label_printing',
-                                'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess', 'status']
-
+                                'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess',
+                                'status']
     if upload_master_data == "create_brand":
         required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_description', 'brand_code', 'status']
-
     if upload_master_data == "create_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',
                                 'status']
-
     if upload_master_data == "create_parent_product":
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                                 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
@@ -744,6 +742,8 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' is a mandatory field")
             if 'is_lead_time_applicable' in row.keys() and row['is_lead_time_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' can't be empty")
+            if 'status' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
     if upload_master_data == "create_child_product":
         row_num = 1
@@ -802,9 +802,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
-            if 'status' in row.keys() and row['status'] == '':
-                raise ValidationError(f"Row {row_num} | 'status can either be 'Active', 'Pending Approval' "
-                                      f"or 'Deactivated'!" | 'status cannot be empty')
 
             if 'repackaging_type' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'repackaging_type' is a mandatory field")
@@ -861,6 +858,8 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
                                           f"'brand_slug' getting repeated in csv file")
                 brand_slug_list.append(row['brand_slug'].strip())
+            if 'status' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
     if upload_master_data == "create_category":
         row_num = 1
@@ -913,6 +912,8 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
                                           f"'category_sku_part' getting repeated in csv file")
                 category_sku_part_list.append(row['category_sku_part'].strip())
+            if 'status' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
     validate_row(uploaded_data_list, header_list, category)
 
@@ -1047,8 +1048,7 @@ def validate_row(uploaded_data_list, header_list, category):
             if 'status' in header_list and 'status' in row.keys() and row['status'] != '':
                 status_list = ['active', 'deactivated', 'pending_approval']
                 if row['status'] not in status_list:
-                    raise ValidationError(f"Row {row_num} | {row['status']} | 'Status can either be 'Active', "
-                                          f"'Pending Approval' or 'Deactivated'!")
+                    raise ValidationError(f"Row {row_num} | {row['status']} | 'please enter valid status'!")
 
             if 'ean' in header_list and 'ean' in row.keys() and row['ean'] != '':
                 if not re.match("^[a-zA-Z0-9\+\.\-]*$", row['ean'].replace("'", '')):

@@ -57,12 +57,14 @@ def get_validate_category(category_id):
 
 def validate_category_name(category_name, brand_id):
     """ validate category_name already exist in Category Model  """
+
     if Category.objects.filter(category_name__iexact=category_name, status=True).exclude(id=brand_id).exists():
         return {'error': 'category with this category name already exists'}
 
 
 def validate_category_sku_part(category_sku_part, brand_id):
     """ validate category_sku_part already exist in Category Model  """
+
     if Category.objects.filter(category_sku_part__iexact=category_sku_part, status=True).exclude(id=brand_id).exists():
         return {'error': 'category with this category sku part already exists'}
 
