@@ -287,23 +287,30 @@ class SearchProducts(APIView):
         """
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
-        body = dict()
-        body['query'] = dict()
+        category_ids = self.request.GET.get('category_ids')
+        query = {"bool": {"filter": []}}
         if app_type == '3':
-            body['query']["bool"] = {"filter": [{"term": {"status": 'active'}}]}
+            query["bool"] = {"filter": [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]}
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                body['query'] = {"query_string": {"query": keyword + "*", "fields": ["ean"]}}
+                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
             else:
-                tokens = keyword.split()
-                keyword = ""
-                for word in tokens:
-                    keyword += "*" + word + "* "
-                keyword = keyword.strip()
-                body['query'] = {
-                    "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
-        return self.process_rp(output_type, body, shop_id, app_type)
+
+                # tokens = keyword.split()
+                # keyword = ""
+                # for word in tokens:
+                #     keyword += "*" + word + "* "
+                # keyword = keyword.strip()
+                # query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+
+                query["bool"]["must"] = [{"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"],
+                                                          "type": "cross_fields"}}]
+        if category_ids:
+            category = category_ids.split(',')
+            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+            query["bool"]["filter"].append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+        return self.process_rp(output_type, {"query": query}, shop_id, app_type)
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -392,12 +399,17 @@ class SearchProducts(APIView):
                                             "description", "linked_product_id", "stock_qty"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+                product_ids = []
                 for p in products_list['hits']['hits']:
-                    # Combo Offers On Products
-                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 1,
-                                                                                      ["coupon_code", "coupon_type"])
+                    product_ids += [p["_source"]['id']]
+                coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
+                                                                  ["coupon_code", "coupon_type"])
+                for p in products_list['hits']['hits']:
                     if cart_check:
                         p = self.modify_rp_cart_product_es(cart, cart_products, p)
+                    for coupon in coupons:
+                        if int(coupon['purchased_product']) == int(p["_source"]['id']):
+                            p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
@@ -408,15 +420,15 @@ class SearchProducts(APIView):
         for c_p in cart_products:
             if c_p.retailer_product_id != p["_source"]["id"]:
                 continue
-            if cart.offers:
-                cart_offers = cart.offers
-                combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
-                for offer in combo_offers:
-                    if offer['item_id'] == c_p.retailer_product_id:
-                        p["_source"]["free_product_text"] = 'Free - ' + str(
-                            offer['free_item_qty_added']) + ' items of ' + str(
-                            offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
-                            offer['free_item_qty'])
+            # if cart.offers:
+            #     cart_offers = cart.offers
+            #     combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
+            #     for offer in combo_offers:
+            #         if offer['item_id'] == c_p.retailer_product_id:
+            #             p["_source"]["free_product_text"] = 'Free - ' + str(
+            #                 offer['free_item_qty_added']) + ' items of ' + str(
+            #                 offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
+            #                 offer['free_item_qty'])
             p["_source"]["cart_qty"] = c_p.qty or 0
         return p
 

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from addresses.models import Pincode
+from categories.models import Category
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 
@@ -105,3 +106,15 @@ class AddressSerializer(serializers.ModelSerializer):
         add.contact_number, add.pincode, add.default = validated_data['contact_number'], validated_data[
             'pincode'], validated_data['default']
         add.save()
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name', 'category_image')
+
+
+class SubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name', 'category_image_png')

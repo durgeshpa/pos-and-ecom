@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState
 
 from .models import Address
 
@@ -74,3 +75,11 @@ def validate_address_id(func):
         return func(self, request, pk)
 
     return _wrapped_view_func
+
+
+def get_categories_with_products(shop):
+    query_set = PosInventory.objects.filter(product__shop=shop, product__status='active', quantity__gt=0,
+                                            inventory_state=PosInventoryState.objects.filter(
+                                                inventory_state='available').last())
+    return query_set.values_list(
+        'product__linked_product__parent_product__parent_product_pro_category__category', flat=True).distinct()
