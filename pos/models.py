@@ -2,7 +2,7 @@ from django.utils.safestring import mark_safe
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from addresses.models import City, State
+from addresses.models import City, State, Pincode
 from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
@@ -98,7 +98,7 @@ class ShopCustomerMap(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Shop User Mapping'
+        verbose_name = 'Shop Customer Mapping'
 
 
 class Payment(models.Model):
@@ -122,9 +122,118 @@ class Vendor(models.Model):
     email = models.EmailField(_('email address'))
     address = models.CharField(max_length=255, validators=[AddressNameValidator])
     pincode = models.CharField(validators=[PinCodeValidator], max_length=6)
+    city = models.ForeignKey(City, on_delete=models.CASCADE, null=True)
+    state = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
     gst_number = models.CharField(max_length=100)
     retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
     def __str__(self):
         return self.vendor_name
+
+    def save(self, *args, **kwargs):
+        pin_code_obj = Pincode.objects.filter(pincode=self.pincode).last()
+        self.city = pin_code_obj.city
+        self.state = pin_code_obj.city.state
+        super().save(*args, **kwargs)
+
+
+class PosCart(models.Model):
+    OPEN = "open"
+    PARTIAL_DELIVERED = "partially_delivered"
+    PARTIAL_DELIVERED_CLOSE = "partially_delivered_closed"
+    DELIVERED = "delivered"
+    CANCELED = "cancelled"
+    PARTIAL_RETURN = 'partially_returned'
+    CLOSE = "closed"
+    ORDER_STATUS = (
+        (OPEN, "Open"),
+        (PARTIAL_DELIVERED, "Partially Delivered"),
+        (PARTIAL_DELIVERED_CLOSE, "Partially Delivered and Closed"),
+        (PARTIAL_RETURN, "Partially Returned"),
+        (DELIVERED, "Completely delivered and Closed"),
+        (CANCELED, "Canceled"),
+        (CLOSE, "Closed")
+    )
+
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    retailer_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    po_no = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=200, choices=ORDER_STATUS, null=True, blank=True, default='open')
+    products = models.ManyToManyField(RetailerProduct, through='pos.PosCartProductMapping')
+    raised_by = models.ForeignKey(User, related_name='po_raise_user', null=True, blank=True, on_delete=models.CASCADE)
+    last_modified_by = models.ForeignKey(User, related_name='po_last_modified_user', null=True, blank=True,
+                                         on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Purchase Order"
+
+    def vendor_name(self):
+        return self.vendor.vendor_name
+
+    def __str__(self):
+        return str(self.po_no)
+
+
+class PosCartProductMapping(models.Model):
+    cart = models.ForeignKey(PosCart, related_name='po_products', on_delete=models.CASCADE)
+    product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
+    qty = models.PositiveIntegerField(null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    is_grn_done = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('cart', 'product')
+
+    def total_price(self):
+        return round(self.price * self.qty, 2)
+
+    def product_name(self):
+        return self.product.name
+
+    def __str__(self):
+        return self.product.name
+
+
+class PosOrder(models.Model):
+    ordered_cart = models.OneToOneField(PosCart, related_name='pos_po_order', on_delete=models.CASCADE)
+    order_no = models.CharField(verbose_name='PO Number', max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str(self.order_no)
+
+
+# class PosGRNOrder(models.Model):
+#     order = models.ForeignKey(PosOrder, verbose_name='PO Number', on_delete=models.CASCADE)
+#     invoice_no = models.CharField(max_length=255)
+#     invoice_date = models.DateField(null=True)
+#     invoice_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+#     tcs_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+#     grn_id = models.CharField(max_length=255, null=True, blank=True)
+#     last_modified_by = models.ForeignKey(User, related_name='grn_order_last_modified', null=True,
+#                                          blank=True, on_delete=models.CASCADE)
+#     grn_date = models.DateField(auto_now_add=True)
+#     products = models.ManyToManyField(RetailerProduct, through='PosGRNOrderProductMapping')
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     modified_at = models.DateTimeField(auto_now=True)
+#
+#
+# class PosGRNOrderProductMapping(models.Model):
+#     grn_order = models.ForeignKey(PosGRNOrder, on_delete=models.CASCADE)
+#     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
+#     received_qty = models.PositiveIntegerField(default=0)
+#     last_modified_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     modified_at = models.DateTimeField(auto_now=True)
+#
+#
+# class Document(models.Model):
+#     grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
+#     document_number = models.CharField(max_length=255, null=True, blank=True)
+#     document_image = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')

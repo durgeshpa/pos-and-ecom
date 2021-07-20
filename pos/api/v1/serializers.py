@@ -6,11 +6,14 @@ import re
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 from django.db.models import Q
+from django.db import transaction
 
-from pos.models import RetailerProduct, RetailerProductImage, Vendor
+from addresses.models import Pincode
+from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping
+from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
-from accounts.api.v1.serializers import PosUserSerializer
+from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from pos.common_functions import RewardCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
@@ -652,7 +655,8 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             block[cb][1] = 'Previous returned amount: Rs.' + str(refunded_amount).rstrip('0').rstrip('.')
             block[cb][2] = '(Rs.' + str(refunded_amount).rstrip('0').rstrip('.') + ' paid on return of ' + str(
                 return_value).rstrip('0').rstrip('.') + '.'
-            block[cb][2] += ' Rs.' + str(discount_adjusted).rstrip('0').rstrip('.') + ' coupon adjusted.)' if discount_adjusted else ')'
+            block[cb][2] += ' Rs.' + str(discount_adjusted).rstrip('0').rstrip(
+                '.') + ' coupon adjusted.)' if discount_adjusted else ')'
 
         cb += 1
         block[cb] = dict()
@@ -1144,7 +1148,8 @@ class CustomerReportSerializer(serializers.Serializer):
                                           allow_blank=True)
     start_date = serializers.DateField(required=False, default=datetime.date.today)
     end_date = serializers.DateField(required=False, default=datetime.date.today)
-    sort_by = serializers.ChoiceField(choices=('date', 'order_count', 'sale', 'returns', 'effective_sale'), default='date')
+    sort_by = serializers.ChoiceField(choices=('date', 'order_count', 'sale', 'returns', 'effective_sale'),
+                                      default='date')
     sort_order = serializers.ChoiceField(choices=(1, -1), required=False, default=-1)
 
     def validate(self, attrs):
@@ -1313,7 +1318,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
             points_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
         return_summary = dict()
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
-            'points_adjusted'], return_summary['amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+            'points_adjusted'], return_summary[
+            'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
         return return_summary
 
     def get_items(self, obj):
@@ -1371,7 +1377,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         free_already_return_qty = return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0
         display_text = ['Free - ' + str(offer['free_item_qty_added']) + ' items of ' + str(
             offer['free_item_name']) + ' on purchase of ' + str(product['qty']) + ' items | Buy ' + str(offer[
-                            'item_qty']) + ' Get ' + str(offer['free_item_qty'])]
+                                                                                                            'item_qty']) + ' Get ' + str(
+            offer['free_item_qty'])]
         if free_already_return_qty:
             display_text += ['Free return - ' + str(free_already_return_qty) + ' items of ' + str(
                 offer['free_item_name']) + ' on return of ' + str(product['returned_qty']) + ' items']
@@ -1411,8 +1418,121 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = ('id', 'company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
                   'email', 'address', 'pincode', 'gst_number', 'retailer_shop', 'status')
 
+    def validate(self, attrs):
+        city = Pincode.objects.filter(pincode=attrs['pincode']).last()
+        if not city:
+            raise serializers.ValidationError("Invalid Pincode")
+        return attrs
+
 
 class VendorListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
         fields = ('id', 'vendor_name')
+
+
+class POProductSerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField()
+
+    def validate_product_id(self, value):
+        if not RetailerProduct.objects.filter(id=value, shop=self.context.get('shop')).exists():
+            raise serializers.ValidationError("Product Id Invalid {}".format(value))
+        return value
+
+    class Meta:
+        model = PosCartProductMapping
+        fields = ('product_id', 'price', 'qty')
+
+
+class POSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+    vendor_id = serializers.IntegerField()
+    products = POProductSerializer(many=True)
+
+    class Meta:
+        model = PosCart
+        fields = ('id', 'vendor_id', 'products')
+
+    def validate(self, attrs):
+        # Validate vendor id
+        shop = self.context.get('shop')
+        if not Vendor.objects.filter(id=attrs['vendor_id'], retailer_shop=shop).exists():
+            raise serializers.ValidationError("Invalid Vendor Id")
+
+        # Check if update - check cart id and if grn is done on products
+        if 'id' in attrs:
+            cart = PosCart.objects.filter(id=attrs['id'], retailer_shop=shop).last()
+            if not cart:
+                raise serializers.ValidationError("Purchase order not found!")
+            products_updatable, products_given = [], attrs['products']
+            for product in products_given:
+                mapping = PosCartProductMapping.objects.filter(cart=cart, product=product['product_id']).last()
+                if not mapping or not mapping.is_grn_done:
+                    products_updatable += [product]
+            attrs['products'] = products_updatable
+        return attrs
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            user, shop, cart_products = self.context.get('user'), self.context.get('shop'), validated_data['products']
+            cart = PosCart.objects.create(vendor_id=validated_data['vendor_id'], retailer_shop=shop, raised_by=user,
+                                          last_modified_by=user)
+            for product in cart_products:
+                PosCartProductMapping.objects.create(cart=cart, product_id=product['product_id'], qty=product['qty'],
+                                                     price=product['price'])
+            mail_to_vendor_on_po_creation(cart)
+            return cart
+
+    def update(self, cart_id, validated_data):
+        with transaction.atomic():
+            user, shop, cart_products = self.context.get('user'), self.context.get('shop'), validated_data['products']
+            cart = PosCart.objects.get(id=cart_id)
+            cart.vendor_id, cart.last_modified_by = validated_data['vendor_id'], user
+            cart.save()
+            updated_pid = []
+            for product in cart_products:
+                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart, product=product['product_id'])
+                mapping.qty, mapping.price = product['qty'], product['price']
+                mapping.save()
+                updated_pid += [product['product_id']]
+            PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
+                product_id__in=updated_pid).delete()
+            if self.context.get('send_mail', False):
+                mail_to_vendor_on_po_creation(cart)
+
+
+class POProductGetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosCartProductMapping
+        fields = ('product_id', 'product_name', 'price', 'qty')
+
+
+class POGetSerializer(serializers.ModelSerializer):
+    po_products = POProductGetSerializer(many=True)
+    raised_by = PosShopUserSerializer()
+    last_modified_by = PosShopUserSerializer()
+
+    class Meta:
+        model = PosCart
+        fields = ('id', 'vendor_id', 'vendor_name', 'po_no', 'status', 'po_products', 'raised_by', 'last_modified_by',
+                  'created_at', 'modified_at')
+
+
+class POProductInfoSerializer(serializers.ModelSerializer):
+    stock_qty = serializers.SerializerMethodField()
+    po_price_history = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_stock_qty(obj):
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        inv = PosInventory.objects.filter(product=obj, inventory_state=inv_available).last()
+        return inv.quantity if inv else None
+
+    @staticmethod
+    def get_po_price_history(obj):
+        return PosCartProductMapping.objects.filter(cart__retailer_shop=obj.shop, product=obj).order_by(
+            '-created_at')[:3].values_list('price', flat=True)
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('selling_price', 'stock_qty', 'po_price_history')

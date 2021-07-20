@@ -23,7 +23,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
 
@@ -34,7 +34,8 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
                           SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
-                          CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer)
+                          CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
+                          POSerializer, POGetSerializer, POProductInfoSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -882,7 +883,6 @@ class CustomerReport(GenericAPIView):
 class VendorView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    pagination_class = SmallOffsetPagination
     serializer_class = VendorSerializer
 
     @check_pos_shop
@@ -935,3 +935,54 @@ class VendorListView(ListAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return api_response('', serializer.data, status.HTTP_200_OK, True)
+
+
+class POView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = POSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        cart = PosCart.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).prefetch_related(
+            'po_products').last()
+        if cart:
+            return api_response('', POGetSerializer(cart).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Purchase Order not found")
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=request.data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+
+class POProductInfoView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = POProductInfoSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        product = RetailerProduct.objects.filter(shop=kwargs['shop'], id=kwargs['pk']).last()
+        if product:
+            return api_response('', self.serializer_class(product).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Product not found")
