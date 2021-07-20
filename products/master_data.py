@@ -221,7 +221,7 @@ class UploadMasterData(object):
 
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
-                              'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
+                              'sub_brand_id', 'category_id', 'is_ptr_applicable', 'ptr_type',
                               'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
                               'is_lead_time_applicable']
 
@@ -273,15 +273,8 @@ class UploadMasterData(object):
                         if col == 'inner_case_size':
                             parent_pro.filter(parent_id=row['parent_id']).update(inner_case_size=row['inner_case_size'])
 
-                        if col == 'sub_category_id':
-                            if row['sub_category_id'] == row['category_id']:
-                                continue
-                            else:
-                                ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
-                                    category=Category.objects.filter(id=row['sub_category_id']).last())
-
-                        if col == 'sub_brand_id':
-                            parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+                        if col == 'brand_id':
+                            parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
 
                         if col == 'is_ptr_applicable':
                             parent_product.update(is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
@@ -308,7 +301,6 @@ class UploadMasterData(object):
 
                 except Exception as e:
                     parent_data.append(str(row_num) + ' ' + str(e))
-                    print("haha", e)
             info_logger.info("Total row executed :" + str(count))
             info_logger.info("Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
