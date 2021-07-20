@@ -941,7 +941,6 @@ class TaxCrudSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """create a new tax"""
-
         try:
             tax = Tax.objects.create(**validated_data)
             ProductCls.create_tax_log(tax, "created")

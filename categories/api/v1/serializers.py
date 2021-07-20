@@ -62,7 +62,7 @@ class AllCategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'sub_category', 'category_image', 'category_desc')
 
 
-class SubbCategorySerializer(serializers.ModelSerializer):
+class SubCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
@@ -104,9 +104,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
                   'updated_by', 'status', 'category_parent', 'category_log', 'sub_category')
 
     def validate(self, data):
-        """
-            category_slug validation.
-        """
+        """ category_slug validation."""
         if not 'category_slug' in self.initial_data or not self.initial_data['category_slug']:
             data['category_slug'] = slugify(data.get('category_name'))
 
