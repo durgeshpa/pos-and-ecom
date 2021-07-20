@@ -356,7 +356,7 @@ class UploadMasterData(object):
                         if col == 'sku_name':
                             child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
-                            child_pro.update(parent_id=ParentProduct.objects.filter(parent_id=str(row['parent_id'])).last())
+                            child_pro.update(parent_product=ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).last())
                         if col == 'status':
                             child_pro.update(status=str(row['status'].lower()))
                         if col == 'mrp':
