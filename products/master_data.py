@@ -217,7 +217,7 @@ class UploadMasterData(object):
                 row_num += 1
                 count += 1
                 try:
-                    parent_product = parent_pro.filter(parent_id=row['parent_id'].strip())
+                    parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
@@ -298,19 +298,19 @@ class UploadMasterData(object):
                             parent_product.update(is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
 
                         if col == 'max_inventory_in_days':
-                            parent_product.update(max_inventory=row['max_inventory_in_days'])
+                            parent_product.update(max_inventory=int(row['max_inventory_in_days']))
 
                         if col == 'is_lead_time_applicable':
                             parent_product.update(is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
 
                         parent_product.update(updated_by=user)
-                        ParentProductCls.create_parent_product_log(parent_product, "updated")
+                        ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
 
                 except Exception as e:
                     parent_data.append(str(row_num) + ' ' + str(e))
+                    print("haha", e)
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info(
-                "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
+            info_logger.info("Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
