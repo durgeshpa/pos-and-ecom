@@ -28,15 +28,15 @@ class ChoiceField(serializers.ChoiceField):
             return obj
         return {'id': obj, 'desc': self._choices[obj]}
 
-    def to_internal_value(self, data):
-        # To support inserts with the value
-        if data == '' and self.allow_blank:
-            return ''
+    # def to_internal_value(self, data):
+    #     # To support inserts with the value
+    #     if data == '' and self.allow_blank:
+    #         return ''
 
-        for key, val in self._choices.items():
-            if val == data:
-                return key
-        self.fail('invalid_choice', input=data)
+    #     for key, val in self._choices.items():
+    #         if val == data:
+    #             return key
+    #     self.fail('invalid_choice', input=data)
 
 
 '''
