@@ -813,7 +813,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         mandatory_columns = ['name', 'brand_slug', 'brand_code', 'status']
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns to 'Create Brand'")
         brand_slug_list = []
         brand_code_list = []
         brand_name_list = []
