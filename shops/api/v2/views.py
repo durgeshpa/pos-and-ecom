@@ -27,7 +27,8 @@ from .serializers import (
     ShopEmployeeSerializers, ShopManagerSerializers
 )
 from shops.common_functions import *
-from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states, shop_user_mapping_search)
+from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
+                            shop_user_mapping_search, shop_manager_search, shop_employee_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
 )
@@ -495,7 +496,7 @@ class ShopManagerListView(generics.GenericAPIView):
         """ GET Shop List """
         search_text = self.request.GET.get('search_text')
         if search_text:
-            self.queryset = shop_search(self.queryset, search_text)
+            self.queryset = shop_manager_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
         msg = "" if shop else "no shop found"
@@ -513,7 +514,7 @@ class ShopEmployeeListView(generics.GenericAPIView):
         """ GET Shop List """
         search_text = self.request.GET.get('search_text')
         if search_text:
-            self.queryset = shop_search(self.queryset, search_text)
+            self.queryset = shop_employee_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
         msg = "" if shop else "no shop found"

@@ -52,3 +52,17 @@ def shop_user_mapping_search(queryset, search_text):
     queryset = queryset.filter(Q(shop__shop_name__icontains=search_text) | Q(
         employee_group__permissions__codename__icontains=search_text) | Q(employee__phone_number__icontains=search_text))
     return queryset
+
+
+# search using user name & phone number based on criteria that matches
+def shop_manager_search(queryset, search_text):
+    queryset = queryset.filter(Q(employee__phone_number__icontains=search_text) | Q(employee__first_name__icontains=search_text)
+                               | Q(employee__last_name__icontains=search_text))
+    return queryset
+
+
+# search using user name & phone number based on criteria that matches
+def shop_employee_search(queryset, search_text):
+    queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                               | Q(last_name__icontains=search_text))
+    return queryset

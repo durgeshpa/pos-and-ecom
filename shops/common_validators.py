@@ -359,3 +359,4 @@ def validate_employee_group(emp_grp_id):
         logger.error(e)
         return {'error': '{} employee group not found'.format(emp_grp_id)}
     return {'data': shop_obj}
+

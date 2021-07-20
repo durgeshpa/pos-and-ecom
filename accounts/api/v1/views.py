@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ObjectDoesNotExist
@@ -11,8 +12,18 @@ from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from accounts.models import UserDocument, AppVersion
+from retailer_backend.utils import SmallOffsetPagination
+from products.common_function import get_response, serializer_error
+from accounts.services import group_search
 
 User = get_user_model()
+
+logger = logging.getLogger('accounts-api-v1')
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class UserDetail(APIView):
@@ -131,7 +142,18 @@ class GroupsListView(generics.ListAPIView):
     serializer_class = GroupSerializer
     permission_classes = (AllowAny,)
 
-    def list(self, request):
-        queryset = self.get_queryset()
-        group_serializer = self.get_serializer(queryset, many=True)
-        return Response({"is_success": True, "message": [""], "response_data": group_serializer.data})
+    # def list(self, request):
+    #     queryset = self.get_queryset()
+    #     group_serializer = self.get_serializer(queryset, many=True)
+    #     return Response({"is_success": True, "message": [""], "response_data": group_serializer.data})
+
+    def get(self, request):
+        info_logger.info("Group GET api called.")
+        """ GET Group List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = group_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no group found"
+        return get_response(msg, serializer.data, True)
