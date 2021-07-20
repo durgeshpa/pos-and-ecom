@@ -240,8 +240,7 @@ class UploadMasterData(object):
                             parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
-                            parent_product.update(
-                                product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
+                            parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn']).last())
 
                         if col == 'tax_1(gst)':
                             tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
