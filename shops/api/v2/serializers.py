@@ -590,6 +590,8 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']
 
+        if data['employee_group'] == data['manager']:
+            raise serializers.ValidationError('Manager and Employee cannot be same')
         return data
 
     @transaction.atomic
