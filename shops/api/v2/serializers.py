@@ -1,7 +1,5 @@
 import re
 
-from django.core.exceptions import ValidationError
-from django.contrib.postgres import fields
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
@@ -21,6 +19,25 @@ from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
 
 User = get_user_model()
+
+
+class ChoiceField(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'desc': self._choices[obj]}
+
+    def to_internal_value(self, data):
+        # To support inserts with the value
+        if data == '' and self.allow_blank:
+            return ''
+
+        for key, val in self._choices.items():
+            if val == data:
+                return key
+        self.fail('invalid_choice', input=data)
+
 
 '''
 For Shop Type List
@@ -86,6 +103,8 @@ class ShopInvoicePatternSerializer(serializers.ModelSerializer):
 
 
 class ShopDocSerializer(serializers.ModelSerializer):
+
+    shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES, required=True)
 
     # def to_representation(self, instance):
     #     representation = super().to_representation(instance)
@@ -235,12 +254,19 @@ class AddressSerializer(serializers.ModelSerializer):
 #         fields = '__all__'
 
 
+class ShopBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name',)
+
+
 class ShopCrudSerializers(serializers.ModelSerializer):
 
     related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
-
-    approval_status = serializers.SerializerMethodField('shop_approval_status')
+    parent_shop = serializers.SerializerMethodField('get_parent_shop_obj')
+    owner = serializers.SerializerMethodField('get_shop_owner_obj')
+    approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
     shop_type = serializers.SerializerMethodField('get_shop_type_name')
     address = serializers.SerializerMethodField('get_addresses')
     pincode = serializers.SerializerMethodField('get_pin_code')
@@ -257,11 +283,17 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                   'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
                   'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern', 'shop_log')
 
-    def shop_approval_status(self, obj):
-        return obj.get_approval_status_display()
-
     def get_shop_type_name(self, obj):
-        return obj.shop_type.get_shop_type_display()
+        return ShopTypeListSerializers(obj.shop_type, read_only=True).data
+
+    def get_parent_shop_obj(self, obj):
+        if obj.retiler_mapping.exists():
+            return ShopBasicSerializer(obj.retiler_mapping.filter(status=True).last().parent).data
+        else:
+            return None
+    
+    def get_shop_owner_obj(self, obj):
+        return UserSerializers(obj.shop_owner, read_only=True).data
 
     def get_addresses(self, obj):
         return AddressSerializer(obj.shop_name_address_mapping.all(), read_only=True, many=True).data
@@ -284,23 +316,24 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
-            approval_status = get_validate_approval_status(self.initial_data['approval_status'])
+            approval_status = get_validate_approval_status(
+                self.initial_data['approval_status'])
             if 'error' in approval_status:
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
-        
+
         if 'shop_owner' in self.initial_data and self.initial_data['shop_owner']:
             shop_owner = get_validate_user(self.initial_data['shop_owner'])
             if 'error' in shop_owner:
                 raise serializers.ValidationError((shop_owner["error"]))
             data['shop_owner'] = shop_owner['data']
-        
+
         if 'shop_type' in self.initial_data and self.initial_data['shop_type']:
             shop_type = get_validate_shop_type(self.initial_data['shop_type'])
             if 'error' in shop_type:
                 raise serializers.ValidationError((shop_type["error"]))
             data['shop_type'] = shop_type['data']
-        
+
         if 'shop_photo' in self.initial_data and self.initial_data['shop_photo']:
             photos = get_validate_existing_shop_photos(
                 self.initial_data['shop_photo'])
@@ -319,11 +352,13 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             favourite_products = get_validate_favourite_products(
                 self.initial_data['favourite_products'])
             if 'error' in favourite_products:
-                raise serializers.ValidationError((favourite_products["error"]))
+                raise serializers.ValidationError(
+                    (favourite_products["error"]))
             data['favourite_products'] = favourite_products['favourite_products']
 
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
-            shop_documents = get_validate_shop_documents(self.initial_data['shop_docs'])
+            shop_documents = get_validate_shop_documents(
+                self.initial_data['shop_docs'])
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_docs'] = shop_documents['data']
@@ -369,7 +404,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "created")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
+            shop_instance, "created")
         ShopCls.create_shop_log(shop_instance, "created")
         return shop_instance
 
@@ -385,7 +421,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "updated")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
+            shop_instance, "updated")
         ShopCls.create_shop_log(shop_instance, "updated")
         return shop_instance
 
@@ -419,7 +456,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
         if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            shop_parent_shop = get_validated_shop(self.initial_data['parent_shop'])
+            shop_parent_shop = get_validated_shop(
+                self.initial_data['parent_shop'])
             if 'error' in shop_parent_shop:
                 raise serializers.ValidationError(shop_parent_shop['error'])
 
@@ -433,7 +471,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
-        ShopCls.update_related_users_and_favourite_products(shop, related_usrs, favourite_prd)
+        ShopCls.update_related_users_and_favourite_products(
+            shop, related_usrs, favourite_prd)
         if action == "updated":
             ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
         elif action == "created":
