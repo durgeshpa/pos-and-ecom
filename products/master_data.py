@@ -217,7 +217,7 @@ class UploadMasterData(object):
                 row_num += 1
                 count += 1
                 try:
-                    parent_product = parent_pro.filter(parent_id=row['parent_id'])
+                    parent_product = parent_pro.filter(parent_id=row['parent_id'].strip())
 
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
@@ -271,8 +271,7 @@ class UploadMasterData(object):
                                     update(tax=tax[0])
 
                         if col == 'inner_case_size':
-                            parent_pro.filter(parent_id=row['parent_id']).update \
-                                (inner_case_size=row['inner_case_size'])
+                            parent_pro.filter(parent_id=row['parent_id']).update(inner_case_size=row['inner_case_size'])
 
                         if col == 'sub_category_id':
                             if row['sub_category_id'] == row['category_id']:
@@ -285,29 +284,24 @@ class UploadMasterData(object):
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
                         if col == 'is_ptr_applicable':
-                            parent_product.update(
-                                is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
+                            parent_product.update(is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
 
                         if col == 'ptr_type':
-                            parent_product.update(ptr_type=None if not row[
-                                                                           'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                            parent_product.update(ptr_type=None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                             if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 
                         if col == 'ptr_percent':
-                            parent_product.update(
-                                ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
+                            parent_product.update(ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
                                     'ptr_percent'])
 
                         if col == 'is_ars_applicable':
-                            parent_product.update(
-                                is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+                            parent_product.update(is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
 
                         if col == 'max_inventory_in_days':
                             parent_product.update(max_inventory=row['max_inventory_in_days'])
 
                         if col == 'is_lead_time_applicable':
-                            parent_product.update(is_lead_time_applicable=True if row[
-                                                                                      'is_lead_time_applicable'].lower() == 'yes' else False)
+                            parent_product.update(is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
 
                         parent_product.update(updated_by=user)
                         ParentProductCls.create_parent_product_log(parent_product, "updated")
