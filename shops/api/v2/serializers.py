@@ -583,6 +583,8 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             if 'error' in manager_id:
                 raise serializers.ValidationError((manager_id["error"]))
             data['manager'] = manager_id['data']
+            if data['manager'].employee == data['employee']:
+                raise serializers.ValidationError('Manager and Employee cannot be same')
 
         if 'employee_group' in self.initial_data and self.initial_data['employee_group']:
             employee_group_id = validate_employee_group(self.initial_data['employee_group'])
@@ -590,8 +592,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']
 
-        if data['employee_group'] == data['manager']:
-            raise serializers.ValidationError('Manager and Employee cannot be same')
+
         return data
 
     @transaction.atomic
