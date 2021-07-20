@@ -790,10 +790,9 @@ class DownloadMasterData(object):
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
         writer.writerow(columns)
 
-        products = Product.objects.values('product_sku', 'product_name',
-                                          'parent_product__parent_id', 'parent_product__name', 'status') \
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
-            'category_id'].category_name))
+        products = Product.objects.values('product_sku', 'product_name', 'parent_product__parent_id',
+                                          'parent_product__name', 'status')\
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
 
         for product in products:
             row = []
@@ -841,10 +840,8 @@ class DownloadMasterData(object):
              'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
              "packing_material_weight"])
         data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
-                 "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
-                 "deactivated",
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ", "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ", "deactivated",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:
@@ -860,7 +857,8 @@ class DownloadMasterData(object):
         columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code", "status"]
         writer.writerow(columns)
 
-        data = [["NatureLand", "natureland", "Dermanest", "", "NAT", "active"]]
+        data = [["NatureLand", "natureland", "Dermanest", "", "NAT", "active"],
+                ["Top", "top", "Dermanest", "", "NST", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -875,7 +873,8 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
         columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI", "active"]]
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI", "active"],
+                ["Electronics", "electronics", "XYZ", "Processed Food", "KGF", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -889,8 +888,7 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
                    'status', 'product_special_cess', 'repackaging_type', 'category_name', 'source_sku_id',
-                   'raw_material',
-                   'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                   'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
@@ -1028,7 +1026,7 @@ class DownloadMasterData(object):
                 row.append(product['category__category_parent_id'])
                 row.append(product['category__category_parent__category_name'])
 
-            if type(product['parent_product__status']):
+            if product['parent_product__status'] == True:
                 row.append("active")
             else:
                 row.append("deactivated")
