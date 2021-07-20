@@ -595,7 +595,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         mandatory_columns = ['parent_id', 'parent_name']
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Set Parent Data'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for Update Parent Product")
         product_name_list = []
         parent_id_list = []
         for row in uploaded_data_list:
