@@ -9,7 +9,7 @@ from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, Dat
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 
-from .models import RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap
+from .models import RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart, PosCartProductMapping
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
@@ -438,6 +438,57 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin):
     @staticmethod
     def refunded_amount(obj):
         return obj.refund_amount
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
+                    'email', 'address', 'pincode', 'gst_number', 'retailer_shop', 'status')
+    fields = list_display
+    list_per_page = 10
+    search_fields = ('company_name', 'vendor_name', 'phone_number', 'retailer_shop__shop_name', 'pincode')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class PosCartProductMappingAdmin(admin.TabularInline):
+    model = PosCartProductMapping
+    fields = ('product', 'qty', 'price', 'is_grn_done')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PosCart)
+class PosCartAdmin(admin.ModelAdmin):
+    list_display = ('po_no', 'vendor', 'retailer_shop', 'status', 'raised_by', 'last_modified_by',
+                    'created_at', 'modified_at')
+    fields = list_display
+    list_per_page = 10
+    inlines = [PosCartProductMappingAdmin]
+    search_fields = ('po_no', 'retailer_shop__shop_name')
 
     def has_delete_permission(self, request, obj=None):
         return False

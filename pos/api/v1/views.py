@@ -14,7 +14,7 @@ from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, E
 from django.db.models.functions import Coalesce
 
 from rest_framework import status, authentication, permissions
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, ListAPIView
 
 from retailer_backend.utils import SmallOffsetPagination
 from products.models import Product
@@ -23,7 +23,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
 from pos.common_validators import validate_user_type_for_pos_shop
@@ -35,7 +35,8 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
                           SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
-                          CustomerReportDetailResponseSerializer)
+                          CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
+                          POSerializer, POGetSerializer, POProductInfoSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -884,3 +885,111 @@ class CustomerReport(GenericAPIView):
         elif date_filter == 'this_year':
             qs = qs.filter(created_at__year=date_today.year)
         return qs
+
+
+class VendorView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = VendorSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        vendor_obj = Vendor.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).last()
+        if vendor_obj:
+            return api_response('', self.serializer_class(vendor_obj).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Vendor not found")
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        data['retailer_shop'] = kwargs['shop'].id
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('', serializer.data, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        vendor_obj = Vendor.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).last()
+        vendor_status = request.data.get('status', None)
+        if vendor_status and vendor_status not in [True, False]:
+            return api_response("Please provide a valid status choice")
+        if vendor_obj:
+            vendor_obj.status = vendor_status if vendor_status is not None else vendor_obj.status
+            vendor_obj.save()
+            return api_response('', self.serializer_class(vendor_obj).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Vendor not found")
+
+
+class VendorListView(ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+    serializer_class = VendorListSerializer
+    shop = None
+
+    def get_queryset(self):
+        queryset = Vendor.objects.filter(shop=self.shop, status=True)
+        return queryset
+
+    @check_pos_shop
+    def list(self, request, *args, **kwargs):
+        self.shop = kwargs['shop']
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return api_response('', serializer.data, status.HTTP_200_OK, True)
+
+
+class POView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = POSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        cart = PosCart.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).prefetch_related(
+            'po_products').last()
+        if cart:
+            return api_response('', POGetSerializer(cart).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Purchase Order not found")
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=request.data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+
+class POProductInfoView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = POProductInfoSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        product = RetailerProduct.objects.filter(shop=kwargs['shop'], id=kwargs['pk']).last()
+        if product:
+            return api_response('', self.serializer_class(product).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Product not found")

@@ -5,13 +5,14 @@ from rest_framework.permissions import (AllowAny,
 from rest_framework.response import Response
 from addresses.models import Country, State, City, Area, Address, Pincode
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
-        AreaSerializer, AddressSerializer)
+        AreaSerializer, AddressSerializer, PinCityStateSerializer)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
 from shops.models import Shop, ShopUserMapping
 from django.http import Http404
 from rest_framework import serializers
+from pos.common_functions import api_response
 
 
 class CountryView(generics.ListAPIView):
@@ -269,5 +270,18 @@ class SellerShopAddress(generics.ListAPIView):
                         status=status.HTTP_200_OK)
 
 
+class PinCityStateView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PinCityStateSerializer
 
-
+    def get(self, request, *args, **kwargs):
+        pin_code = self.request.GET.get('pincode')
+        if not pin_code:
+            return api_response("Please provide a pin code")
+        pin_code_obj = Pincode.objects.filter(pincode=pin_code).select_related(
+            'city', 'city__state').last()
+        if pin_code_obj:
+            data = self.serializer_class(pin_code_obj).data
+            return api_response('', data, status.HTTP_200_OK, True)
+        return api_response('No City Found For Given Pin Code')
