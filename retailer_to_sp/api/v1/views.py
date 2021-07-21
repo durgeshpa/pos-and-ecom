@@ -2,6 +2,7 @@ import logging
 import re
 from decimal import Decimal
 import json
+from retailer_to_sp.common_validators import validate_payment_type
 import requests
 from datetime import datetime, timedelta
 from operator import itemgetter
@@ -1187,7 +1188,6 @@ class CartCentral(GenericAPIView):
             cart_id = kwargs['pk'] if 'pk' in kwargs else None
             shop = kwargs['shop']
             initial_validation = self.post_basic_validate(shop, cart_id)
-            print(initial_validation)
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
@@ -2554,6 +2554,8 @@ class OrderCentral(APIView):
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
         cart = initial_validation['cart']
         payment_method = initial_validation['payment_method']
+        payment_type = initial_validation['payment_type']
+        transaction_id = self.request.data.get('transaction_id', None)
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -2561,7 +2563,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method)
+            self.auto_process_order(order, payment_method, payment_type, transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2665,13 +2667,18 @@ class OrderCentral(APIView):
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
             return {'error': 'Please provide a valid payment method'}
+        # Check Payment Type
+        payment_type = validate_payment_type(self.request.data.get('payment_type'))
+        if 'error' in payment_type:
+            return payment_type
+        
         email = self.request.data.get('email')
         if email:
             try:
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_method': payment_method}
+        return {'cart': cart, 'payment_method': payment_method, 'payment_type': payment_type['data']}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -2913,7 +2920,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_method):
+    def auto_process_order(self, order, payment_method, payment_type, transaction_id):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -2957,6 +2964,8 @@ class OrderCentral(APIView):
         PosPayment.objects.create(
             order=order,
             payment_mode=payment_method,
+            payment_type=payment_type,
+            transaction_id=transaction_id,
             paid_by=order.buyer,
             processed_by=self.request.user
         )

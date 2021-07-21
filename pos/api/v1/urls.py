@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
+from .views import (PaymentTypeDetailView, PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView)
 
 urlpatterns = [
@@ -18,4 +18,5 @@ urlpatterns = [
     url(r'^purchase-order/$', POView.as_view()),
     url(r'^purchase-order/(?P<pk>\d+)/$', POView.as_view()),
     url(r'^product-info-po/(?P<pk>\d+)/$', POProductInfoView.as_view()),
+    url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 ]

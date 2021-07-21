@@ -110,6 +110,9 @@ class PaymentType(models.Model):
     class Meta:
         verbose_name = 'Payment Mode'
         verbose_name_plural = _("Payment Modes")
+    
+    def __str__(self) -> str:
+        return self.type
 
 
 class Payment(models.Model):
