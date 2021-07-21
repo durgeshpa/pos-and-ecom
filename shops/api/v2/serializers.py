@@ -44,6 +44,7 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
 
 class ShopTypeSerializers(serializers.ModelSerializer):
     shop_type = serializers.SerializerMethodField()
+    shop_sub_type = RetailerTypeSerializer()
     shop_type_log = LogSerializers(many=True, read_only=True)
 
     def get_shop_type(self, obj):

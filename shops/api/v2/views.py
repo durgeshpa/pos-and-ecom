@@ -734,7 +734,10 @@ class RetailerTypeList(generics.GenericAPIView):
 
 class ShopTypeView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ShopType.objects.all()
+    permission_classes = (AllowAny,)
+    queryset = ShopType.objects.select_related('shop_sub_type', 'updated_by',).\
+        prefetch_related('shop_type_log', 'shop_type_log__updated_by',)\
+        .only('id', 'shop_sub_type', 'updated_by', 'shop_type', 'shop_min_amount')
     serializer_class = ShopTypeSerializers
 
     def get(self, request):

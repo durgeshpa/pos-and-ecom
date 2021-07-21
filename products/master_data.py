@@ -304,7 +304,7 @@ class UploadMasterData(object):
                 try:
                     child_pro = child_product.filter(product_sku=row['sku_id'])
                     pack_pro = ProductPackingMapping.objects.filter(sku=child_pro.last())
-                    destnation = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
+                    destination = DestinationRepackagingCostMapping.objects.filter(destination=child_pro.last())
                     source_pro = ProductSourceMapping.objects.filter(destination_sku=child_pro.last())
 
                     fields = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
@@ -335,48 +335,50 @@ class UploadMasterData(object):
                             child_pro.update(weight_value=float(row['weight_value']))
                         if col == 'repackaging_type':
                             child_pro.update(repackaging_type=row['repackaging_type'])
+
                         if col == 'raw_material':
-                            destnation.update(raw_material=float(row['raw_material']))
+                            destination.update(raw_material=float(row['raw_material']))
                         if col == 'wastage':
-                            destnation.update(wastage=float(row['wastage']))
+                            destination.update(wastage=float(row['wastage']))
                         if col == 'fumigation':
-                            destnation.update(fumigation=float(row['fumigation']))
+                            destination.update(fumigation=float(row['fumigation']))
                         if col == 'label_printing':
-                            destnation.update(label_printing=float(row['label_printing']))
+                            destination.update(label_printing=float(row['label_printing']))
                         if col == 'packing_labour':
-                            destnation.update(packing_labour=float(row['packing_labour']))
+                            destination.update(packing_labour=float(row['packing_labour']))
                         if col == 'primary_pm_cost':
-                            destnation.update(primary_pm_cost=float(row['primary_pm_cost']))
+                            destination.update(primary_pm_cost=float(row['primary_pm_cost']))
                         if col == 'secondary_pm_cost':
-                            destnation.update(secondary_pm_cost=float(row['secondary_pm_cost']))
+                            destination.update(secondary_pm_cost=float(row['secondary_pm_cost']))
                         if col == 'product_special_cess':
                             child_pro.update(product_special_cess=float(row['product_special_cess']))
+
                         if col == 'packing_sku_id':
-                            pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
-                            pack_pro.update(packing_sku=pack_sku)
+                            pack_pro.update(packing_sku=Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last())
                         if col == 'packing_material_weight':
                             pack_pro.update(packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
+
                         if col == 'source_sku_id':
                             if source_pro.exists():
                                 source_pro.delete()
+
                             source_map = []
                             for product_skus in row['source_sku_id'].split(','):
                                 pro = product_skus.strip()
                                 if pro is not '' and pro not in source_map and \
                                         child_product.filter(product_sku=pro, repackaging_type='source').exists():
                                     source_map.append(pro)
+
                             for sku in source_map:
                                 pro_sku = child_product.filter(product_sku=sku, repackaging_type='source').last()
-                                source_sku_id = Product.objects.get(id=pro_sku.id)
                                 ProductSourceMapping.objects.create(destination_sku=child_pro.last(),
-                                                                    source_sku=source_sku_id)
+                                                                    source_sku=Product.objects.get(id=pro_sku.id))
 
                         child_pro.update(updated_by=user)
                         ProductCls.create_child_product_log(child_pro.last(), "updated")
 
                 except Exception as e:
                     set_child.append(str(row_num))
-                    print("haha", e)
 
             info_logger.info("Total row executed :" + str(count))
             info_logger.info("Child SKU is not exist in these row :" + str(set_child))
