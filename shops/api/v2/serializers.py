@@ -600,7 +600,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
         # manager_obj = validated_data.pop('manager', None)
         try:
             shop_user_map = ShopUserMapping.objects.create(**validated_data)
-            # ShopCls.create_shop_log(shop_user_map, "created")
+            ShopCls.create_shop_user_map_log(shop_user_map, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
