@@ -1,11 +1,4 @@
-import codecs
-import csv
 import datetime
-import re
-import urllib.request
-
-from django.conf import settings
-from django.contrib.sites.shortcuts import get_current_site
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from django.core.exceptions import ValidationError
@@ -25,7 +18,7 @@ from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Categ
 from coupon.models import Coupon
 from global_config.views import get_config
 from retailer_backend.validators import *
-from shops.models import Shop, ShopUserMapping
+from shops.models import Shop, ShopUserMapping, ShopType
 
 
 SIZE_UNIT_CHOICES = (
@@ -1044,6 +1037,7 @@ class ProductPackingMapping(models.Model):
 class CentralLog(models.Model):
     action = models.CharField(max_length=50, null=True, blank=True)
     shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
+    shop_type = models.ForeignKey(ShopType, related_name='shop_type_log', blank=True, null=True, on_delete=models.CASCADE)
     shop_user_map = models.ForeignKey(ShopUserMapping, related_name='shop_user_map_log', blank=True, null=True, on_delete=models.CASCADE)
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)

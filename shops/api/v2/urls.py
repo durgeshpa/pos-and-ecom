@@ -3,8 +3,8 @@ from django.conf.urls import url
 from django.urls import path
 
 from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView, ShopDocumentTypeListView,
-                                ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeDetailView, ShopUserMappingView, ShopView,
-                                ShopListView, ShopManagerListView, ShopEmployeeListView)
+                                ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
+                                ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList)
 
 router = routers.DefaultRouter()
 
@@ -21,7 +21,8 @@ urlpatterns = [
     url('shop-invoice-status-list/', ShopInvoiceStatusListView.as_view(),
         name='shop-invoice-status-list'),
     url('shop-type-list/', ShopTypeListView.as_view(), name='shop-type-list'),
-    url('shop-type/', ShopTypeDetailView.as_view(), name='shop-type-list'),
+    url('shop-type/', ShopTypeView.as_view(), name='shop-type'),
+    # url('shop-type-crud/', ShopTypeCrudView.as_view(), name='shop-type-crud'),
     url('shops/', ShopView.as_view(), name='shops'),
     url('shop-list/', ShopListView.as_view(), name='shop-list'),
     url('shop-sales-report-download/', ShopSalesReportView.as_view(), name='shop-sales-report-download'),
@@ -30,6 +31,7 @@ urlpatterns = [
     url('shop-users-mapping/', ShopUserMappingView.as_view(), name='shop-users-mapping'),
     url('shop-managers/', ShopManagerListView.as_view(), name='shop-managers'),
     url('shop-employees/', ShopEmployeeListView.as_view(), name='shop-employees'),
+    url('retailer-type-list/', RetailerTypeList.as_view(), name='retailer-type-list'),
 
 ]
 

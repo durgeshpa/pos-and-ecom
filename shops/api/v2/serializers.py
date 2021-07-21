@@ -31,17 +31,6 @@ class ChoiceField(serializers.ChoiceField):
             return obj
         return {'id': obj, 'desc': self._choices[obj]}
 
-    # def to_internal_value(self, data):
-    #     # To support inserts with the value
-    #     if data == '' and self.allow_blank:
-    #         return ''
-    #
-    #     for key, val in self._choices.items():
-    #         if val == data:
-    #             return key
-    #     self.fail('invalid_choice', input=data)
-
-
 '''
 For Shop Type List
 '''
@@ -50,23 +39,23 @@ For Shop Type List
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
-        fields = '__all__'
+        fields = ('id', 'retailer_type_name')
 
 
 class ShopTypeSerializers(serializers.ModelSerializer):
     shop_type = serializers.SerializerMethodField()
+    shop_type_log = LogSerializers(many=True, read_only=True)
 
     def get_shop_type(self, obj):
         return obj.get_shop_type_display()
 
     class Meta:
         model = ShopType
-        fields = '__all__'
+        fields = ('id', 'shop_type', 'shop_sub_type', 'shop_min_amount', 'shop_type_log')
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
-        response['shop_sub_type'] = RetailerTypeSerializer(
-            instance.shop_sub_type).data
+        response['shop_sub_type'] = RetailerTypeSerializer(instance.shop_sub_type).data
         return response
 
 

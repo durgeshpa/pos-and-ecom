@@ -47,18 +47,19 @@ class RetailerType(models.Model):
         return self.retailer_type_name
 
 
-class ShopType(models.Model):
+class ShopType(BaseTimestampUserStatusModel):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,
                                       on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
     shop_min_amount = models.FloatField(default=0)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='shop_type_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
-        return "%s - %s" % (
-        self.get_shop_type_display(), self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s" % (
+        return "%s - %s" % (self.get_shop_type_display(), self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s" % (
             self.get_shop_type_display())
 
 

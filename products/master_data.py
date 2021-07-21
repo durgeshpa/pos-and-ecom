@@ -375,8 +375,9 @@ class UploadMasterData(object):
                         child_pro.update(updated_by=user)
                         ProductCls.create_child_product_log(child_pro.last(), "updated")
 
-                except:
+                except Exception as e:
                     set_child.append(str(row_num))
+                    print("haha", e)
 
             info_logger.info("Total row executed :" + str(count))
             info_logger.info("Child SKU is not exist in these row :" + str(set_child))
