@@ -230,12 +230,11 @@ class ShopView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Shop.objects.order_by('-id')
     serializer_class = ShopCrudSerializers
-    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for Shop """
         info_logger.info("Shop GET api called.")
-
+        shop_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Shop for specific ID """
             id_validation = validate_id(
@@ -249,7 +248,7 @@ class ShopView(generics.GenericAPIView):
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
-        msg = f"total count {self.count_db_data}" if shops_data else "no shop found"
+        msg = f"total count {shop_total_count}" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -526,12 +525,11 @@ class ShopUserMappingList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.order_by('-id')
     serializer_class = ShopUserMappingCrudSerializers
-    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for ShopUserMapping """
         info_logger.info("ShopUserMapping GET api called.")
-
+        shop_user_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get ShopUserMapping for specific ID """
             id_validation = validate_id(
@@ -545,7 +543,7 @@ class ShopUserMappingList(generics.GenericAPIView):
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
-        msg = f"total count {self.count_db_data}" if shops_data else "no shop mapping found"
+        msg = f"total count {shop_user_total_count}" if shops_data else "no shop mapping found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
