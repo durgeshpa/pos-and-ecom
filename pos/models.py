@@ -102,10 +102,26 @@ class ShopCustomerMap(models.Model):
         verbose_name = 'Store - Customer Mapping'
 
 
+class PaymentType(models.Model):
+    type = models.CharField(max_length=20)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Payment Mode'
+        verbose_name_plural = _("Payment Modes")
+    
+    def __str__(self) -> str:
+        return self.type
+
+
 class Payment(models.Model):
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
     payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment', on_delete=models.DO_NOTHING)
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True, help_text="Transaction ID for Non Cash Payments.")
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,

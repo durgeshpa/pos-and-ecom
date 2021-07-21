@@ -1,7 +1,8 @@
 from django.conf.urls import url
 
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
-                    POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView)
+                    POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
+                    PaymentTypeDetailView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -24,4 +25,6 @@ urlpatterns = [
     url(r'^grn-order/$', GrnOrderView.as_view()),
     url(r'^grn-order/(?P<pk>\d+)/$', GrnOrderView.as_view()),
     url(r'^grn-order-list/$', GrnOrderListView.as_view()),
+
+    url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 ]

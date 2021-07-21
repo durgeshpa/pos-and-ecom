@@ -11,7 +11,7 @@ from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
-                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping)
+                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
@@ -554,6 +554,18 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PaymentType)
+class PaymentTypeAdmin(admin.ModelAdmin):
+    list_display = ('type', 'enabled', 'created_at', 'modified_at')
+    fields = ('type', 'enabled')
+    list_per_page = 10
+    search_fields = ('type',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

@@ -4,13 +4,13 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from rest_framework import serializers
 from django.db.models import Q, Sum, F
 from django.db import transaction
+from rest_framework import serializers
 
 from addresses.models import Pincode
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping
+    PosGRNOrderProductMapping, Payment, PaymentType
 from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
@@ -350,6 +350,20 @@ class CheckoutSerializer(serializers.ModelSerializer):
                   'reward_detail')
 
 
+class PaymentTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentType
+        fields = ('id', 'type', 'enabled')
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    payment_type = PaymentTypeSerializer()
+
+    class Meta:
+        model = Payment
+        fields = ('payment_type', 'transaction_id',)
+
+
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
@@ -359,13 +373,19 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_no = serializers.CharField()
     order_amount = serializers.ReadOnlyField()
     created_at = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField('payment_data')
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.filter(payment_type__enabled=True).exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.filter(payment_type__enabled=True).last()).data
+
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at')
+        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -1495,7 +1515,8 @@ class POSerializer(serializers.ModelSerializer):
             cart = PosCart.objects.get(id=cart_id)
             updated_pid = []
             for product in cart_products:
-                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart, product_id=product['product_id'])
+                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart,
+                                                                               product_id=product['product_id'])
                 mapping.qty, mapping.price = product['qty'], product['price']
                 mapping.save()
                 updated_pid += [product['product_id']]

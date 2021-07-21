@@ -23,11 +23,12 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
+from pos.common_validators import validate_user_type_for_pos_shop
 
-from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
+from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
@@ -67,6 +68,9 @@ class PosProductView(GenericAPIView):
             Create Product
         """
         shop = kwargs['shop']
+        pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
+        if 'error' in pos_shop_user_obj:
+            return api_response(pos_shop_user_obj['error'])
         modified_data = self.validate_create(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -103,6 +107,9 @@ class PosProductView(GenericAPIView):
             Update product
         """
         shop = kwargs['shop']
+        pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
+        if 'error' in pos_shop_user_obj:
+            return api_response(pos_shop_user_obj['error'])
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -1065,3 +1072,16 @@ class GrnOrderListView(ListAPIView):
         queryset = self.pagination_class().paginate_queryset(self.get_queryset(), self.request)
         serializer = self.get_serializer(queryset, many=True)
         return api_response('', serializer.data, status.HTTP_200_OK, True)
+
+
+class PaymentTypeDetailView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = PaymentType.objects.all()
+    serializer_class = PaymentTypeSerializer
+
+    def get(self, request):
+        """ GET Payment Type List """
+        payment_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(payment_type, many=True)
+        msg = "" if payment_type else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
