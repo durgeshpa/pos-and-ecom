@@ -613,6 +613,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
+            ShopCls.create_shop_user_map_log(shop_instance, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
