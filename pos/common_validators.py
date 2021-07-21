@@ -1,4 +1,4 @@
-from shops.models import PosShopUserMapping
+from shops.models import CASHIER, PosShopUserMapping
 
 def validate_user_type_for_pos_shop(shop_id, user):
     """
@@ -8,7 +8,7 @@ def validate_user_type_for_pos_shop(shop_id, user):
     if not qs:
         return {'error': 'User not mapped with the Shop.'}
     user_type = qs.last().user_type
-    if user_type == 'cashier':
+    if user_type == CASHIER:
         return {'error': 'Unauthorised user.'}
     else:
         return {'data': user_type}

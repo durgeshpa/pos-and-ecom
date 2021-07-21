@@ -978,7 +978,12 @@ class CartCentral(GenericAPIView):
         cart_products = cart.rt_cart_list.all()
         if cart_products:
             for product_mapping in cart_products:
-                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
+                    and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
+                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
+                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
+                else:
+                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
     @check_pos_shop
@@ -1483,6 +1488,9 @@ class CartCentral(GenericAPIView):
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
                 RetailerProductCls.update_price(product.id, selling_price)
+        if not selling_price and product.offer_price and datetime.now() > product.offer_start_date and \
+            datetime.now() < product.offer_end_date:
+            selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
