@@ -205,7 +205,7 @@ class TaxView(GenericAPIView):
         search_text = self.request.GET.get('search_text')
         # search using tax_name and tax_type based on criteria that matches
         if search_text:
-            self.queryset = tax_search(self.queryset, search_text)
+            self.queryset = tax_search(self.queryset, search_text.strip())
         return self.queryset
 
 
@@ -336,7 +336,7 @@ class ParentProductView(GenericAPIView):
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
-            self.queryset = parent_product_search(self.queryset, search_text)
+            self.queryset = parent_product_search(self.queryset, search_text.strip())
         # filter using brand_name, category & product_status exact match
         if brand is not None:
             self.queryset = self.queryset.filter(parent_brand__id=brand)
@@ -506,7 +506,7 @@ class ChildProductView(GenericAPIView):
 
         # search using product_name & id based on criteria that matches
         if search_text:
-            self.queryset = child_product_search(self.queryset, search_text)
+            self.queryset = child_product_search(self.queryset, search_text.strip())
         # filter using brand_name, category & product_status exact match
         if brand is not None:
             self.queryset = self.queryset.filter(parent_product__parent_brand__id=brand)

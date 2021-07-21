@@ -205,6 +205,7 @@ class BrandView(GenericAPIView):
                     brand_id.delete()
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'brand_id': brand_id}
+                    info_logger.info("child_product deleted info ", dict_data)
                     info_logger.info("brand deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete brand {brand_id.brand_name}, '
@@ -221,7 +222,7 @@ class BrandView(GenericAPIView):
 
         # search based on Brand Name, Brand Code & Parent Brand Name
         if search_text:
-            self.queryset = brand_search(self.queryset, search_text)
+            self.queryset = brand_search(self.queryset, search_text.strip())
 
         # filter based on status
         if brand_status is not None:

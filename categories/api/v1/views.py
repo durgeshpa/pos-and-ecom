@@ -197,7 +197,7 @@ class CategoryView(GenericAPIView):
 
         # search based on category name
         if search_text:
-            self.queryset = category_search(self.queryset, search_text)
+            self.queryset = category_search(self.queryset, search_text.strip())
 
         # filter based on status
         if cat_status is not None:
