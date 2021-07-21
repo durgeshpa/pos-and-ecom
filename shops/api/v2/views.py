@@ -3,8 +3,9 @@ from decimal import Decimal
 import logging
 from datetime import datetime
 from django.db.models.aggregates import Sum
-from retailer_to_sp.models import Order, OrderedProductMapping
+from django.db import transaction
 
+from retailer_to_sp.models import Order, OrderedProductMapping
 from products.common_function import get_response, serializer_error
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user, get_user_model
@@ -580,26 +581,27 @@ class ShopUserMappingList(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
-        """ Delete Shop Mapping """
+        """ Delete Shop User Mapping """
 
-        info_logger.info("Shop Mapping DELETE api called.")
-        if not request.data.get('shop_mapping_id'):
-            return get_response('please select mapped shop to delete shop mapping', False)
+        info_logger.info("ShopUser Mapping DELETE api called.")
+        if not request.data.get('shop_user_mapping_id'):
+            return get_response('please select shop user mapping id to delete shop user mapping', False)
         try:
-            for id in request.data.get('child_product_id'):
-                child_product_id = self.queryset.get(id=int(id))
-                try:
-                    child_product_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'child_product_id': child_product_id}
-                    info_logger.info("child_product deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
-                                        f'because this child product is mapped with product price', False)
+            with transaction.atomic():
+                for id in request.data.get('shop_user_mapping_id'):
+                    shap_user_mapped_id = self.queryset.get(id=int(id))
+                    try:
+                        shap_user_mapped_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'shap_user_mapped_id': shap_user_mapped_id}
+                        info_logger.info("shap_user_mapped_id deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete user shop mapping {shap_user_mapped_id}, '
+                                            f'because this user shop mapping getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid child_product_id {id}', False)
-        return get_response('child product were deleted successfully!', True)
+            return get_response(f'please provide a valid shop user mapping id {id}', False)
+        return get_response('shop user mapping were deleted successfully!', True)
 
     def search_filter_shop_user_mapping_data(self):
         search_text = self.request.GET.get('search_text')

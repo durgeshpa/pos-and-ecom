@@ -1,7 +1,7 @@
 import logging
-
 from datetime import datetime
 
+from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 
@@ -188,15 +188,16 @@ class TaxView(GenericAPIView):
         if not request.data.get('tax_ids'):
             return get_response('please select tax', False)
         try:
-            for id in request.data.get('tax_ids'):
-                tax_id = self.queryset.get(id=int(id))
-                try:
-                    tax_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'tax_id': tax_id}
-                    info_logger.info("tax deleted info ", dict_data)
-                except Exception as er:
-                    return get_response(f'You can not delete tax {tax_id.tax_name}, '
-                                        f'because this tax is mapped with product', False)
+            with transaction.atomic():
+                for id in request.data.get('tax_ids'):
+                    tax_id = self.queryset.get(id=int(id))
+                    try:
+                        tax_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'tax_id': tax_id}
+                        info_logger.info("tax deleted info ", dict_data)
+                    except Exception as er:
+                        return get_response(f'You can not delete tax {tax_id.tax_name}, '
+                                            f'because this tax is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid tax id {id}', False)
@@ -314,16 +315,17 @@ class ParentProductView(GenericAPIView):
         if not request.data.get('parent_product_id'):
             return get_response('please select parent product', False)
         try:
-            for id in request.data.get('parent_product_id'):
-                parent_product_id = self.queryset.get(id=int(id))
-                try:
-                    parent_product_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'parent_product_id': parent_product_id}
-                    info_logger.info("parent_product deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete parent product {parent_product_id.name}, '
-                                        f'because this parent product is mapped with child product', False)
+            with transaction.atomic():
+                for id in request.data.get('parent_product_id'):
+                    parent_product_id = self.queryset.get(id=int(id))
+                    try:
+                        parent_product_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'parent_product_id': parent_product_id}
+                        info_logger.info("parent_product deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete parent product {parent_product_id.name}, '
+                                            f'because this parent product is mapped with child product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid parent_product_id {id}', False)
@@ -484,16 +486,17 @@ class ChildProductView(GenericAPIView):
         if not request.data.get('child_product_id'):
             return get_response('please select child product', False)
         try:
-            for id in request.data.get('child_product_id'):
-                child_product_id = self.queryset.get(id=int(id))
-                try:
-                    child_product_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'child_product_id': child_product_id}
-                    info_logger.info("child_product deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
-                                        f'because this child product is mapped with product price', False)
+            with transaction.atomic():
+                for id in request.data.get('child_product_id'):
+                    child_product_id = self.queryset.get(id=int(id))
+                    try:
+                        child_product_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'child_product_id': child_product_id}
+                        info_logger.info("child_product deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete child product {child_product_id.product_name}, '
+                                            f'because this child product is mapped with product price', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid child_product_id {id}', False)
@@ -659,9 +662,10 @@ class ProductCappingView(GenericAPIView):
         if not request.data.get('product_capping_id'):
             return get_response('please provide a product_capping_id', False)
         try:
-            for cap_product_id in request.data.get('product_capping_id'):
-                product_capping_id = self.queryset.get(id=int(cap_product_id))
-                product_capping_id.delete()
+            with transaction.atomic():
+                for cap_product_id in request.data.get('product_capping_id'):
+                    product_capping_id = self.queryset.get(id=int(cap_product_id))
+                    product_capping_id.delete()
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'id {cap_product_id} not found', False)
@@ -821,16 +825,17 @@ class WeightView(GenericAPIView):
         if not request.data.get('weight_ids'):
             return get_response('please select weight', False)
         try:
-            for w_id in request.data.get('weight_ids'):
-                weight_id = self.queryset.get(id=int(w_id))
-                try:
-                    weight_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'weight_id': weight_id}
-                    info_logger.info("weight deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete weight {weight_id.weight_name}, '
-                                        f'because this weight is mapped with product', False)
+            with transaction.atomic():
+                for w_id in request.data.get('weight_ids'):
+                    weight_id = self.queryset.get(id=int(w_id))
+                    try:
+                        weight_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'weight_id': weight_id}
+                        info_logger.info("weight deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete weight {weight_id.weight_name}, '
+                                            f'because this weight is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid weight id {w_id}', False)

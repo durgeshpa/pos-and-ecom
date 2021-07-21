@@ -199,17 +199,18 @@ class BrandView(GenericAPIView):
         if not request.data.get('brand_ids'):
             return get_response('please select brand', False)
         try:
-            for b_id in request.data.get('brand_ids'):
-                brand_id = self.queryset.get(id=int(b_id))
-                try:
-                    brand_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'brand_id': brand_id}
-                    info_logger.info("child_product deleted info ", dict_data)
-                    info_logger.info("brand deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete brand {brand_id.brand_name}, '
-                                        f'because this brand is mapped with product', False)
+            with transaction.atomic():
+                for b_id in request.data.get('brand_ids'):
+                    brand_id = self.queryset.get(id=int(b_id))
+                    try:
+                        brand_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'brand_id': brand_id}
+                        info_logger.info("child_product deleted info ", dict_data)
+                        info_logger.info("brand deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete brand {brand_id.brand_name}, '
+                                            f'because this brand is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid brand {b_id}', False)
