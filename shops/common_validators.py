@@ -362,8 +362,8 @@ def validate_employee_group(emp_grp_id):
     return {'data': shop_obj}
 
 
-def validate_shop_type(shop_id_id):
-    """validate shop_type id"""
+def validate_shop_sub_type(shop_id_id):
+    """validate shop_sub_type id"""
     try:
         shop_type_obj = RetailerType.objects.get(id=shop_id_id)
     except Exception as e:

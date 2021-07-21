@@ -521,6 +521,7 @@ class ShopUserMappingView(generics.GenericAPIView):
         else:
             """ GET ShopUserMapping List """
             self.queryset = self.search_filter_shop_user_mapping_data()
+            shop_user_total_count = self.queryset.count()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
@@ -629,6 +630,7 @@ class ShopTypeView(generics.GenericAPIView):
         else:
             """ GET ShopUserMapping List """
             self.queryset = self.search_filter_shop_user_mapping_data()
+            shop_user_total_count = self.queryset.count()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_data, many=True)
@@ -691,29 +693,11 @@ class ShopTypeView(generics.GenericAPIView):
 
     def search_filter_shop_user_mapping_data(self):
         search_text = self.request.GET.get('search_text')
-        shop_id = self.request.GET.get('shop_id')
-        manager_id = self.request.GET.get('manager_id')
-        emp_id = self.request.GET.get('emp_id')
-        status = self.request.GET.get('status')
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
 
         '''search using shop_name and parent_shop based on criteria that matches'''
         if search_text:
             self.queryset = shop_user_mapping_search(self.queryset, search_text)
         '''Filters using shop_id, manager_id, emp_id, city, status, start_date'''
-        if shop_id:
-            self.queryset = self.queryset.filter(shop__id=shop_id)
-        if manager_id:
-            self.queryset = self.queryset.filter(manager__id=manager_id)
-        if emp_id:
-            self.queryset = self.queryset.filter(employee__id=emp_id)
-        if status:
-            self.queryset = self.queryset.filter(status=status)
-        if start_date:
-            self.queryset = self.queryset.filter(created_at__gte=start_date)
-        if end_date:
-            self.queryset = self.queryset.filter(created_at__lte=end_date)
 
         return self.queryset
 

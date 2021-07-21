@@ -16,7 +16,7 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents,\
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
     get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
-    validate_shop_type
+    validate_shop_sub_type
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -44,19 +44,16 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
 
 
 class ShopTypeSerializers(serializers.ModelSerializer):
-    shop_type = serializers.SerializerMethodField()
+    # shop_type = serializers.SerializerMethodField()
     shop_sub_type = RetailerTypeSerializer(read_only=True)
     shop_type_log = LogSerializers(many=True, read_only=True)
 
-    def get_shop_type(self, obj):
-        return obj.get_shop_type_display()
+    # def get_shop_type(self, obj):
+    #     return obj.get_shop_type_display()
 
     def validate(self, data):
-
-        if 'shop_sub_type' not in self.initial_data or self.initial_data['shop_sub_type'] is None:
-            raise serializers.ValidationError("shop_sub_type is required")
         if 'shop_sub_type' in self.initial_data and self.initial_data['shop_sub_type']:
-            shop_id = validate_shop_type(self.initial_data['shop_sub_type'])
+            shop_id = validate_shop_sub_type(self.initial_data['shop_sub_type'])
             if 'error' in shop_id:
                 raise serializers.ValidationError((shop_id["error"]))
             data['shop_sub_type'] = shop_id['data']
@@ -93,6 +90,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
+        response['shop_type'] = instance.get_shop_type_display()
         return response
 
 
