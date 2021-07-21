@@ -2,9 +2,13 @@ import logging
 import sys
 from celery.task import task
 from elasticsearch import Elasticsearch
+import datetime
+from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.db import transaction
+from django.core.mail import EmailMessage
 
+from global_config.models import GlobalConfig
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 from pos.models import RetailerProduct
 from wms.models import PosInventory, PosInventoryState
@@ -108,7 +112,8 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
             if referral_obj:
                 parent_referrer = referral_obj.referral_by_user
                 # direct reward to user who referred buyer
-                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i, referral_obj.user_count_considered,
+                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                       referral_obj.user_count_considered,
                                                        changed_by)
 
                 # indirect reward to ancestor referrers
@@ -119,4 +124,58 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
             return points_credit
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        error_logger.error("Rewards not processed for order {} exception {} Line No {}".format(tid, e, exc_tb.tb_lineno))
+        error_logger.error(
+            "Rewards not processed for order {} exception {} Line No {}".format(tid, e, exc_tb.tb_lineno))
+
+
+@task()
+def mail_to_vendor_on_po_creation(instance):
+    recipient_list = [instance.vendor.email]
+    vendor_name = instance.vendor.vendor_name
+    po_no = instance.po_no
+    subject = "Purchase Order {}, {} - {}".format(po_no, vendor_name, instance.retailer_shop.shop_name)
+    body = "Purchase Order"
+
+    filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
+    template_name = 'admin/purchase_order/retailer_purchase_order.html'
+    cmd_option = {
+        'encoding': 'utf8',
+        'margin-top': 3
+    }
+    data = generate_pdf_data(instance)
+    response = PDFTemplateResponse(
+        request=None, template=template_name,
+        filename=filename, context=data,
+        show_content_in_browser=False, cmd_options=cmd_option
+    )
+    email = EmailMessage()
+    email.subject = subject
+    email.body = body
+    sender = GlobalConfig.objects.get(key='sender')
+    email.from_email = sender.value
+    email.to = recipient_list
+    email.attach(filename, response.rendered_content, 'application/pdf')
+    email.send()
+
+
+def generate_pdf_data(instance):
+    products = instance.po_products.all()
+    order = instance.pos_po_order
+    order_id = order.order_no
+    sum_amount, sum_qty = 0, 0
+    billing = instance.retailer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+    shipping = instance.retailer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+    for m in products:
+        sum_qty = sum_qty + m.qty
+        sum_amount = sum_amount + m.total_price()
+    data = {
+        "object": instance,
+        "products": products,
+        "po_instance": instance,
+        "billing": billing,
+        "shipping": shipping,
+        "sum_qty": sum_qty,
+        "total_amount": sum_amount,
+        "order_id": order_id
+    }
+    return data
