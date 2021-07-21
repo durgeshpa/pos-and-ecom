@@ -355,8 +355,7 @@ class UploadMasterData(object):
                             pack_sku = Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last()
                             pack_pro.update(packing_sku=pack_sku)
                         if col == 'packing_material_weight':
-                            pack_pro.update(packing_material_weight=float(row['packing_material_weight']))
-
+                            pack_pro.update(packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
                         if col == 'source_sku_id':
                             if source_pro.exists():
                                 source_pro.delete()
