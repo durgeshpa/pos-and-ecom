@@ -52,6 +52,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
     #     return obj.get_shop_type_display()
 
     def validate(self, data):
+
         if 'shop_sub_type' in self.initial_data and self.initial_data['shop_sub_type']:
             shop_id = validate_shop_sub_type(self.initial_data['shop_sub_type'])
             if 'error' in shop_id:
