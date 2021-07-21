@@ -1493,16 +1493,19 @@ class POSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             user, shop, cart_products = self.context.get('user'), self.context.get('shop'), validated_data['products']
             cart = PosCart.objects.get(id=cart_id)
-            cart.vendor_id, cart.last_modified_by = validated_data['vendor_id'], user
-            cart.save()
             updated_pid = []
             for product in cart_products:
-                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart, product=product['product_id'])
+                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart, product_id=product['product_id'])
                 mapping.qty, mapping.price = product['qty'], product['price']
                 mapping.save()
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
                 product_id__in=updated_pid).delete()
+            po_status = cart.status
+            if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
+                po_status = PosCart.PARTIAL_DELIVERED
+            cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
+            cart.save()
             if self.context.get('send_mail', False):
                 mail_to_vendor_on_po_creation(cart)
 
