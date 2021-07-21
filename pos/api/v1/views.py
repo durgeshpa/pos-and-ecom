@@ -75,16 +75,17 @@ class PosProductView(GenericAPIView):
         serializer = RetailerProductCreateSerializer(data=modified_data)
         if serializer.is_valid():
             data = serializer.data
-            name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
-                'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
-                                                                         'description'], data['stock_qty']
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty = data[
+                'product_name'], data['product_ean_code'], data['mrp'], data['selling_price'], data[
+                    'offer_price'], data['offer_start_date'], data['offer_end_date'], data[
+                        'linked_product_id'], data['description'], data['stock_qty']
             with transaction.atomic():
                 # Decide sku_type 2 = using GF product, 1 = new product
                 sku_type = 2 if linked_pid else 1
                 # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
                 # Create product
-                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
-                                                                     description, ean)
+                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, offer_price, offer_sd, offer_ed, 
+                                                                        linked_pid, sku_type,description, ean)
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
@@ -117,6 +118,7 @@ class PosProductView(GenericAPIView):
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
             name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
                 'mrp'], data['selling_price'], data['description'], data['stock_qty']
+            offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
 
             with transaction.atomic():
                 # Update product
@@ -124,6 +126,9 @@ class PosProductView(GenericAPIView):
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
+                product.offer_price = offer_price if offer_price else product.offer_price
+                product.offer_start_date = offer_sd if offer_sd else product.offer_start_date
+                product.offer_end_date = offer_ed if offer_ed else product.offer_end_date
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
                 # Update images
