@@ -129,11 +129,10 @@ class TaxView(GenericAPIView):
         order_by('-id')
 
     serializer_class = TaxCrudSerializers
-    tax_total_count = queryset.count()
 
     def get(self, request):
         """ GET API for Tax """
-
+        tax_total_count = self.queryset.count()
         info_logger.info("Tax GET api called.")
         if request.GET.get('id'):
             """ Get Tax for specific ID """
@@ -147,7 +146,7 @@ class TaxView(GenericAPIView):
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
-        msg = f"total count {self.tax_total_count}" if product_tax else "no tax found"
+        msg = f"total count {tax_total_count}" if product_tax else "no tax found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
@@ -244,13 +243,13 @@ class ParentProductView(GenericAPIView):
               'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
               'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
               'max_inventory').order_by('-id')
-    count_db_data = queryset.count()
     serializer_class = ParentProductSerializers
 
     def get(self, request):
         """ GET API for Parent Product with Image Category & Tax """
 
         info_logger.info("Parent Product GET api called.")
+        product_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Parent Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -262,7 +261,7 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.search_filter_parent_product()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"total count {self.count_db_data}" if parent_product else "no product product found"
+        msg = f"total count {product_total_count}" if parent_product else "no product product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -413,11 +412,10 @@ class ChildProductView(GenericAPIView):
                           'parent_product__parent_product_pro_tax__tax',).order_by('-id')
 
     serializer_class = ChildProductSerializers
-    count_db_data = queryset.count()
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
-
+        ch_product_total_count = self.queryset.count()
         info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
@@ -432,7 +430,7 @@ class ChildProductView(GenericAPIView):
 
         serializer = self.serializer_class(child_product, many=True)
 
-        msg = f"total count {self.count_db_data}" if child_product else "no child product found"
+        msg = f"total count {ch_product_total_count}" if child_product else "no child product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -763,12 +761,12 @@ class WeightView(GenericAPIView):
         .only('id', 'weight_value', 'weight_unit', 'status', 'weight_name').order_by('-id')
 
     serializer_class = WeightSerializers
-    weight_total_count = queryset.count()
 
     def get(self, request):
         """ GET API for Weight """
 
         info_logger.info("Weight GET api called.")
+        weight_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Weight for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -779,7 +777,7 @@ class WeightView(GenericAPIView):
             """ GET Weight List """
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_tax, many=True)
-        msg = f"total count {self.weight_total_count}" if product_tax else "no weight found"
+        msg = f"total count {weight_total_count}" if product_tax else "no weight found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):

@@ -592,7 +592,6 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']
 
-
         return data
 
     @transaction.atomic

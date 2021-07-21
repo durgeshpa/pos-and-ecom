@@ -135,9 +135,9 @@ class BrandView(GenericAPIView):
              'brand_logo', 'status').order_by('-id')
 
     serializer_class = BrandCrudSerializers
-    brand_total_count = queryset.count()
 
     def get(self, request):
+        brand_total_count = self.queryset.count()
 
         info_logger.info("Brand GET api called.")
         if request.GET.get('id'):
@@ -151,7 +151,7 @@ class BrandView(GenericAPIView):
             self.queryset = self.search_filter_brand()
             brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(brand, many=True)
-        msg = f"total count {self.brand_total_count}" if brand else "no brand found"
+        msg = f"total count {brand_total_count}" if brand else "no brand found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
