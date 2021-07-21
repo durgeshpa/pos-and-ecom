@@ -504,7 +504,7 @@ class PosShopUserMapping(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding is True:
-            qs = PosShopUserMapping.objects.filter(shop=self.shop, user_type=self.user_type, status=True)
+            qs = PosShopUserMapping.objects.filter(shop=self.shop, user=self.user, status=True)
             if qs:
                 qs.update(status=False)
         super().save(*args, **kwargs)
