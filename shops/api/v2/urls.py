@@ -3,7 +3,7 @@ from django.conf.urls import url
 from django.urls import path
 
 from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView, ShopDocumentTypeListView,
-                                ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeDetailView, ShopUserMappingList, ShopView,
+                                ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeDetailView, ShopUserMappingView, ShopView,
                                 ShopListView, ShopManagerListView, ShopEmployeeListView)
 
 router = routers.DefaultRouter()
@@ -27,7 +27,7 @@ urlpatterns = [
     url('shop-sales-report-download/', ShopSalesReportView.as_view(), name='shop-sales-report-download'),
     url('sp-shop/', ServicePartnerShopsListView.as_view(), name='sp-shop'),
     url('parent-shop/', ParentShopsListView.as_view(), name='parent-shop'),
-    url('shop-users/', ShopUserMappingList.as_view(), name='shop-users'),
+    url('shop-users-mapping/', ShopUserMappingView.as_view(), name='shop-users-mapping'),
     url('shop-managers/', ShopManagerListView.as_view(), name='shop-managers'),
     url('shop-employees/', ShopEmployeeListView.as_view(), name='shop-employees'),
 

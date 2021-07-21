@@ -487,6 +487,7 @@ class ShopListView(generics.GenericAPIView):
 class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    # get 'Sales Manager'
     queryset = ShopUserMapping.objects.filter(employee__user_type=7).distinct('employee')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
@@ -507,6 +508,7 @@ class ShopManagerListView(generics.GenericAPIView):
 class ShopEmployeeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    # exclude 'Sales Manager'
     queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').exclude(user_type=7).order_by('-id')
     serializer_class = ShopEmployeeSerializers
 
@@ -522,7 +524,7 @@ class ShopEmployeeListView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class ShopUserMappingList(generics.GenericAPIView):
+class ShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.order_by('-id')
