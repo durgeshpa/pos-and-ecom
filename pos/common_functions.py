@@ -36,8 +36,8 @@ cron_logger = logging.getLogger('cron_log')
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, offer_price, offer_sd, offer_ed, 
-                                linked_product_id, sku_type, description, product_ean_code, product_status='active'):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, 
+                                    product_ean_code, product_status='active', offer_price=None, offer_sd=None, offer_ed=None):
         """
             General Response For API
         """

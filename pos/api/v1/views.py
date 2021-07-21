@@ -84,8 +84,8 @@ class PosProductView(GenericAPIView):
                 sku_type = 2 if linked_pid else 1
                 # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
                 # Create product
-                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, offer_price, offer_sd, offer_ed, 
-                                                                        linked_pid, sku_type,description, ean)
+                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
+                                                                        description, ean, offer_price, offer_sd, offer_ed)
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])

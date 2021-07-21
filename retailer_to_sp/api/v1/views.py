@@ -978,7 +978,12 @@ class CartCentral(GenericAPIView):
         cart_products = cart.rt_cart_list.all()
         if cart_products:
             for product_mapping in cart_products:
-                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
+                    and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
+                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
+                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
+                else:
+                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
     @check_pos_shop
