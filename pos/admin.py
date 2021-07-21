@@ -1,8 +1,10 @@
+import csv
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
+from django.http import HttpResponse
 
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
@@ -15,8 +17,11 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
+from retailer_to_sp.models import Order, RoundAmount
+from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .forms import RetailerProductsForm
+from .utils import create_order_data_excel
 
 
 class RetailerProductImageTabularAdmin(admin.TabularInline):
@@ -282,12 +287,32 @@ class OrderedProductMappingInline(admin.TabularInline):
     class Media:
         pass
 
+# class ExportCsvMixin:
+#     def download_csv(self, request, queryset):
+
+#         meta = self.model._meta
+#         print(meta.fields)
+#         field_names = [field.name for field in meta.fields]
+
+#         response = HttpResponse(content_type='text/csv')
+#         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+#         writer = csv.writer(response)
+
+#         writer.writerow(field_names)
+#         for obj in queryset:
+#             row = writer.writerow([getattr(obj, field) for field in field_names])
+
+#         return response
+
+#     download_csv.short_description = "Download CSV file for selected stats."
+
 
 class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 10
     list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
+    actions = ["order_data_excel_action"]
 
     fieldsets = (
         (_('Shop Details'), {
@@ -346,6 +371,14 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+    def order_data_excel_action(self, request, queryset):
+        return create_order_data_excel(
+            request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
+            Order, RetailerOrderReturn,
+            RoundAmount, Shop)
+    order_data_excel_action.short_description = "Download CSV of selected orders"
+
+    
 
 @admin.register(PosInventoryState)
 class PosInventoryStateAdmin(admin.ModelAdmin):
