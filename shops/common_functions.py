@@ -28,6 +28,19 @@ class ShopCls(object):
         return shop_log
 
     @classmethod
+    def create_shop_type_log(cls, log_obj, action):
+        """
+            Create Shop Type Log
+        """
+        action, create_updated_by = created_updated_by(log_obj, action)
+        shop_type_log = CentralLog.objects.create(shop_type=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': shop_type_log.updated_by, 'updated_at': shop_type_log.update_at,
+                     'shop_type': log_obj}
+        info_logger.info("shop_type log update info ", dict_data)
+
+        return shop_type_log
+
+    @classmethod
     def create_shop_user_map_log(cls, log_obj, action):
         """
               Create Shop User Mapping Log

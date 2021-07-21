@@ -752,6 +752,7 @@ class ShopTypeView(generics.GenericAPIView):
         else:
             """ GET ShopUserMapping List """
             self.queryset = self.search_shop_type()
+            shop_type_total_count = self.queryset.count()
             shops_type_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(shops_type_data, many=True)

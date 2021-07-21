@@ -5,7 +5,8 @@ import traceback
 
 from django.contrib.auth import get_user_model
 
-from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopType, ShopUserMapping
+from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, \
+    ShopType, ShopUserMapping, RetailerType
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
@@ -360,3 +361,12 @@ def validate_employee_group(emp_grp_id):
         return {'error': '{} employee group not found'.format(emp_grp_id)}
     return {'data': shop_obj}
 
+
+def validate_shop_type(shop_id_id):
+    """validate shop_type id"""
+    try:
+        shop_type_obj = RetailerType.objects.get(id=shop_id_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} shop type not found'.format(shop_id_id)}
+    return {'data': shop_type_obj}

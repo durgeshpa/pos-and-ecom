@@ -76,5 +76,6 @@ def retailer_type_search(queryset, search_text):
 
 
 def shop_type_search(queryset, search_text):
-    queryset = queryset.filter(shop_type__icontains=search_text)
+    queryset = queryset.filter(Q(shop_type__icontains=search_text) |
+                               Q(shop_min_amount__icontains=search_text))
     return queryset

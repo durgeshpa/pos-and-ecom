@@ -15,7 +15,8 @@ from products.api.v1.serializers import LogSerializers
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents,\
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
-    get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager
+    get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
+    validate_shop_type
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -44,15 +45,51 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
 
 class ShopTypeSerializers(serializers.ModelSerializer):
     shop_type = serializers.SerializerMethodField()
-    shop_sub_type = RetailerTypeSerializer()
+    shop_sub_type = RetailerTypeSerializer(read_only=True)
     shop_type_log = LogSerializers(many=True, read_only=True)
 
     def get_shop_type(self, obj):
         return obj.get_shop_type_display()
 
+    def validate(self, data):
+
+        if 'shop_sub_type' not in self.initial_data or self.initial_data['shop_sub_type'] is None:
+            raise serializers.ValidationError("shop_sub_type is required")
+        if 'shop_sub_type' in self.initial_data and self.initial_data['shop_sub_type']:
+            shop_id = validate_shop_type(self.initial_data['shop_sub_type'])
+            if 'error' in shop_id:
+                raise serializers.ValidationError((shop_id["error"]))
+            data['shop_sub_type'] = shop_id['data']
+        return data
+
     class Meta:
         model = ShopType
         fields = ('id', 'shop_type', 'shop_sub_type', 'shop_min_amount', 'shop_type_log')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create shop type """
+        try:
+            shop_type = ShopType.objects.create(**validated_data)
+            ShopCls.create_shop_type_log(shop_type, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_type
+
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Shop User Mapping attribute. """
+
+        try:
+            # call super to save modified instance along with the validated data
+            shop_instance = super().update(instance, validated_data)
+            ShopCls.create_shop_user_map_log(shop_instance, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_instance
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
