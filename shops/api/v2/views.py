@@ -534,8 +534,7 @@ class ShopUserMappingList(generics.GenericAPIView):
         shop_user_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get ShopUserMapping for specific ID """
-            id_validation = validate_id(
-                self.queryset, int(request.GET.get('id')))
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             shops_data = id_validation['data']
@@ -613,25 +612,18 @@ class ShopUserMappingList(generics.GenericAPIView):
 
         '''search using shop_name and parent_shop based on criteria that matches'''
         if search_text:
-            self.queryset = shop_user_mapping_search(
-                self.queryset, search_text)
-
+            self.queryset = shop_user_mapping_search(self.queryset, search_text)
         '''Filters using shop_id, manager_id, emp_id, city, status, start_date'''
         if shop_id:
             self.queryset = self.queryset.filter(shop__id=shop_id)
-
         if manager_id:
             self.queryset = self.queryset.filter(manager__id=manager_id)
-
         if emp_id:
             self.queryset = self.queryset.filter(employee__id=emp_id)
-
         if status:
             self.queryset = self.queryset.filter(status=status)
-
         if start_date:
             self.queryset = self.queryset.filter(created_at__gte=start_date)
-
         if end_date:
             self.queryset = self.queryset.filter(created_at__lte=end_date)
 

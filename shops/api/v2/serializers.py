@@ -11,7 +11,7 @@ from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping
                           )
 from addresses.models import Address, City, Pincode, State
-
+from products.api.v1.serializers import LogSerializers
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents,\
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
@@ -552,10 +552,11 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
     employee = UserSerializers(read_only=True)
     manager = ManagerSerializers(read_only=True)
     employee_group = GroupSerializer(read_only=True)
+    shop_user_map_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = ShopUserMapping
-        fields = '__all__'
+        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'shop_user_map_log',)
 
     def validate(self, data):
 

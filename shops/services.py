@@ -49,8 +49,9 @@ def shop_user_mapping_search(queryset, search_text):
     '''
     search using shop name, employee group, employee's phone number based on criteria that matches
     '''
-    queryset = queryset.filter(Q(shop__shop_name__icontains=search_text) | Q(
-        employee_group__permissions__codename__icontains=search_text) | Q(employee__phone_number__icontains=search_text))
+    queryset = queryset.filter(Q(shop__shop_name__icontains=search_text) |
+                               Q(employee_group__permissions__codename__icontains=search_text) |
+                               Q(employee__phone_number__icontains=search_text))
     return queryset
 
 
