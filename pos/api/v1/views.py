@@ -131,6 +131,31 @@ class PosProductView(GenericAPIView):
                                                     PosInventoryState.AVAILABLE, stock_qty, self.request.user,
                                                     product.sku, PosInventoryChange.STOCK_UPDATE)
                 serializer = RetailerProductResponseSerializer(product)
+                if data['is_discounted']:
+                    discounted_price = data['discounted_price']
+                    discounted_stock = data['discounted_stock']
+                    product_status = 'active' if discounted_stock > 0 else 'deactivated'
+
+                    initial_state = PosInventoryState.AVAILABLE
+                    tr_type = PosInventoryChange.STOCK_UPDATE
+
+                    discounted_product = RetailerProduct.objects.filter(product_ref=product).last()
+                    if not discounted_product:
+
+                        initial_state = PosInventoryState.NEW
+                        tr_type = PosInventoryChange.STOCK_ADD
+
+                        discounted_product = RetailerProductCls.create_retailer_product(product.shop.id, product.name, product.mrp,
+                                                                 discounted_price, product.linked_product_id, 4,
+                                                                 product.description, product.product_ean_code, product_status, product)
+                    else:
+                        discounted_product.selling_price = discounted_price
+                        discounted_product.status = product_status
+                        discounted_product.save()
+
+                    PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
+                                                    PosInventoryState.AVAILABLE, discounted_stock, self.request.user,
+                                                    discounted_product.sku, tr_type)
                 return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))

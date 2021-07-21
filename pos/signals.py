@@ -15,12 +15,16 @@ def sku_generator(shop_id):
 @receiver(pre_save, sender=RetailerProduct)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.sku:
-        # Generate a unique SKU by using shop_id & uuid4 once,
-        # then check the db. If exists, keep trying.
-        sku_id = sku_generator(instance.shop.id)
-        while RetailerProduct.objects.filter(sku=sku_id).exists():
+        if instance.sku_type != 4:
+            # Generate a unique SKU by using shop_id & uuid4 once,
+            # then check the db. If exists, keep trying.
             sku_id = sku_generator(instance.shop.id)
+            while RetailerProduct.objects.filter(sku=sku_id).exists():
+                sku_id = sku_generator(instance.shop.id)
+        else:
+            sku_id = 'D'+ instance.product_ref.sku
         instance.sku = sku_id
+        # In case of discounted products, use existing products SKU with an appended D at the beginning
 
 
 @receiver(post_save, sender=RetailerProduct)

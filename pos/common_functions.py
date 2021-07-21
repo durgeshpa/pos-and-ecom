@@ -37,7 +37,7 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, product_status='active'):
+                                product_ean_code, product_status='active', product_ref=None):
         """
             General Response For API
         """
@@ -45,7 +45,7 @@ class RetailerProductCls(object):
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                               mrp=mrp, sku_type=sku_type, selling_price=selling_price,
                                               description=description, product_ean_code=product_ean_code,
-                                              status=product_status)
+                                              status=product_status, product_ref=product_ref)
 
     @classmethod
     def create_images(cls, product, images):
@@ -56,6 +56,16 @@ class RetailerProductCls(object):
                     count += 1
                     image.name = str(product.sku) + '_' + str(count) + '_' + image.name
                 RetailerProductImage.objects.create(product=product, image=image)
+
+    @classmethod
+    def copy_images(cls, product, images):
+        """
+        Params :
+            product : retailer product instance for which images are to be created
+            images : RetailerProductImage queryset
+        """
+        for image in images:
+            RetailerProductImage.objects.create(product=product, image=image.image)
 
     @classmethod
     def update_images(cls, product, images):

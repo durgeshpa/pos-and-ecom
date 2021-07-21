@@ -17,6 +17,19 @@ from products.models import Product, ParentProductCategory
 from shops.models import Shop
 
 
+class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Retailer Product Filter for Discounted Products
+    """
+    def get_queryset(self, *args, **kwargs):
+        qs = RetailerProduct.objects.none()
+        shop = self.forwarded.get('shop', None)
+        if shop:
+            qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop)
+        if self.q:
+            qs = qs.filter(name__icontains=self.q)
+        return qs
+
 class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
     """
     Shop Filter for Retailer and Franchise Shops
@@ -285,3 +298,22 @@ class RetailerProductMultiImageUpload(View):
         else:
             data = {'is_valid': False}
         return JsonResponse(data)
+
+
+def get_retailer_product(request):
+    product_id = request.GET.get('product')
+    data = {
+        'found': False
+    }
+    if not product_id:
+        return JsonResponse(data)
+    product = RetailerProduct.objects.filter(pk=product_id).last()
+    if product:
+        data = {
+            'found': True,
+            'product_ean_code':product.product_ean_code,
+            'mrp': product.mrp,
+            'selling_price' : product.selling_price
+        }
+
+    return JsonResponse(data)

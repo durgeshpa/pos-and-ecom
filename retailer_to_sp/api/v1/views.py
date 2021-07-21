@@ -1268,7 +1268,7 @@ class CartCentral(GenericAPIView):
                 if not linked_product:
                     return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
-            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
+            product =   RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
             PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                             self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         else:
