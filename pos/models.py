@@ -1,5 +1,6 @@
 from django.utils.safestring import mark_safe
 from django.db import models
+from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 
 from addresses.models import City, State, Pincode
@@ -98,7 +99,7 @@ class ShopCustomerMap(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Shop Customer Mapping'
+        verbose_name = 'Store - Customer Mapping'
 
 
 class PaymentType(models.Model):
@@ -128,6 +129,9 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = 'Buyer - Payment'
+
 
 class Vendor(models.Model):
     company_name = models.CharField(max_length=255)
@@ -153,23 +157,20 @@ class Vendor(models.Model):
         self.state = pin_code_obj.city.state
         super().save(*args, **kwargs)
 
+    class Meta:
+        verbose_name = 'Store - Vendor'
+
 
 class PosCart(models.Model):
     OPEN = "open"
     PARTIAL_DELIVERED = "partially_delivered"
-    PARTIAL_DELIVERED_CLOSE = "partially_delivered_closed"
-    DELIVERED = "delivered"
-    CANCELED = "cancelled"
-    PARTIAL_RETURN = 'partially_returned'
-    CLOSE = "closed"
+    DELIVERED = "fully_delivered"
+    CANCELLED = "cancelled"
     ORDER_STATUS = (
         (OPEN, "Open"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
-        (PARTIAL_DELIVERED_CLOSE, "Partially Delivered and Closed"),
-        (PARTIAL_RETURN, "Partially Returned"),
-        (DELIVERED, "Completely delivered and Closed"),
-        (CANCELED, "Canceled"),
-        (CLOSE, "Closed")
+        (DELIVERED, "Completely Delivered"),
+        (CANCELLED, "Cancelled")
     )
 
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
@@ -184,7 +185,7 @@ class PosCart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Purchase Order"
+        verbose_name = "Store - PO"
 
     def vendor_name(self):
         return self.vendor.vendor_name
@@ -225,31 +226,40 @@ class PosOrder(models.Model):
         return str(self.order_no)
 
 
-# class PosGRNOrder(models.Model):
-#     order = models.ForeignKey(PosOrder, verbose_name='PO Number', on_delete=models.CASCADE)
-#     invoice_no = models.CharField(max_length=255)
-#     invoice_date = models.DateField(null=True)
-#     invoice_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-#     tcs_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-#     grn_id = models.CharField(max_length=255, null=True, blank=True)
-#     last_modified_by = models.ForeignKey(User, related_name='grn_order_last_modified', null=True,
-#                                          blank=True, on_delete=models.CASCADE)
-#     grn_date = models.DateField(auto_now_add=True)
-#     products = models.ManyToManyField(RetailerProduct, through='PosGRNOrderProductMapping')
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-#
-#
-# class PosGRNOrderProductMapping(models.Model):
-#     grn_order = models.ForeignKey(PosGRNOrder, on_delete=models.CASCADE)
-#     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
-#     received_qty = models.PositiveIntegerField(default=0)
-#     last_modified_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-#
-#
-# class Document(models.Model):
-#     grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
-#     document_number = models.CharField(max_length=255, null=True, blank=True)
-#     document_image = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')
+class PosGRNOrder(models.Model):
+    grn_id = models.CharField(max_length=255, null=True, blank=True)
+    order = models.ForeignKey(PosOrder, verbose_name='PO Number', on_delete=models.CASCADE)
+    added_by = models.ForeignKey(User, related_name='grn_order_added', null=True, blank=True, on_delete=models.CASCADE)
+    last_modified_by = models.ForeignKey(User, related_name='grn_order_last_modified', null=True, blank=True,
+                                         on_delete=models.CASCADE)
+    products = models.ManyToManyField(RetailerProduct, through='pos.PosGRNOrderProductMapping')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def po_no(self):
+        return self.order.ordered_cart.po_no
+
+    @property
+    def vendor_name(self):
+        return self.order.ordered_cart.vendor_name
+
+    @property
+    def po_status(self):
+        return self.order.ordered_cart.status
+
+    class Meta:
+        verbose_name = "Store - GRN"
+
+
+class PosGRNOrderProductMapping(models.Model):
+    grn_order = models.ForeignKey(PosGRNOrder, related_name='po_grn_products', on_delete=models.CASCADE)
+    product = models.ForeignKey(RetailerProduct, related_name='pos_product_grn_order_product', on_delete=models.CASCADE)
+    received_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class Document(models.Model):
+    grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
+    document = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')

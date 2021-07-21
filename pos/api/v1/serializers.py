@@ -4,17 +4,18 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from rest_framework import serializers
-from django.db.models import Q, fields
+from django.db.models import Q, Sum, F
 from django.db import transaction
+from rest_framework import serializers
 
 from addresses.models import Pincode
-from pos.models import Payment, PaymentType, RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping
+from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
+    PosGRNOrderProductMapping, Payment, PaymentType
 from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls
+from pos.common_functions import RewardCls, PosInventoryCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
@@ -357,11 +358,12 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     payment_type = PaymentTypeSerializer()
-    
+
     class Meta:
         model = Payment
         fields = ('payment_type', 'transaction_id',)
-        
+
+
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
@@ -372,11 +374,10 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_amount = serializers.ReadOnlyField()
     created_at = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
-    
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
-    
+
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.filter(payment_type__enabled=True).exists():
             return None
@@ -1454,11 +1455,6 @@ class VendorListSerializer(serializers.ModelSerializer):
 class POProductSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField()
 
-    def validate_product_id(self, value):
-        if not RetailerProduct.objects.filter(id=value, shop=self.context.get('shop')).exists():
-            raise serializers.ValidationError("Product Id Invalid {}".format(value))
-        return value
-
     class Meta:
         model = PosCartProductMapping
         fields = ('product_id', 'price', 'qty')
@@ -1478,6 +1474,16 @@ class POSerializer(serializers.ModelSerializer):
         shop = self.context.get('shop')
         if not Vendor.objects.filter(id=attrs['vendor_id'], retailer_shop=shop).exists():
             raise serializers.ValidationError("Invalid Vendor Id")
+
+        # Validate products
+        for product_dict in attrs['products']:
+            product = RetailerProduct.objects.filter(id=product_dict['product_id'],
+                                                     shop=self.context.get('shop')).last()
+            if not product:
+                raise serializers.ValidationError("Product Id Invalid {}".format(product_dict['product_id']))
+            if float(product_dict['price']) > float(product.mrp):
+                raise serializers.ValidationError(
+                    "Price cannot be greater than product MRP ({}) for product {}".format(product.mrp, product.name))
 
         # Check if update - check cart id and if grn is done on products
         if 'id' in attrs:
@@ -1507,24 +1513,35 @@ class POSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             user, shop, cart_products = self.context.get('user'), self.context.get('shop'), validated_data['products']
             cart = PosCart.objects.get(id=cart_id)
-            cart.vendor_id, cart.last_modified_by = validated_data['vendor_id'], user
-            cart.save()
             updated_pid = []
             for product in cart_products:
-                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart, product=product['product_id'])
+                mapping, created = PosCartProductMapping.objects.get_or_create(cart=cart,
+                                                                               product_id=product['product_id'])
                 mapping.qty, mapping.price = product['qty'], product['price']
                 mapping.save()
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
                 product_id__in=updated_pid).delete()
+            po_status = cart.status
+            if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
+                po_status = PosCart.PARTIAL_DELIVERED
+            cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
+            cart.save()
             if self.context.get('send_mail', False):
                 mail_to_vendor_on_po_creation(cart)
 
 
 class POProductGetSerializer(serializers.ModelSerializer):
+    grned_qty = serializers.SerializerMethodField()
+
+    def get_grned_qty(self, obj):
+        already_grn = obj.product.pos_product_grn_order_product.filter(grn_order__order__ordered_cart=obj.cart). \
+            aggregate(Sum('received_qty')).get('received_qty__sum')
+        return already_grn if already_grn else 0
+
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'price', 'qty')
+        fields = ('product_id', 'product_name', 'price', 'qty', 'grned_qty')
 
 
 class POGetSerializer(serializers.ModelSerializer):
@@ -1557,3 +1574,198 @@ class POProductInfoSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('selling_price', 'stock_qty', 'po_price_history')
 
+
+class POListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosCart
+        fields = ('id', 'po_no', 'vendor_name', 'status')
+
+
+class PosGrnProductSerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField()
+
+    class Meta:
+        model = PosGRNOrderProductMapping
+        fields = ('product_id', 'received_qty')
+
+
+class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
+    po_id = serializers.IntegerField()
+    products = PosGrnProductSerializer(many=True)
+
+    class Meta:
+        model = PosGRNOrder
+        fields = ('po_id', 'products')
+
+    def validate(self, attrs):
+        shop = self.context.get('shop')
+        # Validate po id
+        po = PosCart.objects.filter(id=attrs['po_id'], retailer_shop=shop).prefetch_related('po_products',
+                                                                                            'po_products__product').last()
+        if not po:
+            raise serializers.ValidationError("Invalid PO Id")
+        if po.status == PosCart.CANCELLED:
+            raise serializers.ValidationError("This PO was cancelled")
+        if po.status == PosCart.DELIVERED:
+            raise serializers.ValidationError("PO completely delivered")
+
+        grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order__order=po.pos_po_order).values('product').annotate(received_qty_sum=Sum(F('received_qty')))}
+
+        # Validate products
+        product_added = False
+        for product in attrs['products']:
+            product['product_id'] = int(product['product_id'])
+            po_product = po.po_products.filter(product_id=product['product_id']).last()
+            if not po_product:
+                raise serializers.ValidationError("Product Id Invalid {}".format(product['product_id']))
+            product_added = True if int(product['received_qty']) > 0 else product_added
+            product_obj = po_product.product
+            already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
+            if int(product['received_qty']) + already_grned_qty > po_product.qty:
+                raise serializers.ValidationError(
+                    "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+                        product_obj.name))
+        if not product_added:
+            raise serializers.ValidationError("Please provide grn info for atleast one product")
+        attrs['po'] = po
+        return attrs
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
+            grn_order = PosGRNOrder.objects.create(order=validated_data['po'].pos_po_order, added_by=user,
+                                                   last_modified_by=user)
+            for product in products:
+                if product['received_qty'] > 0:
+                    PosGRNOrderProductMapping.objects.create(grn_order=grn_order, product_id=product['product_id'],
+                                                             received_qty=product['received_qty'])
+                    PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.NEW,
+                                                  PosInventoryState.AVAILABLE, product['received_qty'], user,
+                                                  grn_order.grn_id, PosInventoryChange.GRN_ADD)
+            po = validated_data['po']
+            total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
+                Sum('received_qty')).get('received_qty__sum')
+            total_grn_qty = total_grn_qty if total_grn_qty else 0
+            po_status = PosCart.PARTIAL_DELIVERED if total_grn_qty > 0 else PosCart.OPEN
+            total_po_qty = PosCartProductMapping.objects.filter(cart=po).aggregate(Sum('qty')).get('qty__sum')
+            po.status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
+            po.save()
+            return grn_order
+
+
+class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
+    grn_id = serializers.IntegerField()
+    products = PosGrnProductSerializer(many=True)
+
+    class Meta:
+        model = PosGRNOrder
+        fields = ('grn_id', 'products')
+
+    def validate(self, attrs):
+        shop = self.context.get('shop')
+        # Validate grn id
+        grn_order = PosGRNOrder.objects.filter(id=attrs['grn_id'],
+                                               order__ordered_cart__retailer_shop=shop).select_related(
+            'order__ordered_cart').last()
+        if not grn_order:
+            raise serializers.ValidationError("Invalid Grn Id")
+        if grn_order.order.ordered_cart.status == PosCart.CANCELLED:
+            raise serializers.ValidationError("The PO was cancelled")
+
+        grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order__order=grn_order.order).exclude(grn_order=grn_order).values('product').annotate(
+            received_qty_sum=Sum(F('received_qty')))}
+
+        # Validate products
+        product_added = False
+        for product in attrs['products']:
+            product['product_id'] = int(product['product_id'])
+            po_product = grn_order.order.ordered_cart.po_products.filter(product_id=product['product_id']).last()
+            if not po_product:
+                raise serializers.ValidationError("Product Id Invalid {}".format(product['product_id']))
+            product_added = True if int(product['received_qty']) > 0 else product_added
+            product_obj = po_product.product
+            already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
+            if int(product['received_qty']) + already_grned_qty > po_product.qty:
+                raise serializers.ValidationError(
+                    "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+                        product_obj.name))
+        if not product_added:
+            raise serializers.ValidationError("Please provide grn info for atleast one product")
+        return attrs
+
+    def update(self, grn_id, validated_data):
+        with transaction.atomic():
+            user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
+            grn_order = PosGRNOrder.objects.get(id=grn_id)
+            grn_order.last_modified_by = user
+            grn_order.save()
+            for product in products:
+                mapping, _ = PosGRNOrderProductMapping.objects.get_or_create(grn_order=grn_order,
+                                                                             product_id=product['product_id'])
+                qty_change = product['received_qty'] - mapping.received_qty
+                mapping.received_qty = product['received_qty']
+                mapping.save()
+                if qty_change != 0:
+                    PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.AVAILABLE,
+                                                  PosInventoryState.AVAILABLE, qty_change, user,
+                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE)
+            total_grn_qty = PosGRNOrderProductMapping.objects.filter(
+                grn_order__order=grn_order.order.ordered_cart.pos_po_order).aggregate(
+                Sum('received_qty')).get('received_qty__sum')
+            total_grn_qty = total_grn_qty if total_grn_qty else 0
+            po_status = PosCart.PARTIAL_DELIVERED if total_grn_qty > 0 else PosCart.OPEN
+            total_po_qty = PosCartProductMapping.objects.filter(cart=grn_order.order.ordered_cart).aggregate(
+                Sum('qty')).get(
+                'qty__sum')
+            po_status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
+            PosCart.objects.filter(id=grn_order.order.ordered_cart.id).update(status=po_status)
+            return grn_order
+
+
+class GrnListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosGRNOrder
+        fields = ('id', 'po_no', 'vendor_name', 'po_status')
+
+
+class GrnOrderProductGetSerializer(serializers.ModelSerializer):
+    other_grned_qty = serializers.SerializerMethodField()
+
+    def get_other_grned_qty(self, obj):
+        exclude_grn = self.context.get('exclude_grn')
+        already_grn = obj.product.pos_product_grn_order_product.filter(grn_order__order__ordered_cart=obj.cart).exclude(
+            grn_order=exclude_grn). \
+            aggregate(Sum('received_qty')).get('received_qty__sum')
+        return already_grn if already_grn else 0
+
+    class Meta:
+        model = PosCartProductMapping
+        fields = ('product_id', 'product_name', 'price', 'qty', 'other_grned_qty')
+
+
+class GrnOrderGetSerializer(serializers.ModelSerializer):
+    products = serializers.SerializerMethodField()
+    added_by = PosShopUserSerializer()
+    last_modified_by = PosShopUserSerializer()
+
+    @staticmethod
+    def get_products(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+        po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        for po_pr in po_products_data:
+            po_pr['curr_grn_received_qty'] = 0
+            if po_pr['product_id'] in grn_products:
+                po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']]
+
+        return po_products_data
+
+    class Meta:
+        model = PosGRNOrder
+        fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'added_by', 'last_modified_by',
+                  'created_at', 'modified_at')
