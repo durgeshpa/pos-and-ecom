@@ -333,8 +333,7 @@ def read_file(csv_file, upload_master_data, category):
 
     if upload_master_data == "brand_update":
         required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code",
-                                "brand_parent_id",
-                                "brand_parent", 'status']
+                                "brand_parent_id", "brand_parent", 'status']
     if upload_master_data == "category_update":
         required_header_list = ["category_id", "name", "category_slug", "category_desc", "category_sku_part",
                                 "parent_category_id", "parent_category_name", 'status']
@@ -347,10 +346,9 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'product_special_cess', 'repackaging_type',
-                                'category_name',
-                                'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing',
-                                'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
-                                "packing_material_weight", 'status']
+                                'category_name', 'source_sku_id', 'raw_material', 'wastage', 'fumigation',
+                                'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
+                                "packing_sku_id", "packing_material_weight", 'status']
 
     if upload_master_data == "create_child_product":
         required_header_list = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
@@ -657,6 +655,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     raise ValidationError(f"Row {row_num} | {row['sku_name']} | "
                                           f"'sku_name' getting repeated in csv file")
                 product_name_list.append(row['sku_name'].strip().lower())
+
 
     if upload_master_data == "create_parent_product":
         row_num = 1
@@ -997,8 +996,7 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not categories.filter(id=row['category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_id']} | "
                                           f"'Category_ID' doesn't exist in the system ")
-            if 'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row[
-                'parent_category_id'] != '':
+            if 'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row['parent_category_id'] != '':
                 if not categories.filter(id=row['parent_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['parent_category_id']} | "
                                           f"'parent_category_id' doesn't exist in the system ")
@@ -1032,6 +1030,13 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not child_product.filter(product_sku=row['sku_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist.")
                 product = child_product.filter(product_sku=row['sku_id'])
+                if product[0].repackaging_type !='none':
+                    if 'repackaging_type' in header_list and 'repackaging_type' in row.keys() and row['repackaging_type'] != '':
+                        if not str(row['repackaging_type']) == product[0].repackaging_type:
+                            raise ValidationError(
+                                f"Row {row_num} | {row['repackaging_type']} | 'Can't Change Repackaging Type "
+                                f"{product[0].repackaging_type} to {str(row['repackaging_type'])}")
+
                 sub_cat = Category.objects.filter(category_parent=category)
                 if not child_product.filter(Q(parent_product__parent_product_pro_category__category=category) |
                                             Q(parent_product__parent_product_pro_category__category__in=sub_cat)). \
