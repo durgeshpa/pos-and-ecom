@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal
 import logging
-
+from datetime import datetime
 from django.db.models.aggregates import Sum
 from retailer_to_sp.models import Order, OrderedProductMapping
 
@@ -578,6 +578,28 @@ class ShopUserMappingList(generics.GenericAPIView):
             info_logger.info("Shop Mapping Updated Successfully.")
             return get_response('shop mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Shop Mapping """
+
+        info_logger.info("Shop Mapping DELETE api called.")
+        if not request.data.get('shop_mapping_id'):
+            return get_response('please select mapped shop to delete shop mapping', False)
+        try:
+            for id in request.data.get('child_product_id'):
+                child_product_id = self.queryset.get(id=int(id))
+                try:
+                    child_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'child_product_id': child_product_id}
+                    info_logger.info("child_product deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
+                                        f'because this child product is mapped with product price', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid child_product_id {id}', False)
+        return get_response('child product were deleted successfully!', True)
 
     def search_filter_shop_user_mapping_data(self):
         search_text = self.request.GET.get('search_text')

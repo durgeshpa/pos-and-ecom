@@ -85,7 +85,7 @@ class ParentProductListView(GenericAPIView):
             self.queryset = parent_product_name_search(self.queryset, search_text)
         product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product, many=True)
-        msg = "" if product else "no product found"
+        msg = "" if product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
 
@@ -263,7 +263,7 @@ class ParentProductView(GenericAPIView):
             product_total_count = self.queryset.count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"total count {product_total_count}" if parent_product else "no product product found"
+        msg = f"total count {product_total_count}" if parent_product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
