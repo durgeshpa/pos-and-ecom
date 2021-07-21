@@ -2,7 +2,6 @@ import logging
 import io
 import datetime
 import csv
-
 from django.db.models import Q
 
 from brand.models import Brand
@@ -222,8 +221,7 @@ class UploadMasterData(object):
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
                               'sub_brand_id', 'category_id', 'is_ptr_applicable', 'ptr_type',
-                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-                              'is_lead_time_applicable']
+                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
 
                     available_fields = []
                     for col in fields:
@@ -254,11 +252,10 @@ class UploadMasterData(object):
                         if col == 'tax_3(surcharge)':
                             tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
                             ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id,
-                                                                   tax__tax_type='surcharge').update(
-                                tax=tax[0])
+                                                                   tax__tax_type='surcharge').update(tax=tax[0])
 
                         if col == 'inner_case_size':
-                            parent_pro.filter(parent_id=row['parent_id']).update(inner_case_size=int(row['inner_case_size']))
+                            parent_product.update(inner_case_size=int(row['inner_case_size']))
 
                         if col == 'brand_id':
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
@@ -271,8 +268,7 @@ class UploadMasterData(object):
                             if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 
                         if col == 'ptr_percent':
-                            parent_product.update(ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
-                                    'ptr_percent'])
+                            parent_product.update(ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent'])
 
                         if col == 'is_ars_applicable':
                             parent_product.update(is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
