@@ -29,7 +29,8 @@ from .serializers import (
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
-                            shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search)
+                            shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
+                            shop_type_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
 )
@@ -486,8 +487,7 @@ class ShopManagerListView(generics.GenericAPIView):
 class ShopEmployeeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    # exclude 'Sales Manager'
-    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').exclude(user_type=7).order_by('-id')
+    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
     serializer_class = ShopEmployeeSerializers
 
     def get(self, request):
@@ -742,17 +742,20 @@ class ShopTypeView(generics.GenericAPIView):
 
     def get(self, request):
         """ GET Shop Type List """
+        shop_type_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Shop Type for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            shop_type_id = self.request.GET.get('id')
-            if shop_type_id:
-                self.queryset = fetch_by_id(self.queryset, shop_type_id)
-        shop_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shop_type, many=True)
-        msg = "" if shop_type else "no shop type found"
+            shops_type_data = id_validation['data']
+        else:
+            """ GET ShopUserMapping List """
+            self.queryset = self.search_shop_type()
+            shops_type_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shops_type_data, many=True)
+        msg = f"total count {shop_type_total_count}" if shops_type_data else "no shop type found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -809,30 +812,10 @@ class ShopTypeView(generics.GenericAPIView):
             return get_response(f'please provide a valid shop user mapping id {id}', False)
         return get_response('shop user mapping were deleted successfully!', True)
 
-    def search_filter_shop_user_mapping_data(self):
+    def search_shop_type(self):
         search_text = self.request.GET.get('search_text')
-        shop_id = self.request.GET.get('shop_id')
-        manager_id = self.request.GET.get('manager_id')
-        emp_id = self.request.GET.get('emp_id')
-        status = self.request.GET.get('status')
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
 
-        '''search using shop_name and parent_shop based on criteria that matches'''
+        '''search using shop_type based on criteria that matches'''
         if search_text:
-            self.queryset = shop_user_mapping_search(self.queryset, search_text)
-        '''Filters using shop_id, manager_id, emp_id, city, status, start_date'''
-        if shop_id:
-            self.queryset = self.queryset.filter(shop__id=shop_id)
-        if manager_id:
-            self.queryset = self.queryset.filter(manager__id=manager_id)
-        if emp_id:
-            self.queryset = self.queryset.filter(employee__id=emp_id)
-        if status:
-            self.queryset = self.queryset.filter(status=status)
-        if start_date:
-            self.queryset = self.queryset.filter(created_at__gte=start_date)
-        if end_date:
-            self.queryset = self.queryset.filter(created_at__lte=end_date)
-
+            self.queryset = shop_type_search(self.queryset, search_text)
         return self.queryset

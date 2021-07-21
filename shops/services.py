@@ -73,3 +73,8 @@ def shop_employee_search(queryset, search_text):
 def retailer_type_search(queryset, search_text):
     queryset = queryset.filter(retailer_type_name__icontains=search_text)
     return queryset
+
+
+def shop_type_search(queryset, search_text):
+    queryset = queryset.filter(shop_type__icontains=search_text)
+    return queryset
