@@ -126,6 +126,7 @@ class CategoryView(GenericAPIView):
             """ GET API for Category LIST with SubCategory """
             self.queryset = self.search_filter_category()
             category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            category_total_count = self.queryset.count()
         serializer = self.serializer_class(category, many=True)
         msg = f"total count {category_total_count}" if category else "no category found"
         return get_response(msg, serializer.data, True)

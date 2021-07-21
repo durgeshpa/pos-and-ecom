@@ -143,6 +143,7 @@ class TaxView(GenericAPIView):
         else:
             """ GET Tax List """
             self.queryset = self.search_filter_product_tax()
+            tax_total_count = self.queryset.count()
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
@@ -259,6 +260,7 @@ class ParentProductView(GenericAPIView):
         else:
             """ GET Parent Product List """
             self.queryset = self.search_filter_parent_product()
+            product_total_count = self.queryset.count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
         msg = f"total count {product_total_count}" if parent_product else "no product product found"
@@ -426,6 +428,7 @@ class ChildProductView(GenericAPIView):
         else:
             """ GET Child Product List """
             self.queryset = self.search_filter_product_list()
+            ch_product_total_count = self.queryset.count()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
@@ -772,12 +775,12 @@ class WeightView(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            product_tax = id_validation['data']
+            weight = id_validation['data']
         else:
             """ GET Weight List """
-            product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(product_tax, many=True)
-        msg = f"total count {weight_total_count}" if product_tax else "no weight found"
+            weight = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(weight, many=True)
+        msg = f"total count {weight_total_count}" if weight else "no weight found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
