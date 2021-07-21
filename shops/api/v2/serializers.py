@@ -84,7 +84,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
-            ShopCls.create_shop_user_map_log(shop_instance, "updated")
+            ShopCls.create_shop_type_log(shop_instance, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -582,7 +582,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'shop_user_map_log',)
+        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log', )
 
     def validate(self, data):
 
@@ -646,3 +646,8 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return shop_instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        return representation

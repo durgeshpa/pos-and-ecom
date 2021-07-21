@@ -564,8 +564,12 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         return qs
 
 
+class ShopTypeAdmin(admin.ModelAdmin):
+    fields = ('shop_type', 'shop_sub_type', 'shop_min_amount', 'status')
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
-admin.site.register(ShopType)
+admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
 admin.site.register(Shop, ShopAdmin)
 admin.site.register(FavouriteProduct, FavouriteProductAdmin)
