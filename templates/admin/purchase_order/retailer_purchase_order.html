@@ -21,6 +21,7 @@ table tr td,th,h4,span,address{
 		}
 
 
+
     </style>
 </head>
 
@@ -46,13 +47,14 @@ table tr td,th,h4,span,address{
                     <span>Invoice To :</span><br>
                     <strong>{{po_instance.retailer_shop.shop_name}}</strong><br>
                     {{billing.nick_name}}, {{billing.address_line1}}, {{billing.city}}<br>
-                    <strong>State Name:</strong> <span>{{billing.state}} </span><strong>Code:</strong> <span>{{billing.pincode}}</span><br>
+                    <strong>State Name:</strong> <span>{{billing.state}} </span><strong>Code:</strong> <span>{{billing.pincode_link.pincode}}</span><br>
+                    <strong>Contact:</strong> <span>{{po_instance.retailer_shop.shop_owner.phone_number}}</span><br>
                 </address>
                 <address>
                     <span>Dispatch To :</span><br>
                     <strong>{{shipping.shop_name.shop_name}}</strong><br>
                     {{shipping.nick_name}}, {{shipping.address_line1}}, {{shipping.city}}<br>
-                    <strong>State Name:</strong> <span>{{shipping.state}} </span><strong>Code:</strong> <span>{{shipping.pincode}}</span><br>
+                    <strong>State Name:</strong> <span>{{shipping.state}} </span><strong>Code:</strong> <span>{{shipping.pincode_link.pincode}}</span><br>
                 </address>
                 <address>
                     <span>Party :</span><br>
@@ -98,8 +100,8 @@ table tr td,th,h4,span,address{
                             <td><strong>Serial No.</strong></td>
                             <td class="text-center"><strong>Description of Goods</strong></td>
                             <td class="text-center"><strong>MRP</strong></td>
-                            <td class="text-center"><strong>Quantity</strong></td>
                             <td class="text-center"><strong>Rate</strong></td>
+                            <td class="text-center"><strong>Quantity</strong></td>
                             <td class="text-right"><strong>Amount</strong></td>
                         </tr>
                         </thead>
@@ -109,8 +111,8 @@ table tr td,th,h4,span,address{
                             <td><strong>{{forloop.counter}}</strong></td>
                             <td class="text-center">{{ m.product.description}}</td>
                             <td class="text-center">{{ m.product.mrp}}</td>
-                            <td class="text-center">{{ m.qty }}</td>
                             <td class="text-center">{{ m.price }}</td>
+                            <td class="text-center">{{ m.qty }}</td>
                             <td class="text-right">{{m.qty|mul:m.price | floatformat:2 | intcomma}}/-</td>
                         </tr>
                         {% endfor %}
@@ -119,14 +121,8 @@ table tr td,th,h4,span,address{
                             <td></td>
                             <td></td>
                             <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
                             <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
-                            <td class="thick-line text-right"><strong>₹{{total_amount | floatformat:2 | intcomma
-                                }}/-</strong></td>
+                            <td class="thick-line text-right"><strong>₹{{total_amount | floatformat:2 | intcomma }}/-</strong></td>
                         </tr>
 
                         <tr>
@@ -137,8 +133,7 @@ table tr td,th,h4,span,address{
                             <td class="no-line">E . &amp; O . E</td>
                         </tr>
                         <tr>
-                            <td colspan="11"><strong>{{total_amount | floatformat:2 }}</strong></td>
-
+                            <td colspan="12"><strong>INR {{amt_in_words}} only</strong></td>
                         </tr>
                         </tbody>
                     </table>
@@ -154,26 +149,6 @@ table tr td,th,h4,span,address{
                                     We declare that this invoice shows the actual price of the goods described and that
                                     all particulars are true and correct.
                                 </td>
-                                {% if is_gf_shop %}
-                                <td class="text-center" colspan="4" height="100">
-                                    <strong>For GFDN Services Pvt Ltd</strong> <br>
-                                    <img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80"
-                                         style="text-align: center">
-                                    <br>
-                                    Authorised Signatory
-                                    <br>Navneet Singh
-                                </td>
-                                {% else %}
-                                <td class="text-center" colspan="4" height="100">
-                                    <strong>For ADDISTRO TECHNOLOGIES PVT LTD</strong></br>
-                                    <img src="{{scheme}}://{{url}}/static/admin/img/addistro_stamp.png" width="90"
-                                         height="80" style="text-align: center">
-                                    <br>
-                                    Authorised Signatory
-                                    <br>Navneet Singh
-                                </td>
-                                {% endif %}
-
                             </tr>
 
                             </thead>
@@ -184,29 +159,6 @@ table tr td,th,h4,span,address{
             </div>
         </div>
     </div>
-</div>
-
-<div class="row">
-    <div class="col-xs-12">
-        <div class="table">
-            <table class="table table-condensed">
-                <tr>
-                    <td class="text-center" colspan="2"><strong>Terms &amp; Conditions</strong></td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="table">
-            <table class="table table-bordered">
-                <tr>
-                    <td><strong>Concerns</strong></td>
-                    <td><strong>Contact Details</strong></td>
-                </tr>
-            </table>
-        </div>
-
-    </div>
-
 </div>
 </body>
 </html>

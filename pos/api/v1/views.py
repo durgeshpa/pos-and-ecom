@@ -23,7 +23,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop)
 
@@ -35,7 +35,9 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
                           SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
                           CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
-                          POSerializer, POGetSerializer, POProductInfoSerializer)
+                          POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
+                          PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
+                          GrnOrderGetSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -627,7 +629,8 @@ class SalesReport(GenericAPIView):
         qsr = qsr.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         # Returns
-        qsr = qsr.values('created_at__date').annotate(returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
+        qsr = qsr.values('created_at__date').annotate(
+            returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
         returns_data = qsr.values('returns', 'created_at__date')
 
         # Merge sales and returns
@@ -791,7 +794,8 @@ class CustomerReport(GenericAPIView):
         qs = qs.values('id', 'created_at__date', 'points_added', order_id=F('order_no'),
                        points_redeemed=F('ordered_cart__redeem_points'),
                        sale=F('order_amount')).annotate(
-            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed') and Q(rt_return_order__refund_amount__gt=0)), 0))
+            returns=Coalesce(Sum('rt_return_order__refund_amount', filter=Q(rt_return_order__status='completed') and Q(
+                rt_return_order__refund_amount__gt=0)), 0))
         qs = qs.annotate(effective_sale=F('sale') - F('returns'))
 
         # Search
@@ -834,7 +838,8 @@ class CustomerReport(GenericAPIView):
         qs = qs.annotate(returns=Coalesce(Subquery(
             OrderReturn.objects.filter(order__buyer=OuterRef('user'), order__seller_shop=shop).values(
                 'order__buyer').annotate(
-                returns=Sum('refund_amount', filter=Q(refund_amount__gt=0) and Q(status='completed'))).order_by('order__buyer').values('returns')), 0))
+                returns=Sum('refund_amount', filter=Q(refund_amount__gt=0) and Q(status='completed'))).order_by(
+                'order__buyer').values('returns')), 0))
         qs = qs.annotate(effective_sale=ExpressionWrapper(F('sale') - F('returns'), output_field=FloatField()))
         qs = qs.filter(order_count__gt=0)
         qs = qs.values('order_count', 'sale', 'returns', 'effective_sale', 'created_at', 'loyalty_points',
@@ -926,13 +931,13 @@ class VendorListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = Vendor.objects.filter(shop=self.shop, status=True)
+        queryset = Vendor.objects.filter(retailer_shop=self.shop, status=True)
         return queryset
 
     @check_pos_shop
     def list(self, request, *args, **kwargs):
         self.shop = kwargs['shop']
-        queryset = self.get_queryset()
+        queryset = self.pagination_class().paginate_queryset(self.get_queryset(), self.request)
         serializer = self.get_serializer(queryset, many=True)
         return api_response('', serializer.data, status.HTTP_200_OK, True)
 
@@ -986,3 +991,77 @@ class POProductInfoView(GenericAPIView):
             return api_response('', self.serializer_class(product).data, status.HTTP_200_OK, True)
         else:
             return api_response("Product not found")
+
+
+class POListView(ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+    serializer_class = POListSerializer
+    shop = None
+
+    def get_queryset(self):
+        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at')
+        return queryset
+
+    @check_pos_shop
+    def list(self, request, *args, **kwargs):
+        self.shop = kwargs['shop']
+        queryset = self.pagination_class().paginate_queryset(self.get_queryset(), self.request)
+        serializer = self.get_serializer(queryset, many=True)
+        return api_response('', serializer.data, status.HTTP_200_OK, True)
+
+
+class GrnOrderView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'],
+                                               id=kwargs['pk']).prefetch_related('po_grn_products').last()
+        if grn_order:
+            return api_response('', GrnOrderGetSerializer(grn_order).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("GRN Order not found")
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        serializer = PosGrnOrderCreateSerializer(data=request.data,
+                                                 context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        data = request.data
+        data['grn_id'] = kwargs['pk']
+        serializer = PosGrnOrderUpdateSerializer(data=request.data,
+                                                 context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+
+class GrnOrderListView(ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+    serializer_class = GrnListSerializer
+    shop = None
+
+    def get_queryset(self):
+        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-created_at')
+        return queryset
+
+    @check_pos_shop
+    def list(self, request, *args, **kwargs):
+        self.shop = kwargs['shop']
+        queryset = self.pagination_class().paginate_queryset(self.get_queryset(), self.request)
+        serializer = self.get_serializer(queryset, many=True)
+        return api_response('', serializer.data, status.HTTP_200_OK, True)

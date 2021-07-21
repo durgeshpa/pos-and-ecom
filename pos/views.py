@@ -8,13 +8,19 @@ from django.db.models import Q
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.shortcuts import get_object_or_404
+from wkhtmltopdf.views import PDFTemplateResponse
+
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from django.views import View
 from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, PosCart
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
+from .tasks import generate_pdf_data
 
 
 class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
@@ -285,3 +291,22 @@ class RetailerProductMultiImageUpload(View):
         else:
             data = {'is_valid': False}
         return JsonResponse(data)
+
+
+class DownloadPurchaseOrder(APIView):
+    permission_classes = (AllowAny,)
+    filename = 'purchase_order.pdf'
+    template_name = 'admin/purchase_order/retailer_purchase_order.html'
+
+    def get(self, request, *args, **kwargs):
+        po_obj = get_object_or_404(PosCart, pk=self.kwargs.get('pk'))
+        data = generate_pdf_data(po_obj)
+        cmd_option = {
+            'encoding': 'utf8',
+            'margin-top': 3
+        }
+        return PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
