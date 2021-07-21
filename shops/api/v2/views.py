@@ -486,8 +486,9 @@ class ShopListView(generics.GenericAPIView):
 class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
-        distinct('employee')
+    queryset = ShopUserMapping.objects.filter(employee__user_type=7).distinct('employee')
+    # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
+    #     distinct('employee')
     serializer_class = ShopManagerSerializers
 
     def get(self, request):
@@ -505,7 +506,7 @@ class ShopManagerListView(generics.GenericAPIView):
 class ShopEmployeeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').exclude(user_type=7).order_by('-id')
     serializer_class = ShopEmployeeSerializers
 
     def get(self, request):
@@ -570,8 +571,8 @@ class ShopUserMappingList(generics.GenericAPIView):
         if 'error' in id_instance:
             return get_response(id_instance['error'])
 
-        tax_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        sho_user_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=sho_user_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Mapping Updated Successfully.")

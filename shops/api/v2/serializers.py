@@ -606,3 +606,15 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return shop_user_map
+
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Shop User Mapping attribute. """
+
+        try:
+            # call super to save modified instance along with the validated data
+            shop_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_instance
