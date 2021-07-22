@@ -36,7 +36,6 @@ class State(models.Model):
     def __str__(self):
         return self.state_name
 
-
 class City(models.Model):
     country = models.ForeignKey(Country, related_name='country_city', null=True, blank=True, on_delete=models.CASCADE)
     state = models.ForeignKey(State, related_name='state_city', null=True, blank=True, on_delete=models.CASCADE)

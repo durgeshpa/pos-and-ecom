@@ -187,7 +187,7 @@ def get_validate_shop_address(addresses):
         if 'city' not in address_data:
             raise ValidationError("city can't be empty")
         if 'pincode_link' not in address_data:
-            raise ValidationError("pincode can't be empty")
+            raise ValidationError("pincode_link can't be empty")
 
         add_type = get_validate_address_type(address_data['address_type'])
         if 'error' in add_type:
@@ -205,7 +205,13 @@ def get_validate_shop_address(addresses):
         if 'error' in pincode:
             return pincode
         address_data['pincode_link'] = pincode['data']
+        address_data['pincode'] = pincode['data'].pincode
         addresses_obj.append(address_data)
+
+    a_key = "address_type"
+    values_of_key = [a_dict[a_key] for a_dict in addresses_obj]
+    if 'shipping' not in values_of_key:
+        raise ValidationError("Please add at least one shipping address")
     return {'addresses': addresses_obj}
 
 

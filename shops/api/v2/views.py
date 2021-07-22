@@ -822,9 +822,9 @@ class AddressTypeChoiceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request):
-        """ GET address_type_choices List for Shop Creation"""
+        """ GET AddressTypeChoice List for Shop Creation"""
 
-        info_logger.info("ShopTypeChoiceView GET api called.")
+        info_logger.info("AddressTypeChoiceView GET api called.")
         """ GET address_type_choices List """
         fields = ['address_type', 'address_type_name', ]
         data = [dict(zip(fields, d)) for d in address_type_choices]
