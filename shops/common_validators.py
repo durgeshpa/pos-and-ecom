@@ -370,3 +370,10 @@ def validate_shop_sub_type(shop_id_id):
         logger.error(e)
         return {'error': '{} shop type not found'.format(shop_id_id)}
     return {'data': shop_type_obj}
+
+
+def validate_shop_and_sub_shop_type(shop_type_name, shop_sub_type_name, shop_type_id):
+    """ validate shop type with sub shop type mapping ShopType Model  """
+    if ShopType.objects.filter(shop_type__iexact=shop_type_name, shop_sub_type__retailer_type_name=shop_sub_type_name, status=True)\
+            .exclude(id=shop_type_id).exists():
+        return {'error': 'shop type with this sub shop type mapping already exists'}
