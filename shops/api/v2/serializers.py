@@ -1,19 +1,19 @@
-import re
-
 from django.db import transaction
 from django.contrib.auth import get_user_model
+from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from rest_framework import serializers
 
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
-                          ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES
-                          )
+                          ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES)
 from addresses.models import Address, City, Pincode, State
-from products.api.v1.serializers import LogSerializers
+
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
-    get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents,\
+    get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
     get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type
@@ -21,6 +21,7 @@ from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
+
 User = get_user_model()
 
 
@@ -30,6 +31,7 @@ class ChoiceField(serializers.ChoiceField):
         if obj == '' and self.allow_blank:
             return obj
         return {'id': obj, 'desc': self._choices[obj]}
+
 
 '''
 For Shop Type List
@@ -126,21 +128,18 @@ For Shops Listing
 
 
 class ShopPhotoSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = ShopPhoto
         fields = ('id', 'shop_photo',)
 
 
 class ShopInvoicePatternSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ShopInvoicePattern
-        fields = ('id', 'pattern', 'status', 'start_date', 'end_date', )
+        fields = ('id', 'pattern', 'status', 'start_date', 'end_date',)
 
 
 class ShopDocSerializer(serializers.ModelSerializer):
-
     shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES, required=True)
 
     # def to_representation(self, instance):
@@ -151,7 +150,7 @@ class ShopDocSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopDocument
         fields = ('id', 'shop_document_type',
-                  'shop_document_number', 'shop_document_photo', )
+                  'shop_document_number', 'shop_document_photo',)
 
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
@@ -188,7 +187,6 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class PinCodeAddressSerializer(serializers.ModelSerializer):
-
     pincode_id = serializers.SerializerMethodField('get_pin_id_name')
     pincode = serializers.SerializerMethodField('get_pincode_name')
 
@@ -204,7 +202,6 @@ class PinCodeAddressSerializer(serializers.ModelSerializer):
 
 
 class CityAddressSerializer(serializers.ModelSerializer):
-
     city_id = serializers.SerializerMethodField('get_city_id_from_city')
     city_name = serializers.SerializerMethodField('get_city_name_from_city')
 
@@ -220,7 +217,6 @@ class CityAddressSerializer(serializers.ModelSerializer):
 
 
 class StateAddressSerializer(serializers.ModelSerializer):
-
     state_id = serializers.SerializerMethodField('get_state_id_from_state')
     state_name = serializers.SerializerMethodField('get_state_name_from_state')
 
@@ -254,7 +250,6 @@ class CitySerializer(serializers.ModelSerializer):
 
 
 class AddressSerializer(serializers.ModelSerializer):
-
     pincode = serializers.CharField(max_length=6, min_length=6,
                                     validators=[PinCodeValidator])
 
@@ -279,6 +274,7 @@ class AddressSerializer(serializers.ModelSerializer):
             instance.pincode_link).data
         return response
 
+
 # class ShopDocumentSerializer(serializers.ModelSerializer):
 #     shop_document_photo = Base64ImageField(
 #         max_length=None, use_url=True,required=False
@@ -296,7 +292,6 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
 
 class ShopCrudSerializers(serializers.ModelSerializer):
-
     related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
     parent_shop = serializers.SerializerMethodField('get_parent_shop_obj')
@@ -326,7 +321,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             return ShopBasicSerializer(obj.retiler_mapping.filter(status=True).last().parent).data
         else:
             return None
-    
+
     def get_shop_owner_obj(self, obj):
         return UserSerializers(obj.shop_owner, read_only=True).data
 
@@ -526,12 +521,12 @@ class ServicePartnerShopsSerializer(serializers.ModelSerializer):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
             return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
+                                                  obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
 
         elif obj.shop_owner.first_name:
             return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                str(obj.shop_type), str(obj.id))
+                                               str(obj.shop_type), str(obj.id))
 
         return "%s - %s - %s - %s" % (obj.shop_name, str(
             obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
@@ -543,18 +538,16 @@ class ParentShopsListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('parent_id', 'parent', )
+        fields = ('parent_id', 'parent',)
 
     def get_parent_shop_id(self, obj):
         return obj.parent.id
 
     def get_parent_shop(self, obj):
-
         return obj.parent.__str__()
 
 
 class ManagerSerializers(serializers.ModelSerializer):
-
     manager_name = serializers.SerializerMethodField('get_manager_repr')
 
     class Meta:
@@ -576,7 +569,6 @@ class ShopManagerSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
 
     class Meta:
-
         model = ShopUserMapping
         fields = ('id', 'employee')
 
@@ -590,7 +582,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log', )
+        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
@@ -657,3 +649,44 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
+
+class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
+    approval_status = serializers.BooleanField(required=True)
+    shop_id_list = serializers.ListField(child=serializers.IntegerField(min_value=1))
+
+    class Meta:
+        model = Shop
+        fields = ('approval_status', 'shop_id_list', )
+
+    def validate(self, data):
+
+        if data.get('approval_status') is None:
+            raise serializers.ValidationError('approval_status field is required')
+
+        if not int(data.get('approval_status')) == 0:
+            raise serializers.ValidationError('invalid approval_status')
+
+        if not 'shop_id_list' in data or not data['shop_id_list']:
+            raise serializers.ValidationError(_('atleast one shop id must be selected '))
+
+        for p_id in data.get('shop_id_list'):
+            try:
+                Shop.objects.get(id=p_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'shop not found for id {p_id}')
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+
+        try:
+            parent_products = Shop.objects.filter(id__in=validated_data['shop_id_list'])
+            parent_products.update(approval_status=int(validated_data['approval_status']),
+                                   updated_by=validated_data['updated_by'], updated_at=timezone.now())
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data

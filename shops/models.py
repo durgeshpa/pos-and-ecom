@@ -85,10 +85,13 @@ class Shop(models.Model):
     imei_no = models.CharField(max_length=20, null=True, blank=True)
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
-
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='shop_uploaded_by',
+        on_delete=models.DO_NOTHING
+    )
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
 

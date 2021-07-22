@@ -2,9 +2,11 @@ from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 
-from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView, ShopDocumentTypeListView,
-                                ShopInvoiceStatusListView, ShopOwnerNameListView, ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
-                                ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView)
+from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView,
+                                ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
+                                ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
+                                ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
+                                DisapproveShopSelectedShopView)
 
 router = routers.DefaultRouter()
 
@@ -33,6 +35,7 @@ urlpatterns = [
     url('shop-employees/', ShopEmployeeListView.as_view(), name='shop-employees'),
     url('retailer-type-list/', RetailerTypeList.as_view(), name='retailer-type-list'),
     url('shop-type-choice/', ShopTypeChoiceView.as_view(), name='shop-type-choice'),
+    url('shop-disapproved', DisapproveShopSelectedShopView.as_view(), name='shop-disapproved'),
 
 ]
 

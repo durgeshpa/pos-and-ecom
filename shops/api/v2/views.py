@@ -14,7 +14,7 @@ from rest_framework import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, UpdateAPIView
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -25,7 +25,7 @@ from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping
 from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers, ShopBasicSerializer,
-    ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer
+    ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
@@ -285,7 +285,7 @@ class ShopView(generics.GenericAPIView):
                 shop_id = self.queryset.get(id=int(s_id))
                 try:
                     shop_id.delete()
-                except:
+                except Exception as err:
                     return get_response(f'can not delete shop | {shop_id.shop_name} | getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
@@ -727,3 +727,20 @@ class ShopTypeView(GenericAPIView):
         if search_text:
             self.queryset = shop_type_search(self.queryset, search_text)
         return self.queryset
+
+
+class DisapproveShopSelectedShopView(UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    shop_list = Shop.objects.values('id',)
+    serializer_class = DisapproveSelectedShopSerializers
+
+    def put(self, request):
+        """ PUT API for Disapproved Selected Shop """
+
+        info_logger.info("Shop Disapproved PUT api called.")
+        serializer = self.serializer_class(instance=self.shop_list.filter(id__in=request.data['shop_id_list']),
+                                           data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('shop disapproved successfully!', True)
+        return get_response(serializer_error(serializer), None)

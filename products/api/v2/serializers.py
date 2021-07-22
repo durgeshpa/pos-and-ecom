@@ -12,6 +12,7 @@ from products.models import Product, ProductCategory, ProductImage, ProductHSN, 
     DestinationRepackagingCostMapping, ProductPackingMapping, ParentProductTaxMapping, BulkProductTaxUpdate
 from categories.models import Category
 from brand.models import Brand
+
 from products.common_validators import read_file
 from categories.common_validators import get_validate_category
 from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
