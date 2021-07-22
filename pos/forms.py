@@ -80,9 +80,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
                     if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
                         raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
-            if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=row.get('product_name'), mrp=row.get('mrp'),
-                                              selling_price=row.get('selling_price')):
-                raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  {row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            # if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=row.get('product_name'), mrp=row.get('mrp'),
+            #                                   selling_price=row.get('selling_price')):
+            #     raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  {row['mrp']} & selling_price {row['selling_price']} | already exist."))
 
     def validate_data_for_update_products(self, uploaded_data_by_user_list):
         """
@@ -107,27 +107,27 @@ class RetailerProductsCSVUploadForm(forms.Form):
             product = RetailerProduct.objects.get(id=row['product_id'])
             selling_price = row['selling_price']
             mrp = row['mrp']
-            if mrp and selling_price:
-                # if both mrp & selling price are there in edit product request
-                # checking if product already exist, through error
-                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
-                                                  selling_price=selling_price).exists():
-                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
-                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
-            elif mrp:
-                # if only mrp is there in edit product request
-                # checking if product already exist, through error
-                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
-                                                  selling_price=product.selling_price).exists():
-                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
-                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
-            elif selling_price:
-                # if only selling_price is there in edit product request
-                # checking if product already exist, through error
-                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=product.mrp,
-                                                  selling_price=selling_price).exists():
-                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
-                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            # if mrp and selling_price:
+            #     # if both mrp & selling price are there in edit product request
+            #     # checking if product already exist, through error
+            #     if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
+            #                                       selling_price=selling_price).exists():
+            #         raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+            #                                 f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            # elif mrp:
+            #     # if only mrp is there in edit product request
+            #     # checking if product already exist, through error
+            #     if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
+            #                                       selling_price=product.selling_price).exists():
+            #         raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+            #                                 f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            # elif selling_price:
+            #     # if only selling_price is there in edit product request
+            #     # checking if product already exist, through error
+            #     if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=product.mrp,
+            #                                       selling_price=selling_price).exists():
+            #         raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+            #                                 f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
 
     def validate_data(self, uploaded_data_by_user_list, catalogue_product_status):
         """
@@ -166,7 +166,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
                 catalogue_product_status = self.data.get('catalogue_product_status')
                 headers = next(reader, None)
-                self.read_file(headers, reader, catalogue_product_status)
+                # self.read_file(headers, reader, catalogue_product_status)
         return self.cleaned_data['file']
 
 
