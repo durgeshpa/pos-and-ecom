@@ -287,25 +287,6 @@ class OrderedProductMappingInline(admin.TabularInline):
     class Media:
         pass
 
-# class ExportCsvMixin:
-#     def download_csv(self, request, queryset):
-
-#         meta = self.model._meta
-#         print(meta.fields)
-#         field_names = [field.name for field in meta.fields]
-
-#         response = HttpResponse(content_type='text/csv')
-#         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-#         writer = csv.writer(response)
-
-#         writer.writerow(field_names)
-#         for obj in queryset:
-#             row = writer.writerow([getattr(obj, field) for field in field_names])
-
-#         return response
-
-#     download_csv.short_description = "Download CSV file for selected stats."
-
 
 class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
@@ -375,7 +356,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         return create_order_data_excel(
             request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
             Order, RetailerOrderReturn,
-            RoundAmount, Shop)
+            RoundAmount, RetailerReturnItems, Shop)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     
