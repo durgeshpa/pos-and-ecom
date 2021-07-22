@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from django.db.models.aggregates import Sum
 from django.db import transaction
-
+from django.core.exceptions import ValidationError
 
 from products.common_function import get_response, serializer_error
 from django.core.exceptions import ObjectDoesNotExist
@@ -536,7 +536,10 @@ class ShopUserMappingView(generics.GenericAPIView):
             shops_data = id_validation['data']
         else:
             """ GET ShopUserMapping List """
-            self.queryset = self.search_filter_shop_user_mapping_data()
+            try:
+                self.queryset = self.search_filter_shop_user_mapping_data()
+            except Exception as e:
+                return get_response(",".join(e), False)
             shop_user_total_count = self.queryset.count()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -619,10 +622,14 @@ class ShopUserMappingView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(employee__id=emp_id)
         if status:
             self.queryset = self.queryset.filter(status=status)
-        if start_date:
-            self.queryset = self.queryset.filter(created_at__gte=start_date)
-        if end_date:
-            self.queryset = self.queryset.filter(created_at__lte=end_date)
+
+        if (end_date and not start_date) or (start_date and not end_date):
+            raise ValidationError("please select both start & end date")
+
+        if start_date and end_date:
+            if end_date < start_date:
+                raise ValidationError("End date should be greater than start date")
+            self.queryset = self.queryset.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
         return self.queryset
 

@@ -769,13 +769,12 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
             'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
             'address_line1', 'address_contact_name', 'address_contact_number',
             'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
-            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name',
-            'shop_name__created_at').filter(shop_name__id__in=validated_data['shop_id_list'])
+            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name').filter(shop_name__id__in=validated_data['shop_id_list'])
 
         meta = Shop._meta
         field_names = ['Shop ID', 'Shop Name', 'Shop Type', 'Shop Owner', 'Shop Activated', 'Address ID', 'Address Name',
                        'Address', 'Contact Person', 'Contact Number', 'Pincode', 'State', 'City', 'Address Type', 'IMEI',
-                       'Parent Shop Name', 'Shop created at']
+                       'Parent Shop Name']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
