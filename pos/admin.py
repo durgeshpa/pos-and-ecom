@@ -55,8 +55,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                       'description', 'sku_type', 'status', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+
+    
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
