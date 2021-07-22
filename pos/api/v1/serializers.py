@@ -79,6 +79,9 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
 
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+            raise serializers.ValidationError("Product already exists in catalog.")
+        
         return attrs
 
 
