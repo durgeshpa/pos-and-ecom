@@ -281,15 +281,15 @@ class ShopView(generics.GenericAPIView):
         if not request.data.get('shop_id'):
             return get_response('please provide shop_id', False)
         try:
-            for id in request.data.get('shop_id'):
-                shop_id = self.queryset.get(id=int(id))
+            for s_id in request.data.get('shop_id'):
+                shop_id = self.queryset.get(id=int(s_id))
                 try:
                     shop_id.delete()
                 except:
                     return get_response(f'can not delete shop | {shop_id.shop_name} | getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid shop_id {id}', False)
+            return get_response(f'please provide a valid shop id {s_id}', False)
         return get_response('shop were deleted successfully!', True)
 
     def search_filter_shops_data(self):
@@ -473,14 +473,14 @@ class ShopManagerListView(generics.GenericAPIView):
     serializer_class = ShopManagerSerializers
 
     def get(self, request):
-        info_logger.info("Shop GET api called.")
-        """ GET Shop List """
+        info_logger.info("Shop Manager GET api called.")
+        """ GET Shop Manager List """
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = shop_manager_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
-        msg = "" if shop else "no shop found"
+        msg = "" if shop else "no shop manager found"
         return get_response(msg, serializer.data, True)
 
 
@@ -491,14 +491,14 @@ class ShopEmployeeListView(generics.GenericAPIView):
     serializer_class = ShopEmployeeSerializers
 
     def get(self, request):
-        info_logger.info("Shop GET api called.")
-        """ GET Shop List """
+        info_logger.info("Shop Employee api called.")
+        """ GET Shop Employee List """
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = shop_employee_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
-        msg = "" if shop else "no shop found"
+        msg = "" if shop else "no employee found"
         return get_response(msg, serializer.data, True)
 
 
