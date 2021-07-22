@@ -599,7 +599,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             data['shop'] = shop_id['data']
 
         if 'employee' in self.initial_data and self.initial_data['employee']:
-            employee_id = validate_employee(self.initial_data['shop'])
+            employee_id = validate_employee(self.initial_data['employee'])
             if 'error' in employee_id:
                 raise serializers.ValidationError((employee_id["error"]))
             data['employee'] = employee_id['data']

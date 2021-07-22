@@ -487,7 +487,7 @@ class ShopManagerListView(generics.GenericAPIView):
 class ShopEmployeeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = User.objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
     serializer_class = ShopEmployeeSerializers
 
     def get(self, request):
