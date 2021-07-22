@@ -18,21 +18,24 @@ from rest_framework.generics import GenericAPIView, UpdateAPIView
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
-
-from addresses.models import Address
+from addresses.models import Address, Pincode, State, City
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
-    AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
-    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers, ShopBasicSerializer,
-    ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers
+    AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
+    ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
+    ShopBasicSerializer,
+    ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers,
+    PinCodeSerializer, CitySerializer, StateSerializer
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search)
+                            shop_type_search, search_state, search_pincode, search_city)
 from shops.common_validators import (
-    validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id, validate_pin_code
+    validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
+    validate_pin_code
 )
 
 User = get_user_model()
@@ -313,20 +316,20 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.\
-                filter(shop_name_address_mapping__address_type='shipping').\
+            self.queryset = self.queryset. \
+                filter(shop_name_address_mapping__address_type='shipping'). \
                 filter(shop_name_address_mapping__pincode=pin_code)
 
         if city:
-            self.queryset = self.queryset.\
-                filter(shop_name_address_mapping__address_type='shipping').\
+            self.queryset = self.queryset. \
+                filter(shop_name_address_mapping__address_type='shipping'). \
                 filter(shop_name_address_mapping__city__city_name=city)
 
         if status:
             self.queryset = self.queryset.filter(status=status)
 
         if approval_status:
-            self.queryset = self.queryset.\
+            self.queryset = self.queryset. \
                 filter(approval_status=approval_status)
 
         return self.queryset
@@ -337,7 +340,8 @@ class ShopSalesReportView(APIView):
 
     def get_sales_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
-        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(
+            order_status__in=['CANCELLED', 'DENIED']) \
             .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
         if start_date:
             orders = orders.using('readonly').filter(
@@ -369,7 +373,7 @@ class ShopSalesReportView(APIView):
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
                         tax_sum = float(tax_sum) + \
-                            float(tax.tax.tax_percentage)
+                                  float(tax.tax.tax_percentage)
                     tax_sum = round(tax_sum, 2)
                     get_tax_val = tax_sum / 100
                 seller_shop = Shop.objects.filter(
@@ -377,7 +381,8 @@ class ShopSalesReportView(APIView):
                 buyer_shop = Shop.objects.filter(id=order.buyer_shop_id).last()
                 try:
                     product_price_to_retailer = cart_product_mapping.get_cart_product_price(seller_shop,
-                                                                                            buyer_shop).get_per_piece_price(cart_product_mapping.qty)
+                                                                                            buyer_shop).get_per_piece_price(
+                        cart_product_mapping.qty)
                 except:
                     product_price_to_retailer = 0
                 ordered_amount = (Decimal(product_price_to_retailer)
@@ -395,8 +400,12 @@ class ShopSalesReportView(APIView):
                     ordered_items['delivered_amount'] += delivered_amount
                     ordered_items['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items = {'product_sku': product_sku, 'product_id': product_id, 'product_name': product_name, 'product_brand': product_brand, 'ordered_qty': ordered_qty, 'delivered_qty': product_shipments,
-                                     'ordered_amount': ordered_amount, 'ordered_tax_amount': ordered_tax_amount, 'delivered_amount': delivered_amount, 'delivered_tax_amount': delivered_tax_amount, 'seller_shop': seller_shop}
+                    ordered_items = {'product_sku': product_sku, 'product_id': product_id, 'product_name': product_name,
+                                     'product_brand': product_brand, 'ordered_qty': ordered_qty,
+                                     'delivered_qty': product_shipments,
+                                     'ordered_amount': ordered_amount, 'ordered_tax_amount': ordered_tax_amount,
+                                     'delivered_amount': delivered_amount, 'delivered_tax_amount': delivered_tax_amount,
+                                     'seller_shop': seller_shop}
                     ordered_list.append(ordered_items)
         data = ordered_list
         return data
@@ -415,10 +424,13 @@ class ShopSalesReportView(APIView):
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
         writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount',
-                        'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
+                         'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
         for dic in data:
-            writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'],
-                            dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'], dic['seller_shop']])
+            writer.writerow(
+                [dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'],
+                 dic['delivered_qty'],
+                 dic['ordered_amount'], dic['ordered_tax_amount'], dic['delivered_amount'], dic['delivered_tax_amount'],
+                 dic['seller_shop']])
 
         return response
 
@@ -619,7 +631,7 @@ class ShopTypeChoiceView(GenericAPIView):
 
         info_logger.info("ShopTypeChoiceView GET api called.")
         """ GET ShopTypeChoiceView List """
-        fields = ['shop_type', 'shop_type_name',]
+        fields = ['shop_type', 'shop_type_name', ]
         data = [dict(zip(fields, d)) for d in SHOP_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
@@ -642,8 +654,8 @@ class RetailerTypeList(GenericAPIView):
 class ShopTypeView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopType.objects.select_related('shop_sub_type', 'updated_by',).\
-        prefetch_related('shop_type_log', 'shop_type_log__updated_by',)\
+    queryset = ShopType.objects.select_related('shop_sub_type', 'updated_by', ). \
+        prefetch_related('shop_type_log', 'shop_type_log__updated_by', ) \
         .only('id', 'shop_sub_type', 'updated_by', 'shop_type', 'shop_min_amount')
     serializer_class = ShopTypeSerializers
 
@@ -731,7 +743,7 @@ class ShopTypeView(GenericAPIView):
 
 class DisapproveShopSelectedShopView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    shop_list = Shop.objects.values('id',)
+    shop_list = Shop.objects.values('id', )
     serializer_class = DisapproveSelectedShopSerializers
 
     def put(self, request):
@@ -744,3 +756,58 @@ class DisapproveShopSelectedShopView(UpdateAPIView):
             serializer.save(updated_by=request.user)
             return get_response('shop disapproved successfully!', True)
         return get_response(serializer_error(serializer), None)
+
+
+class StateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = State.objects.only('id', 'state_name',)
+    serializer_class = StateSerializer
+
+    def get(self, request):
+        """ GET API for Shop """
+        info_logger.info("State GET api called.")
+
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_state(self.queryset, search_text)
+        state_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(state_data, many=True)
+        msg = "" if state_data else "no state found"
+        return get_response(msg, serializer.data, True)
+
+
+class PinCodeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Pincode.objects.select_related('city').only('id', 'city', 'pincode')
+    serializer_class = PinCodeSerializer
+
+    def get(self, request):
+        """ GET API for PinCode """
+        info_logger.info("PinCode GET api called.")
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_pincode(self.queryset, search_text)
+        pin_code_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pin_code_data, many=True)
+        msg = "" if pin_code_data else "no pincode found"
+        return get_response(msg, serializer.data, True)
+
+
+class CityView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = City.objects.select_related('state').only('id', 'city_name', 'state')
+    serializer_class = CitySerializer
+
+    def get(self, request):
+        """ GET API for City """
+        info_logger.info("City GET api called.")
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_city(self.queryset, search_text)
+        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(city_data, many=True)
+        msg = "" if city_data else "no city found"
+        return get_response(msg, serializer.data, True)

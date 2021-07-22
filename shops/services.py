@@ -79,3 +79,18 @@ def shop_type_search(queryset, search_text):
     queryset = queryset.filter(Q(shop_type__icontains=search_text) |
                                Q(shop_min_amount__icontains=search_text))
     return queryset
+
+
+def search_state(queryset, search_text):
+    queryset = queryset.filter(state_name__icontains=search_text)
+    return queryset
+
+
+def search_pincode(queryset, search_text):
+    queryset = queryset.filter(pincode__icontains=search_text)
+    return queryset
+
+
+def search_city(queryset, search_text):
+    queryset = queryset.filter(city_name__icontains=search_text)
+    return queryset

@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-import traceback
+from django.core.exceptions import ValidationError
 
 from django.contrib.auth import get_user_model
 
@@ -166,6 +166,29 @@ def get_validate_shop_address(addresses):
     """
     addresses_obj = []
     for address_data in addresses:
+        # mandatory_fields = ['nick_name', 'address_line1', 'address_contact_name', 'address_contact_number',
+        #                     'address_type', 'state', 'city', 'pincode', ]
+        # for field in mandatory_fields:
+        #     if field not in address_data:
+        #         raise ValidationError(f"{mandatory_fields} are the essential fields and cannot be empty ")
+
+        if 'nick_name' not in address_data:
+            raise ValidationError("nick_name can't be empty")
+        if 'address_contact_name' not in address_data:
+            raise ValidationError("address_contact_name can't be empty")
+        if 'address_contact_number' not in address_data:
+            raise ValidationError("address_contact_number can't be empty")
+        if 'address_type' not in address_data:
+            raise ValidationError("address_type can't be empty")
+        if 'address_line1' not in address_data:
+            raise ValidationError("address_line1 can't be empty")
+        if 'state' not in address_data:
+            raise ValidationError("state can't be empty")
+        if 'city' not in address_data:
+            raise ValidationError("city can't be empty")
+        if 'pincode_link' not in address_data:
+            raise ValidationError("pincode can't be empty")
+
         add_type = get_validate_address_type(address_data['address_type'])
         if 'error' in add_type:
             return add_type

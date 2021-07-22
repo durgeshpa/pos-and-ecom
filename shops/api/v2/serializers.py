@@ -303,8 +303,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     city = serializers.SerializerMethodField('get_city_name')
     shop_photo = serializers.SerializerMethodField('get_shop_photos')
     shop_docs = serializers.SerializerMethodField('get_shop_documents')
-    shop_invoice_pattern = serializers.SerializerMethodField(
-        'get_shop_invoices')
+    shop_invoice_pattern = serializers.SerializerMethodField('get_shop_invoices')
 
     class Meta:
         model = Shop
@@ -379,8 +378,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             data['related_users'] = related_users['related_users']
 
         if 'favourite_products' in self.initial_data and self.initial_data['favourite_products']:
-            favourite_products = get_validate_favourite_products(
-                self.initial_data['favourite_products'])
+            favourite_products = get_validate_favourite_products(self.initial_data['favourite_products'])
             if 'error' in favourite_products:
                 raise serializers.ValidationError(
                     (favourite_products["error"]))
@@ -393,9 +391,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_docs'] = shop_documents['data']
 
+        if not 'address' in self.initial_data or not self.initial_data['address']:
+            raise serializers.ValidationError("atleast one address is required")
+
         if 'address' in self.initial_data and self.initial_data['address']:
-            addresses = get_validate_shop_address(
-                self.initial_data['address'])
+            addresses = get_validate_shop_address(self.initial_data['address'])
             if 'error' in addresses:
                 raise serializers.ValidationError((addresses["error"]))
             data['address'] = addresses['addresses']
@@ -690,3 +690,26 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return validated_data
+
+
+class StateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = State
+        fields = ('id', 'state_name',)
+
+
+class CitySerializer(serializers.ModelSerializer):
+    state = StateSerializer()
+
+    class Meta:
+        model = City
+        fields = ('id', 'city_name', 'state')
+
+
+class PinCodeSerializer(serializers.ModelSerializer):
+    city = CitySerializer()
+
+    class Meta:
+        model = Pincode
+        fields = ('id', 'pincode', 'city')
