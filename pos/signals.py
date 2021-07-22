@@ -45,6 +45,17 @@ def update_elasticsearch_inv(sender, instance=None, created=False, **kwargs):
     update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
 
 
+@receiver(post_save, sender=PosInventory)
+def update_product_status_on_inventory_update(sender, instance=None, created=False, **kwargs):
+    """
+        update product status on inventory update
+    """
+    if instance.product.sku_type == 4 and instance.quantity == 0:
+        instance.product.status = 'deactivated'
+        instance.product.save()
+
+
+
 @receiver(post_save, sender=PosCart)
 def generate_po_no(sender, instance=None, created=False, update_fields=None, **kwargs):
     """

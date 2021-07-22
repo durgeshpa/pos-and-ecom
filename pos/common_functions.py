@@ -94,6 +94,10 @@ class RetailerProductCls(object):
         if sku_type == 3:
             return 'LINKED_EDITED'
 
+    @classmethod
+    def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product')
+
 
 class OffersCls(object):
     @classmethod
@@ -201,6 +205,16 @@ class PosInventoryCls(object):
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
                                                 user)
 
+    @classmethod
+    def get_available_inventory(cls, pid, state):
+        """
+        Returns stock for any product in the given state
+        Params:
+            pid : product id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
+        return inventory_object.quantity if inventory_object else 0
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
