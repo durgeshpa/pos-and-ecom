@@ -6,7 +6,7 @@ from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentS
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
-                                DisapproveShopSelectedShopView, PinCodeView, StateView, CityView)
+                                DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView)
 
 router = routers.DefaultRouter()
 
@@ -39,7 +39,7 @@ urlpatterns = [
     url('shop-city', CityView.as_view(), name='shop-city'),
     url('shop-state', StateView.as_view(), name='shop-state'),
     url('shop-pincode', PinCodeView.as_view(), name='shop-pincode'),
-
+    url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type')
 
 ]
 

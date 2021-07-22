@@ -15,10 +15,9 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.generics import GenericAPIView, UpdateAPIView
-from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
-from addresses.models import Address, Pincode, State, City
+from addresses.models import Address, Pincode, State, City, address_type_choices
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
@@ -817,3 +816,17 @@ class PinCodeView(generics.GenericAPIView):
         serializer = self.serializer_class(pin_code_data, many=True)
         msg = "" if pin_code_data else "no pincode found"
         return get_response(msg, serializer.data, True)
+
+
+class AddressTypeChoiceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET address_type_choices List for Shop Creation"""
+
+        info_logger.info("ShopTypeChoiceView GET api called.")
+        """ GET address_type_choices List """
+        fields = ['address_type', 'address_type_name', ]
+        data = [dict(zip(fields, d)) for d in address_type_choices]
+        msg = ""
+        return get_response(msg, data, True)
