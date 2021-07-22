@@ -777,6 +777,27 @@ class StateView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class CityView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = City.objects.select_related('state').only('id', 'city_name', 'state')
+    serializer_class = CitySerializer
+
+    def get(self, request):
+        """ GET API for City """
+        info_logger.info("City GET api called.")
+        state_id = self.request.GET.get('state_id', None)
+        if state_id:
+            self.queryset = self.queryset.filter(state__id=state_id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_city(self.queryset, search_text)
+        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(city_data, many=True)
+        msg = "" if city_data else "no city found"
+        return get_response(msg, serializer.data, True)
+
+
 class PinCodeView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -787,27 +808,12 @@ class PinCodeView(generics.GenericAPIView):
         """ GET API for PinCode """
         info_logger.info("PinCode GET api called.")
         search_text = self.request.GET.get('search_text')
+        city_id = self.request.GET.get('city_id', None)
+        if city_id:
+            self.queryset = self.queryset.filter(city__id=city_id)
         if search_text:
             self.queryset = search_pincode(self.queryset, search_text)
         pin_code_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(pin_code_data, many=True)
         msg = "" if pin_code_data else "no pincode found"
-        return get_response(msg, serializer.data, True)
-
-
-class CityView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = City.objects.select_related('state').only('id', 'city_name', 'state')
-    serializer_class = CitySerializer
-
-    def get(self, request):
-        """ GET API for City """
-        info_logger.info("City GET api called.")
-        search_text = self.request.GET.get('search_text')
-        if search_text:
-            self.queryset = search_city(self.queryset, search_text)
-        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(city_data, many=True)
-        msg = "" if city_data else "no city found"
         return get_response(msg, serializer.data, True)
