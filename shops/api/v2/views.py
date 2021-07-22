@@ -286,7 +286,7 @@ class ShopView(generics.GenericAPIView):
                 try:
                     shop_id.delete()
                 except:
-                    return get_response(f'can not delete shop {shop_id.name}', False)
+                    return get_response(f'can not delete shop | {shop_id.shop_name} | getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid shop_id {id}', False)
