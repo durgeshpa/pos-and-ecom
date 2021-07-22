@@ -1,5 +1,5 @@
-from django.contrib import admin
-from .models import PosInventoryHistoric
+# from django.contrib import admin
+# from .models import PosInventoryHistoric
 # from .models import RetailerReports, OrderReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReportsData,CategoryProductReports, TripShipmentReport, TriReport
 # # Register your models here.
 #
@@ -52,4 +52,4 @@ from .models import PosInventoryHistoric
 
 
 
-admin.site.register(PosInventoryHistoric)
+# admin.site.register(PosInventoryHistoric)
