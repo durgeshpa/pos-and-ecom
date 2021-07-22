@@ -136,17 +136,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
-        offer_price = attrs['offer_price'] if attrs['offer_price'] else product.offer_price
-        offer_sd = attrs['offer_start_date'] if attrs['offer_start_date'] else product.offer_start_date
-        offer_ed = attrs['offer_end_date'] if attrs['offer_end_date'] else product.offer_end_date
         
-        if ((offer_sd is None and offer_ed is not None) or \
-            (offer_sd is not None and offer_ed is None)) :
-            raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-        elif offer_sd is not None and offer_ed is not None:
-            if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                raise serializers.ValidationError('Inavlid Offer Start and End date.')
-
         image_count = 0
         if 'images' in attrs and attrs['images']:
             image_count = len(attrs['images'])
@@ -157,9 +147,25 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+        
+        if 'offer_price' in attrs and attrs['offer_price'] and 'offer_start_date' in attrs and attrs['offer_start_date']\
+            and 'offer_end_date' in attrs and attrs['offer_end_date']:
+            offer_price = attrs['offer_price']
+            offer_sd = attrs['offer_start_date']
+            offer_ed = attrs['offer_end_date']
 
-        if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
-            raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+            if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
+                raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+
+            if ((offer_sd is None and offer_ed is not None) or \
+                (offer_sd is not None and offer_ed is None)) :
+                raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
+            elif offer_sd is not None and offer_ed is not None:
+                if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
+                    raise serializers.ValidationError('Inavlid Offer Start and End date.')
+        elif ('offer_price' in attrs and attrs['offer_price']) or ('offer_start_date' in attrs and attrs['offer_start_date'])\
+            or ('offer_end_date' in attrs and attrs['offer_end_date']):
+            raise serializers.ValidationError("Keys 'offer_price', 'offer_start_date', 'offer_end_date' are combined mandatory.")
 
         if 'product_ean_code' in attrs and attrs['product_ean_code']:
             if not attrs['product_ean_code'].isdigit():
