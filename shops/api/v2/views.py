@@ -5,10 +5,11 @@ from datetime import datetime
 from django.db.models.aggregates import Sum
 from django.db import transaction
 
-from retailer_to_sp.models import Order, OrderedProductMapping
+
 from products.common_function import get_response, serializer_error
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib.auth import get_user, get_user_model
+from django.contrib.auth import get_user_model
+from django.http import HttpResponse
 
 from rest_framework import authentication
 from rest_framework import generics
@@ -17,6 +18,7 @@ from rest_framework.views import APIView
 from rest_framework.generics import GenericAPIView, UpdateAPIView
 from retailer_backend.utils import SmallOffsetPagination
 
+from retailer_to_sp.models import Order, OrderedProductMapping
 from addresses.models import Address, Pincode, State, City, address_type_choices
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
@@ -26,7 +28,7 @@ from .serializers import (
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer,
     ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers,
-    PinCodeSerializer, CitySerializer, StateSerializer
+    PinCodeSerializer, CitySerializer, StateSerializer, BulkUpdateShopSampleCSVSerializer
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
@@ -459,7 +461,8 @@ class ParentShopsListView(generics.ListAPIView):
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.values('id', 'shop_name').order_by('-id')
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type').only('id', 'shop_name', 'shop_owner', 'shop_type').\
+        order_by('-id')
     serializer_class = ShopBasicSerializer
 
     def get(self, request):
@@ -516,7 +519,9 @@ class ShopEmployeeListView(generics.GenericAPIView):
 class ShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopUserMapping.objects.order_by('-id')
+    queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by').\
+        prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
+        .only('id', 'shop', 'manager', 'employee', 'employee_group', 'updated_by',).order_by('-id')
     serializer_class = ShopUserMappingCrudSerializers
 
     def get(self, request):
@@ -757,7 +762,7 @@ class DisapproveShopSelectedShopView(UpdateAPIView):
         return get_response(serializer_error(serializer), None)
 
 
-class StateView(generics.GenericAPIView):
+class StateView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = State.objects.only('id', 'state_name',)
@@ -776,7 +781,7 @@ class StateView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class CityView(generics.GenericAPIView):
+class CityView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = City.objects.select_related('state').only('id', 'city_name', 'state')
@@ -797,7 +802,7 @@ class CityView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class PinCodeView(generics.GenericAPIView):
+class PinCodeView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = Pincode.objects.select_related('city').only('id', 'city', 'pincode')
@@ -830,3 +835,19 @@ class AddressTypeChoiceView(GenericAPIView):
         data = [dict(zip(fields, d)) for d in address_type_choices]
         msg = ""
         return get_response(msg, data, True)
+
+
+class BulkUpdateShopSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkUpdateShopSampleCSVSerializer
+
+    def post(self, request):
+        """ POST API for Download Selected Shop CSV """
+
+        info_logger.info("BulkUpdateShopSampleCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("BulkUpdateShopSample CSV Exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

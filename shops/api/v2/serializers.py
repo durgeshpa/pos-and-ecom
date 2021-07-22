@@ -1,8 +1,10 @@
+import csv
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
+from django.http import HttpResponse
 
 from rest_framework import serializers
 
@@ -284,8 +286,33 @@ class AddressSerializer(serializers.ModelSerializer):
 #         model = ShopDocument
 #         fields = '__all__'
 
+class UserSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'phone_number',)
+
 
 class ShopBasicSerializer(serializers.ModelSerializer):
+    shop_name = serializers.SerializerMethodField('get_shop_repr')
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
+    def get_shop_repr(self, obj):
+        if obj.shop_owner.first_name and obj.shop_owner.last_name:
+            return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
+                obj.shop_owner.phone_number), obj.shop_owner.first_name,
+                                                  obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
+
+        elif obj.shop_owner.first_name:
+            return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
+                obj.shop_owner.phone_number), obj.shop_owner.first_name,
+                                               str(obj.shop_type), str(obj.id))
+
+        return "%s - %s - %s - %s" % (obj.shop_name, str(
+            obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
+
     class Meta:
         model = Shop
         fields = ('id', 'shop_name',)
@@ -713,3 +740,41 @@ class PinCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
         fields = ('id', 'pincode', 'city')
+
+
+class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
+    shop_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Shop
+        fields = ('shop_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('shop_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one shop id must be selected '))
+
+        for s_id in data.get('shop_id_list'):
+            try:
+                Shop.objects.get(id=s_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'shop not found for id {s_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Shop._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = Shop.objects.filter(id__in=validated_data['shop_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response

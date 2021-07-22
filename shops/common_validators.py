@@ -193,23 +193,26 @@ def get_validate_shop_address(addresses):
         if 'error' in add_type:
             return add_type
         address_data['address_type'] = add_type['data']
+
         state = get_validate_state_id(address_data['state'])
         if 'error' in state:
             return state
         address_data['state'] = state['data']
+
         city = get_validate_city_id(address_data['city'])
         if 'error' in city:
             return city
         address_data['city'] = city['data']
+
         pincode = get_validate_pin_code(address_data['pincode_link'])
         if 'error' in pincode:
             return pincode
         address_data['pincode_link'] = pincode['data']
         address_data['pincode'] = pincode['data'].pincode
+
         addresses_obj.append(address_data)
 
-    a_key = "address_type"
-    values_of_key = [a_dict[a_key] for a_dict in addresses_obj]
+    values_of_key = [a_dict["address_type"] for a_dict in addresses_obj]
     if 'shipping' not in values_of_key:
         raise ValidationError("Please add at least one shipping address")
     return {'addresses': addresses_obj}

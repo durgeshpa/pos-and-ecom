@@ -2,11 +2,13 @@ from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 
-from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView, ServicePartnerShopsListView,
+from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView,
+                                ServicePartnerShopsListView,
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
-                                DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView)
+                                DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
+                                BulkUpdateShopSampleCSV)
 
 router = routers.DefaultRouter()
 
@@ -39,8 +41,8 @@ urlpatterns = [
     url('shop-city', CityView.as_view(), name='shop-city'),
     url('shop-state', StateView.as_view(), name='shop-state'),
     url('shop-pincode', PinCodeView.as_view(), name='shop-pincode'),
-    url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type')
-
+    url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type'),
+    url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv')
 ]
 
 urlpatterns += router.urls
