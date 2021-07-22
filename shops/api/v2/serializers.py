@@ -71,7 +71,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
-        fields = ('id', 'shop_type', 'shop_sub_type', 'shop_min_amount', 'shop_type_log')
+        fields = ('id', 'shop_type', 'shop_sub_type', 'shop_min_amount', 'status', 'shop_type_log')
 
     @transaction.atomic
     def create(self, validated_data):

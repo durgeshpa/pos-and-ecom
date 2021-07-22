@@ -617,103 +617,12 @@ class ShopTypeChoiceView(GenericAPIView):
     def get(self, request):
         """ GET ShopTypeChoice List for ShopType Creation"""
 
-        info_logger.info("ShopTypeChoice GET api called.")
+        info_logger.info("ShopTypeChoiceView GET api called.")
         """ GET ShopTypeChoiceView List """
         fields = ['shop_type', 'shop_type_name',]
         data = [dict(zip(fields, d)) for d in SHOP_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
-
-
-class ShopTypeView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = ShopUserMapping.objects.order_by('-id')
-    serializer_class = ShopUserMappingCrudSerializers
-
-    def get(self, request):
-        """ GET API for ShopUserMapping """
-        info_logger.info("ShopUserMapping GET api called.")
-        shop_user_total_count = self.queryset.count()
-        if request.GET.get('id'):
-            """ Get ShopUserMapping for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            shops_data = id_validation['data']
-        else:
-            """ GET ShopUserMapping List """
-            self.queryset = self.search_filter_shop_user_mapping_data()
-            shop_user_total_count = self.queryset.count()
-            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(shops_data, many=True)
-        msg = f"total count {shop_user_total_count}" if shops_data else "no shop mapping found"
-        return get_response(msg, serializer.data, True)
-
-    def post(self, request):
-        """ POST API for Shop Mapping"""
-
-        info_logger.info("Shop POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            info_logger.info("Shop Mapping Created Successfully.")
-            return get_response('shop mapping created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def put(self, request):
-        """ PUT API for Shop Mapping Updation """
-
-        info_logger.info("Shop Mapping PUT api called.")
-        if 'id' not in request.data:
-            return get_response('please provide id to update shop mapping', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data['id']))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-
-        sho_user_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=sho_user_instance, data=request.data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
-            info_logger.info("Shop Mapping Updated Successfully.")
-            return get_response('shop mapping updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def delete(self, request):
-        """ Delete Shop User Mapping """
-
-        info_logger.info("ShopUser Mapping DELETE api called.")
-        if not request.data.get('shop_user_mapping_id'):
-            return get_response('please select shop user mapping id to delete shop user mapping', False)
-        try:
-            with transaction.atomic():
-                for id in request.data.get('shop_user_mapping_id'):
-                    shap_user_mapped_id = self.queryset.get(id=int(id))
-                    try:
-                        shap_user_mapped_id.delete()
-                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'shap_user_mapped_id': shap_user_mapped_id}
-                        info_logger.info("shap_user_mapped_id deleted info ", dict_data)
-                    except:
-                        return get_response(f'You can not delete user shop mapping {shap_user_mapped_id}, '
-                                            f'because this user shop mapping getting used', False)
-        except ObjectDoesNotExist as e:
-            error_logger.error(e)
-            return get_response(f'please provide a valid shop user mapping id {id}', False)
-        return get_response('shop user mapping were deleted successfully!', True)
-
-    def search_filter_shop_user_mapping_data(self):
-        search_text = self.request.GET.get('search_text')
-
-        '''search using shop_name and parent_shop based on criteria that matches'''
-        if search_text:
-            self.queryset = shop_user_mapping_search(self.queryset, search_text)
-        '''Filters using shop_id, manager_id, emp_id, city, status, start_date'''
-
-        return self.queryset
 
 
 class RetailerTypeList(GenericAPIView):
@@ -748,7 +657,7 @@ class ShopTypeView(GenericAPIView):
                 return get_response(id_validation['error'])
             shops_type_data = id_validation['data']
         else:
-            """ GET ShopUserMapping List """
+            """ GET Shop Type List """
             self.queryset = self.search_shop_type()
             shop_type_total_count = self.queryset.count()
             shops_type_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
@@ -758,22 +667,22 @@ class ShopTypeView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
-        """ POST API for Shop Mapping"""
+        """ POST API for Shop Type"""
 
-        info_logger.info("Shop POST api called.")
+        info_logger.info("Shop Type POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            info_logger.info("Shop Mapping Created Successfully.")
-            return get_response('shop mapping created successfully!', serializer.data)
+            info_logger.info("Shop Type Created Successfully.")
+            return get_response('shop type created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-        """ PUT API for Shop Mapping Updation """
+        """ PUT API for Shop Type Updation """
 
-        info_logger.info("Shop Mapping PUT api called.")
+        info_logger.info("Shop TypePUT api called.")
         if 'id' not in request.data:
-            return get_response('please provide id to update shop mapping', False)
+            return get_response('please provide id to update shop type', False)
 
         # validations for input id
         id_instance = validate_id(self.queryset, int(request.data['id']))
@@ -785,7 +694,7 @@ class ShopTypeView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Mapping Updated Successfully.")
-            return get_response('shop mapping updated!', serializer.data)
+            return get_response('shop type updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
@@ -793,7 +702,7 @@ class ShopTypeView(GenericAPIView):
 
         info_logger.info("ShopUser Mapping DELETE api called.")
         if not request.data.get('shop_user_mapping_id'):
-            return get_response('please select shop user mapping id to delete shop user mapping', False)
+            return get_response('please select shop type id to delete shop type', False)
         try:
             with transaction.atomic():
                 for id in request.data.get('shop_user_mapping_id'):
