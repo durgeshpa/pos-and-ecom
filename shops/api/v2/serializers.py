@@ -8,7 +8,7 @@ from rest_framework import serializers
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
-                          ShopDocument, ShopInvoicePattern, ShopUserMapping
+                          ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES
                           )
 from addresses.models import Address, City, Pincode, State
 from products.api.v1.serializers import LogSerializers
@@ -21,7 +21,6 @@ from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
-
 User = get_user_model()
 
 
@@ -45,6 +44,8 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
 
 class ShopTypeSerializers(serializers.ModelSerializer):
     # shop_type = serializers.SerializerMethodField()
+    shop_type = ChoiceField(choices=SHOP_TYPE_CHOICES, required=True)
+    shop_min_amount = serializers.FloatField(required=True)
     shop_sub_type = RetailerTypeSerializer(read_only=True)
     shop_type_log = LogSerializers(many=True, read_only=True)
 
@@ -58,6 +59,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
             if 'error' in shop_id:
                 raise serializers.ValidationError((shop_id["error"]))
             data['shop_sub_type'] = shop_id['data']
+
         return data
 
     class Meta:
@@ -623,7 +625,6 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """create shop user mapping"""
-        # manager_obj = validated_data.pop('manager', None)
         try:
             shop_user_map = ShopUserMapping.objects.create(**validated_data)
             ShopCls.create_shop_user_map_log(shop_user_map, "created")
@@ -635,7 +636,6 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """ This method is used to update an instance of the Shop User Mapping attribute. """
-
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)

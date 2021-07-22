@@ -14,13 +14,13 @@ from rest_framework import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-
+from rest_framework.generics import GenericAPIView
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 
 
 from addresses.models import Address
-from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType)
+from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
@@ -611,7 +611,21 @@ class ShopUserMappingView(generics.GenericAPIView):
         return self.queryset
 
 
-class ShopTypeView(generics.GenericAPIView):
+class ShopTypeChoiceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET ShopTypeChoice List for ShopType Creation"""
+
+        info_logger.info("ShopTypeChoice GET api called.")
+        """ GET ShopTypeChoiceView List """
+        fields = ['shop_type', 'shop_type_name',]
+        data = [dict(zip(fields, d)) for d in SHOP_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShopTypeView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.order_by('-id')
@@ -702,7 +716,7 @@ class ShopTypeView(generics.GenericAPIView):
         return self.queryset
 
 
-class RetailerTypeList(generics.GenericAPIView):
+class RetailerTypeList(GenericAPIView):
     queryset = RetailerType.objects.values('id', 'retailer_type_name')
     serializer_class = RetailerTypeSerializer
 
@@ -716,7 +730,7 @@ class RetailerTypeList(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class ShopTypeView(generics.GenericAPIView):
+class ShopTypeView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ShopType.objects.select_related('shop_sub_type', 'updated_by',).\
