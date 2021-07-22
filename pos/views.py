@@ -2,6 +2,7 @@ import codecs
 import csv
 import decimal
 import os
+import re
 
 from dal import autocomplete
 from django.db.models import Q
@@ -201,7 +202,7 @@ def retailer_products_list(product):
             category = cat[0]['category__category_name']
     return linked_product_sku, sku_type, category, sub_category, brand, sub_brand
 
-
+from wms.models import PosInventory, PosInventoryState
 def DownloadRetailerCatalogue(request, *args):
     """
     This function will return an File in csv format which can be used for Downloading the Product Catalogue
@@ -214,15 +215,19 @@ def DownloadRetailerCatalogue(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
-         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
+
         for product in retailer_products:
             product_data = retailer_products_list(product)
+            quantity = PosInventory.objects.get(product=product, inventory_state__inventory_state=PosInventoryState.AVAILABLE).quantity
+
+
             writer.writerow([product.id, product.shop, product.sku, product.name,
                             product.mrp, product.selling_price, product_data[0], product.product_ean_code,
                             product.description, product_data[1], product_data[2], product_data[3],
-                            product_data[4], product_data[5], product.status])
+                            product_data[4], product_data[5], product.status, quantity])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
