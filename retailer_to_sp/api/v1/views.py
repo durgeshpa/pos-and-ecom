@@ -2,6 +2,7 @@ import logging
 import re
 from decimal import Decimal
 import json
+from retailer_to_sp.common_validators import validate_payment_type
 import requests
 from datetime import datetime, timedelta
 from operator import itemgetter
@@ -74,6 +75,7 @@ from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
     PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
+from pos.common_validators import validate_user_type_for_pos_shop
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
@@ -976,7 +978,12 @@ class CartCentral(GenericAPIView):
         cart_products = cart.rt_cart_list.all()
         if cart_products:
             for product_mapping in cart_products:
-                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
+                    and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
+                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
+                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
+                else:
+                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
     @check_pos_shop
@@ -1256,6 +1263,11 @@ class CartCentral(GenericAPIView):
             return {'error': "Qty Invalid!"}
 
         if not self.request.data.get('product_id'):
+            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+            if 'error' in pos_shop_user_obj:
+                if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                    return {'error': 'Unauthorised user to add new product.'}
+                return pos_shop_user_obj
             name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'), \
                             self.request.data.get('product_ean_code')
             if not (name and sp and ean):
@@ -1268,7 +1280,7 @@ class CartCentral(GenericAPIView):
                 if not linked_product:
                     return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
-            product =   RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
+            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
             PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                             self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         else:
@@ -1291,6 +1303,11 @@ class CartCentral(GenericAPIView):
         # Check if selling price is less than equal to mrp if price change
         price_change = self.request.data.get('price_change')
         if price_change in [1, 2]:
+            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+            if 'error' in pos_shop_user_obj:
+                if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                    return {'error': 'Unauthorised user to update product price.'}
+                return pos_shop_user_obj
             selling_price = self.request.data.get('selling_price')
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
@@ -1471,6 +1488,9 @@ class CartCentral(GenericAPIView):
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
                 RetailerProductCls.update_price(product.id, selling_price)
+        if not selling_price and product.offer_price and datetime.now() > product.offer_start_date and \
+            datetime.now() < product.offer_end_date:
+            selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
@@ -2542,6 +2562,8 @@ class OrderCentral(APIView):
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
         cart = initial_validation['cart']
         payment_method = initial_validation['payment_method']
+        payment_type = initial_validation['payment_type']
+        transaction_id = self.request.data.get('transaction_id', None)
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -2549,7 +2571,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method)
+            self.auto_process_order(order, payment_method, payment_type, transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2653,13 +2675,18 @@ class OrderCentral(APIView):
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
             return {'error': 'Please provide a valid payment method'}
+        # Check Payment Type
+        payment_type = validate_payment_type(self.request.data.get('payment_type'))
+        if 'error' in payment_type:
+            return payment_type
+        
         email = self.request.data.get('email')
         if email:
             try:
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_method': payment_method}
+        return {'cart': cart, 'payment_method': payment_method, 'payment_type': payment_type['data']}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -2901,7 +2928,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_method):
+    def auto_process_order(self, order, payment_method, payment_type, transaction_id):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -2945,6 +2972,8 @@ class OrderCentral(APIView):
         PosPayment.objects.create(
             order=order,
             payment_mode=payment_method,
+            payment_type=payment_type,
+            transaction_id=transaction_id,
             paid_by=order.buyer,
             processed_by=self.request.user
         )

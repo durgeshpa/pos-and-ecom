@@ -2,7 +2,7 @@ from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
+from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopTypeView,
         ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
         FavouriteProductListView)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
@@ -47,6 +47,10 @@ urlpatterns = [
     # path('beat-plan-user/', DayBeatPlan.as_view(), name='beat-plan-user', ),
 #------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
+
+
+# --------------------------------------------------POS APIs---------------------------------------------------
+    path('pos-shop-user/', PosShopUserMappingView.as_view(), name='pos-shop-user', ),
 
 ]
 

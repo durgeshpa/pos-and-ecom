@@ -36,14 +36,16 @@ cron_logger = logging.getLogger('cron_log')
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, product_status='active', product_ref=None):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, 
+                                    product_ean_code, product_status='active', offer_price=None, offer_sd=None,
+                                    offer_ed=None, product_ref=None):
         """
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                               mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                              offer_price=offer_price, offer_start_date=offer_sd, offer_end_date=offer_ed,
                                               description=description, product_ean_code=product_ean_code,
                                               status=product_status, product_ref=product_ref)
 
@@ -184,6 +186,20 @@ class PosInventoryCls(object):
         PosInventoryChange.objects.create(product_id=pid, quantity=qty, transaction_type=transaction_type,
                                           transaction_id=transaction_id, initial_state=i_state_obj,
                                           final_state=f_state_obj, changed_by=user)
+
+    @classmethod
+    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+        """
+            Manage GRN related product inventory
+        """
+        i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
+        f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
+        pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
+        inv_qty = pos_inv.quantity
+        pos_inv.quantity = qty + inv_qty
+        pos_inv.save()
+        PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
+                                                user)
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
