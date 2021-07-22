@@ -680,7 +680,7 @@ class ShopTypeView(GenericAPIView):
     def put(self, request):
         """ PUT API for Shop Type Updation """
 
-        info_logger.info("Shop TypePUT api called.")
+        info_logger.info("Shop Type PUT api called.")
         if 'id' not in request.data:
             return get_response('please provide id to update shop type', False)
 
@@ -693,32 +693,32 @@ class ShopTypeView(GenericAPIView):
         serializer = self.serializer_class(instance=sho_user_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("Shop Mapping Updated Successfully.")
+            info_logger.info("Shop Type Updated Successfully.")
             return get_response('shop type updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
-        """ Delete Shop User Mapping """
+        """ Delete Shop Type """
 
-        info_logger.info("ShopUser Mapping DELETE api called.")
-        if not request.data.get('shop_user_mapping_id'):
+        info_logger.info("Shop Type DELETE api called.")
+        if not request.data.get('shop_type_id'):
             return get_response('please select shop type id to delete shop type', False)
         try:
             with transaction.atomic():
-                for id in request.data.get('shop_user_mapping_id'):
-                    shap_user_mapped_id = self.queryset.get(id=int(id))
+                for s_id in request.data.get('shop_type_id'):
+                    shop_type_obj = self.queryset.get(id=int(s_id))
                     try:
-                        shap_user_mapped_id.delete()
+                        shop_type_obj.delete()
                         dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'shap_user_mapped_id': shap_user_mapped_id}
-                        info_logger.info("shap_user_mapped_id deleted info ", dict_data)
+                                     'shop_type_id': shop_type_obj}
+                        info_logger.info("shop_type_id deleted info ", dict_data)
                     except:
-                        return get_response(f'You can not delete user shop mapping {shap_user_mapped_id}, '
-                                            f'because this user shop mapping getting used', False)
+                        return get_response(f'You can not delete shop type {shop_type_obj}, '
+                                            f'because this shop type getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid shop user mapping id {id}', False)
-        return get_response('shop user mapping were deleted successfully!', True)
+            return get_response(f'please provide a valid shop type id {s_id}', False)
+        return get_response('shop type were deleted successfully!', True)
 
     def search_shop_type(self):
         search_text = self.request.GET.get('search_text')
