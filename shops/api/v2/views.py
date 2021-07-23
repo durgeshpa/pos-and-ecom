@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db.models.aggregates import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -344,21 +344,21 @@ class ShopSalesReportView(APIView):
     permission_classes = (AllowAny,)
 
     def get_sales_report(self, shop_id, start_date, end_date):
-        seller_shop = Shop.objects.get(pk=shop_id)
-        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(
-            order_status__in=['CANCELLED', 'DENIED']) \
+        try:
+            seller_shop = Shop.objects.get(pk=int(shop_id))
+        except:
+            return {'error': '{} shop not found'.format(shop_id)}
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).\
+            exclude(order_status__in=['CANCELLED', 'DENIED']) \
             .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
         if start_date:
-            orders = orders.using('readonly').filter(
-                created_at__gte=start_date)
+            orders = orders.using('readonly').filter(created_at__gte=start_date)
         if end_date:
             orders = orders.using('readonly').filter(created_at__lte=end_date)
         ordered_list = []
         ordered_items = {}
         for order in orders:
-            order_shipments = OrderedProductMapping.objects.using('readonly').filter(
-                ordered_product__order=order
-            )
+            order_shipments = OrderedProductMapping.objects.using('readonly').filter(ordered_product__order=order)
             for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
                 product = cart_product_mapping.cart_product
                 product_id = cart_product_mapping.cart_product.id
@@ -370,8 +370,7 @@ class ShopSalesReportView(APIView):
                 # shopName = seller_shop
 
                 product_shipments = order_shipments.filter(product=product)
-                product_shipments = product_shipments.aggregate(
-                    Sum('delivered_qty'))['delivered_qty__sum']
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
                     product_shipments = 0
                 tax_sum, get_tax_val = 0, 0
@@ -386,8 +385,7 @@ class ShopSalesReportView(APIView):
                 buyer_shop = Shop.objects.filter(id=order.buyer_shop_id).last()
                 try:
                     product_price_to_retailer = cart_product_mapping.get_cart_product_price(seller_shop,
-                                                                                            buyer_shop).get_per_piece_price(
-                        cart_product_mapping.qty)
+                                                buyer_shop).get_per_piece_price(cart_product_mapping.qty)
                 except:
                     product_price_to_retailer = 0
                 ordered_amount = (Decimal(product_price_to_retailer)
@@ -421,10 +419,14 @@ class ShopSalesReportView(APIView):
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
         if end_date and end_date < start_date:
-            logger.error(
-                self.request, 'End date cannot be less than the start date')
-            return get_response("End date cannot be less than the start date", {}, True)
+            logger.error(self.request, 'End date cannot be less than the start date')
+            return get_response("End date cannot be less than the start date", {}, False)
+        if (datetime.strptime(end_date, "%Y-%m-%d") - timedelta(30)) > datetime.strptime(start_date, "%Y-%m-%d"):
+            return get_response("max duration is 30 days only in start & end date", {}, False)
         data = self.get_sales_report(shop_id, start_date, end_date)
+        if 'error' in data:
+            return get_response(data['error'], {}, False)
+
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
@@ -433,9 +435,8 @@ class ShopSalesReportView(APIView):
         for dic in data:
             writer.writerow(
                 [dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'],
-                 dic['delivered_qty'],
-                 dic['ordered_amount'], dic['ordered_tax_amount'], dic['delivered_amount'], dic['delivered_tax_amount'],
-                 dic['seller_shop']])
+                 dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'], dic['delivered_amount'],
+                 dic['delivered_tax_amount'], dic['seller_shop']])
 
         return response
 
