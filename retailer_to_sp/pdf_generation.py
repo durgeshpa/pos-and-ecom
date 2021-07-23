@@ -43,6 +43,13 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             return_item_listing.append(return_p)
 
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
+        # redeem value
+        redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
+        print(order_return.refund_points, redeem_value)
+        # Total discount
+        discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
+        # Total payable amount in words
+        
         
         # Total payable amount
         total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
@@ -71,6 +78,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "shipment": ordered_product,
             "order": ordered_product.order,
             "total_amount": total_amount,
+            "discount": discount,
+            "reward_value": redeem_value,
             'total': total,
             "barcode": barcode,
             "return_item_listing": return_item_listing,

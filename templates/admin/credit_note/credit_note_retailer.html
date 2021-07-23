@@ -133,6 +133,30 @@
                             <td class="thick-line"></td>
                             <td class="thick-line"></td>
                         </tr>
+                        {% if discount != 0 or discount != 0.0 %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Discount Adjusted</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{discount| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if reward_value != 0 or reward_value != 0.0 %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Reward Value Returned</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{reward_value| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        {% endif %}
                         <tr class="text-center" style="text-align:center;">
                             <td class="no-line"></td>
                             <td class="no-line"></td>
