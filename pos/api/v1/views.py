@@ -171,9 +171,8 @@ class PosProductView(GenericAPIView):
                                                                  self.request.user, 'product', None, product_status,
                                                                  None, None, None, product)
                     else:
-                        discounted_product.selling_price = discounted_price
-                        discounted_product.status = product_status
-                        discounted_product.save()
+                        RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
+                                                        self.request.user, 'product', discounted_product.sku)
 
                     PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
                                                     PosInventoryState.AVAILABLE, discounted_stock, self.request.user,

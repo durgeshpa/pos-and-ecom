@@ -83,10 +83,11 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
-    def update_price(cls, product_id, selling_price, user, event_type, event_id):
+    def update_price(cls, product_id, selling_price, product_status, user, event_type, event_id):
         product = RetailerProduct.objects.filter(id=product_id).last()
         old_product = deepcopy(product)
         product.selling_price = selling_price
+        product.status = product_status
         product.save()
         # Change logs
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)

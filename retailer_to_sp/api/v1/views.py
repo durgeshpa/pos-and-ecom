@@ -1499,7 +1499,7 @@ class CartCentral(GenericAPIView):
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
-                RetailerProductCls.update_price(product.id, selling_price, self.request.user, 'cart', cart_no)
+                RetailerProductCls.update_price(product.id, selling_price, 'active', self.request.user, 'cart', cart_no)
         if not selling_price and product.offer_price and datetime.now() > product.offer_start_date and \
             datetime.now() < product.offer_end_date:
             selling_price = product.offer_price

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
@@ -10,7 +12,7 @@ from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
-from .common_functions import RetailerProductCls, PosInventoryCls
+from .common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
@@ -508,14 +510,12 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
                                                                  None, product_ref)
 
             RetailerProductCls.copy_images(product, product_ref.retailer_product_image.all())
+            product.save()
         else:
             product = RetailerProduct.objects.get(id=obj.id)
-            product.selling_price=discounted_price
-            product.status = product_status
-
+            RetailerProductCls.update_price(product.id, discounted_price, product_status, user, 'product', product.sku)
             inventory_initial_state = PosInventoryState.AVAILABLE
             tr_type = PosInventoryChange.STOCK_UPDATE
-        product.save()
         # Add Inventory
         PosInventoryCls.stock_inventory(product.id, inventory_initial_state, PosInventoryState.AVAILABLE,
                                         discounted_stock, request.user, product.sku,
