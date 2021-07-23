@@ -87,7 +87,8 @@ def get_validate_shop_documents(shop_documents):
                 if 'error' in shop_doc_type:
                     return shop_doc_type
                 shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
-            if 'shop_document_number' in shop_doc and 'shop_document_type' in shop_doc and shop_doc['shop_document_type'] == ShopDocument.GSTIN:
+            if 'shop_document_number' in shop_doc and 'shop_document_type' in shop_doc and shop_doc[
+                'shop_document_type'] == ShopDocument.GSTIN:
                 shop_doc_num = validate_gstin_number(
                     shop_doc['shop_document_number'])
                 if 'error' in shop_doc_num:
@@ -228,7 +229,8 @@ def get_validate_shop_invoice_pattern(shop_invoice_patterns):
             if sip_data['start_date'] < sip_data['end_date']:
                 return {'error': 'Please select a valid start and end date of Invoice Pattern.'}
 
-        if not ('status' in sip_data and (any(sip_data['status'] in i for i in ShopInvoicePattern.SHOP_INVOICE_CHOICES))):
+        if not ('status' in sip_data and (
+        any(sip_data['status'] in i for i in ShopInvoicePattern.SHOP_INVOICE_CHOICES))):
             return {'error': 'Please select a valid status of Invoice Pattern.'}
     return {'shop_invoice_pattern': shop_invoice_patterns}
 
@@ -408,7 +410,8 @@ def validate_shop_sub_type(shop_id_id):
 
 def validate_shop_and_sub_shop_type(shop_type_name, shop_sub_type_name, shop_type_id):
     """ validate shop type with sub shop type mapping ShopType Model  """
-    if ShopType.objects.filter(shop_type__iexact=shop_type_name, shop_sub_type__retailer_type_name=shop_sub_type_name, status=True)\
+    if ShopType.objects.filter(shop_type__iexact=shop_type_name, shop_sub_type__retailer_type_name=shop_sub_type_name,
+                               status=True) \
             .exclude(id=shop_type_id).exists():
         return {'error': 'shop type with this sub shop type mapping already exists'}
 
@@ -420,14 +423,19 @@ def validate_shop_name(s_name, s_id):
 
 
 # Bulk Upload
-def read_file(csv_file):
+def read_file(csv_file, upload_type):
     """
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
     csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
-    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list] # Converting headers into lowercase
-    required_header_list = ['shop_id', 'shop_name', 'manager', 'employee', 'employee_group', 'employee_group_name', ]
-
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]  # Converting headers into lowercase
+    if upload_type == "shop_user_map":
+        required_header_list = ['shop_id', 'shop_name', 'manager', 'employee', 'employee_group',
+                                'employee_group_name', ]
+    elif upload_type == "shop_update":
+        required_header_list = ['shop_id', 'shop_name', 'shop_type', 'shop_owner', 'shop_activated',
+                                'address_id', 'address_name', 'address', 'contact_person', 'contact_number',
+                                'pincode', 'state', 'city', 'address_type', 'parent_shop_name']
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
@@ -437,7 +445,7 @@ def read_file(csv_file):
         raise ValidationError("Please add some data below the headers to upload it!")
 
 
-def check_mandatory_columns(uploaded_data_list, header_list,):
+def check_mandatory_columns(uploaded_data_list, header_list, ):
     row_num = 1
     mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
     for ele in mandatory_columns:
@@ -480,7 +488,8 @@ def validate_row(uploaded_data_list, header_list):
 
             if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
                 if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
 
             if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
                 if not Group.objects.filter(id=row['employee_group'].strip()).exists():

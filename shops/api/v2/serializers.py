@@ -822,7 +822,7 @@ class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
 
 
 class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(label='Upload Master Data', required=True, write_only=True)
+    file = serializers.FileField(label='Upload Shop User Mapping', required=True, write_only=True)
 
     class Meta:
         model = ShopUserMapping
@@ -835,7 +835,7 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
         csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
-            read_file(csv_file_data)
+            read_file(csv_file_data, "shop_user_map")
         else:
             raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
 
@@ -845,6 +845,37 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             ShopCls.create_shop_user_mapping(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
+
+
+class BulkUpdateShopSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(label='Update Shop Data', required=True, write_only=True)
+
+    class Meta:
+        model = Shop
+        fields = ('file', )
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_file(csv_file_data, "shop_update")
+        else:
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ShopCls.update_shop(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

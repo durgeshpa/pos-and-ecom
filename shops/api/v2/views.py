@@ -26,10 +26,9 @@ from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer,
-    ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers,
-    PinCodeSerializer, CitySerializer, StateSerializer, BulkUpdateShopSampleCSVSerializer,
-    BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
+    ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
+    RetailerTypeSerializer, DisapproveSelectedShopSerializers,PinCodeSerializer, CitySerializer, StateSerializer,
+    BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
@@ -238,6 +237,7 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.search_filter_shops_data()
             shop_total_count = self.queryset.count()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
         serializer = self.serializer_class(shops_data, many=True)
         msg = f"total count {shop_total_count}" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
@@ -269,14 +269,12 @@ class ShopView(generics.GenericAPIView):
             return get_response('please provide id to update shop', False)
 
         # validations for input id
-        id_validation = validate_shop_id(
-            self.queryset, int(modified_data['id']))
+        id_validation = validate_shop_id(self.queryset, int(modified_data['id']))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         shop_instance = id_validation['data']
 
-        serializer = self.serializer_class(
-            instance=shop_instance, data=modified_data)
+        serializer = self.serializer_class(instance=shop_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Updated Successfully.")
@@ -319,10 +317,10 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_type__id=shop_type)
 
         if shop_owner:
-            self.queryset = self.queryset.filter(shop_owner=shop_owner)
+            self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping'). \
+            self.queryset.filter(shop_name_address_mapping__address_type='shipping'). \
                 filter(shop_name_address_mapping__pincode=pin_code)
 
         if city:
@@ -334,8 +332,7 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         if approval_status:
-            self.queryset = self.queryset. \
-                filter(approval_status=approval_status)
+            self.queryset = self.queryset.filter(approval_status=approval_status)
 
         return self.queryset
 
@@ -908,4 +905,16 @@ class BulkCreateShopUserMappingView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return get_response('data uploaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class BulkUpdateShopView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkUpdateShopSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('shops updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
