@@ -4111,13 +4111,18 @@ class OrderReturnComplete(APIView):
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
             order_return.save()
-            credit_note_id = generate_credit_note_id(ordered_product.invoice_no, order_return.id)
+            return_count = get_return_count(order)
+            credit_note_id = generate_credit_note_id(ordered_product.invoice_no, return_count)
             credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
             pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
                 return_qty, order.order_amount, refund_amount, points_credit, points_debit, net_points, credit_note_instance)
             
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
+
+
+def get_return_count(order):
+    return OrderReturn.objects.filter(order=order).count()
 
 
 # class OrderList(generics.ListAPIView):

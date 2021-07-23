@@ -102,10 +102,9 @@ def reserved_args_json_data(shop_id, transaction_id, products, transaction_type,
     })
     return reserved_args
 
-
-def generate_credit_note_id(invoice_no, return_id, prefix='FCR'):
+def generate_credit_note_id(invoice_no, return_count, prefix='FCR'):
     # cr_id = prefix + time.strftime('%Y%m%d') + str(random.randint(1000000, 9999999))
-    cr_id = str(invoice_no).replace('FIV', prefix) + str(return_id)
+    cr_id = str(invoice_no).replace('FIV', prefix) + str(return_count).zfill(3)
     return cr_id 
     
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
