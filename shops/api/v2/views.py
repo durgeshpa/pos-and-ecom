@@ -229,8 +229,8 @@ class ShopView(generics.GenericAPIView):
         else:
             """ GET Shop List """
             self.queryset = self.search_filter_shops_data()
+            shop_total_count = self.queryset.count()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
         serializer = self.serializer_class(shops_data, many=True)
         msg = f"total count {shop_total_count}" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
