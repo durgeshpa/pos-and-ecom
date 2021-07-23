@@ -1,3 +1,4 @@
+import codecs
 import csv
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -18,7 +19,7 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
     get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
-    validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name
+    validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -602,6 +603,13 @@ class ShopManagerSerializers(serializers.ModelSerializer):
     #     return representation
 
 
+class ServicePartnerShopsSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name', 'shop_owner', 'shop_code',)
+
+
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
     shop = ServicePartnerShopsSerializer(read_only=True)
     employee = UserSerializers(read_only=True)
@@ -787,3 +795,58 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
         for obj in data:
             writer.writerow(list(obj))
         return response
+
+
+class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
+    shop_user_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('shop_user_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('shop_user_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one shop user mapping id must be selected '))
+
+        for s_id in data.get('shop_user_id_list'):
+            try:
+                Shop.objects.get(id=s_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'shop user mapping not found for id {s_id}')
+
+        return data
+
+
+class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload Master Data', required=True)
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('file', )
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            user_list = read_file(csv_file_data)
+        else:
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ShopCls.create_shop_user_mapping(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data['file']
+

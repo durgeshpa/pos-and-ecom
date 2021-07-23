@@ -1,14 +1,13 @@
 from rest_framework import routers
 from django.conf.urls import url
-from django.urls import path
 
 from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView,
-                                ServicePartnerShopsListView,
+                                ServicePartnerShopsListView, BulkCreateShopUserMappingView,
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
-                                BulkUpdateShopSampleCSV)
+                                BulkUpdateShopSampleCSV, BulkUpdateShopUserMappingSampleCSV, BulkCreateShopUserMappingSampleCSV)
 
 router = routers.DefaultRouter()
 
@@ -42,7 +41,11 @@ urlpatterns = [
     url('shop-state', StateView.as_view(), name='shop-state'),
     url('shop-pincode', PinCodeView.as_view(), name='shop-pincode'),
     url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type'),
-    url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv')
+    url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv'),
+    url('download/shop-user-mapping-create-sample-csv', BulkCreateShopUserMappingSampleCSV.as_view(),
+        name='download/shop-user-mapping-update-create-csv'),
+    url('upload/bulk-shop-user-mapping-create', BulkCreateShopUserMappingView.as_view(),
+        name='upload/bulk-shop-user-mapping-create')
 ]
 
 urlpatterns += router.urls

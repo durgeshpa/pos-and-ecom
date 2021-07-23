@@ -375,8 +375,8 @@ def read_file(csv_file, upload_master_data, category):
         raise ValidationError("Please add some data below the headers to upload it!")
 
 
-def check_headers(excel_file_headers, required_header_list):
-    for head in excel_file_headers:
+def check_headers(csv_file_headers, required_header_list):
+    for head in csv_file_headers:
         if not head in required_header_list:
             raise ValidationError((f"Invalid Header | {head} | Allowable headers for the upload "
                                    f"are: {required_header_list}"))
@@ -655,7 +655,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     raise ValidationError(f"Row {row_num} | {row['sku_name']} | "
                                           f"'sku_name' getting repeated in csv file")
                 product_name_list.append(row['sku_name'].strip().lower())
-
 
     if upload_master_data == "create_parent_product":
         row_num = 1

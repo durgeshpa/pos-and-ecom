@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+
 from django.core.exceptions import ValidationError
 
 from django.contrib.auth import get_user_model
@@ -12,6 +13,7 @@ from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
 from shops.common_functions import convert_base64_to_image
 from shops.base64_to_file import to_file
+from products.common_validators import get_csv_file_data
 
 logger = logging.getLogger(__name__)
 
@@ -415,3 +417,98 @@ def validate_shop_name(s_name, s_id):
     """ validate shop name already exist in Shop Model  """
     if Shop.objects.filter(shop_name__iexact=s_name, status=True).exclude(id=s_id).exists():
         return {'error': 'shop with this shop name already exists'}
+
+
+# Bulk Upload
+def read_file(csv_file):
+    """
+        Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
+    """
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+    required_header_list = ['shop_id', 'shop_name', 'manager', 'employee', 'employee_group', 'employee_group_name', ]
+
+    check_headers(csv_file_headers, required_header_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+    # Checking, whether the user uploaded the data below the headings or not!
+    if uploaded_data_by_user_list:
+        check_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+    else:
+        raise ValidationError("Please add some data below the headers to upload it!")
+
+    return uploaded_data_by_user_list
+
+
+def check_headers(csv_file_headers, required_header_list):
+    for head in csv_file_headers:
+        if not head in required_header_list:
+            raise ValidationError((f"Invalid Header | {head} | Allowable headers for the upload "
+                                   f"are: {required_header_list}"))
+
+
+def check_mandatory_columns(uploaded_data_list, header_list,):
+    row_num = 1
+    mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
+    for ele in mandatory_columns:
+        if ele not in header_list:
+            raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+    for row in uploaded_data_list:
+        row_num += 1
+        if 'shop_id' not in row.keys():
+            raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
+        if 'shop_id' in row.keys() and row['shop_id'] == '':
+            raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+        if 'employee' not in row.keys():
+            raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+        if 'employee' in row.keys() and row['employee'] == '':
+            raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+        if 'employee_group' not in row.keys():
+            raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+        if 'employee_group' in row.keys() and row['employee_group'] == '':
+            raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+
+    validate_row(uploaded_data_list, header_list)
+
+
+def validate_row(uploaded_data_list, header_list):
+    """
+            This method will check that Data uploaded by user is valid or not.
+        """
+    try:
+        row_num = 1
+        for row in uploaded_data_list:
+            row_num += 1
+
+            if 'shop_name' in header_list and 'shop_name' in row.keys() and row['shop_name'] != '':
+                if not Shop.objects.filter(shop_name__iexact=str(row['shop_name']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'shop_name' doesn't exist in the "
+                                          f"system ")
+            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
+                if not Shop.objects.filter(id=int(row['shop_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+
+            if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
+                if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
+
+            if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
+                if not Group.objects.filter(id=row['employee_group'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee_group']} | 'employee group' doesn't "
+                                          f"exist in the system ")
+
+            if 'employee_group_name' in header_list and 'employee_group_name' in row.keys() and row['employee_group_name'] != '':
+                if not Group.objects.filter(name__iexact=row['employee_group_name'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee_group_name']} | 'employee group name' "
+                                          f"doesn't exist in the system ")
+
+            if 'manager' in header_list and 'manager' in row.keys() and row['manager'] != '':
+                if not ShopUserMapping.objects.filter(employee__phone_number=row['manager'].strip(),
+                                                      employee__user_type=7, status=True).exists():
+                    raise ValidationError(f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
+
+    except ValueError as e:
+        raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
+    except KeyError as e:
+        raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while checking csv data "
+                              f"from dictionary")

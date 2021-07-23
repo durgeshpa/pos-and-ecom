@@ -28,7 +28,8 @@ from .serializers import (
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer,
     ShopEmployeeSerializers, ShopManagerSerializers, RetailerTypeSerializer, DisapproveSelectedShopSerializers,
-    PinCodeSerializer, CitySerializer, StateSerializer, BulkUpdateShopSampleCSVSerializer
+    PinCodeSerializer, CitySerializer, StateSerializer, BulkUpdateShopSampleCSVSerializer,
+    BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
@@ -321,7 +322,7 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping').\
+            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping'). \
                 filter(shop_name_address_mapping__pincode=pin_code)
 
         if city:
@@ -464,7 +465,8 @@ class ParentShopsListView(generics.ListAPIView):
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.select_related('shop_owner', 'shop_type').only('id', 'shop_name', 'shop_owner', 'shop_type').\
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type').only('id', 'shop_name', 'shop_owner',
+                                                                           'shop_type'). \
         order_by('-id')
     serializer_class = ShopBasicSerializer
 
@@ -484,7 +486,8 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee',).filter(employee__user_type=7).distinct('employee')
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).distinct(
+        'employee')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
     serializer_class = ShopManagerSerializers
@@ -522,9 +525,9 @@ class ShopEmployeeListView(generics.GenericAPIView):
 class ShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by').\
+    queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by'). \
         prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
-        .only('id', 'shop', 'manager', 'employee', 'employee_group', 'updated_by',).order_by('-id')
+        .only('id', 'shop', 'manager', 'employee', 'employee_group', 'updated_by', ).order_by('-id')
     serializer_class = ShopUserMappingCrudSerializers
 
     def get(self, request):
@@ -775,7 +778,7 @@ class DisapproveShopSelectedShopView(UpdateAPIView):
 class StateView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = State.objects.only('id', 'state_name',)
+    queryset = State.objects.only('id', 'state_name', )
     serializer_class = StateSerializer
 
     def get(self, request):
@@ -860,4 +863,46 @@ class BulkUpdateShopSampleCSV(GenericAPIView):
             response = serializer.save()
             info_logger.info("BulkUpdateShopSample CSV Exported successfully ")
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class BulkUpdateShopUserMappingSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkUpdateShopUserMappingSampleCSVSerializer
+
+    def post(self, request):
+        """ POST API for Download Selected ShopUserMapping CSV """
+
+        info_logger.info("BulkUpdateShopUserMappingSampleCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("BulkUpdateShopUserMappingSample CSV Exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class BulkCreateShopUserMappingSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkUpdateShopUserMappingSampleCSVSerializer
+
+    def get(self, request):
+        filename = "shop_user_list.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['shop_id', 'shop_name', 'manager', 'employee', 'employee_group', 'employee_group_name', ])
+        writer.writerow(['23', 'ABC', '8989787878', '8989898989', '2', 'Sales Executive'])
+        return HttpResponse(response, content_type='text/csv')
+
+
+class BulkCreateShopUserMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkCreateShopUserMappingSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)

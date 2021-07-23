@@ -1,11 +1,15 @@
 import logging
-
+import codecs
+import csv
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.response import Response
 
+from products.common_validators import get_csv_file_data
 from addresses.models import Address
 from products.models import CentralLog
-from shops.models import ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto
+from shops.models import ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
 
 info_logger = logging.getLogger('file-info')
@@ -52,6 +56,30 @@ class ShopCls(object):
         info_logger.info("shop_log update info ", dict_data)
 
         return shop_user_map_log
+
+    @classmethod
+    def create_shop_user_mapping(cls, validated_data):
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        excel_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
+        try:
+            info_logger.info('Method Start to create Child Product')
+            for row in uploaded_data_by_user_list:
+                shop_user_map = ShopUserMapping.objects.create(
+                    shop=Shop.objects.filter(id=row['shop_id'].strip()).last(),
+                    manager=ShopUserMapping.objects.filter(employee__phone_number=row['manager'].strip(),
+                                                           employee__user_type=7, status=True).last(),
+                    employee=get_user_model().objects.filter(phone_number=row['employee'].strip()).last(),
+                    employee_group=Group.objects.filter(id=row['employee_group'].strip()).last(),
+                    created_by=validated_data['created_by'])
+                ShopCls.create_shop_user_map_log(shop_user_map, "created")
+
+            info_logger.info("Method complete to create the Child Product from csv file")
+        except Exception as e:
+            error_logger.info(f"Something went wrong, while working with create Child Product "
+                              f" + {str(e)}")
 
     @classmethod
     def create_update_shop_address(cls, shop, addresses):
