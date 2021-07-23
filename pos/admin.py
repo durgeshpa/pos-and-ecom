@@ -4,7 +4,6 @@ from django.conf.urls import url
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
-from django.http import HttpResponse
 
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter

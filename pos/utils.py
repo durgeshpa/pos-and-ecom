@@ -59,6 +59,10 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
                     'discount_adjusted', 'refund_points', 'refund_mode',
                     'created_at')
             count = 0
+        
+        if len(return_order) > 0 and count < len(return_dict):
+            order.update(return_dict[count])
+
 
         writer.writerow([
             order.get('order__order_no'),
@@ -82,22 +86,14 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
             order.get('rt_order_product_order_product_mapping__retailer_product__selling_price'),
             order.get('purchased_subtotal'),
             order.get('order__order_amount'),
-            return_dict[count].get('id')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('status')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('processed_by__first_name')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('refund_amount')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('discount_adjusted')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('refund_points')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('refund_mode')
-            if len(return_order) > 0 and count < len(return_dict) else None,
-            return_dict[count].get('created_at')
-            if len(return_order) > 0 and count < len(return_dict) else None,
+            order.get('id', None),
+            order.get('status', None),
+            order.get('processed_by__first_name', None),
+            order.get('refund_amount', None),
+            order.get('discount_adjusted', None),
+            order.get('refund_points', None),
+            order.get('refund_mode', None),
+            order.get('created_at', None)
         ])
         count += 1
         prev_order_no = order.get('order__order_no')
