@@ -348,13 +348,13 @@ class ShopSalesReportView(APIView):
             seller_shop = Shop.objects.get(pk=int(shop_id))
         except:
             return {'error': '{} shop not found'.format(shop_id)}
-        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).\
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop). \
             exclude(order_status__in=['CANCELLED', 'DENIED']) \
             .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
         if start_date:
-            orders = orders.using('readonly').filter(created_at__gte=start_date)
+            orders = orders.using('readonly').filter(created_at__date__gte=start_date)
         if end_date:
-            orders = orders.using('readonly').filter(created_at__lte=end_date)
+            orders = orders.using('readonly').filter(created_at__date__lte=end_date)
         ordered_list = []
         ordered_items = {}
         for order in orders:
@@ -385,7 +385,8 @@ class ShopSalesReportView(APIView):
                 buyer_shop = Shop.objects.filter(id=order.buyer_shop_id).last()
                 try:
                     product_price_to_retailer = cart_product_mapping.get_cart_product_price(seller_shop,
-                                                buyer_shop).get_per_piece_price(cart_product_mapping.qty)
+                                                                                            buyer_shop).get_per_piece_price(
+                        cart_product_mapping.qty)
                 except:
                     product_price_to_retailer = 0
                 ordered_amount = (Decimal(product_price_to_retailer)
@@ -421,6 +422,7 @@ class ShopSalesReportView(APIView):
         if end_date and end_date < start_date:
             logger.error(self.request, 'End date cannot be less than the start date')
             return get_response("End date cannot be less than the start date", {}, False)
+
         if (datetime.strptime(end_date, "%Y-%m-%d") - timedelta(30)) > datetime.strptime(start_date, "%Y-%m-%d"):
             return get_response("max duration is 30 days only in start & end date", {}, False)
         data = self.get_sales_report(shop_id, start_date, end_date)
