@@ -320,13 +320,10 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping'). \
-                filter(shop_name_address_mapping__pincode=pin_code)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode=pin_code)
 
         if city:
-            self.queryset = self.queryset. \
-                filter(shop_name_address_mapping__address_type='shipping'). \
-                filter(shop_name_address_mapping__city__city_name=city)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__city_name=city)
 
         if status:
             self.queryset = self.queryset.filter(status=status)
