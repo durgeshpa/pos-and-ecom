@@ -108,7 +108,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             media_url = credit_note_instance.credit_note_pdf.url
             file_name = ordered_product.invoice_no
             shop_name = ordered_product.order.seller_shop.shop_name
-            whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit,
+            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, points_credit,
                                         points_debit, net_points, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
