@@ -320,10 +320,10 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 class ShopCrudSerializers(serializers.ModelSerializer):
     related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
+    shop_type = ShopTypeListSerializers(read_only=True)
     parent_shop = serializers.SerializerMethodField('get_parent_shop_obj')
     owner = serializers.SerializerMethodField('get_shop_owner_obj')
     approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
-    shop_type = ShopTypeListSerializers(read_only=True)
     address = serializers.SerializerMethodField('get_addresses')
     pincode = serializers.SerializerMethodField('get_pin_code')
     city = serializers.SerializerMethodField('get_city_name')
@@ -577,6 +577,11 @@ class ManagerSerializers(serializers.ModelSerializer):
         if obj.employee:
             return str(obj.employee)
 
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     representation['manager_name'] = instance.employee
+    #     return representation
+
 
 class ShopEmployeeSerializers(serializers.ModelSerializer):
     class Meta:
@@ -585,11 +590,16 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
 
 
 class ShopManagerSerializers(serializers.ModelSerializer):
-    employee = ShopEmployeeSerializers()
+    # employee = ShopEmployeeSerializers()
 
     class Meta:
         model = ShopUserMapping
         fields = ('id', 'employee')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['employee'] = str(instance.employee)
+        return representation
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
