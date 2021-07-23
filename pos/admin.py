@@ -11,7 +11,8 @@ from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
-                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType)
+                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
+                     ProductChangeFields)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
@@ -566,6 +567,36 @@ class PaymentTypeAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+class ProductChangeFieldsAdmin(admin.TabularInline):
+    model = ProductChangeFields
+    fields = ('column_name', 'old_value', 'new_value')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ProductChange)
+class ProductChangeAdmin(admin.ModelAdmin):
+    list_display = ('product', 'event_type', 'event_id', 'changed_by', 'created_at')
+    list_per_page = 20
+    search_fields = ('product__product_name', 'event_type', 'event_id')
+    inlines = [ProductChangeFieldsAdmin]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

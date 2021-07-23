@@ -1204,7 +1204,7 @@ class CartCentral(GenericAPIView):
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
-                selling_price = self.get_basic_cart_product_price(product)
+                selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1275,7 +1275,8 @@ class CartCentral(GenericAPIView):
                 if not linked_product:
                     return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
-            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
+            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean,
+                                                                 self.request.user, 'cart', cart_id)
             PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                             self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         else:
@@ -1471,7 +1472,7 @@ class CartCentral(GenericAPIView):
         return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
                                                 ' this product #%s' % product.id, 'data': serializer.data}
 
-    def get_basic_cart_product_price(self, product):
+    def get_basic_cart_product_price(self, product, cart_no):
         """
             Check if retail product price needs to be changed on checkout
             price_change - 1 (change for all), 2 (change for current cart only)
@@ -1482,7 +1483,7 @@ class CartCentral(GenericAPIView):
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
-                RetailerProductCls.update_price(product.id, selling_price)
+                RetailerProductCls.update_price(product.id, selling_price, self.request.user, 'cart', cart_no)
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
