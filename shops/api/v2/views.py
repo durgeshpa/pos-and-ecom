@@ -331,7 +331,7 @@ class ShopView(generics.GenericAPIView):
         if approval_status:
             self.queryset = self.queryset.filter(approval_status=approval_status)
 
-        return self.queryset
+        return self.queryset.distinct('id')
 
 
 class ShopSalesReportView(APIView):
