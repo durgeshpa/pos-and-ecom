@@ -22,7 +22,7 @@ STATUS_API_NAME = 'status'
 # Prefix of Invoice file name
 PREFIX_INVOICE_FILE_NAME = 'Invoice_'
 
-# Prefix of Invoice file name
+# Prefix of Credit Note file name
 PREFIX_CREDIT_NOTE_FILE_NAME = 'Credit_Note_'
 
 # Prefix of PickList file name

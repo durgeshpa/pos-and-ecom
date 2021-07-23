@@ -20,10 +20,7 @@ def validate_id(queryset, id):
         return {'error': 'please provide a valid id'}
     return {'data': queryset.filter(id=id)}
 
-def compareList(l1,l2):
-    l1.sort()
-    l2.sort()
-    if(l1==l2):
-        return True
-    else:
-        return False
+def compareList(lst1,lst2):
+    lst1.sort()
+    lst2.sort()
+    return True if lst1 == lst2 else False
