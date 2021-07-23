@@ -374,7 +374,7 @@ order_gram_to_brand_group = 'gram_to_brand_order_group'
 grn_gram_to_brand_group = 'grn_brand_to_gram_group'
 BLOCKING_TIME_IN_MINUTS = config('BLOCKING_TIME_IN_MINUTS')
 
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
 WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
 }
@@ -402,6 +402,7 @@ CRONJOBS = [
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'pos.cron.deactivate_coupon_combo_offer'),
+    ('0 0 * * *', 'pos.cron.pos_archive_inventory_cron'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
     ('30 21 * * *', 'products.cron.packing_sku_inventory_alert'),
@@ -410,8 +411,6 @@ CRONJOBS = [
     ('0 3 * * *', 'ars.cron.generate_po_cron'),
     ('0 2 * * *', 'ars.cron.daily_average_sales_cron'),
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
-
-
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
