@@ -55,6 +55,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from pos.models import RetailerProduct
 
 
 logger = logging.getLogger('django')
@@ -1788,3 +1789,6 @@ def shipment_status(request):
         context['count'] = -1
     return HttpResponse(json.dumps(context))
 
+
+def create_franchise_po(request, pk):
+    return
