@@ -127,8 +127,7 @@ def get_validate_related_users(related_users):
     related_users_obj = []
     for related_users_data in related_users:
         try:
-            related_user = get_user_model().objects.get(
-                id=related_users_data['id'])
+            related_user = get_user_model().objects.get(id=related_users_data['id'])
         except Exception as e:
             logger.error(e)
             return {'error': '{} related_user not found'.format(related_users_data['id'])}

@@ -289,7 +289,7 @@ class AddressSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'phone_number',)
+        fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
 class ShopBasicSerializer(serializers.ModelSerializer):
@@ -297,7 +297,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'shop_owner')
 
     def get_shop_repr(self, obj):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
