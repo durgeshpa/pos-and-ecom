@@ -3,15 +3,17 @@ from django.conf.urls import url
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
+from django.urls import reverse
 
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 
-from .models import RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap
+from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
+                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
-    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
+    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
@@ -447,6 +449,123 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
+                    'email', 'address', 'pincode', 'gst_number', 'retailer_shop', 'status')
+    fields = list_display
+    list_per_page = 10
+    search_fields = ('company_name', 'vendor_name', 'phone_number', 'retailer_shop__shop_name', 'pincode')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class PosCartProductMappingAdmin(admin.TabularInline):
+    model = PosCartProductMapping
+    fields = ('product', 'qty', 'price', 'is_grn_done')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PosCart)
+class PosCartAdmin(admin.ModelAdmin):
+    list_display = ('po_no', 'vendor', 'download_purchase_order', 'retailer_shop', 'status', 'raised_by', 'last_modified_by',
+                    'created_at', 'modified_at')
+    fields = list_display
+    list_per_page = 10
+    inlines = [PosCartProductMappingAdmin]
+    search_fields = ('po_no', 'retailer_shop__shop_name')
+
+    def download_purchase_order(self, obj):
+        return format_html("<a href= '%s' >Download PO</a>" % (reverse('admin:pos_download_purchase_order', args=[obj.pk])))
+
+    download_purchase_order.short_description = 'Download Purchase Order'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PosCartAdmin, self).get_urls()
+        urls = [
+                   url(r'^download-purchase-order/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
+                       name='pos_download_purchase_order'),
+               ] + urls
+        return urls
+
+
+class PosGrnOrderProductMappingAdmin(admin.TabularInline):
+    model = PosGRNOrderProductMapping
+    fields = ('product', 'received_qty')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PosGRNOrder)
+class PosGrnOrderAdmin(admin.ModelAdmin):
+    list_display = ('grn_id', 'po_no', 'retailer_shop', 'added_by', 'last_modified_by',
+                    'created_at', 'modified_at')
+    fields = list_display
+    list_per_page = 10
+    inlines = [PosGrnOrderProductMappingAdmin]
+    search_fields = ('order__ordered_cart__po_no', 'order__ordered_cart__retailer_shop__shop_name')
+
+    def po_no(self, obj):
+        return obj.order.ordered_cart.po_no
+
+    def retailer_shop(self, obj):
+        return obj.order.ordered_cart.retailer_shop
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PaymentType)
+class PaymentTypeAdmin(admin.ModelAdmin):
+    list_display = ('type', 'enabled', 'created_at', 'modified_at')
+    fields = ('type', 'enabled')
+    list_per_page = 10
+    search_fields = ('type',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

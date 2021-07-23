@@ -24,7 +24,7 @@ class RetailerCoupon(Coupon):
 class RetailerCart(Cart):
     class Meta:
         proxy = True
-        verbose_name = 'Cart'
+        verbose_name = 'Buyer - Cart'
 
 
 class RetailerCartProductMapping(CartProductMapping):
@@ -36,7 +36,7 @@ class RetailerCartProductMapping(CartProductMapping):
 class RetailerOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
-        verbose_name = 'Order'
+        verbose_name = 'Buyer - Order'
 
 
 class RetailerOrderedProductMapping(OrderedProductMapping):
@@ -48,7 +48,7 @@ class RetailerOrderedProductMapping(OrderedProductMapping):
 class RetailerOrderReturn(OrderReturn):
     class Meta:
         proxy = True
-        verbose_name = 'Return'
+        verbose_name = 'Buyer - Return'
 
     @property
     def order_no(self):
