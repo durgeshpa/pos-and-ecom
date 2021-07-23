@@ -13,7 +13,7 @@ from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES)
-from addresses.models import Address, City, Pincode, State
+from addresses.models import Address, City, Pincode, State, address_type_choices
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
@@ -255,6 +255,7 @@ class CitySerializer(serializers.ModelSerializer):
 class AddressSerializer(serializers.ModelSerializer):
     pincode = serializers.CharField(max_length=6, min_length=6,
                                     validators=[PinCodeValidator])
+    address_type = ChoiceField(choices=address_type_choices)
 
     class Meta:
         model = Address
