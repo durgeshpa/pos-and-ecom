@@ -1,6 +1,7 @@
 import logging
 import json
 from functools import wraps
+from copy import deepcopy
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -17,7 +18,7 @@ from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
 from rest_auth.utils import AutoUser
 
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -36,17 +37,23 @@ cron_logger = logging.getLogger('cron_log')
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, 
-                                    product_ean_code, product_status='active', offer_price=None, offer_sd=None, offer_ed=None):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+                                product_ean_code, user, event_type, event_id=None, product_status='active',
+                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None):
         """
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
-        return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price,
-                                              offer_price=offer_price, offer_start_date=offer_sd, offer_end_date=offer_ed,
-                                              description=description, product_ean_code=product_ean_code,
-                                              status=product_status)
+        product = RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
+                                                 mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                                 offer_price=offer_price, offer_start_date=offer_sd,
+                                                 offer_end_date=offer_ed, description=description,
+                                                 product_ean_code=product_ean_code, status=product_status,
+                                                 product_ref=product_ref)
+        event_id = product.sku if not event_id else event_id
+        # Change logs
+        ProductChangeLogs.product_create(product, user, event_type, event_id)
+        return product
 
     @classmethod
     def create_images(cls, product, images):
@@ -59,6 +66,16 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
+    def copy_images(cls, product, images):
+        """
+        Params :
+            product : retailer product instance for which images are to be created
+            images : RetailerProductImage queryset
+        """
+        for image in images:
+            RetailerProductImage.objects.create(product=product, image=image.image)
+
+    @classmethod
     def update_images(cls, product, images):
         if images:
             for image in images:
@@ -66,10 +83,14 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
-    def update_price(cls, product_id, selling_price):
+    def update_price(cls, product_id, selling_price, product_status, user, event_type, event_id):
         product = RetailerProduct.objects.filter(id=product_id).last()
+        old_product = deepcopy(product)
         product.selling_price = selling_price
+        product.status = product_status
         product.save()
+        # Change logs
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -82,6 +103,10 @@ class RetailerProductCls(object):
             return 'LINKED'
         if sku_type == 3:
             return 'LINKED_EDITED'
+
+    @classmethod
+    def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
 class OffersCls(object):
@@ -190,6 +215,16 @@ class PosInventoryCls(object):
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
                                                 user)
 
+    @classmethod
+    def get_available_inventory(cls, pid, state):
+        """
+        Returns stock for any product in the given state
+        Params:
+            pid : product id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
+        return inventory_object.quantity if inventory_object else 0
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -487,3 +522,34 @@ def check_pos_shop(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+class ProductChangeLogs(object):
+
+    @classmethod
+    def product_create(cls, instance, user, event_type, event_id):
+        product_changes = {}
+        product_change_cols = ProductChangeFields.COLUMN_CHOICES
+        for product_change_col in product_change_cols:
+            product_changes[product_change_col[0]] = [None, getattr(instance, product_change_col[0])]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+
+    @classmethod
+    def product_update(cls, product, old_instance, user, event_type, event_id):
+        instance = RetailerProduct.objects.get(id=product.id)
+        product_changes, product_change_cols = {}, ProductChangeFields.COLUMN_CHOICES
+        for product_change_col in product_change_cols:
+            old_value = getattr(old_instance, product_change_col[0])
+            new_value = getattr(instance, product_change_col[0])
+            if str(old_value) != str(new_value):
+                product_changes[product_change_col[0]] = [old_value, new_value]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+
+    @classmethod
+    def create_product_log(cls, product, event_type, event_id, user, product_changes):
+        if product_changes:
+            product_change_obj = ProductChange.objects.create(product=product, event_type=event_type, event_id=event_id,
+                                                              changed_by=user)
+            for col in product_changes:
+                ProductChangeFields.objects.create(product_change=product_change_obj, column_name=col,
+                                                   old_value=product_changes[col][0], new_value=product_changes[col][1])

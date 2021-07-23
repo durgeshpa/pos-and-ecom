@@ -17,7 +17,7 @@ from pyexcel_xlsx import get_data as xlsx_get
 
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.db import transaction
 from django.utils.decorators import method_decorator
@@ -28,7 +28,7 @@ from rest_framework.response import Response
 
 from decimal import Decimal
 
-from retailer_to_sp.models import BulkOrder
+from retailer_to_sp.models import BulkOrder, Order
 from shops.models import Shop, ShopType
 from brand.models import Vendor
 from addresses.models import City, State, Address, Pincode
@@ -59,6 +59,7 @@ from products.models import (
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
+from pos.models import RetailerProduct
 
 logger = logging.getLogger(__name__)
 
@@ -2577,3 +2578,20 @@ class HSNAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = hsn_queryset(self)
         return qs
+
+
+def franchise_po_fail_status(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt) + " - OrderProductsUnavailableForPO.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["SKU", "Name", "EAN"])
+    products = order.ordered_cart.rt_cart_list.all()
+    for mapp in products:
+        p = mapp.cart_product
+        if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
+            writer.writerow([p.product_sku, p.product_name, p.product_ean_code])
+    return response

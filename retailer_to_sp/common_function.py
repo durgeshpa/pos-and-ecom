@@ -3,6 +3,11 @@ import json
 import time
 import random
 
+from django.db.models import Sum
+
+from addresses.models import Address
+from pos.models import RetailerProduct, PosCart, PosCartProductMapping, Vendor
+today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 
 from shops.models import ParentRetailerMapping
@@ -103,3 +108,24 @@ def generate_credit_note_id(invoice_no, return_id, prefix='FCR'):
     cr_id = str(invoice_no).replace('FIV', prefix) + str(return_id)
     return cr_id 
     
+def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
+    bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
+    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
+    if created:
+        vendor.vendor_name, vendor.address, vendor.pincode = 'PepperTap', bill_add.address_line1, bill_add.pincode
+        vendor.city, vendor.state = bill_add.city, bill_add.state
+        vendor.save()
+    cart, created = PosCart.objects.get_or_create(vendor=vendor, retailer_shop=buyer_shop, gf_order_no=order_no)
+    cart.last_modified_by = user
+    if created:
+        cart.raised_by = user
+    cart.save()
+    product_ids = []
+    for product in products:
+        retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop).last()
+        product_ids += [retailer_product.id]
+        mapping, _ = PosCartProductMapping.objects.get_or_create(cart=cart, product=retailer_product)
+        mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(product.qty)
+        mapping.qty = product.qty
+        mapping.save()
+    PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()

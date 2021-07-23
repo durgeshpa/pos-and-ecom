@@ -64,6 +64,7 @@ class RetailerReturnItems(ReturnItems):
         return ''
 
 
+
 # class InventoryStatePos(PosInventoryState):
 #     class Meta:
 #         proxy = True
