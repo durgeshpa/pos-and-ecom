@@ -359,7 +359,7 @@ def get_validate_shop_type(st_id):
 def validate_shop(shop_id):
     """validate shop id"""
     try:
-        shop_obj = Shop.objects.get(id=shop_id)
+        shop_obj = Shop.objects.get(id=int(shop_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} shop not found'.format(shop_id)}
@@ -369,7 +369,7 @@ def validate_shop(shop_id):
 def validate_manager(manager_id):
     """validate manager id"""
     try:
-        shop_obj = ShopUserMapping.objects.get(id=manager_id)
+        shop_obj = ShopUserMapping.objects.get(id=int(manager_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} manager not found'.format(manager_id)}
@@ -379,7 +379,7 @@ def validate_manager(manager_id):
 def validate_employee(emp_id):
     """validate employee """
     try:
-        shop_obj = User.objects.get(id=emp_id)
+        shop_obj = User.objects.get(id=int(emp_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} employee not found'.format(emp_id)}
@@ -389,7 +389,7 @@ def validate_employee(emp_id):
 def validate_employee_group(emp_grp_id):
     """validate employee group id"""
     try:
-        shop_obj = Group.objects.get(id=emp_grp_id)
+        shop_obj = Group.objects.get(id=int(emp_grp_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} employee group not found'.format(emp_grp_id)}
@@ -487,7 +487,8 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(f"Row {row_num} | {row['employee_group']} | 'employee group' doesn't "
                                           f"exist in the system ")
 
-            if 'employee_group_name' in header_list and 'employee_group_name' in row.keys() and row['employee_group_name'] != '':
+            if 'employee_group_name' in header_list and 'employee_group_name' in row.keys() and \
+                    row['employee_group_name'] != '':
                 if not Group.objects.filter(name__iexact=row['employee_group_name'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['employee_group_name']} | 'employee group name' "
                                           f"doesn't exist in the system ")

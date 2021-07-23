@@ -821,7 +821,7 @@ class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
 
 
 class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(label='Upload Master Data', required=True)
+    file = serializers.FileField(label='Upload Master Data', required=True, write_only=True)
 
     class Meta:
         model = ShopUserMapping
@@ -848,5 +848,4 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return validated_data['file']
-
+        return validated_data
