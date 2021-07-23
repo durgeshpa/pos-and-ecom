@@ -834,7 +834,7 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
         csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
-            user_list = read_file(csv_file_data)
+            read_file(csv_file_data)
         else:
             raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
 

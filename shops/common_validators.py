@@ -13,7 +13,7 @@ from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
 from shops.common_functions import convert_base64_to_image
 from shops.base64_to_file import to_file
-from products.common_validators import get_csv_file_data
+from products.common_validators import get_csv_file_data, check_headers
 
 logger = logging.getLogger(__name__)
 
@@ -425,8 +425,7 @@ def read_file(csv_file):
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
     csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
-    # Converting headers into lowercase
-    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list] # Converting headers into lowercase
     required_header_list = ['shop_id', 'shop_name', 'manager', 'employee', 'employee_group', 'employee_group_name', ]
 
     check_headers(csv_file_headers, required_header_list)
@@ -436,15 +435,6 @@ def read_file(csv_file):
         check_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
     else:
         raise ValidationError("Please add some data below the headers to upload it!")
-
-    return uploaded_data_by_user_list
-
-
-def check_headers(csv_file_headers, required_header_list):
-    for head in csv_file_headers:
-        if not head in required_header_list:
-            raise ValidationError((f"Invalid Header | {head} | Allowable headers for the upload "
-                                   f"are: {required_header_list}"))
 
 
 def check_mandatory_columns(uploaded_data_list, header_list,):
@@ -473,8 +463,8 @@ def check_mandatory_columns(uploaded_data_list, header_list,):
 
 def validate_row(uploaded_data_list, header_list):
     """
-            This method will check that Data uploaded by user is valid or not.
-        """
+        This method will check that Data uploaded by user is valid or not.
+    """
     try:
         row_num = 1
         for row in uploaded_data_list:
@@ -506,6 +496,8 @@ def validate_row(uploaded_data_list, header_list):
                 if not ShopUserMapping.objects.filter(employee__phone_number=row['manager'].strip(),
                                                       employee__user_type=7, status=True).exists():
                     raise ValidationError(f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
+                elif row['manager'] == row['employee']:
+                    raise ValidationError('Manager and Employee cannot be same')
 
     except ValueError as e:
         raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")

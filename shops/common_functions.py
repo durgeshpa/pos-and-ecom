@@ -60,12 +60,12 @@ class ShopCls(object):
     @classmethod
     def create_shop_user_mapping(cls, validated_data):
         csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
-        excel_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
         # Converting headers into lowercase
-        excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]
-        uploaded_data_by_user_list = get_csv_file_data(csv_file, excel_file_headers)
+        csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
         try:
-            info_logger.info('Method Start to create Child Product')
+            info_logger.info('Method Start to create Shop User Mapping')
             for row in uploaded_data_by_user_list:
                 shop_user_map = ShopUserMapping.objects.create(
                     shop=Shop.objects.filter(id=row['shop_id'].strip()).last(),
@@ -76,9 +76,9 @@ class ShopCls(object):
                     created_by=validated_data['created_by'])
                 ShopCls.create_shop_user_map_log(shop_user_map, "created")
 
-            info_logger.info("Method complete to create the Child Product from csv file")
+            info_logger.info("Method complete to create Shop User Mapping from csv file")
         except Exception as e:
-            error_logger.info(f"Something went wrong, while working with create Child Product "
+            error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
                               f" + {str(e)}")
 
     @classmethod
