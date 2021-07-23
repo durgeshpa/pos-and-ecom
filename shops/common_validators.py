@@ -107,7 +107,7 @@ def get_validate_existing_shop_photos(photos):
     photos_obj = []
     for photos_data in photos:
         try:
-            shop_photo = ShopPhoto.objects.get(id=photos_data['id'])
+            shop_photo = ShopPhoto.objects.get(id=int(photos_data['id']))
         except Exception as e:
             logger.error(e)
             return {'error': '{} shop_photo not found'.format(photos_data['id'])}
@@ -334,19 +334,20 @@ def validate_shop_owner_id(queryset, id):
         return {'error': 'please provide a valid shop_owner id'}
     return {'data': queryset.filter(shop_owner__id=id)}
 
+
 def get_validate_user(user_id):
     try:
-        user = get_user_model().objects.get(id=user_id)
+        user = get_user_model().objects.get(id=int(user_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} user not found'.format(user_id)}
     return {'data': user}
 
 
-def get_validate_shop_type(id):
+def get_validate_shop_type(st_id):
     """validate shop type"""
     try:
-        shop_type = ShopType.objects.get(id=id)
+        shop_type = ShopType.objects.get(id=int(st_id))
     except Exception as e:
         logger.error(e)
         return {'error': '{} shop_type not found'.format(id)}

@@ -323,7 +323,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     parent_shop = serializers.SerializerMethodField('get_parent_shop_obj')
     owner = serializers.SerializerMethodField('get_shop_owner_obj')
     approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
-    shop_type = serializers.SerializerMethodField('get_shop_type_name')
+    shop_type = ShopTypeListSerializers(read_only=True)
     address = serializers.SerializerMethodField('get_addresses')
     pincode = serializers.SerializerMethodField('get_pin_code')
     city = serializers.SerializerMethodField('get_city_name')
@@ -377,8 +377,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(shop_obj['error'])
 
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
-            approval_status = get_validate_approval_status(
-                self.initial_data['approval_status'])
+            approval_status = get_validate_approval_status(self.initial_data['approval_status'])
             if 'error' in approval_status:
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
@@ -396,15 +395,13 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             data['shop_type'] = shop_type['data']
 
         if 'shop_photo' in self.initial_data and self.initial_data['shop_photo']:
-            photos = get_validate_existing_shop_photos(
-                self.initial_data['shop_photo'])
+            photos = get_validate_existing_shop_photos(self.initial_data['shop_photo'])
             if 'error' in photos:
                 raise serializers.ValidationError((photos["error"]))
             data['shop_photo'] = photos['photos']
 
         if 'related_users' in self.initial_data and self.initial_data['related_users']:
-            related_users = get_validate_related_users(
-                self.initial_data['related_users'])
+            related_users = get_validate_related_users(self.initial_data['related_users'])
             if 'error' in related_users:
                 raise serializers.ValidationError((related_users["error"]))
             data['related_users'] = related_users['related_users']
@@ -412,13 +409,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         if 'favourite_products' in self.initial_data and self.initial_data['favourite_products']:
             favourite_products = get_validate_favourite_products(self.initial_data['favourite_products'])
             if 'error' in favourite_products:
-                raise serializers.ValidationError(
-                    (favourite_products["error"]))
+                raise serializers.ValidationError((favourite_products["error"]))
             data['favourite_products'] = favourite_products['favourite_products']
 
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
-            shop_documents = get_validate_shop_documents(
-                self.initial_data['shop_docs'])
+            shop_documents = get_validate_shop_documents(self.initial_data['shop_docs'])
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_docs'] = shop_documents['data']
@@ -433,15 +428,12 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             data['address'] = addresses['addresses']
 
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
-            shop_invoice_patterns = get_validate_shop_invoice_pattern(
-                self.initial_data['shop_invoice_pattern'])
+            shop_invoice_patterns = get_validate_shop_invoice_pattern(self.initial_data['shop_invoice_pattern'])
             if 'error' in shop_invoice_patterns:
-                raise serializers.ValidationError(
-                    (shop_invoice_patterns["error"]))
+                raise serializers.ValidationError((shop_invoice_patterns["error"]))
 
         if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            parent_shop = get_validated_parent_shop(
-                self.initial_data['parent_shop'])
+            parent_shop = get_validated_parent_shop(self.initial_data['parent_shop'])
             if 'error' in parent_shop:
                 raise serializers.ValidationError(parent_shop['error'])
             # data['parent_shop'] = parent_shop['data']
@@ -462,12 +454,10 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         try:
             shop_instance = Shop.objects.create(**validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(
-                e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
-            shop_instance, "created")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "created")
         ShopCls.create_shop_log(shop_instance, "created")
         return shop_instance
 
@@ -483,8 +473,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
-            shop_instance, "updated")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "updated")
         ShopCls.create_shop_log(shop_instance, "updated")
         return shop_instance
 
@@ -518,8 +507,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
         if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            shop_parent_shop = get_validated_shop(
-                self.initial_data['parent_shop'])
+            shop_parent_shop = get_validated_shop(self.initial_data['parent_shop'])
             if 'error' in shop_parent_shop:
                 raise serializers.ValidationError(shop_parent_shop['error'])
 
@@ -533,12 +521,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
-        ShopCls.update_related_users_and_favourite_products(
-            shop, related_usrs, favourite_prd)
+        ShopCls.update_related_users_and_favourite_products(shop, related_usrs, favourite_prd)
         if action == "updated":
             ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
         elif action == "created":
-            obj = ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
+            ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
         # ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
 
 

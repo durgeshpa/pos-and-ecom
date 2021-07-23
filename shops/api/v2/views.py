@@ -245,7 +245,6 @@ class ShopView(generics.GenericAPIView):
         """ POST API for Shop Creation with Image """
 
         info_logger.info("Shop POST api called.")
-
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
@@ -261,7 +260,6 @@ class ShopView(generics.GenericAPIView):
         """ PUT API for Shop Updation with Image """
 
         info_logger.info("Shop PUT api called.")
-
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
@@ -295,7 +293,7 @@ class ShopView(generics.GenericAPIView):
                 shop_id = self.queryset.get(id=int(s_id))
                 try:
                     shop_id.delete()
-                except Exception as err:
+                except:
                     return get_response(f'can not delete shop | {shop_id.shop_name} | getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
@@ -323,8 +321,7 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset. \
-                filter(shop_name_address_mapping__address_type='shipping'). \
+            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping').\
                 filter(shop_name_address_mapping__pincode=pin_code)
 
         if city:
