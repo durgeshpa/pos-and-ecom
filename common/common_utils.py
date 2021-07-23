@@ -248,35 +248,36 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, 
         return False
 
 
+# @task()
+# def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit, points_debit,
+#                           net_points, shop_name, media_url, file_name):
+#     """
+#     request param:- order number, order_status, phone_number, refund_amount
+#     request param:- points_credit, points_debit, net_points
+#     request param:- shop_name, media_url, file_name
+#     return :- Ture if success else False
+#     """
+#     try:
+#         api_end_point = WHATSAPP_API_ENDPOINT
+#         whatsapp_user_id = WHATSAPP_API_USERID
+#         whatsapp_user_password = WHATSAPP_API_PASSWORD
+#         caption = "Hi! Your Order " +order_number+" has been "+order_status+". Your refund amount is "+str(refund_amount)+" INR."
+#         data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
+#         refund_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+#         response = requests.get(refund_order_api)
+#         if json.loads(response.text)['response']['status'] == 'success':
+#             whatsapp_credit_note_send.delay(phone_number, shop_name, media_url, file_name)
+#             return True
+#         else:
+#             return False
+#     except Exception as e:
+#         error_logger.error(e)
+#         return False
+
+
 @task()
 def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit, points_debit,
                           net_points, shop_name, media_url, file_name):
-    """
-    request param:- order number, order_status, phone_number, refund_amount
-    request param:- points_credit, points_debit, net_points
-    request param:- shop_name, media_url, file_name
-    return :- Ture if success else False
-    """
-    try:
-        api_end_point = WHATSAPP_API_ENDPOINT
-        whatsapp_user_id = WHATSAPP_API_USERID
-        whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! Your Order " +order_number+" has been "+order_status+". Your refund amount is "+str(refund_amount)+" INR."
-        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
-        refund_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
-        response = requests.get(refund_order_api)
-        if json.loads(response.text)['response']['status'] == 'success':
-            whatsapp_credit_note_send.delay(phone_number, shop_name, media_url, file_name)
-            return True
-        else:
-            return False
-    except Exception as e:
-        error_logger.error(e)
-        return False
-
-
-@task()
-def whatsapp_credit_note_send(phone_number, shop_name, media_url, file_name):
     """
     request param:- phone_number
     request param:- shop_name
@@ -288,7 +289,7 @@ def whatsapp_credit_note_send(phone_number, shop_name, media_url, file_name):
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Thank you for shopping at " +shop_name+"! Please find your credit note."
+        caption = "Hi! Your Order " +order_number+" has been "+order_status+". Your refund amount is "+str(refund_amount)+" INR."
         data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&caption=" + caption
         credit_note_send_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(credit_note_send_api)

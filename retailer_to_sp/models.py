@@ -6,7 +6,6 @@ import math
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
-from django.db.models.base import Model
 from django.db.models.signals import post_save
 from django.urls import reverse
 from django.core.exceptions import ValidationError
@@ -16,7 +15,6 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
-from material.frontend.templatetags.material_frontend import verbose_name_plural
 from model_utils import Choices
 
 from celery.task import task
