@@ -18,7 +18,7 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
     get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
-    validate_shop_sub_type, validate_shop_and_sub_shop_type
+    validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -369,6 +369,12 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         return ShopInvoicePatternSerializer(obj.invoice_pattern.all(), read_only=True, many=True).data
 
     def validate(self, data):
+
+        shop_id = self.instance.id if self.instance else None
+        if 'shop_name' in self.initial_data and self.initial_data['shop_name']:
+            shop_obj = validate_shop_name(self.initial_data['name'], shop_id)
+            if shop_obj is not None and 'error' in shop_obj:
+                raise serializers.ValidationError(shop_obj['error'])
 
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
             approval_status = get_validate_approval_status(

@@ -127,7 +127,7 @@ def get_validate_related_users(related_users):
     related_users_obj = []
     for related_users_data in related_users:
         try:
-            related_user = get_user_model().objects.get(id=related_users_data['id'])
+            related_user = get_user_model().objects.get(id=int(related_users_data['id']))
         except Exception as e:
             logger.error(e)
             return {'error': '{} related_user not found'.format(related_users_data['id'])}
@@ -408,3 +408,9 @@ def validate_shop_and_sub_shop_type(shop_type_name, shop_sub_type_name, shop_typ
     if ShopType.objects.filter(shop_type__iexact=shop_type_name, shop_sub_type__retailer_type_name=shop_sub_type_name, status=True)\
             .exclude(id=shop_type_id).exists():
         return {'error': 'shop type with this sub shop type mapping already exists'}
+
+
+def validate_shop_name(s_name, s_id):
+    """ validate shop name already exist in Shop Model  """
+    if Shop.objects.filter(shop_name__iexact=s_name, status=True).exclude(id=s_id).exists():
+        return {'error': 'shop with this shop name already exists'}
