@@ -16,7 +16,7 @@ from pos.models import RetailerProduct
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
-from pos.common_functions import RewardCls
+from pos.common_functions import RewardCls, RetailerProductCls
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -76,6 +76,7 @@ def update_es(products, shop_id):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
         stock_qty = pos_inv.quantity if pos_inv else 0
+        discounted_product_available = True if RetailerProductCls.is_discounted_product_exists(product) else False
         params = {
             'id': product.id,
             'name': product.name,
@@ -91,7 +92,8 @@ def update_es(products, shop_id):
             'modified_at': product.modified_at,
             'description': product.description if product.description else "",
             'linked_product_id': product.linked_product.id if product.linked_product else '',
-            'stock_qty': stock_qty
+            'stock_qty': stock_qty,
+            'discounted_product_available': discounted_product_available
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 

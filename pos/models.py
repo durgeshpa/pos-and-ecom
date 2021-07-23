@@ -1,6 +1,6 @@
 from django.utils.safestring import mark_safe
 from django.db import models
-from django.db.models import Sum
+
 from django.utils.translation import gettext_lazy as _
 
 from addresses.models import City, State, Pincode
@@ -16,11 +16,12 @@ PAYMENT_MODE_POS = (
 )
 
 
-class RetailerProduct(models.Model):
+class  RetailerProduct(models.Model):
     PRODUCT_ORIGINS = (
         (1, 'CREATED'),
         (2, 'LINKED'),
         # (3, 'LINKED_EDITED'),
+        (4, 'DISCOUNTED')
     )
     STATUS_CHOICES = (
         ('active', 'Active'),
@@ -38,6 +39,8 @@ class RetailerProduct(models.Model):
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
+    product_ref = models.OneToOneField('self', related_name='discounted_product', null=True, blank=True,
+                                       on_delete=models.CASCADE, verbose_name='Reference Product')
     status = models.CharField(max_length=20, default='active', choices=STATUS_CHOICES, blank=False,
                               verbose_name='Product Status')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,6 +71,7 @@ class RetailerProduct(models.Model):
 
     def save(self, *args, **kwargs):
         super(RetailerProduct, self).save(*args, **kwargs)
+
 
     class Meta:
         verbose_name = 'Product'
@@ -135,6 +139,12 @@ class Payment(models.Model):
     class Meta:
         verbose_name = 'Buyer - Payment'
 
+
+class DiscountedRetailerProduct(RetailerProduct):
+    class Meta:
+        proxy = True
+        verbose_name = 'Discounted Product'
+        verbose_name_plural = 'Discounted Products'
 
 class Vendor(models.Model):
     company_name = models.CharField(max_length=255)
