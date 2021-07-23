@@ -70,6 +70,13 @@ def shop_employee_search(queryset, search_text):
     return queryset
 
 
+# search using user name & phone number based on criteria that matches
+def shop_owner_search(queryset, search_text):
+    queryset = queryset.filter(Q(shop_owner__phone_number__icontains=search_text) | Q(shop_owner__first_name__icontains=search_text)
+                               | Q(shop_owner__last_name__icontains=search_text))
+    return queryset
+
+
 def retailer_type_search(queryset, search_text):
     queryset = queryset.filter(retailer_type_name__icontains=search_text)
     return queryset

@@ -33,7 +33,7 @@ from .serializers import (
 from shops.common_functions import *
 from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search, search_state, search_pincode, search_city)
+                            shop_type_search, search_state, search_pincode, search_city, shop_owner_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
     validate_pin_code
@@ -60,6 +60,9 @@ class ShopTypeListView(generics.GenericAPIView):
 
     def get(self, request):
         """ GET Shop Type List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_type_search(self.queryset, search_text)
         shop_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop_type, many=True)
         msg = "" if shop_type else "no shop found"
@@ -125,6 +128,9 @@ class ShopOwnerNameListView(generics.GenericAPIView):
             shops_data = id_validation['data']
         else:
             """ GET Shop List """
+            search_text = self.request.GET.get('search_text')
+            if search_text:
+                self.queryset = shop_owner_search(self.queryset, search_text)
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shops_data, many=True)
         msg = ""
@@ -236,7 +242,7 @@ class ShopView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
-        """ POST API for Shop Creation with Image Category & Tax """
+        """ POST API for Shop Creation with Image """
 
         info_logger.info("Shop POST api called.")
 
@@ -252,7 +258,7 @@ class ShopView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-        """ PUT API for Shop Updation with Image Category & Tax """
+        """ PUT API for Shop Updation with Image """
 
         info_logger.info("Shop PUT api called.")
 

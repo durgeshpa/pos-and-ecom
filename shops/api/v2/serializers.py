@@ -334,9 +334,9 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
-                  'owner', 'parent_shop', 'address', 'pincode', 'city',
-                  'approval_status', 'status', 'shop_type', 'related_users', 'shipping_address',
-                  'created_at', 'imei_no', 'shop_photo', 'shop_docs', 'shop_invoice_pattern', 'shop_log')
+                  'owner', 'parent_shop', 'address', 'pincode', 'city', 'approval_status', 'status', 'shop_type',
+                  'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_photo', 'shop_docs',
+                  'shop_invoice_pattern', 'shop_log')
 
     def get_shop_type_name(self, obj):
         return ShopTypeListSerializers(obj.shop_type, read_only=True).data
