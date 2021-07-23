@@ -1,3 +1,8 @@
+(function($) {
+  $(document).ready(function() {
+    getProductDetails()
+});
+})(django.jQuery);
 
 function getProductDetails() {
     if (!$) {
