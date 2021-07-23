@@ -14,6 +14,7 @@ from django.contrib.auth.models import Group
 from shops.common_functions import convert_base64_to_image
 from shops.base64_to_file import to_file
 from products.common_validators import get_csv_file_data, check_headers
+from addresses.models import Address
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +231,7 @@ def get_validate_shop_invoice_pattern(shop_invoice_patterns):
                 return {'error': 'Please select a valid start and end date of Invoice Pattern.'}
 
         if not ('status' in sip_data and (
-        any(sip_data['status'] in i for i in ShopInvoicePattern.SHOP_INVOICE_CHOICES))):
+                any(sip_data['status'] in i for i in ShopInvoicePattern.SHOP_INVOICE_CHOICES))):
             return {'error': 'Please select a valid status of Invoice Pattern.'}
     return {'shop_invoice_pattern': shop_invoice_patterns}
 
@@ -435,36 +436,65 @@ def read_file(csv_file, upload_type):
     elif upload_type == "shop_update":
         required_header_list = ['shop_id', 'shop_name', 'shop_type', 'shop_owner', 'shop_activated',
                                 'address_id', 'address_name', 'address', 'contact_person', 'contact_number',
-                                'pincode', 'state', 'city', 'address_type', 'parent_shop_name']
+                                'pincode', 'state', 'city', 'address_type']
+
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
-        check_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+        check_mandatory_columns(uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
         raise ValidationError("Please add some data below the headers to upload it!")
 
 
-def check_mandatory_columns(uploaded_data_list, header_list, ):
+def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
     row_num = 1
-    mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
-    for ele in mandatory_columns:
-        if ele not in header_list:
-            raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
-    for row in uploaded_data_list:
-        row_num += 1
-        if 'shop_id' not in row.keys():
-            raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
-        if 'shop_id' in row.keys() and row['shop_id'] == '':
-            raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
-        if 'employee' not in row.keys():
-            raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
-        if 'employee' in row.keys() and row['employee'] == '':
-            raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
-        if 'employee_group' not in row.keys():
-            raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
-        if 'employee_group' in row.keys() and row['employee_group'] == '':
-            raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+    if upload_type == "shop_user_map":
+        mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'shop_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
+            if 'shop_id' in row.keys() and row['shop_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+            if 'employee' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+            if 'employee' in row.keys() and row['employee'] == '':
+                raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+            if 'employee_group' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+            if 'employee_group' in row.keys() and row['employee_group'] == '':
+                raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+    if upload_type == "shop_update":
+        mandatory_columns = ['shop_id', 'shop_name', ]
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'shop_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
+            if 'shop_id' in row.keys() and row['shop_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+            if 'shop_name' in row.keys() and row['shop_name'] == '':
+                raise ValidationError(f"Row {row_num} | 'shop_name' can't be empty")
+            if 'shop_name' in row.keys() and row['shop_name']:
+                raise ValidationError(f"Row {row_num} | 'shop_name' can't be empty")
+            if 'shop_name' in row.keys() and row['shop_name']:
+                if Shop.objects.filter(shop_name__iexact=str(row['shop_name']).strip()).exclude(id=int(row['shop_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'shop_name' already exist in the "
+                                          f"system ")
+            if 'address_id' in row.keys() and row['address_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'address_id' can't be empty")
+            if 'address_id' in row.keys() and row['address_id']:
+                raise ValidationError(f"Row {row_num} | 'address_id' can't be empty")
+            if 'address_id' in row.keys() and row['address_id']:
+                if not Address.objects.filter(id=int(row['address_id']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'address_id' doesn't in the "
+                                          f"system ")
 
     validate_row(uploaded_data_list, header_list)
 
@@ -478,13 +508,56 @@ def validate_row(uploaded_data_list, header_list):
         for row in uploaded_data_list:
             row_num += 1
 
+            if 'address_id' in header_list and 'address_id' in row.keys() and row['address_id'] != '':
+                if not Address.objects.filter(id=int(row['address_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['address_id']} | 'address_id' doesn't exist in "
+                                          f"the system ")
+                mandatory_fields = ['city', 'state', 'pincode']
+                if 'city' not in row.keys() or row['city'] == '':
+                    raise ValidationError(f"Row {row_num} | 'city' can't be empty ")
+                if 'state' not in row.keys() or row['state'] == '':
+                    raise ValidationError(f"Row {row_num} | 'state' can't be empty ")
+                if 'pincode' not in row.keys() or row['pincode'] == '':
+                    raise ValidationError(f"Row {row_num} | 'pincode' can't be empty ")
+
+                for field in mandatory_fields:
+                    if field not in header_list:
+                        raise ValidationError(f"{mandatory_fields} are the essential headers and cannot be empty "
+                                              f"when address_id is there")
+                    if row[field] == '':
+                        raise ValidationError(
+                            f"Row {row_num} | {row[field]} | {field} cannot be empty {mandatory_fields} "
+                            f" are the essential fields when address_id is there")
+                if not State.objects.filter(state_name__iexact=str(row['state']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['state']} | 'state' doesn't exist in "
+                                          f"the system ")
+
+                if not City.objects.filter(city_name__iexact=str(row['city']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist in "
+                                          f"the system ")
+
+                if not Pincode.objects.filter(pincode=int(row['pincode']),
+                                              city=City.objects.filter(city_name__iexact=str(row['city'])).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist for given city"
+                                          f"the system ")
+
+            if 'shop_type' in header_list and 'shop_type' in row.keys() and row['shop_type'] != '':
+                if not ShopType.objects.filter(id=int(row['shop_type'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_type' doesn't exist in the system ")
+
+            if 'address_type' in header_list and 'address_type' in row.keys() and row['address_type'] != '':
+                if not (any(str(row['address_type']) in i for i in address_type_choices)):
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'address_type' doesn't exist in the "
+                                          f"system ")
+
+            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
+                if not Shop.objects.filter(id=int(row['shop_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+
             if 'shop_name' in header_list and 'shop_name' in row.keys() and row['shop_name'] != '':
                 if not Shop.objects.filter(shop_name__iexact=str(row['shop_name']).strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'shop_name' doesn't exist in the "
                                           f"system ")
-            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
-                if not Shop.objects.filter(id=int(row['shop_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
 
             if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
                 if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():

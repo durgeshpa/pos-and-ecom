@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.common_validators import get_csv_file_data
-from addresses.models import Address
+from addresses.models import Address, State, City, Pincode
 from products.models import CentralLog
 from shops.models import ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
@@ -80,6 +80,71 @@ class ShopCls(object):
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
                               f" + {str(e)}")
+
+    @classmethod
+    def update_shop(cls, validated_data):
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+        info_logger.info('Method Start to Update Shop')
+        count = 0
+        row_num = 1
+        for row in uploaded_data_by_user_list:
+            row_num += 1
+            count += 1
+            try:
+                shop_obj = Shop.objects.filter(id=row['shop_id'])
+                s_address = Address.objects.filter(shop_name=s_address.last())
+                fields = ['shop_name', 'shop_type', 'shop_owner', 'shop_activated', 'address_name', 'address',
+                          'contact_person', 'contact_number', 'pincode', 'state', 'city', 'address_type',
+                          'parent_shop_name']
+
+                available_fields = []
+                for col in fields:
+                    if col in row.keys() and row[col] != '':
+                        available_fields.append(col)
+                for col in available_fields:
+                    address = s_address.filter(shop_name_id=int(row['address_id']))
+                    if col == 'shop_name':
+                        shop_obj.update(shop_name=str(row['shop_name']))
+                    if col == 'shop_type':
+                        shop_obj.update(shop_type=row['shop_type'])
+                    if col == 'shop_owner':
+                        shop_obj.update(shop_owner=get_user_model().objects.filter(phone_number=row['shop_owner'].strip()))
+                    if col == 'approval_status':
+                        shop_obj.update(status=bool(row['approval_status']))
+                    if col == 'parent_shop_name':
+                        shop_obj.update(brand_description=row['parent_shop_name'])
+
+                    if col == 'address_name':
+                        address.update(nick_name=row['address_name'])
+                    if col == 'address':
+                        address.update(address_line1=row['address'])
+                    if col == 'contact_person':
+                        address.update(address_contact_name=row['contact_person'])
+                    if col == 'contact_number':
+                        address.update(address_contact_number=row['contact_number'])
+                    if col == 'state':
+                        state_id = State.objects.filter(state_name=str(row['state'])).last()
+                        address.update(state=state_id)
+                    if col == 'city':
+                        city_id = City.objects.filter(city_name=str(row['city'])).last()
+                        address.update(city=city_id)
+                    if col == 'pincode':
+                        pincode_id = Pincode.objects.filter(pincode=int(row['pincode'])).last()
+                        address.update(pincode=pincode_id)
+                    if col == 'address_type':
+                        address.update(address_type=row['address'].lower())
+
+                    shop_obj.update(updated_by=validated_data['updated_by'])
+                ShopCls.create_shop_log(shop_obj.last(), "updated")
+
+                info_logger.info("Method complete to create Shop User Mapping from csv file")
+            except Exception as e:
+                error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
+                                  f" + {str(e)}")
 
     @classmethod
     def create_update_shop_address(cls, shop, addresses):
