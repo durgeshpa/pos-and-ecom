@@ -37,7 +37,8 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, 
-                                    product_ean_code, product_status='active', offer_price=None, offer_sd=None, offer_ed=None):
+                                    product_ean_code, product_status='active', offer_price=None, offer_sd=None,
+                                    offer_ed=None, product_ref=None):
         """
             General Response For API
         """
@@ -46,7 +47,7 @@ class RetailerProductCls(object):
                                               mrp=mrp, sku_type=sku_type, selling_price=selling_price,
                                               offer_price=offer_price, offer_start_date=offer_sd, offer_end_date=offer_ed,
                                               description=description, product_ean_code=product_ean_code,
-                                              status=product_status)
+                                              status=product_status, product_ref=product_ref)
 
     @classmethod
     def create_images(cls, product, images):
@@ -57,6 +58,16 @@ class RetailerProductCls(object):
                     count += 1
                     image.name = str(product.sku) + '_' + str(count) + '_' + image.name
                 RetailerProductImage.objects.create(product=product, image=image)
+
+    @classmethod
+    def copy_images(cls, product, images):
+        """
+        Params :
+            product : retailer product instance for which images are to be created
+            images : RetailerProductImage queryset
+        """
+        for image in images:
+            RetailerProductImage.objects.create(product=product, image=image.image)
 
     @classmethod
     def update_images(cls, product, images):
@@ -82,6 +93,10 @@ class RetailerProductCls(object):
             return 'LINKED'
         if sku_type == 3:
             return 'LINKED_EDITED'
+
+    @classmethod
+    def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
 class OffersCls(object):
@@ -190,6 +205,16 @@ class PosInventoryCls(object):
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
                                                 user)
 
+    @classmethod
+    def get_available_inventory(cls, pid, state):
+        """
+        Returns stock for any product in the given state
+        Params:
+            pid : product id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
+        return inventory_object.quantity if inventory_object else 0
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}

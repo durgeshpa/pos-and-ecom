@@ -17,12 +17,16 @@ def sku_generator(shop_id):
 @receiver(pre_save, sender=RetailerProduct)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.sku:
-        # Generate a unique SKU by using shop_id & uuid4 once,
-        # then check the db. If exists, keep trying.
-        sku_id = sku_generator(instance.shop.id)
-        while RetailerProduct.objects.filter(sku=sku_id).exists():
+        if instance.sku_type != 4:
+            # Generate a unique SKU by using shop_id & uuid4 once,
+            # then check the db. If exists, keep trying.
             sku_id = sku_generator(instance.shop.id)
+            while RetailerProduct.objects.filter(sku=sku_id).exists():
+                sku_id = sku_generator(instance.shop.id)
+        else:
+            sku_id = 'D'+ instance.product_ref.sku
         instance.sku = sku_id
+        # In case of discounted products, use existing products SKU with an appended D at the beginning
 
 
 @receiver(post_save, sender=RetailerProduct)
@@ -33,12 +37,26 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     update_shop_retailer_product_es(instance.shop.id, instance.id)
 
 
+
 @receiver(post_save, sender=PosInventory)
 def update_elasticsearch_inv(sender, instance=None, created=False, **kwargs):
     """
         Update elastic data on RetailerProduct update
     """
     update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
+    if instance.product.sku_type == 4:
+        update_shop_retailer_product_es(instance.product.shop.id, instance.product.product_ref.id)
+
+
+@receiver(post_save, sender=PosInventory)
+def update_product_status_on_inventory_update(sender, instance=None, created=False, **kwargs):
+    """
+        update product status on inventory update
+    """
+    if instance.product.sku_type == 4 and instance.quantity == 0:
+        instance.product.status = 'deactivated'
+        instance.product.save()
+
 
 
 @receiver(post_save, sender=PosCart)

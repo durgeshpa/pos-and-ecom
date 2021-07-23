@@ -51,6 +51,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     stock_qty = serializers.IntegerField(min_value=0, default=0)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
+    is_discounted = serializers.BooleanField(default=False)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -81,7 +82,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
         if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
             raise serializers.ValidationError("Product already exists in catalog.")
-
+        
         return attrs
 
 
@@ -89,6 +90,7 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
     linked_product = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     stock_qty = serializers.SerializerMethodField()
+    discounted_product = serializers.SerializerMethodField()
 
     @staticmethod
     def get_linked_product(obj):
@@ -103,6 +105,11 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=obj, inventory_state=inv_available).last()
         return pos_inv.quantity if pos_inv else 0
+
+    @staticmethod
+    def get_discounted_product(obj):
+        if obj.sku_type != 4 and hasattr(obj, 'discounted_product'):
+            return RetailerProductResponseSerializer(obj.discounted_product).data
 
     class Meta:
         model = RetailerProduct
@@ -127,6 +134,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
     image_ids = serializers.ListField(required=False, default=None, child=serializers.IntegerField())
+    is_discounted = serializers.BooleanField(default=False)
+    discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
+                                                min_value=0.01)
+    discounted_stock = serializers.IntegerField(required=False)
+
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -167,9 +179,17 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             if not attrs['product_ean_code'].isdigit():
                 raise serializers.ValidationError("Product Ean Code should be a number")
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+        if RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
             raise serializers.ValidationError("Product already exists in catalog.")
 
+        is_discounted = attrs['is_discounted']
+        if is_discounted:
+            if 'discounted_price' not in attrs:
+                raise serializers.ValidationError("Discounted price is required to create discounted product")
+            elif 'discounted_stock' not in attrs:
+                raise serializers.ValidationError("Discounted stock is required to create discounted product")
+            if attrs['discounted_price'] >= sp:
+                raise serializers.ValidationError("Discounted Price should be less than selling price")
         return attrs
 
 
