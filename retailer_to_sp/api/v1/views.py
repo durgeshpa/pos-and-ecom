@@ -74,7 +74,8 @@ from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
+    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
+    RetailerProductResponseSerializer
 from pos.common_validators import validate_user_type_for_pos_shop
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
 from retailer_backend.settings import AWS_MEDIA_URL
@@ -978,7 +979,12 @@ class CartCentral(GenericAPIView):
         cart_products = cart.rt_cart_list.all()
         if cart_products:
             for product_mapping in cart_products:
-                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
+                    and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
+                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
+                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
+                else:
+                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
     @check_pos_shop
@@ -1196,7 +1202,10 @@ class CartCentral(GenericAPIView):
             product = initial_validation['product']
             qty = initial_validation['quantity']
             cart = initial_validation['cart']
-
+            check_discounted = self.request.data.get('check_discounted', None)
+            if check_discounted and RetailerProductCls.is_discounted_product_exists(product) \
+                                and product.discounted_product.status == 'active':
+                return api_response('Discounted product found', self.serialize_product(product), status.HTTP_300_MULTIPLE_CHOICES, False)
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Check if product has to be removed
@@ -1309,6 +1318,13 @@ class CartCentral(GenericAPIView):
                 return {'error': "Please provide selling price to change price"}
             if product.mrp and Decimal(selling_price) > product.mrp:
                 return {'error': "Selling Price should be equal to OR less than MRP"}
+        if product.sku_type == 4:
+            discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+            if product.status != 'active':
+                return {'error': "This product is de-activated!"}
+            elif discounted_stock < qty:
+                return {'error': "This product has only {} in stock!".format(discounted_stock)}
+
         # activate product in cart
         if product.status != 'active':
             product.status = 'active'
@@ -1484,6 +1500,9 @@ class CartCentral(GenericAPIView):
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
                 RetailerProductCls.update_price(product.id, selling_price, self.request.user, 'cart', cart_no)
+        if not selling_price and product.offer_price and datetime.now() > product.offer_start_date and \
+            datetime.now() < product.offer_end_date:
+            selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
@@ -1517,6 +1536,8 @@ class CartCentral(GenericAPIView):
         data['next_offer'] = BasicCartOffers.get_cart_nearest_offer(cart, cart.rt_cart_list.all())
         return data
 
+    def serialize_product(self, product):
+        return RetailerProductResponseSerializer(product).data
 
 class UserView(APIView):
     """
@@ -2664,6 +2685,9 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        #check for discounted product availability
+        if not self.discounted_product_in_stock(cart_products):
+            return {'error': 'Some of the products are not in stock'}
         # Check payment method
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
@@ -2999,6 +3023,16 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
+
+    def discounted_product_in_stock(self, cart_products):
+        if cart_products.filter(retailer_product__sku_type=4).exists():
+            discounted_cart_products = cart_products.filter(retailer_product__sku_type=4)
+            for cp in discounted_cart_products:
+                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id, PosInventoryState.AVAILABLE)
+                if inventory_available < cp.no_of_pieces:
+                    return False
+        return True
+
 
 
 # class CreateOrder(APIView):

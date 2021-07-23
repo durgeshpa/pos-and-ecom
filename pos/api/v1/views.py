@@ -78,16 +78,18 @@ class PosProductView(GenericAPIView):
         serializer = RetailerProductCreateSerializer(data=modified_data)
         if serializer.is_valid():
             data = serializer.data
-            name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
-                'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
-                                                                         'description'], data['stock_qty']
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty = data[
+                'product_name'], data['product_ean_code'], data['mrp'], data['selling_price'], data[
+                    'offer_price'], data['offer_start_date'], data['offer_end_date'], data[
+                        'linked_product_id'], data['description'], data['stock_qty']
             with transaction.atomic():
                 # Decide sku_type 2 = using GF product, 1 = new product
                 sku_type = 2 if linked_pid else 1
                 # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
                 # Create product
                 product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
-                                                                     description, ean, self.request.user, 'product')
+                                                                     description, ean, self.request.user, 'product',
+                                                                     None, 'active', offer_price, offer_sd, offer_ed)
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
@@ -120,6 +122,7 @@ class PosProductView(GenericAPIView):
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
             name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
                 'mrp'], data['selling_price'], data['description'], data['stock_qty']
+            offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
@@ -128,6 +131,9 @@ class PosProductView(GenericAPIView):
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
+                product.offer_price = offer_price if offer_price else product.offer_price
+                product.offer_start_date = offer_sd if offer_sd else product.offer_start_date
+                product.offer_end_date = offer_ed if offer_ed else product.offer_end_date
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
                 # Update images
@@ -145,6 +151,33 @@ class PosProductView(GenericAPIView):
                 # Change logs
                 ProductChangeLogs.product_update(product, old_product, self.request.user, 'product', product.sku)
                 serializer = RetailerProductResponseSerializer(product)
+                if data['is_discounted']:
+                    discounted_price = data['discounted_price']
+                    discounted_stock = data['discounted_stock']
+                    product_status = 'active' if discounted_stock > 0 else 'deactivated'
+
+                    initial_state = PosInventoryState.AVAILABLE
+                    tr_type = PosInventoryChange.STOCK_UPDATE
+
+                    discounted_product = RetailerProduct.objects.filter(product_ref=product).last()
+                    if not discounted_product:
+
+                        initial_state = PosInventoryState.NEW
+                        tr_type = PosInventoryChange.STOCK_ADD
+
+                        discounted_product = RetailerProductCls.create_retailer_product(product.shop.id, product.name, product.mrp,
+                                                                 discounted_price, product.linked_product_id, 4,
+                                                                 product.description, product.product_ean_code,
+                                                                 self.request.user, 'product', None, product_status,
+                                                                 None, None, None, product)
+                    else:
+                        discounted_product.selling_price = discounted_price
+                        discounted_product.status = product_status
+                        discounted_product.save()
+
+                    PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
+                                                    PosInventoryState.AVAILABLE, discounted_stock, self.request.user,
+                                                    discounted_product.sku, tr_type)
                 return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
