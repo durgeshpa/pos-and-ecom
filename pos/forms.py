@@ -68,7 +68,7 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
             raise ValidationError(_('Invalid Product.'))
         product_ref = data.get('product_ref')
         if data.get('discounted_price') is None or data.get('discounted_price') <= 0 \
-                or data.get('discounted_price') >= product_ref.mrp:
+                or data.get('discounted_price') >= product_ref.selling_price:
             raise ValidationError(_('Invalid discounted price.'))
         return data
 
