@@ -372,7 +372,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
         shop_id = self.instance.id if self.instance else None
         if 'shop_name' in self.initial_data and self.initial_data['shop_name']:
-            shop_obj = validate_shop_name(self.initial_data['name'], shop_id)
+            shop_obj = validate_shop_name(self.initial_data['shop_name'], shop_id)
             if shop_obj is not None and 'error' in shop_obj:
                 raise serializers.ValidationError(shop_obj['error'])
 
