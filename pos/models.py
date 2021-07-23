@@ -158,7 +158,8 @@ class Vendor(models.Model):
     city = models.ForeignKey(City, on_delete=models.CASCADE, null=True)
     state = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
     gst_number = models.CharField(max_length=100)
-    retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE)
+    retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE,
+                                      null=True, blank=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -166,8 +167,9 @@ class Vendor(models.Model):
 
     def save(self, *args, **kwargs):
         pin_code_obj = Pincode.objects.filter(pincode=self.pincode).last()
-        self.city = pin_code_obj.city
-        self.state = pin_code_obj.city.state
+        if pin_code_obj:
+            self.city = pin_code_obj.city
+            self.state = pin_code_obj.city.state
         super().save(*args, **kwargs)
 
     class Meta:
@@ -194,6 +196,7 @@ class PosCart(models.Model):
     raised_by = models.ForeignKey(User, related_name='po_raise_user', null=True, blank=True, on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(User, related_name='po_last_modified_user', null=True, blank=True,
                                          on_delete=models.CASCADE)
+    gf_order_no = models.CharField(null=True, max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -276,3 +279,29 @@ class PosGRNOrderProductMapping(models.Model):
 class Document(models.Model):
     grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
     document = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')
+
+
+class ProductChange(models.Model):
+    EVENT_TYPE_CHOICES = (
+        ('product', 'Product'),
+        ('cart', 'Cart'),
+    )
+    product = models.ForeignKey(RetailerProduct, related_name='retailer_product', on_delete=models.CASCADE)
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
+    event_id = models.CharField(max_length=255)
+    changed_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ProductChangeFields(models.Model):
+    COLUMN_CHOICES = (
+        ('selling_price', 'Selling Price'),
+        ('mrp', 'MRP'),
+        ('offer_price', 'offer_price'),
+        ('offer_start_date', 'Offer Start Date'),
+        ('offer_end_date', 'Offer End Date'),
+    )
+    product_change = models.ForeignKey(ProductChange, related_name='price_change_cols', on_delete=models.DO_NOTHING)
+    column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
+    old_value = models.CharField(max_length=255, null=True)
+    new_value = models.CharField(max_length=255)

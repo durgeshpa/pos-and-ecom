@@ -13,6 +13,7 @@ from shops.models import Shop
 from wms.common_functions import get_stock
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .common_function import capping_check, getShopMapping
+from pos.models import RetailerProduct
 
 logger = logging.getLogger(__name__)
 
@@ -109,3 +110,14 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             error_dict[row[0]] = message
 
     return availableQuantity, error_dict
+
+
+def bulk_order_franchisepo_validation(cart_products_csv, buyer_shop):
+    reader = csv.reader(codecs.iterdecode(cart_products_csv, 'utf-8', errors='ignore'))
+    headers = next(reader, None)
+
+    for id, row in enumerate(reader):
+        product = Product.objects.get(product_sku=row[0])
+        if not RetailerProduct.objects.filter(linked_product=product, shop=buyer_shop).exists():
+            return False
+    return True
