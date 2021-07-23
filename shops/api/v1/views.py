@@ -1,4 +1,5 @@
 import logging
+from pos.common_functions import check_pos_shop
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -1026,19 +1027,11 @@ def set_shop_map_cron():
     except Exception as error:
         logger.exception(error)
 
-
-class UserAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        qs = get_user_model().objects.all()
-        if self.q:
-            qs = qs.filter(phone_number__icontains=self.q)
-        return qs
-
-
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.select_related('shop_owner', 'shop_type').only('id', 'shop_name', 'shop_owner', 'shop_type').\
+    queryset = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                pos_enabled=1).only('id', 'shop_name', 'shop_owner', 'shop_type').\
         order_by('-id')
     serializer_class = ShopBasicSerializer
 
@@ -1071,8 +1064,10 @@ class PosShopUserMappingView(generics.GenericAPIView):
     queryset = PosShopUserMapping.objects.order_by('-id')
     serializer_class = PosShopUserMappingCrudSerializers
 
-    def get(self, request):
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
         """ GET API for PosShopUserMapping """
+        self.queryset = self.queryset.filter(shop=kwargs['shop'])
 
         if request.GET.get('id'):
             """ Get PosShopUserMapping for specific ID """
@@ -1090,14 +1085,17 @@ class PosShopUserMappingView(generics.GenericAPIView):
         msg = "" if shop_user_data else "no shop found"
         return get_response(msg, serializer.data, True)
 
-    def post(self, request):
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
         """ POST API for PosShopUserMapping Creation"""
+        shop = kwargs['shop']
 
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
+        modified_data['shop'] = shop.id
         
-        validated_data = validate_mapping(modified_data)
+        validated_data = validate_mapping(modified_data, shop)
         if 'error' in validated_data:
             return get_response(validated_data['error'])
 
@@ -1107,13 +1105,16 @@ class PosShopUserMappingView(generics.GenericAPIView):
             return get_response('shop created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def put(self, request):
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
         """ PUT API for PosShopUserMapping Updation"""
-
+        shop = kwargs['shop']
+        self.queryset = self.queryset.filter(shop=shop)
 
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
+        modified_data['shop'] = shop.id
 
         if 'id' not in modified_data:
             return get_response('please provide id to update shop', False)
@@ -1131,8 +1132,10 @@ class PosShopUserMappingView(generics.GenericAPIView):
             return get_response('Shop User Mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def delete(self, request):
+    @check_pos_shop
+    def delete(self, request, *args, **kwargs):
         """ Delete PosShopUserMapping """
+        self.queryset = self.queryset.filter(shop=kwargs['shop'])
 
         if not request.data.get('psu_id'):
             return get_response('please provide psu_id', False)

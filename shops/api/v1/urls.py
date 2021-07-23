@@ -4,7 +4,7 @@ from django.urls import path
 
 from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopListView, ShopTypeView,
         ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
-        FavouriteProductListView, UserAutocomplete, UserTypeListView)
+        FavouriteProductListView, UserTypeListView)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
@@ -51,7 +51,6 @@ urlpatterns = [
 
 # --------------------------------------------------POS APIs---------------------------------------------------
     path('pos-shop-user/', PosShopUserMappingView.as_view(), name='pos-shop-user', ),
-    url(r'^user-autocomplete/$', UserAutocomplete.as_view(), name='user-autocomplete'),
     url('shop-list/', ShopListView.as_view(), name='shop-list'),
     url('pos-user-type-list/', UserTypeListView.as_view(), name='pos-user-type-list'),
 

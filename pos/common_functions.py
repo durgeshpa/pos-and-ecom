@@ -10,7 +10,7 @@ from django.db.models import Q, Sum
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
-from shops.models import Shop
+from shops.models import PosShopUserMapping, Shop
 from accounts.models import User
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
@@ -458,8 +458,8 @@ class RewardCls(object):
 
 
 def filter_pos_shop(user):
-    return Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
-                               approval_status=2, pos_enabled=1)
+    return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                pos_enabled=1, pos_shop__user=user)
 
 
 def check_pos_shop(view_func):

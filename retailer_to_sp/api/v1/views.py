@@ -5568,7 +5568,8 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        related_users = shop.related_users.filter(is_staff=False)
-        request_users = self.pagination_class().paginate_queryset(related_users, self.request)
+        # related_users = shop.related_users.filter(is_staff=False)
+        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop)
+        request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['related_users'] = PosShopUserSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)

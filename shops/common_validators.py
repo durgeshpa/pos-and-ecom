@@ -64,13 +64,12 @@ def get_validate_user_type(user_type):
         return {'error': 'please provide a valid User Type'}
     return {'data': user_type}
 
-def validate_mapping(data):
+def validate_mapping(data, shop):
     if 'user' in data and data['user'] and \
-        'shop' in data and data['shop'] and \
             'user_type' in data and data['user_type']:
-        return get_psu_mapping(data['user'], data['shop'])
+        return get_psu_mapping(data['user'], shop)
     else:
-        return {'error': "Missing mandatory field/s 'user', 'shop' and 'user_type'."} 
+        return {'error': "Missing mandatory field/s 'user' and 'user_type'."} 
 
 
 def get_psu_mapping(user, shop):
