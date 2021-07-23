@@ -176,6 +176,20 @@ class PosInventoryCls(object):
                                           transaction_id=transaction_id, initial_state=i_state_obj,
                                           final_state=f_state_obj, changed_by=user)
 
+    @classmethod
+    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+        """
+            Manage GRN related product inventory
+        """
+        i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
+        f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
+        pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
+        inv_qty = pos_inv.quantity
+        pos_inv.quantity = qty + inv_qty
+        pos_inv.save()
+        PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
+                                                user)
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}

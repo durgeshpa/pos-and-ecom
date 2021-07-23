@@ -2,7 +2,7 @@ from django.db import models
 from datetime import datetime
 
 from model_utils import Choices
-
+from wms.models import RetailerProduct, PosInventoryState
 from products.models import Product
 from shops.models import Shop
 from wms.models import InventoryType, InventoryState, Bin
@@ -336,6 +336,18 @@ class WarehouseInventoryHistoric(models.Model):
     class Meta:
         db_table = "wms_warehouse_inventory_history"
 
+
+    
+class PosInventoryHistoric(models.Model):
+    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    quantity = models.IntegerField(default=0)
+    inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField()
+    modified_at = models.DateTimeField()
+    archived_at = models.DateTimeField(auto_now_add=True)
+
+    # class Meta:
+    #     db_table = "pos_inventory_history"
 
 class BinInventoryHistoric(models.Model):
     archive_entry = models.ForeignKey(InventoryArchiveMaster, null=False, on_delete=models.DO_NOTHING)
