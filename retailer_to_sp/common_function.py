@@ -1,13 +1,13 @@
 import datetime
 import json
+import time
+import random
 
-from django.db.models import Sum
-
-today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 
 from shops.models import ParentRetailerMapping
 
+today = datetime.datetime.today()
 
 def getShopMapping(shop_id):
     try:
@@ -96,3 +96,10 @@ def reserved_args_json_data(shop_id, transaction_id, products, transaction_type,
         'order_number': order_no
     })
     return reserved_args
+
+
+def generate_credit_note_id(invoice_no, prefix='FCR'):
+    # cr_id = prefix + time.strftime('%Y%m%d') + str(random.randint(1000000, 9999999))
+    cr_id = str(invoice_no).replace('FIV', prefix)
+    return cr_id 
+    

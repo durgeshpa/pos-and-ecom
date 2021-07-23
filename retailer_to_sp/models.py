@@ -6,6 +6,7 @@ import math
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
+from django.db.models.base import Model
 from django.db.models.signals import post_save
 from django.urls import reverse
 from django.core.exceptions import ValidationError
@@ -2714,6 +2715,17 @@ class OrderReturn(models.Model):
         for item in self.rt_return_list.all():
             return_value += item.return_value
         return return_value
+
+
+class CreditNote(models.Model):
+    credit_note_id = models.CharField(max_length=30)
+    order_return = models.ForeignKey(OrderReturn, related_name="credit_note_order_return_mapping", \
+        on_delete=models.DO_NOTHING)
+    credit_note_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 
 
 class ReturnItems(models.Model):

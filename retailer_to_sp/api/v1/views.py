@@ -2,6 +2,7 @@ import logging
 import re
 from decimal import Decimal
 import json
+from retailer_to_sp.pdf_generation import pdf_generation_return_retailer
 from retailer_to_sp.common_validators import validate_payment_type
 import requests
 from datetime import datetime, timedelta
@@ -46,11 +47,11 @@ from categories import models as categorymodel
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList
                                   )
-from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare,
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, Return)
-from retailer_to_sp.common_function import check_date_range, capping_check
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
                                      )
@@ -65,8 +66,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
-                                 whatsapp_order_refund)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
     PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
@@ -4085,13 +4085,11 @@ class OrderReturnComplete(APIView):
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
             order_return.save()
-            # whatsapp api call for refund notification
-            order_number = order.order_no
-            order_status = order.order_status
-            phone_number = order.buyer.phone_number
-            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, points_credit,
-                                        points_debit, net_points)
+            credit_note_id = generate_credit_note_id(ordered_product.invoice_no)
+            credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
+            pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
+                return_qty, order.order_amount, refund_amount, points_credit, points_debit, net_points, credit_note_instance)
+            
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 
