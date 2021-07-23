@@ -96,7 +96,7 @@ class RetailerProductCls(object):
 
     @classmethod
     def is_discounted_product_exists(cls, product):
-        return hasattr(product, 'discounted_product')
+        return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
 class OffersCls(object):
