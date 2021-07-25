@@ -43,13 +43,9 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
                 'order__buyer__first_name', 'order__buyer__phone_number',
                 "rt_order_product_order_product_mapping__id",
                 'purchased_subtotal', 'order__order_amount',)
-    print(orders)
 
 
     for order in orders.iterator():
-        print(order)
-        # order_prod = RetailerOrderedProduct.objects.get(order__order_no = order.get('order__order_no'))
-        # print(order_prod.order.order_no)
         order_prod_mapping = RetailerOrderedProductMapping.objects.get(id = order.get('rt_order_product_order_product_mapping__id'))
         return_item = order_prod_mapping.rt_return_ordered_product.all()
 
