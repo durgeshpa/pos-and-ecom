@@ -1,7 +1,6 @@
 
 import csv
 import datetime
-import re
 
 from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery, Case, Value, When, Q
@@ -24,9 +23,9 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
         'Seller Shop Name', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 'Buyer Name',
         'Mobile No(Buyer)', 'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Quantity',
         'Product Type', 'Selling Price', 'Subtotal', 'Order Amount',
-        'Return Id', 'Return Status', 'Return Processed By', 
+        # 'Return Id', 'Return Status', 'Return Processed By', 
         # 'Return Product Id', 'Return Product SKU', 'Return Product Name', 'Quantity','Product Type', 'Selling Price', 
-        'Refunded amount', 'Discount Adjusted', 'Refund Point', 'Refund Mode', 'Return Created At'])
+        'Return Quantity', 'Return Amount'])
 
     orders = queryset\
         .annotate(
@@ -42,27 +41,29 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
                 'order__seller_shop__shop_owner__first_name', 'order__seller_shop__shop_owner__phone_number',
                 'order__seller_shop__shop_type__shop_type',
                 'order__buyer__first_name', 'order__buyer__phone_number',
-                'rt_order_product_order_product_mapping__retailer_product__id','rt_order_product_order_product_mapping__retailer_product__sku',
-                'rt_order_product_order_product_mapping__retailer_product__name', 'rt_order_product_order_product_mapping__shipped_qty',
-                'rt_order_product_order_product_mapping__product_type', 'rt_order_product_order_product_mapping__retailer_product__selling_price',
+                "rt_order_product_order_product_mapping__id",
                 'purchased_subtotal', 'order__order_amount',)
+    print(orders)
 
-    
-    count = 0
-    prev_order_no = 0
+
     for order in orders.iterator():
-        
-        return_order = RetailerOrderReturn.objects.filter(order__order_no = order.get('order__order_no'))
-        if len(return_order) > 0 and prev_order_no != order.get('order__order_no'):
-            return_dict = return_order\
-            .values('id','status', 'processed_by__first_name', 'refund_amount', 
-                    'discount_adjusted', 'refund_points', 'refund_mode',
-                    'created_at')
-            count = 0
-        
-        if len(return_order) > 0 and count < len(return_dict):
-            order.update(return_dict[count])
+        print(order)
+        # order_prod = RetailerOrderedProduct.objects.get(order__order_no = order.get('order__order_no'))
+        # print(order_prod.order.order_no)
+        order_prod_mapping = RetailerOrderedProductMapping.objects.get(id = order.get('rt_order_product_order_product_mapping__id'))
+        return_item = order_prod_mapping.rt_return_ordered_product.all()
 
+        no_of_product_return = 0
+        cost = 0
+
+        for item in return_item:
+            no_of_product_return += item.return_qty
+
+        if order_prod_mapping.product_type:
+            cost = (no_of_product_return * order_prod_mapping.retailer_product.selling_price)
+        
+        if no_of_product_return:
+            order.update({'return_qty':no_of_product_return, 'refund_amount': cost})
 
         writer.writerow([
             order.get('order__order_no'),
@@ -76,26 +77,22 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
             order.get('order__seller_shop__shop_type__shop_type'),
             order.get('order__buyer__first_name'),
             order.get('order__buyer__phone_number'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__id'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__sku'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__name'),
-            order.get('rt_order_product_order_product_mapping__shipped_qty'),
+            order_prod_mapping.retailer_product.id,
+            order_prod_mapping.retailer_product.sku,
+            order_prod_mapping.retailer_product.name,
+            # order.get('rt_order_product_order_product_mapping__shipped_qty'),
+            # retailer_product_type.get(
+            #     order.get('rt_order_product_order_product_mapping__product_type'),
+            #     order.get('rt_order_product_order_product_mapping__product_type')),
+            order_prod_mapping.shipped_qty,
             retailer_product_type.get(
-                order.get('rt_order_product_order_product_mapping__product_type'),
-                order.get('rt_order_product_order_product_mapping__product_type')),
-            order.get('rt_order_product_order_product_mapping__retailer_product__selling_price'),
+                order_prod_mapping.product_type,
+                order_prod_mapping.product_type),
+            order_prod_mapping.retailer_product.selling_price,
             order.get('purchased_subtotal'),
             order.get('order__order_amount'),
-            order.get('id', None),
-            order.get('status', None),
-            order.get('processed_by__first_name', None),
-            order.get('refund_amount', None),
-            order.get('discount_adjusted', None),
-            order.get('refund_points', None),
-            order.get('refund_mode', None),
-            order.get('created_at', None)
+            order.get('return_qty', None),
+            order.get('refund_amount', None)
         ])
-        count += 1
-        prev_order_no = order.get('order__order_no')
         
     return response
