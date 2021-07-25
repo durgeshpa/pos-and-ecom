@@ -59,7 +59,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete)
+                    packing_material_inventory_sample_upload, HSNAutocomplete, franchise_po_fail_status)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -1007,6 +1007,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^packing-material-check/$',
                 self.admin_site.admin_view(PackingMaterialCheck.as_view()),
                 name="packing-material-check"
+            ),
+            url(
+                r'^franchise-po-fail-products/(?P<pk>\d+)/$',
+                self.admin_site.admin_view(franchise_po_fail_status),
+                name='franchise_po_fail_list'
             ),
             # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
             #      name='custom_search'),

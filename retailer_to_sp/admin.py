@@ -59,6 +59,8 @@ from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCr
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
+from shops.models import PosShopUserMapping
+from accounts.middlewares import get_current_user
 
 logger = logging.getLogger('django')
 
@@ -989,7 +991,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
-                    'pickup_completed_at', 'picking_completion_time' #'damaged_amount',
+                    'pickup_completed_at', 'picking_completion_time', 'create_po'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1013,6 +1015,14 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def create_po(self, obj):
+        buyer_shop = obj.buyer_shop
+        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and\
+                buyer_shop.pos_enabled == 1:
+            user = get_current_user()
+            if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
+                return format_html("<a href= '%s' >Create PO For POS Shop</a>" % (reverse('create-franchise-po', args=[obj.pk])))
 
     def buyer_shop_type(self, obj):
         return obj.buyer_shop.shop_type

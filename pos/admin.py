@@ -1,20 +1,23 @@
 import csv
+from copy import deepcopy
+
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+from accounts.middlewares import get_current_user
 
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
-from .common_functions import RetailerProductCls, PosInventoryCls
+from .common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
-                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType,
-                     DiscountedRetailerProduct)
+                     PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
+                     ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
@@ -511,21 +514,21 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
         product_ref = obj.product_ref
         inventory_initial_state = PosInventoryState.NEW
         tr_type = PosInventoryChange.STOCK_ADD
+        user = get_current_user()
         if not obj.id:
             product = RetailerProductCls.create_retailer_product(obj.shop.id, product_ref.name, product_ref.mrp,
                                                                  discounted_price, product_ref.linked_product_id, 4,
                                                                  product_ref.description, product_ref.product_ean_code,
-                                                                 product_status, None, None, None, product_ref )
+                                                                 user, 'product', None, product_status, None, None,
+                                                                 None, product_ref)
 
             RetailerProductCls.copy_images(product, product_ref.retailer_product_image.all())
+            product.save()
         else:
             product = RetailerProduct.objects.get(id=obj.id)
-            product.selling_price=discounted_price
-            product.status = product_status
-
+            RetailerProductCls.update_price(product.id, discounted_price, product_status, user, 'product', product.sku)
             inventory_initial_state = PosInventoryState.AVAILABLE
             tr_type = PosInventoryChange.STOCK_UPDATE
-        product.save()
         # Add Inventory
         PosInventoryCls.stock_inventory(product.id, inventory_initial_state, PosInventoryState.AVAILABLE,
                                         discounted_stock, request.user, product.sku,
@@ -648,6 +651,36 @@ class PaymentTypeAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+class ProductChangeFieldsAdmin(admin.TabularInline):
+    model = ProductChangeFields
+    fields = ('column_name', 'old_value', 'new_value')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ProductChange)
+class ProductChangeAdmin(admin.ModelAdmin):
+    list_display = ('product', 'event_type', 'event_id', 'changed_by', 'created_at')
+    list_per_page = 20
+    search_fields = ('product__product_name', 'event_type', 'event_id')
+    inlines = [ProductChangeFieldsAdmin]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

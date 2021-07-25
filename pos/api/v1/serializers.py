@@ -1522,7 +1522,7 @@ class POSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         # Validate vendor id
         shop = self.context.get('shop')
-        if not Vendor.objects.filter(id=attrs['vendor_id'], retailer_shop=shop).exists():
+        if not Vendor.objects.filter(id=attrs['vendor_id']).exists():
             raise serializers.ValidationError("Invalid Vendor Id")
 
         # Validate products
