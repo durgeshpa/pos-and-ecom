@@ -596,11 +596,9 @@ class ShopManagerSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['manager'] = representation['employee']
-        
         representation['manager'] = {
             "id": representation['id'],
-            "manager": representation['manager'],
+            "manager_name": representation['employee'],
         }
         return representation['manager']
 
