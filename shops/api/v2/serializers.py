@@ -623,9 +623,10 @@ class ServicePartnerShopsSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['Shop'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
-                                      f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name'] }" \
-                                      f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
+        representation['shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
+                                 f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
+                                 f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
+
         return representation
 
 
