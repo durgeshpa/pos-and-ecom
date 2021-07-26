@@ -69,7 +69,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
     PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
@@ -1183,30 +1183,20 @@ class CartCentral(GenericAPIView):
             return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
 
     @check_pos_shop
+    @PosAddToCart.validate_request_body
     def basic_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
             For cart type 'basic'
         """
         with transaction.atomic():
-            # basic validations for inputs
-            cart_id = kwargs['pk'] if 'pk' in kwargs else None
-            shop = kwargs['shop']
-            initial_validation = self.post_basic_validate(shop, cart_id)
-            if 'error' in initial_validation:
-                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-                extra_params = {'error_code': e_code} if e_code else {}
-                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
-                                    extra_params)
-            product = initial_validation['product']
-            qty = initial_validation['quantity']
-            cart = initial_validation['cart']
-            check_discounted = self.request.data.get('check_discounted', None)
-            if check_discounted and RetailerProductCls.is_discounted_product_exists(product) \
-                                and product.discounted_product.status == 'active':
-                return api_response('Discounted product found', self.serialize_product(product), status.HTTP_300_MULTIPLE_CHOICES, False)
+            product, new_product_info, qty, cart, shop = kwargs['product'], kwargs['new_product_info'], kwargs[
+                'quantity'], kwargs['cart'], kwargs['shop']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
+            # Create product if not existing
+            if product is None:
+                product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
             if int(qty) == 0:
                 delete_cart_mapping(cart, product, 'basic')
@@ -1222,6 +1212,15 @@ class CartCentral(GenericAPIView):
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
+    def pos_cart_product_create(self, shop_id, product_info, cart_id):
+        product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
+                                                             product_info['sp'], product_info['linked_pid'],
+                                                             product_info['type'], product_info['name'],
+                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+        PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
+                                        self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
+        return product
 
     def post_retail_validate(self):
         """
@@ -1260,38 +1259,6 @@ class CartCentral(GenericAPIView):
             Add To Cart
             Input validation for add to cart for cart type 'basic'
         """
-        # Added Quantity check
-        qty = self.request.data.get('qty')
-        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
-            return {'error': "Qty Invalid!"}
-
-        if not self.request.data.get('product_id'):
-            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
-            if 'error' in pos_shop_user_obj:
-                if 'Unauthorised user.' in pos_shop_user_obj['error']:
-                    return {'error': 'Unauthorised user to add new product.'}
-                return pos_shop_user_obj
-            name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'), \
-                            self.request.data.get('product_ean_code')
-            if not (name and sp and ean):
-                return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
-            linked_pid = self.request.data.get('linked_product_id') if self.request.data.get(
-                'linked_product_id') else None
-            mrp, linked = 0, 1
-            if linked_pid:
-                linked_product = Product.objects.filter(id=linked_pid).last()
-                if not linked_product:
-                    return {'error': f"GramFactory product not found for given {linked_pid}"}
-                mrp, linked = linked_product.product_mrp, 2
-            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean,
-                                                                 self.request.user, 'cart', cart_id)
-            PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
-                                            self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
-        else:
-            try:
-                product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), shop=shop)
-            except ObjectDoesNotExist:
-                return {'error': "Product Not Found!"}
         # Check if existing or new cart
         cart = None
         if cart_id:
@@ -1304,31 +1271,63 @@ class CartCentral(GenericAPIView):
                 return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
             elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
                 return {'error': "Active Cart Doesn't Exist!"}
-        # Check if selling price is less than equal to mrp if price change
-        price_change = self.request.data.get('price_change')
-        if price_change in [1, 2]:
+
+        # Quantity check
+        qty = self.request.data.get('qty')
+        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            return {'error': "Qty Invalid!"}
+
+        # Either existing product OR info for adding new product
+        product = None
+        new_product_info = dict()
+        # Adding new product in catalogue and cart
+        if not self.request.data.get('product_id'):
+            # User permission check
             pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
             if 'error' in pos_shop_user_obj:
                 if 'Unauthorised user.' in pos_shop_user_obj['error']:
-                    return {'error': 'Unauthorised user to update product price.'}
+                    return {'error': 'Unauthorised user to add new product.'}
                 return pos_shop_user_obj
-            selling_price = self.request.data.get('selling_price')
-            if not selling_price:
-                return {'error': "Please provide selling price to change price"}
-            if product.mrp and Decimal(selling_price) > product.mrp:
-                return {'error': "Selling Price should be equal to OR less than MRP"}
-        if product.sku_type == 4:
-            discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
-            if product.status != 'active':
-                return {'error': "This product is de-activated!"}
-            elif discounted_stock < qty:
-                return {'error': "This product has only {} in stock!".format(discounted_stock)}
+            # Provided info check
+            name, sp, ean = self.request.data.get('product_name'), self.request.data.get(
+                'selling_price'), self.request.data.get('product_ean_code')
+            if not name or not sp or not ean:
+                return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
+            linked_pid = self.request.data.get('linked_product_id') if self.request.data.get(
+                'linked_product_id') else None
+            new_product_info['mrp'], new_product_info['type'] = 0, 1
+            if linked_pid:
+                linked_product = Product.objects.filter(id=linked_pid).last()
+                if not linked_product:
+                    return {'error': f"GramFactory product not found for given {linked_pid}"}
+                new_product_info['mrp'], new_product_info['type'] = linked_product.product_mrp, 2
+            new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
+        else:
+            try:
+                product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), shop=shop)
+                # Check if selling price is less than equal to mrp if price change
+                price_change = self.request.data.get('price_change')
+                if price_change in [1, 2]:
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return {'error': 'Unauthorised user to update product price.'}
+                        return pos_shop_user_obj
+                    selling_price = self.request.data.get('selling_price')
+                    if not selling_price:
+                        return {'error': "Please provide selling price to change price"}
+                    if product.mrp and Decimal(selling_price) > product.mrp:
+                        return {'error': "Selling Price should be equal to OR less than MRP"}
 
-        # activate product in cart
-        if product.status != 'active':
-            product.status = 'active'
-            product.save()
-        return {'product': product, 'quantity': qty, 'cart': cart}
+                if product.sku_type == 4:
+                    discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+                    if product.status != 'active':
+                        return {'error': "This product is de-activated!"}
+                    elif discounted_stock < qty:
+                        return {'error': "This product has only {} in stock!".format(discounted_stock)}
+            except ObjectDoesNotExist:
+                return {'error': "Product Not Found!"}
+        return {'product': product, 'new_product_info': new_product_info, 'quantity': qty, 'cart': cart}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -1537,6 +1536,7 @@ class CartCentral(GenericAPIView):
 
     def serialize_product(self, product):
         return RetailerProductResponseSerializer(product).data
+
 
 class UserView(APIView):
     """
