@@ -277,7 +277,8 @@ class PosGRNOrderProductMapping(models.Model):
 
 
 class Document(models.Model):
-    grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
+    grn_order = models.OneToOneField(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE,
+                                     related_name='pos_grn_invoice')
     document = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')
 
 

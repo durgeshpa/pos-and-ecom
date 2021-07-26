@@ -2,6 +2,7 @@ import datetime
 import json
 
 from django.db.models import Sum
+from django.db import transaction
 
 from addresses.models import Address
 from pos.models import RetailerProduct, PosCart, PosCartProductMapping, Vendor
@@ -107,17 +108,21 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
         vendor.vendor_name, vendor.address, vendor.pincode = 'PepperTap', bill_add.address_line1, bill_add.pincode
         vendor.city, vendor.state = bill_add.city, bill_add.state
         vendor.save()
-    cart, created = PosCart.objects.get_or_create(vendor=vendor, retailer_shop=buyer_shop, gf_order_no=order_no)
-    cart.last_modified_by = user
-    if created:
-        cart.raised_by = user
-    cart.save()
-    product_ids = []
-    for product in products:
-        retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop).last()
-        product_ids += [retailer_product.id]
-        mapping, _ = PosCartProductMapping.objects.get_or_create(cart=cart, product=retailer_product)
-        mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(product.qty)
-        mapping.qty = product.qty
-        mapping.save()
-    PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
+    with transaction.atomic():
+        cart, created = PosCart.objects.get_or_create(vendor=vendor, retailer_shop=buyer_shop, gf_order_no=order_no)
+        cart.last_modified_by = user
+        if created:
+            cart.raised_by = user
+        cart.save()
+        product_ids = []
+        for product in products:
+            retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop).last()
+            product_ids += [retailer_product.id]
+            mapping, _ = PosCartProductMapping.objects.get_or_create(cart=cart, product=retailer_product)
+            if not mapping.is_grn_done:
+                mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(
+                    product.qty)
+                mapping.qty = product.qty
+                mapping.save()
+        PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
+    return created, cart.po_no
