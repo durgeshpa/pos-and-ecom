@@ -96,48 +96,24 @@ class ShopCls(object):
             count += 1
             try:
                 shop_obj = Shop.objects.filter(id=row['shop_id'])
-                s_address = Address.objects.filter(shop_name=s_address.last())
-                fields = ['shop_name', 'shop_type', 'shop_owner', 'shop_activated', 'address_name', 'address',
-                          'contact_person', 'contact_number', 'pincode', 'state', 'city', 'address_type',
-                          'parent_shop_name']
-
-                available_fields = []
-                for col in fields:
-                    if col in row.keys() and row[col] != '':
-                        available_fields.append(col)
-                for col in available_fields:
-                    address = s_address.filter(shop_name_id=int(row['address_id']))
-                    if col == 'shop_name':
-                        shop_obj.update(shop_name=str(row['shop_name']))
-                    if col == 'shop_type':
-                        shop_obj.update(shop_type=row['shop_type'])
-                    if col == 'shop_owner':
-                        shop_obj.update(shop_owner=get_user_model().objects.filter(phone_number=row['shop_owner'].strip()))
-                    if col == 'approval_status':
-                        shop_obj.update(status=bool(row['approval_status']))
-                    if col == 'parent_shop_name':
-                        shop_obj.update(brand_description=row['parent_shop_name'])
-
-                    if col == 'address_name':
-                        address.update(nick_name=row['address_name'])
-                    if col == 'address':
-                        address.update(address_line1=row['address'])
-                    if col == 'contact_person':
-                        address.update(address_contact_name=row['contact_person'])
-                    if col == 'contact_number':
-                        address.update(address_contact_number=row['contact_number'])
-                    if col == 'state':
-                        state_id = State.objects.filter(state_name=str(row['state'])).last()
-                        address.update(state=state_id)
-                    if col == 'city':
-                        city_id = City.objects.filter(city_name=str(row['city'])).last()
-                        address.update(city=city_id)
-                    if col == 'pincode':
-                        pincode_id = Pincode.objects.filter(pincode=int(row['pincode'])).last()
-                        address.update(pincode=pincode_id)
-                    if col == 'address_type':
-                        address.update(address_type=row['address'].lower())
-
+                address = Address.objects.filter(shop_name=shop_obj.last(), id=int(row['address_id']))
+                if address.exists():
+                    state_id = State.objects.get(state_name=row['state']).id
+                    city_id = City.objects.get(city_name=row['city']).id
+                    pincode_id = Pincode.objects.get(pincode=int(row['pincode']), city_id=city_id).id
+                    address.update(nick_name=row['nick_name'],
+                                   address_line1=row['address'],
+                                   address_contact_name=row['contact_person'],
+                                   address_contact_number=int(row['contact_number']),
+                                   pincode_link_id=pincode_id,
+                                   state_id=state_id,
+                                   city_id=city_id,
+                                   address_type=str(row['address_type'].lower()))
+                    shipping_address = Address.objects.filter(shop_name_id=int(row['shop_id']), address_type='shipping')
+                    if not shipping_address.exists():
+                        raise Exception('Atleast one shipping address is required')
+                    Shop.objects.filter(id=int(row['shop_id'])).update(shop_name=row['shop_name'],
+                                                                       status=row['shop_activated'])
                     shop_obj.update(updated_by=validated_data['updated_by'])
                 ShopCls.create_shop_log(shop_obj.last(), "updated")
 

@@ -124,10 +124,6 @@ class ShopTypeListSerializers(serializers.ModelSerializer):
         response = super().to_representation(instance)
         response['shop_type'] = instance.get_shop_type_display()
         response['shop_type_value'] = instance.shop_type
-        # "shop_type" = {
-        #
-        # }
-        # response['shop_type_value'] = instance
         return response
 
 
@@ -803,16 +799,17 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         data = Address.objects.values_list(
-            'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type',
+            'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type__shop_type',
             'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
             'address_line1', 'address_contact_name', 'address_contact_number',
-            'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type')\
+            'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
+            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at')\
             .filter(shop_name__id__in=validated_data['shop_id_list'])
 
         meta = Shop._meta
         field_names = ['shop_id', 'shop_name', 'shop_type', 'shop_owner', 'shop_activated', 'address_id',
-                       'address_name', 'address', 'contact_person', 'contact_number', 'pincode', 'state',
-                       'city', 'address_type']
+                       'nick_name', 'address', 'contact_person', 'contact_number', 'pincode', 'state',
+                       'city', 'address_type', 'imei_no', 'parent_shop_name', 'shop_created_at']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
