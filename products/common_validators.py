@@ -249,7 +249,7 @@ def product_category(obj):
     try:
         if obj.parent_product_pro_category.exists():
             cats = [str(cat.category) for cat in obj.parent_product_pro_category.filter(status=True)]
-            return "\n".join(cats)
+            return ",".join(cats)
         return ''
     except:
         return ''
