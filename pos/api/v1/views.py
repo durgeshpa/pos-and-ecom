@@ -1071,22 +1071,35 @@ class GrnOrderView(GenericAPIView):
 
     @check_pos_shop
     def post(self, request, *args, **kwargs):
-        serializer = PosGrnOrderCreateSerializer(data=request.data,
+        try:
+            data = json.loads(self.request.data["data"])
+        except:
+            return {'error': "Invalid Data Format"}
+        data['invoice'] = request.FILES.get('invoice')
+        serializer = PosGrnOrderCreateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.save()
+            s_data = serializer.data
+            s_data['invoice'] = data['invoice']
+            serializer.create(s_data)
             return api_response('', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
-        data = request.data
+        try:
+            data = json.loads(self.request.data["data"])
+        except:
+            return {'error': "Invalid Data Format"}
+        data['invoice'] = request.FILES.get('invoice')
         data['grn_id'] = kwargs['pk']
-        serializer = PosGrnOrderUpdateSerializer(data=request.data,
+        serializer = PosGrnOrderUpdateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.update(kwargs['pk'], serializer.data)
+            s_data = serializer.data
+            s_data['invoice'] = data['invoice']
+            serializer.update(kwargs['pk'], s_data)
             return api_response('', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
