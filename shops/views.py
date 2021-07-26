@@ -545,15 +545,6 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-class PosShopAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
-                                pos_enabled=1)
-        if self.q:
-            qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
-        return qs
-
-
 class UserAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = get_user_model().objects.all()

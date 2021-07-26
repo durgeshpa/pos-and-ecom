@@ -126,7 +126,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('order', 'payment_mode', 'paid_by', 'processed_by', 'created_at')
+    list_display = ('order', 'payment_type', 'transaction_id', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number')
 

@@ -22,9 +22,10 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
 
-from .views import (PosShopAutocomplete, StockAdjustmentView,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
+from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
+                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
+from pos.filters import PosShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel

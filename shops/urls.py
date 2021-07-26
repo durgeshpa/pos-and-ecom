@@ -2,7 +2,7 @@ from django.conf.urls import include, url
 from django.contrib import admin
 
 from .filters import SkuFilterComplete
-from .views import PosShopAutocomplete, ShopParentAutocomplete, ShopRetailerAutocomplete, BeatUserMappingCsvSample, BeatUserMappingCsvView, \
+from .views import ShopParentAutocomplete, ShopRetailerAutocomplete, BeatUserMappingCsvSample, BeatUserMappingCsvView, \
     Skufilter, UserAutocomplete
 
 urlpatterns = [
@@ -13,6 +13,5 @@ urlpatterns = [
     url(r'^upload/csv/$', BeatUserMappingCsvView.as_view(), name="user-upload-csv"),
     url(r'^sku-autocomplete/$',SkuFilterComplete.as_view(),name='sku-autocomplete'),
     url(r'^user-autocomplete/$', UserAutocomplete.as_view(), name='user-autocomplete'),
-    url(r'^pos-shop-autocomplete/$', PosShopAutocomplete.as_view(), name='pos-shop-autocomplete',),
 
 ]

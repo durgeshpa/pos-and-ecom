@@ -289,7 +289,7 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! Your Order " +order_number+" has been "+order_status+". Your refund amount is "+str(refund_amount)+" INR."
+        caption = "Hi! Your Order " +order_number+" has been "+order_status+". Your refund amount is "+str(refund_amount)+" INR! Please find your credit note."
         data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&caption=" + caption
         credit_note_send_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(credit_note_send_api)

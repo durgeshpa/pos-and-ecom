@@ -2574,7 +2574,6 @@ class OrderCentral(APIView):
             extra_params = {'error_code': e_code} if e_code else {}
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
         cart = initial_validation['cart']
-        payment_method = initial_validation['payment_method']
         payment_type = initial_validation['payment_type']
         transaction_id = self.request.data.get('transaction_id', None)
 
@@ -2584,7 +2583,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method, payment_type, transaction_id)
+            self.auto_process_order(order, payment_type, transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2687,10 +2686,6 @@ class OrderCentral(APIView):
         #check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
-        # Check payment method
-        payment_method = self.request.data.get('payment_method')
-        if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
-            return {'error': 'Please provide a valid payment method'}
         # Check Payment Type
         payment_type = validate_payment_type(self.request.data.get('payment_type'))
         if 'error' in payment_type:
@@ -2702,7 +2697,7 @@ class OrderCentral(APIView):
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_method': payment_method, 'payment_type': payment_type['data']}
+        return {'cart': cart, 'payment_type': payment_type['data']}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -2944,7 +2939,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_method, payment_type, transaction_id):
+    def auto_process_order(self, order, payment_type, transaction_id):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -2987,7 +2982,6 @@ class OrderCentral(APIView):
         # Create payment
         PosPayment.objects.create(
             order=order,
-            payment_mode=payment_method,
             payment_type=payment_type,
             transaction_id=transaction_id,
             paid_by=order.buyer,
@@ -4111,7 +4105,7 @@ class OrderReturnComplete(APIView):
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
             order_return.save()
-            return_count = get_return_count(order)
+            return_count = OrderReturn.objects.filter(order=order, status='completed').count()
             credit_note_id = generate_credit_note_id(ordered_product.invoice_no, return_count)
             credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
             pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
@@ -4119,10 +4113,6 @@ class OrderReturnComplete(APIView):
             
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
-
-
-def get_return_count(order):
-    return OrderReturn.objects.filter(order=order).count()
 
 
 # class OrderList(generics.ListAPIView):
@@ -5601,7 +5591,7 @@ class PosShopUsersList(APIView):
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
         # related_users = shop.related_users.filter(is_staff=False)
-        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop)
+        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop, is_staff=False)
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['related_users'] = PosShopUserSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
