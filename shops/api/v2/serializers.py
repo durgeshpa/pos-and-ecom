@@ -626,8 +626,11 @@ class ServicePartnerShopsSerializers(serializers.ModelSerializer):
         representation['shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
                                  f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
                                  f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
-
-        return representation
+        representation['shop'] = {
+            "id": representation['id'],
+            "shop_name": representation['shop_name'],
+        }
+        return representation['shop']
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
