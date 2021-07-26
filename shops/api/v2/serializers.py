@@ -580,11 +580,6 @@ class ManagerSerializers(serializers.ModelSerializer):
         if obj.employee:
             return str(obj.employee)
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     representation['manager_name'] = instance.employee
-    #     return representation
-
 
 class ShopEmployeeSerializers(serializers.ModelSerializer):
     class Meta:
@@ -602,6 +597,11 @@ class ShopManagerSerializers(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['manager'] = representation['employee']
+        
+        representation['manager'] = {
+            "id": representation['id'],
+            "manager": representation['manager'],
+        }
         return representation['manager']
 
 
@@ -642,7 +642,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
+        fields = ('id', 'shop',  'manager',  'employee', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
