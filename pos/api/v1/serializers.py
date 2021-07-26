@@ -7,10 +7,11 @@ from django.utils.translation import ugettext_lazy as _
 from django.db.models import Q, Sum, F
 from django.db import transaction
 from rest_framework import serializers
+from django.core.validators import FileExtensionValidator
 
 from addresses.models import Pincode
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping, Payment, PaymentType
+    PosGRNOrderProductMapping, Payment, PaymentType, Document
 from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
@@ -150,6 +151,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
+
         offer_price = attrs['offer_price'] if attrs['offer_price'] else product.offer_price
         offer_sd = attrs['offer_start_date'] if attrs['offer_start_date'] else product.offer_start_date
         offer_ed = attrs['offer_end_date'] if attrs['offer_end_date'] else product.offer_end_date
@@ -171,9 +173,25 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+        
+        if 'offer_price' in attrs and attrs['offer_price'] and 'offer_start_date' in attrs and attrs['offer_start_date']\
+            and 'offer_end_date' in attrs and attrs['offer_end_date']:
+            offer_price = attrs['offer_price']
+            offer_sd = attrs['offer_start_date']
+            offer_ed = attrs['offer_end_date']
 
-        if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
-            raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+            if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
+                raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+
+            if ((offer_sd is None and offer_ed is not None) or \
+                (offer_sd is not None and offer_ed is None)) :
+                raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
+            elif offer_sd is not None and offer_ed is not None:
+                if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
+                    raise serializers.ValidationError('Inavlid Offer Start and End date.')
+        elif ('offer_price' in attrs and attrs['offer_price']) or ('offer_start_date' in attrs and attrs['offer_start_date'])\
+            or ('offer_end_date' in attrs and attrs['offer_end_date']):
+            raise serializers.ValidationError("Keys 'offer_price', 'offer_start_date', 'offer_end_date' are combined mandatory.")
 
         if 'product_ean_code' in attrs and attrs['product_ean_code']:
             if not attrs['product_ean_code'].isdigit():
@@ -1649,10 +1667,12 @@ class PosGrnProductSerializer(serializers.ModelSerializer):
 class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
     po_id = serializers.IntegerField()
     products = PosGrnProductSerializer(many=True)
+    invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
+        allowed_extensions=['pdf'])])
 
     class Meta:
         model = PosGRNOrder
-        fields = ('po_id', 'products')
+        fields = ('po_id', 'products', 'invoice')
 
     def validate(self, attrs):
         shop = self.context.get('shop')
@@ -1685,14 +1705,13 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                         product_obj.name))
         if not product_added:
             raise serializers.ValidationError("Please provide grn info for atleast one product")
-        attrs['po'] = po
         return attrs
 
     def create(self, validated_data):
         with transaction.atomic():
             user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
-            grn_order = PosGRNOrder.objects.create(order=validated_data['po'].pos_po_order, added_by=user,
-                                                   last_modified_by=user)
+            po = PosCart.objects.get(id=validated_data['po_id'])
+            grn_order = PosGRNOrder.objects.create(order=po.pos_po_order, added_by=user, last_modified_by=user)
             for product in products:
                 if product['received_qty'] > 0:
                     PosGRNOrderProductMapping.objects.create(grn_order=grn_order, product_id=product['product_id'],
@@ -1700,7 +1719,6 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                     PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.NEW,
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
                                                   grn_order.grn_id, PosInventoryChange.GRN_ADD)
-            po = validated_data['po']
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
             total_grn_qty = total_grn_qty if total_grn_qty else 0
@@ -1708,16 +1726,21 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             total_po_qty = PosCartProductMapping.objects.filter(cart=po).aggregate(Sum('qty')).get('qty__sum')
             po.status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             po.save()
+            # Upload invoice
+            if 'invoice' in validated_data and validated_data['invoice']:
+                Document.objects.create(grn_order=grn_order, document=validated_data['invoice'])
             return grn_order
 
 
 class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
     grn_id = serializers.IntegerField()
     products = PosGrnProductSerializer(many=True)
+    invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
+        allowed_extensions=['pdf'])])
 
     class Meta:
         model = PosGRNOrder
-        fields = ('grn_id', 'products')
+        fields = ('grn_id', 'products', 'invoice')
 
     def validate(self, attrs):
         shop = self.context.get('shop')
@@ -1778,6 +1801,10 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
                 'qty__sum')
             po_status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             PosCart.objects.filter(id=grn_order.order.ordered_cart.id).update(status=po_status)
+            # Upload invoice
+            if 'invoice' in validated_data and validated_data['invoice']:
+                Document.objects.filter(grn_order=grn_order).delete()
+                Document.objects.create(grn_order=grn_order, document=validated_data['invoice'])
             return grn_order
 
 
@@ -1802,8 +1829,16 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         fields = ('product_id', 'product_name', 'price', 'qty', 'other_grned_qty')
 
 
+class GrnInvoiceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Document
+        fields = ('document', )
+
+
 class GrnOrderGetSerializer(serializers.ModelSerializer):
     products = serializers.SerializerMethodField()
+    pos_grn_invoice = GrnInvoiceSerializer()
     added_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
 
@@ -1824,5 +1859,5 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosGRNOrder
-        fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'added_by', 'last_modified_by',
+        fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'pos_grn_invoice', 'added_by', 'last_modified_by',
                   'created_at', 'modified_at')

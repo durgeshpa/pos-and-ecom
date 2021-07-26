@@ -32,14 +32,11 @@ from barCodeGenerator import barcodeGen
 from brand.models import Brand
 
 from categories import models as categorymodel
-from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
-from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
-from ecom.utils import check_ecom_user, check_ecom_user_shop
+from ecom.utils import check_ecom_user_shop
 
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
@@ -50,15 +47,17 @@ from marketing.models import ReferralCode
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
-                                    OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer)
+                                    OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
+                                    RetailerProductResponseSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop)
+
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
-    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
-    RetailerProductResponseSerializer
 from pos.common_validators import validate_user_type_for_pos_shop
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment
 from pos.tasks import update_es, order_loyalty_points_credit
@@ -73,7 +72,7 @@ from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems)
-from retailer_to_sp.common_function import check_date_range, capping_check
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
 from sp_to_gram.models import OrderedProductReserved
@@ -2728,7 +2727,6 @@ class OrderCentral(APIView):
             extra_params = {'error_code': e_code} if e_code else {}
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
         cart = initial_validation['cart']
-        payment_method = initial_validation['payment_method']
         payment_type = initial_validation['payment_type']
         transaction_id = self.request.data.get('transaction_id', None)
 
@@ -2738,7 +2736,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method, payment_type, transaction_id)
+            self.auto_process_order(order, payment_type, transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2841,10 +2839,6 @@ class OrderCentral(APIView):
         #check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
-        # Check payment method
-        payment_method = self.request.data.get('payment_method')
-        if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
-            return {'error': 'Please provide a valid payment method'}
         # Check Payment Type
         payment_type = validate_payment_type(self.request.data.get('payment_type'))
         if 'error' in payment_type:
@@ -2856,7 +2850,7 @@ class OrderCentral(APIView):
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_method': payment_method, 'payment_type': payment_type['data']}
+        return {'cart': cart, 'payment_type': payment_type['data']}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -3098,7 +3092,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_method, payment_type, transaction_id):
+    def auto_process_order(self, order, payment_type, transaction_id):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -3142,7 +3136,6 @@ class OrderCentral(APIView):
         # Create payment
         PosPayment.objects.create(
             order=order,
-            payment_mode=payment_method,
             payment_type=payment_type,
             transaction_id=transaction_id,
             paid_by=order.buyer,
@@ -4269,13 +4262,12 @@ class OrderReturnComplete(APIView):
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
             order_return.save()
-            # whatsapp api call for refund notification
-            order_number = order.order_no
-            order_status = order.order_status
-            phone_number = order.buyer.phone_number
-            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, points_credit,
-                                        points_debit, net_points)
+            return_count = OrderReturn.objects.filter(order=order, status='completed').count()
+            credit_note_id = generate_credit_note_id(ordered_product.invoice_no, return_count)
+            credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
+            pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
+                return_qty, order.order_amount, refund_amount, points_credit, points_debit, net_points, credit_note_instance)
+            
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 
@@ -4777,6 +4769,106 @@ def pdf_generation_retailer(request, order_id):
             file_name = ordered_product.invoice.invoice_no
             # whatsapp api call for sending an invoice
             whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception(e)
+
+def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items, return_qty, \
+                                    total, total_amount, points_credit, points_debit, net_points, credit_note_instance):
+    """
+    :param request: request object
+    :param order_id: Order id
+    :return: pdf instance
+    """
+    file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
+    template_name = 'admin/credit_note/credit_note_retailer.html'
+
+    if credit_note_instance:
+        filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
+        barcode = barcodeGen(credit_note_instance.credit_note_id)
+        # Total Items
+        return_item_listing = []
+        # Total Returned Amount
+        total = 0
+
+        for item in return_items:
+            return_p = {
+                "id": item.id,
+                "product_short_description": item.ordered_product.retailer_product.product_short_description,
+                "mrp": item.ordered_product.retailer_product.mrp,
+                "qty": item.return_qty,
+                "rate": float(item.ordered_product.selling_price),
+                "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
+            }
+            total += return_p['product_sub_total']
+            return_item_listing.append(return_p)
+
+        return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
+        # redeem value
+        redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
+        # Total discount
+        discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
+        # Total payable amount in words
+        
+        
+        # Total payable amount
+        total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+        total_amount_int = round(total_amount)
+        # Total payable amount in words
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
+        rupees = amt[0]
+
+
+        # Shop Details
+        nick_name = '-'
+        address_line1 = '-'
+        city = '-'
+        state = '-'
+        pincode = '-'
+        address_contact_number = ''
+        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+            nick_name, address_line1 = z.nick_name, z.address_line1
+            city, state, pincode = z.city, z.state, z.pincode
+            address_contact_number = z.address_contact_number
+
+        data = {
+            "url": request.get_host(),
+            "scheme": request.is_secure()and"https"or"http",
+            "credit_note": credit_note_instance,
+            "shipment": ordered_product,
+            "order": ordered_product.order,
+            "total_amount": total_amount,
+            "discount": discount,
+            "reward_value": redeem_value,
+            'total': total,
+            "barcode": barcode,
+            "return_item_listing": return_item_listing,
+            "rupees": rupees,
+            "sum_qty": return_qty,
+            "nick_name": nick_name,
+            "address_line1": address_line1,
+            "city": city,
+            "state": state,
+            "pincode": pincode,
+            "address_contact_number": address_contact_number
+        }
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            # create_invoice_data(ordered_product)
+            credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+                                                     save=True)
+            order_number = order.order_no
+            order_status = order.order_status
+            phone_number = order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url = credit_note_instance.credit_note_pdf.url
+            file_name = ordered_product.invoice_no
+            shop_name = ordered_product.order.seller_shop.shop_name
+            whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit,
+                                        points_debit, net_points, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
 
@@ -5657,7 +5749,8 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        related_users = shop.related_users.filter(is_staff=False)
-        request_users = self.pagination_class().paginate_queryset(related_users, self.request)
+        # related_users = shop.related_users.filter(is_staff=False)
+        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop, is_staff=False)
+        request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['related_users'] = PosShopUserSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
