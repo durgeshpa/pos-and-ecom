@@ -18,7 +18,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
                      ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
-    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
+    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
+    download_discounted_products_form_view, download_discounted_products
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
@@ -95,7 +96,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
-        """" Download & Upload(For Creating OR Updating Bulk Products) Retailer Product CSV"""
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
                    url(r'retailer_products_csv_download_form',
@@ -470,6 +470,8 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
 
+    change_list_template = 'admin/pos/discounted_product_change_list.html'
+
     def get_queryset(self, request):
         qs = super(DiscountedRetailerProductAdmin, self).get_queryset(request)
         qs = qs.filter(sku_type=4)
@@ -487,6 +489,21 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_urls(self):
+        """" Download & Upload(For Creating OR Updating Bulk Products) Retailer Product CSV"""
+        urls = super(DiscountedRetailerProductAdmin, self).get_urls()
+        urls = [
+                   url(r'discounted_products_download_form',
+                       self.admin_site.admin_view(download_discounted_products_form_view),
+                       name="discounted_products_download_form"),
+
+                   url(r'discounted_products_download',
+                       self.admin_site.admin_view(download_discounted_products),
+                       name="discounted_products_download"),
+
+               ] + urls
+        return urls
 
     class Media:
         js = (

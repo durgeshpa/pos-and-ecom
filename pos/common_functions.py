@@ -103,6 +103,8 @@ class RetailerProductCls(object):
             return 'LINKED'
         if sku_type == 3:
             return 'LINKED_EDITED'
+        if sku_type == 4:
+            return 'DISCOUNTED'
 
     @classmethod
     def is_discounted_product_exists(cls, product):

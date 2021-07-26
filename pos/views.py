@@ -59,6 +59,18 @@ def download_retailer_products_list_form_view(request):
     )
 
 
+def download_discounted_products_form_view(request):
+    """
+    Products Catalogue Download View
+    """
+    form = RetailerProductsCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/discounted_product_download.html',
+        {'form': form}
+    )
+
+
 def bulk_create_products(shop_id, uploaded_data_by_user_list):
     """
         This Function will create Product by uploaded_data_by_user_list
@@ -244,6 +256,30 @@ def DownloadRetailerCatalogue(request, *args):
                             product_data[4], product_data[5], product.status])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
+    return response
+
+def download_discounted_products(request, *args):
+    """
+    Returns CSV of discounted products
+    """
+    shop_id = request.GET['shop_id']
+    filename = "discounted_products_"+shop_id+".csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ['product_id', 'shop', 'product_sku', 'product_ref', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+    if RetailerProduct.objects.filter(shop_id=int(shop_id), sku_type=4).exists():
+        retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id), sku_type=4)
+        for product in retailer_products:
+            product_data = retailer_products_list(product)
+            writer.writerow([product.id, product.shop, product.sku, product.product_ref.sku, product.name,
+                            product.mrp, product.selling_price, product_data[0], product.product_ean_code,
+                            product.description, product_data[1], product_data[2], product_data[3],
+                            product_data[4], product_data[5], product.status])
+    else:
+        writer.writerow(["No doscounted products for selected shop exists"])
     return response
 
 
