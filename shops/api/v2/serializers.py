@@ -115,14 +115,16 @@ For Shop Type List
 
 
 class ShopTypeListSerializers(serializers.ModelSerializer):
-    shop_type = serializers.SerializerMethodField()
-
-    def get_shop_type(self, obj):
-        return obj.get_shop_type_display()
 
     class Meta:
         model = ShopType
         fields = ('id', 'shop_type')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['shop_type'] = instance.get_shop_type_display()
+        response['shop_type_value'] = instance.shop_type
+        return response
 
 
 '''
@@ -580,11 +582,6 @@ class ManagerSerializers(serializers.ModelSerializer):
         if obj.employee:
             return str(obj.employee)
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     representation['manager_name'] = instance.employee
-    #     return representation
-
 
 class ShopEmployeeSerializers(serializers.ModelSerializer):
     class Meta:
@@ -597,31 +594,55 @@ class ShopManagerSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'employee')
-    #
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     representation['employee'] = str(instance.employee)
-    #     return representation
+        fields = ('id', 'employee', )
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['managers'] = {
+            "id": representation['id'],
+            "manager": representation['employee'],
+        }
+        return representation['managers']
+
+
+class ShopTypeSerializer(serializers.ModelSerializer):
+    shop_type = ChoiceField(choices=SHOP_TYPE_CHOICES, required=True)
+
+    class Meta:
+        model = ShopType
+        fields = ('id', 'shop_type',)
 
 
 class ServicePartnerShopsSerializers(serializers.ModelSerializer):
+    shop_owner = UserSerializers(read_only=True)
+    shop_type = ShopTypeSerializer(read_only=True)
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'shop_owner', 'shop_code',)
+        fields = ('id', 'shop_name', 'shop_type', 'shop_owner')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
+                                 f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
+                                 f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
+        representation['shop'] = {
+            "id": representation['id'],
+            "shop_name": representation['shop_name'],
+        }
+        return representation['shop']
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
-    shop = ServicePartnerShopsSerializer(read_only=True)
+    shop = ServicePartnerShopsSerializers(read_only=True)
     employee = UserSerializers(read_only=True)
-    manager = ManagerSerializers(read_only=True)
+    manager = ShopManagerSerializers(read_only=True)
     employee_group = GroupSerializer(read_only=True)
     shop_user_map_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log',)
+        fields = ('id', 'shop',  'manager',  'employee', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
@@ -778,16 +799,17 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         data = Address.objects.values_list(
-            'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type',
+            'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type__shop_type',
             'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
             'address_line1', 'address_contact_name', 'address_contact_number',
-            'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type')\
+            'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
+            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at')\
             .filter(shop_name__id__in=validated_data['shop_id_list'])
 
         meta = Shop._meta
         field_names = ['shop_id', 'shop_name', 'shop_type', 'shop_owner', 'shop_activated', 'address_id',
-                       'address_name', 'address', 'contact_person', 'contact_number', 'pincode', 'state',
-                       'city', 'address_type']
+                       'nick_name', 'address', 'contact_person', 'contact_number', 'pincode', 'state',
+                       'city', 'address_type', 'imei_no', 'parent_shop_name', 'shop_created_at']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)

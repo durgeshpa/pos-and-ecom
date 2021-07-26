@@ -41,12 +41,14 @@ urlpatterns = [
     url('shop-state', StateView.as_view(), name='shop-state'),
     url('shop-pincode', PinCodeView.as_view(), name='shop-pincode'),
     url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type'),
-    url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv'),
-    url('upload/bulk-shop-update', BulkUpdateShopSampleCSV.as_view(), name='upload/bulk-shop-update'),
+
+
     url('download/shop-user-mapping-create-sample-csv', BulkCreateShopUserMappingSampleCSV.as_view(),
         name='download/shop-user-mapping-update-create-csv'),
     url('upload/bulk-shop-user-mapping-create', BulkCreateShopUserMappingView.as_view(),
         name='upload/bulk-shop-user-mapping-create'),
+
+    url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv'),
     url('upload/bulk-shop-update', BulkUpdateShopView.as_view(),
         name='upload/bulk-shop-update'),
     url('download/beat-planning/sample', BeatPlanningSampleCSV.as_view(), name='download-beat-planning-sample'),

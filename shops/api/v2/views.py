@@ -56,6 +56,7 @@ debug_logger = logging.getLogger('file-debug')
 
 class ShopTypeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ShopType.objects.all()
     serializer_class = ShopTypeListSerializers
 
@@ -484,8 +485,8 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).distinct(
-        'employee')
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).\
+        distinct('employee')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
     serializer_class = ShopManagerSerializers
@@ -523,13 +524,16 @@ class ShopEmployeeListView(generics.GenericAPIView):
 class ShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by'). \
-        prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
-        .only('id', 'status', 'created_at', 'shop', 'shop__status', 'shop__shop_owner', 'shop__shop_owner__id', 'shop__shop_name',
-              'shop__shop_code', 'updated_by__id', 'updated_by__first_name', 'updated_by__phone_number',
-              'updated_by__last_name', 'shop__shop_owner__id', 'shop__shop_owner__first_name', 'shop__shop_owner__phone_number',
-              'manager',
-              'shop__shop_owner__last_name', 'employee', 'employee_group', 'updated_by',)
+    queryset = ShopUserMapping.objects.select_related('shop', 'shop__shop_type', 'shop__shop_owner', 'manager',
+                                                      'employee', 'employee_group',).\
+        prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', )\
+        .only('id', 'status', 'created_at', 'shop', 'shop__status', 'shop__shop_owner', 'shop__shop_owner__id',
+              'shop__shop_name', 'shop__shop_type', 'shop__shop_owner', 'shop__shop_code', 'updated_by__id',
+              'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
+              'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager', 'shop__shop_owner__last_name',
+              'employee_group', 'employee', 'employee__id',  'employee__first_name',  'employee__last_name',
+              'employee__phone_number',)
+
     serializer_class = ShopUserMappingCrudSerializers
 
     def get(self, request):
@@ -753,10 +757,18 @@ class ShopTypeView(GenericAPIView):
 
     def search_shop_type(self):
         search_text = self.request.GET.get('search_text')
+        shop_type = self.request.GET.get('shop_type')
+        status = self.request.GET.get('status')
 
         '''search using shop_type based on criteria that matches'''
         if search_text:
             self.queryset = shop_type_search(self.queryset, search_text)
+
+        if shop_type:
+            self.queryset = self.queryset.filter(shop_type=shop_type)
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
         return self.queryset
 
 
@@ -864,22 +876,6 @@ class BulkUpdateShopSampleCSV(GenericAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("BulkUpdateShopSample CSV Exported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
-class BulkUpdateShopUserMappingSampleCSV(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = BulkUpdateShopUserMappingSampleCSVSerializer
-
-    def post(self, request):
-        """ POST API for Download Selected ShopUserMapping CSV """
-
-        info_logger.info("BulkUpdateShopUserMappingSampleCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("BulkUpdateShopUserMappingSample CSV Exported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
 
