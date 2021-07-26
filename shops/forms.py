@@ -290,7 +290,7 @@ class ShopUserMappingForm(forms.ModelForm):
 class PosShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(pos_enabled=True).all(),
-        widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='admin:pos-shop-autocomplete',)
     )
     user = forms.ModelChoiceField(
         queryset=get_user_model().objects.all(),

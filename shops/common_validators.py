@@ -17,6 +17,21 @@ def validate_psu_id(queryset, id):
         return {'error': 'please provide a valid id'}
 
 
+def validate_psu_put(data):
+    """ validation only ids that belong to a selected related model """
+    try:
+        instance = PosShopUserMapping.objects.get(id=data['id'])
+        if 'shop' in data:
+            if not instance.shop.id == data['shop']:
+                return {'error': 'Invalid shop for mapped id.'}
+        if 'user' in data:
+            if not instance.user.id == data['user']:
+                return {'error': 'Invalid user for mapped id.'}
+        return {'data': instance}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
 def validate_data_format(request):
     """ Validate shop data  """
     try:
@@ -48,3 +63,17 @@ def get_validate_user_type(user_type):
     if not (any(user_type in i for i in USER_TYPE_CHOICES)):
         return {'error': 'please provide a valid User Type'}
     return {'data': user_type}
+
+def validate_mapping(data, shop):
+    if 'user' in data and data['user'] and \
+            'user_type' in data and data['user_type']:
+        return get_psu_mapping(data['user'], shop)
+    else:
+        return {'error': "Missing mandatory field/s 'user' and 'user_type'."} 
+
+
+def get_psu_mapping(user, shop):
+    if PosShopUserMapping.objects.filter(user=user, shop=shop).exists():
+        return {'error': 'Shop User mapping already exist with the provided shop and user.'}
+    else:
+        return {'data': "No mapping found"}
