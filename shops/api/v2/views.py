@@ -524,7 +524,11 @@ class ShopUserMappingView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by'). \
         prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
-        .only('id', 'shop', 'shop__shop_owner', 'manager', 'employee', 'employee_group', 'updated_by',).order_by('-id')
+        .only('id', 'status', 'created_at', 'shop', 'shop__status', 'shop__shop_owner', 'shop__shop_owner__id', 'shop__shop_name',
+              'shop__shop_code', 'updated_by__id', 'updated_by__first_name', 'updated_by__phone_number',
+              'updated_by__last_name', 'shop__shop_owner__id', 'shop__shop_owner__first_name', 'shop__shop_owner__phone_number',
+              'manager',
+              'shop__shop_owner__last_name', 'employee', 'employee_group', 'updated_by',)
     serializer_class = ShopUserMappingCrudSerializers
 
     def get(self, request):

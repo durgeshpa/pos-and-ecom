@@ -592,11 +592,11 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
 
 
 class ShopManagerSerializers(serializers.ModelSerializer):
-    employee = ShopEmployeeSerializers()
+    # employee = ShopEmployeeSerializers()
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'employee')
+        fields = ('id', 'employee', )
     #
     # def to_representation(self, instance):
     #     representation = super().to_representation(instance)
@@ -614,11 +614,11 @@ class ShopTypeSerializer(serializers.ModelSerializer):
 
 class ServicePartnerShopsSerializers(serializers.ModelSerializer):
     shop_owner = UserSerializers(read_only=True)
-    # shop_type = ShopTypeSerializer(read_only=True)
+    shop_type = ShopTypeSerializer(read_only=True)
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'shop_owner', 'shop_code',)
+        fields = ('id', 'shop_name', 'shop_owner', 'shop_type', )
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
@@ -630,7 +630,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log',)
+        fields = ('id', 'shop', 'employee', 'manager', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
