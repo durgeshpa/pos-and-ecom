@@ -592,11 +592,11 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
 
 
 class ShopManagerSerializers(serializers.ModelSerializer):
-    # employee = ShopEmployeeSerializers()
+    employee = ShopEmployeeSerializers()
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'employee', )
+        fields = ('id', 'employee')
     #
     # def to_representation(self, instance):
     #     representation = super().to_representation(instance)
@@ -604,33 +604,23 @@ class ShopManagerSerializers(serializers.ModelSerializer):
     #     return representation
 
 
-class ShopTypeSerializer(serializers.ModelSerializer):
-    shop_type = ChoiceField(choices=SHOP_TYPE_CHOICES, required=True)
-
-    class Meta:
-        model = ShopType
-        fields = ('id', 'shop_type',)
-
-
 class ServicePartnerShopsSerializers(serializers.ModelSerializer):
-    shop_owner = UserSerializers(read_only=True)
-    shop_type = ShopTypeSerializer(read_only=True)
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'shop_owner', 'shop_type', )
+        fields = ('id', 'shop_name', 'shop_owner', 'shop_code',)
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
-    shop = ServicePartnerShopsSerializers(read_only=True)
+    shop = ServicePartnerShopsSerializer(read_only=True)
     employee = UserSerializers(read_only=True)
-    manager = ShopManagerSerializers(read_only=True)
+    manager = ManagerSerializers(read_only=True)
     employee_group = GroupSerializer(read_only=True)
     shop_user_map_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee', 'manager', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
+        fields = ('id', 'shop', 'employee', 'manager', 'employee_group', 'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
