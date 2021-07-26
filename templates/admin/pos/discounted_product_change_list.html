@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %} {% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load total_counts %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:discounted_products_download_form' %}" class="addlink">Download Discounted Products</a>
+    </li>
+{% endblock %}
