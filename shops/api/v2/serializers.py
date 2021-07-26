@@ -508,27 +508,28 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
             shop_invoice_pattern = self.initial_data['shop_invoice_pattern']
 
-        if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            shop_parent_shop = get_validated_shop(self.initial_data['parent_shop'])
-            if 'error' in shop_parent_shop:
-                raise serializers.ValidationError(shop_parent_shop['error'])
-
         if 'related_users' in self.validated_data and self.validated_data['related_users']:
             related_usrs = self.validated_data['related_users']
 
         if 'favourite_products' in self.validated_data and self.validated_data['favourite_products']:
             favourite_prd = self.validated_data['favourite_products']
 
+        if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
+            shop_parent_shop = get_validated_shop(self.initial_data['parent_shop'])
+            if 'error' in shop_parent_shop:
+                raise serializers.ValidationError(shop_parent_shop['error'])
+            
+            if action == "updated":
+                ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
+            elif action == "created":
+                ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
+            # ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
+
         ShopCls.create_update_shop_address(shop, shop_address)
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
         ShopCls.update_related_users_and_favourite_products(shop, related_usrs, favourite_prd)
-        if action == "updated":
-            ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
-        elif action == "created":
-            ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
-        # ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
