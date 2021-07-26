@@ -1,13 +1,13 @@
 from rest_framework import routers
 from django.conf.urls import url
 
-from shops.api.v2.views import (ApprovalStatusListView, AddressListView, ParentShopsListView, RelatedUsersListView,
+from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPlanningSampleCSV, BeatPlanningView, ParentShopsListView, RelatedUsersListView,
                                 ServicePartnerShopsListView, BulkCreateShopUserMappingView, BulkUpdateShopView,
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
-                                BulkUpdateShopSampleCSV, BulkUpdateShopUserMappingSampleCSV, BulkCreateShopUserMappingSampleCSV)
+                                BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV)
 
 router = routers.DefaultRouter()
 
@@ -48,7 +48,9 @@ urlpatterns = [
     url('upload/bulk-shop-user-mapping-create', BulkCreateShopUserMappingView.as_view(),
         name='upload/bulk-shop-user-mapping-create'),
     url('upload/bulk-shop-update', BulkUpdateShopView.as_view(),
-        name='upload/bulk-shop-update')
+        name='upload/bulk-shop-update'),
+    url('download/beat-planning/sample', BeatPlanningSampleCSV.as_view(), name='download-beat-planning-sample'),
+    url('upload/beat-planning', BeatPlanningView.as_view(), name='upload/beat-planning'),
 ]
 
 urlpatterns += router.urls

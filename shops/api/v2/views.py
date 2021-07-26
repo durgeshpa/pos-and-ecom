@@ -2,6 +2,7 @@ import csv
 from decimal import Decimal
 import logging
 from datetime import datetime, timedelta
+
 from django.db.models.aggregates import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -23,7 +24,7 @@ from addresses.models import Address, Pincode, State, City, address_type_choices
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
-    AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
+    AddressSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
@@ -31,7 +32,7 @@ from .serializers import (
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
-from shops.services import (shop_search, fetch_by_id, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
+from shops.services import (shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
                             shop_type_search, search_state, search_pincode, search_city, shop_owner_search)
 from shops.common_validators import (
@@ -918,4 +919,35 @@ class BulkUpdateShopView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             return get_response('shops updated successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class BeatPlanningSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BeatPlanningSampleCSVSerializer
+
+    def post(self, request):
+        """ POST API for Download Sample CSV for Beat Planning """
+
+        info_logger.info("BeatPlanningSampleCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save(created_by=request.user)
+            info_logger.info("BeatPlanningSampleCSV Exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class BeatPlanningView(GenericAPIView):
+    """
+    This class is used to upload csv file for sales executive to set the Beat Plan
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BeatPlanningSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)

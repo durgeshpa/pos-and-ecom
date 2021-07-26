@@ -11,14 +11,14 @@ from rest_framework import serializers
 
 from retailer_backend.validators import PinCodeValidator
 
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
+from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES)
 from addresses.models import Address, City, Pincode, State, address_type_choices
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
-    get_validated_shop, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
+    get_validated_shop, read_beat_planning_file, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file
 from shops.common_functions import ShopCls
 
@@ -877,6 +877,80 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             ShopCls.update_shop(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
+
+
+class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ('id',)
+
+    def validate(self, data):
+        if 'id' not in self.initial_data or not self.initial_data['id']:
+            raise serializers.ValidationError(_('User must be selected '))
+        u_id = self.initial_data['id']
+        try:
+            User.objects.get(id=u_id)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f'user not found for id {u_id}')
+        data['id'] = u_id
+        return data
+    
+    def get_manager(self, user):
+        return ShopUserMapping.objects.filter(employee=user, status=True)
+
+    def create(self, validated_data):
+        query_set = ShopUserMapping.objects.filter(
+            employee=validated_data['id']).values_list('employee').last()
+        # get the shop queryset assigned with executive
+        data = ShopUserMapping.objects.values_list(
+            'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk', 'shop__shop_name_address_mapping__address_contact_number',
+            'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode')\
+            .filter(employee=query_set[0], manager__in=self.get_manager(user=validated_data['created_by']), status=True,
+                shop__shop_user__shop__approval_status=2).distinct('shop')
+
+        meta = ShopUserMapping._meta
+        field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 
+                             'address_line1', 'pincode', 'category', 'date']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in data:
+            writer.writerow(list(obj))
+        return response
+
+class BeatPlanningSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(label='Upload Beat Planning', required=True, write_only=True)
+
+    class Meta:
+        model = BeatPlanning
+        fields = ('file', )
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_beat_planning_file(csv_file_data, "beat_planning")
+        else:
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ShopCls.create_beat_planning(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

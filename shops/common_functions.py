@@ -1,6 +1,7 @@
 import logging
 import codecs
 import csv
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework import status
@@ -9,7 +10,7 @@ from rest_framework.response import Response
 from products.common_validators import get_csv_file_data
 from addresses.models import Address, State, City, Pincode
 from products.models import CentralLog
-from shops.models import ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopUserMapping, Shop
+from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
 
 info_logger = logging.getLogger('file-info')
@@ -80,6 +81,53 @@ class ShopCls(object):
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
                               f" + {str(e)}")
+
+    @classmethod
+    def create_beat_planning(cls, validated_data):
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+        try:
+            info_logger.info('Method Start to create Beat Planning')
+            """
+            Update existing beat planning status to False
+            """
+            executive_user = get_user_model().objects.filter(
+                    phone_number=uploaded_data_by_user_list[0]['employee_phone_number'])
+            ShopCls.update_status_existing_beat_planning(executive_user[0])
+            
+            """
+            Upload New Beat Planning
+            """
+            beat_plan_object = BeatPlanning.objects.get_or_create(
+                executive=executive_user[0], status=True, manager=validated_data['created_by'])
+            for row in uploaded_data_by_user_list:
+                try:
+                    date = datetime.strptime(row['date'], '%d/%m/%y').strftime("%Y-%m-%d")
+                except:
+                    date = datetime.strptime(row['date'], '%d/%m/%Y').strftime("%Y-%m-%d") 
+                day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
+                            beat_plan=beat_plan_object[0], shop_id=row['shop_id'], 
+                            beat_plan_date=date, shop_category=row['category'],
+                            next_plan_date=date)
+                
+            info_logger.info("Method complete to create Beat Planning from csv file")
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
+                              f" + {str(e)}")
+    
+    def update_status_existing_beat_planning(executive_user):
+        """
+        Set status = False for all existing Beat Planning against executive
+        """
+        beat_planning_objs = BeatPlanning.objects.filter(executive=executive_user)
+        if beat_planning_objs:
+            beat_planning_objs.update(status = False)
+        
+
 
     @classmethod
     def update_shop(cls, validated_data):

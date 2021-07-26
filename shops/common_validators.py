@@ -1,17 +1,16 @@
 import logging
 import json
 import re
-
+from datetime import datetime
 from django.core.exceptions import ValidationError
 
 from django.contrib.auth import get_user_model
 
-from shops.models import ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, \
+from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, \
     ShopType, ShopUserMapping, RetailerType
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
-from shops.common_functions import convert_base64_to_image
 from shops.base64_to_file import to_file
 from products.common_validators import get_csv_file_data, check_headers
 from addresses.models import Address
@@ -40,6 +39,18 @@ def get_validate_images(images):
             return {'error': 'Not a valid Image The URL must have an image extensions (.jpg/.jpeg/.png)'}
     return {'image': images}
 
+
+def valid_file_extension(file, extension_list=['.csv']):
+    """ checking file extension """
+    return any([file.endswith(e) for e in extension_list])
+
+
+def get_validate_csv_file(files):
+    """ ValidationError will be raised in case of invalid type or extension """
+    for file in files:
+        if not valid_file_extension(file.name):
+            return {'error': 'Not a valid File, The URL must have an image extensions (.csv)'}
+    return {'image': files}
 
 def validate_shop_doc_photo(shop_photo):
     """validate shop photo"""
@@ -245,6 +256,17 @@ def get_validated_parent_shop(id):
         return {'error': 'please provide a valid parent id'}
     return {'data': shop}
 
+
+def validate_beat_planning_data_format(request):
+    """ Validate shop data  """
+
+    if not request.FILES.getlist('file'):
+        return {'error': 'Please select a csv file.'}
+    
+    file = get_validate_csv_file(
+        request.FILES.getlist('file'))['image']
+    return {'data': file}
+        
 
 def validate_data_format(request):
     """ Validate shop data  """
@@ -583,6 +605,86 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
                 elif row['manager'] == row['employee']:
                     raise ValidationError('Manager and Employee cannot be same')
+
+    except ValueError as e:
+        raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
+    except KeyError as e:
+        raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while checking csv data "
+                              f"from dictionary")
+
+
+# Beat Planning
+def read_beat_planning_file(csv_file, upload_type):
+    """
+        Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
+    """
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]  # Converting headers into lowercase
+    if upload_type == "beat_planning":
+        required_header_list = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 'address_line1',
+                             'pincode', 'category', 'date']
+
+    check_headers(csv_file_headers, required_header_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+    # Checking, whether the user uploaded the data below the headings or not!
+    if uploaded_data_by_user_list:
+        check_beat_planning_mandatory_columns(uploaded_data_by_user_list, csv_file_headers, upload_type)
+    else:
+        raise ValidationError("Please add some data below the headers to upload it!")
+
+
+def check_beat_planning_mandatory_columns(uploaded_data_list, header_list, upload_type):
+    row_num = 1
+    if upload_type == "beat_planning":
+        mandatory_columns = ['employee_phone_number', 'shop_id', 'category', 'date']
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Beat Planning'")
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'employee_phone_number' not in row.keys() or row['employee_phone_number'] == '':
+                raise ValidationError(f"Row {row_num} | 'employee_phone_number can't be empty")
+            if 'shop_id' not in row.keys() or row['shop_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+            if 'category' not in row.keys() or row['category'] == '':
+                raise ValidationError(f"Row {row_num} | 'category' can't be empty")
+            if 'date' not in row.keys() or row['date'] == '':
+                raise ValidationError(f"Row {row_num} | 'date' can't be empty")
+            
+    validate_beat_planning_row(uploaded_data_list, header_list)
+
+
+def validate_beat_planning_row(uploaded_data_list, header_list):
+    """
+        This method will check that Data uploaded by user is valid or not.
+    """
+    try:
+        row_num = 1
+        for row in uploaded_data_list:
+            row_num += 1
+
+            if 'employee_phone_number' in header_list and 'employee_phone_number' in row.keys() and row['employee_phone_number'] != '':
+                if not get_user_model().objects.filter(phone_number=row['employee_phone_number'].strip()).exists():
+                    raise ValidationError(
+                        f"Row {row_num} | {row['employee_phone_number']} | 'employee_phone_number' doesn't exist in the system ")
+
+            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
+                if not Shop.objects.filter(id=int(row['shop_id'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+
+            if 'category' in header_list and 'category' in row.keys() and row['category'] != '':
+                if not (any(str(row['category']) in i for i in DayBeatPlanning.shop_category_choice)):
+                    raise ValidationError(f"Row {row_num} | {row['category']} | 'category' doesn't exist in the "
+                                          f"system ")
+
+            if 'date' in header_list and 'date' in row.keys() and row['date'] != '':
+                try:
+                    try:
+                        date = datetime.strptime(str(row['date']), '%d/%m/%y').strftime("%Y-%m-%d")
+                    except:
+                        date = datetime.strptime(str(row['date']), '%d/%m/%Y').strftime("%Y-%m-%d")
+                except:
+                    raise ValidationError(f"Row {row_num} | {row['date']} | 'date' Invalid date format, acceptable (dd/mm/yy).")
 
     except ValueError as e:
         raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
