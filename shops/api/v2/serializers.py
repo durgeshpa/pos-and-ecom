@@ -115,14 +115,20 @@ For Shop Type List
 
 
 class ShopTypeListSerializers(serializers.ModelSerializer):
-    shop_type = serializers.SerializerMethodField()
-
-    def get_shop_type(self, obj):
-        return obj.get_shop_type_display()
 
     class Meta:
         model = ShopType
         fields = ('id', 'shop_type')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['shop_type'] = instance.get_shop_type_display()
+        response['shop_type_value'] = instance.shop_type
+        # "shop_type" = {
+        #
+        # }
+        # response['shop_type_value'] = instance
+        return response
 
 
 '''

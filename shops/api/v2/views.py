@@ -55,6 +55,7 @@ debug_logger = logging.getLogger('file-debug')
 
 class ShopTypeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ShopType.objects.all()
     serializer_class = ShopTypeListSerializers
 
