@@ -529,7 +529,7 @@ class ShopUserMappingView(generics.GenericAPIView):
               'shop__shop_name', 'shop__shop_type', 'shop__shop_owner', 'shop__shop_code', 'updated_by__id',
               'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
               'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager', 'shop__shop_owner__last_name',
-              'employee', 'employee_group', 'employee__id',  'employee__first_name',  'employee__last_name',
+              'employee_group', 'employee', 'employee__id',  'employee__first_name',  'employee__last_name',
               'employee__phone_number',)
 
     serializer_class = ShopUserMappingCrudSerializers
@@ -755,10 +755,18 @@ class ShopTypeView(GenericAPIView):
 
     def search_shop_type(self):
         search_text = self.request.GET.get('search_text')
+        shop_type = self.request.GET.get('shop_type')
+        status = self.request.GET.get('status')
 
         '''search using shop_type based on criteria that matches'''
         if search_text:
             self.queryset = shop_type_search(self.queryset, search_text)
+
+        if shop_type:
+            self.queryset = self.queryset.filter(shop_type=shop_type)
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
         return self.queryset
 
 
