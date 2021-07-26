@@ -304,4 +304,4 @@ class ProductChangeFields(models.Model):
     product_change = models.ForeignKey(ProductChange, related_name='price_change_cols', on_delete=models.DO_NOTHING)
     column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
     old_value = models.CharField(max_length=255, null=True)
-    new_value = models.CharField(max_length=255)
+    new_value = models.CharField(max_length=255, null=True)
