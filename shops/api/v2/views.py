@@ -26,8 +26,8 @@ from .serializers import (
     AddressSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
-    RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
+    ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
+    RetailerTypeSerializer, DisapproveSelectedShopSerializers,PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
@@ -524,7 +524,7 @@ class ShopUserMappingView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.select_related('shop', 'manager', 'employee', 'employee_group', 'updated_by'). \
         prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
-        .only('id', 'shop', 'manager', 'employee', 'employee_group', 'updated_by', ).order_by('-id')
+        .only('id', 'shop', 'shop__shop_owner', 'manager', 'employee', 'employee_group', 'updated_by',).order_by('-id')
     serializer_class = ShopUserMappingCrudSerializers
 
     def get(self, request):
@@ -634,7 +634,7 @@ class ShopUserMappingView(generics.GenericAPIView):
                 raise ValidationError("End date should be greater than start date")
             self.queryset = self.queryset.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
-        return self.queryset
+        return self.queryset.distinct('id')
 
 
 class ShopTypeChoiceView(GenericAPIView):

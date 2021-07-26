@@ -604,7 +604,17 @@ class ShopManagerSerializers(serializers.ModelSerializer):
     #     return representation
 
 
+class ShopTypeSerializer(serializers.ModelSerializer):
+    shop_type = ChoiceField(choices=SHOP_TYPE_CHOICES, required=True)
+
+    class Meta:
+        model = ShopType
+        fields = ('id', 'shop_type',)
+
+
 class ServicePartnerShopsSerializers(serializers.ModelSerializer):
+    shop_owner = UserSerializers(read_only=True)
+    # shop_type = ShopTypeSerializer(read_only=True)
 
     class Meta:
         model = Shop
@@ -612,9 +622,9 @@ class ServicePartnerShopsSerializers(serializers.ModelSerializer):
 
 
 class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
-    shop = ServicePartnerShopsSerializer(read_only=True)
+    shop = ServicePartnerShopsSerializers(read_only=True)
     employee = UserSerializers(read_only=True)
-    manager = ManagerSerializers(read_only=True)
+    manager = ShopManagerSerializers(read_only=True)
     employee_group = GroupSerializer(read_only=True)
     shop_user_map_log = LogSerializers(many=True, read_only=True)
 
