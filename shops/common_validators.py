@@ -181,6 +181,8 @@ def get_validate_shop_address(addresses):
             raise ValidationError("address_contact_name can't be empty")
         if 'address_contact_number' not in address_data:
             raise ValidationError("address_contact_number can't be empty")
+        if 'address_contact_number' in address_data and len(address_data['address_contact_number']) != 10:
+            raise ValidationError("address_contact_number must be of 10 digit.")
         if 'address_type' not in address_data:
             raise ValidationError("address_type can't be empty")
         if 'address_line1' not in address_data:
