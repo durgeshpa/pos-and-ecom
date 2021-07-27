@@ -563,18 +563,13 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_parent_shop:
                 raise serializers.ValidationError(shop_parent_shop['error'])
 
-            if action == "updated":
-                ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
-            elif action == "created":
-                ShopCls.create_parent_shop(shop, shop_parent_shop['data'])
-            # ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
-
         ShopCls.create_update_shop_address(shop, shop_address)
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
         ShopCls.update_related_users_and_favourite_products(
             shop, related_usrs, favourite_prd)
+        ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
