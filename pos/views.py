@@ -94,21 +94,13 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                     # If product is linked with existing product
                     if Product.objects.filter(product_sku=row.get('linked_product_sku')):
                         product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                        if str(product.product_mrp) == format(
-                                decimal.Decimal(row.get('mrp')), ".2f"):
-                            # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
-                            RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                    row.get('selling_price'), product.id,
-                                                                    2, row.get('description'), row.get('product_ean_code'),
-                                                                    request.user, 'product',
-                                                                    product_status=row.get('status'))
-                        else:
-                            # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
-                            RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                    row.get('selling_price'), product.id,
-                                                                    3, row.get('description'), row.get('product_ean_code'),
-                                                                    request.user, 'product',
-                                                                    product_status=row.get('status'))
+                  
+                        RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                                row.get('selling_price'), product.id,
+                                                                2, row.get('description'), row.get('product_ean_code'),
+                                                                request.user, 'product',
+                                                                product_status=row.get('status'))
+                        
             else:
                 # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                 RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
