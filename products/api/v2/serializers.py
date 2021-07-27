@@ -300,7 +300,7 @@ class BrandImageSerializers(serializers.ModelSerializer):
             file_name = img.name
             brand_id = file_name.rsplit(".", 1)[0]
             try:
-                Brand.objects.get(id=int(brand_id))
+                brand_obj = Brand.objects.get(id=int(brand_id))
             except:
                 val_data = {
                     'is_valid': False,
@@ -311,13 +311,16 @@ class BrandImageSerializers(serializers.ModelSerializer):
                 aborted_count += 1
 
             else:
-                brand_obj = Brand.objects.filter(id=int(brand_id))
-                brand_obj.update(id=brand_obj.last().id, brand_logo=img, updated_by=validated_data['updated_by'])
+                # brand_obj, created = Brand.objects.update_or_create(id=brand_obj, brand_logo=img, )
+                # brand_obj.update(id=brand_obj.last().id, brand_logo=img, updated_by=validated_data['updated_by'])
+                brand_obj.brand_logo = img
+                brand_obj.updated_by = validated_data['updated_by']
+                brand_obj.save()
                 val_data = {
                     'is_valid': True,
-                    'url': brand_obj.last().brand_logo.url,
+                    'url': brand_obj.brand_logo.url,
                     'brand_id': brand_id,
-                    'brand_name': brand_obj.last().brand_name,
+                    'brand_name': brand_obj.brand_name,
                 }
                 upload_count += 1
 
@@ -356,7 +359,7 @@ class CategoryImageSerializers(serializers.ModelSerializer):
             file_name = img.name
             cat_id = file_name.rsplit(".", 1)[0]
             try:
-                Category.objects.get(id=int(cat_id))
+                cat_obj = Category.objects.get(id=int(cat_id))
             except:
                 val_data = {
                     'is_valid': False,
@@ -366,13 +369,16 @@ class CategoryImageSerializers(serializers.ModelSerializer):
                 }
                 aborted_count += 1
             else:
-                cat_obj = Category.objects.filter(id=int(cat_id))
-                cat_obj.update(id=cat_obj.last().id, category_image=img, updated_by=validated_data['updated_by'])
+                # cat_obj.update(id=cat_obj.last().id, category_image=img, updated_by=validated_data['updated_by'])
+                cat_obj.category_image = img
+                cat_obj.updated_by = validated_data['updated_by']
+                cat_obj.save()
+
                 val_data = {
                     'is_valid': True,
-                    'url': cat_obj.last().category_image.url,
+                    'url': cat_obj.category_image.url,
                     'category_id': cat_id,
-                    'category_name': cat_obj.last().category_name
+                    'category_name': cat_obj.category_name
                 }
                 upload_count += 1
 
