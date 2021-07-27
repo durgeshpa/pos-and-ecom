@@ -57,7 +57,7 @@ class ProductHSNView(GenericAPIView):
             product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_hsn, many=True)
-        msg = "" if product_hsn else "no product hsn found"
+        msg = "" if product_hsn else "no hsn found"
         return get_response(msg, serializer.data)
 
     def post(self, request, *args, **kwargs):
@@ -97,9 +97,14 @@ class ProductHSNView(GenericAPIView):
 
     def search_filter_product_hsn(self):
         search_text = self.request.GET.get('search_text')
+        product_hsn_cd = self.request.GET.get('product_hsn_code')
         # search using product_hsn_code based on criteria that matches
         if search_text:
             self.queryset = product_hsn_search(self.queryset, search_text)
+
+        if product_hsn_cd is not None:
+            self.queryset = self.queryset.filter(id=product_hsn_cd)
+
         return self.queryset
 
 
