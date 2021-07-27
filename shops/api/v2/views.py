@@ -24,7 +24,7 @@ from addresses.models import Address, Pincode, State, City, address_type_choices
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
-    AddressSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
+    AddressSerializer, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
@@ -32,7 +32,7 @@ from .serializers import (
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
-from shops.services import (shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
+from shops.services import (search_beat_planning_data, shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
                             shop_type_search, search_state, search_pincode, search_city, shop_owner_search)
 from shops.common_validators import (
@@ -916,6 +916,36 @@ class BulkUpdateShopView(GenericAPIView):
             serializer.save(updated_by=request.user)
             return get_response('shops updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class BeatPlanningListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = BeatPlanning.objects.select_related('manager', 'executive').\
+        only('id', 'status', 'created_at', 'modified_at', 'manager__id', 'executive__id').\
+            order_by('-id')
+    serializer_class = BeatPlanningListSerializer
+
+    def get(self, request):
+        """ GET API for BeatPlanning """
+        info_logger.info("BeatPlanning GET api called.")
+        manager_id = self.request.GET.get('manager_id', None)
+        executive_id = self.request.GET.get('executive_id', None)
+        status = self.request.GET.get('status', None)
+        if manager_id:
+            self.queryset = self.queryset.filter(manager__id=manager_id)
+        if executive_id:
+            self.queryset = self.queryset.filter(executive__id=executive_id)
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_beat_planning_data(self.queryset, search_text)
+        bp_total_count = self.queryset.count()
+        beat_planning_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(beat_planning_data, many=True)
+        msg = f"total count {bp_total_count}" if beat_planning_data else "no beat planning found"
+        return get_response(msg, serializer.data, True)
 
 
 class BeatPlanningSampleCSV(GenericAPIView):
