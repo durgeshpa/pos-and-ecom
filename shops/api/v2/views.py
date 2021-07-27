@@ -463,9 +463,8 @@ class ParentShopsListView(generics.ListAPIView):
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.select_related('shop_owner', 'shop_type').only('id', 'shop_name', 'shop_owner',
-                                                                           'shop_type'). \
-        order_by('-id')
+    queryset = Shop.objects.filter(approval_status=2).select_related('shop_owner', 'shop_type')\
+        .only('id', 'shop_name', 'shop_owner', 'shop_type').order_by('-id')
     serializer_class = ShopBasicSerializer
 
     def get(self, request):
