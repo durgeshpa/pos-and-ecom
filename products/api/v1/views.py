@@ -45,6 +45,7 @@ class ProductHSNView(GenericAPIView):
         """ GET API for Product HSN """
 
         info_logger.info("Product HSN GET api called.")
+        ch_hsn_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Product HSN for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -54,10 +55,11 @@ class ProductHSNView(GenericAPIView):
         else:
             """ GET Product HSN List """
             self.queryset = self.search_filter_product_hsn()
+            ch_hsn_total_count = self.queryset.count()
             product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_hsn, many=True)
-        msg = "" if product_hsn else "no hsn found"
+        msg = f"total count {ch_hsn_total_count}" if product_hsn else "no hsn found"
         return get_response(msg, serializer.data)
 
     def post(self, request, *args, **kwargs):
