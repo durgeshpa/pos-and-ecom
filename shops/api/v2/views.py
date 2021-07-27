@@ -901,7 +901,7 @@ class BulkCreateShopUserMappingView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            return get_response('data uploaded successfully!', serializer.data)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)
 
 
