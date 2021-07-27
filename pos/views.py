@@ -100,19 +100,22 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                             RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                     row.get('selling_price'), product.id,
                                                                     2, row.get('description'), row.get('product_ean_code'),
-                                                                    row.get('status'))
+                                                                    request.user, 'product',
+                                                                    product_status=row.get('status'))
                         else:
                             # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
                             RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                     row.get('selling_price'), product.id,
                                                                     3, row.get('description'), row.get('product_ean_code'),
-                                                                    row.get('status'))
+                                                                    request.user, 'product',
+                                                                    product_status=row.get('status'))
             else:
                 # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                 RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                         row.get('selling_price'), None,
                                                         1, row.get('description'), row.get('product_ean_code'),
-                                                        row.get('status'))
+                                                        request.user, 'product',
+                                                        product_status=row.get('status'))
 
         else:
             # we need to update existing product
