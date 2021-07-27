@@ -105,17 +105,16 @@ class ShopCls(object):
                 executive=executive_user[0], status=True, manager=validated_data['created_by'])
             for row in uploaded_data_by_user_list:
                 try:
-                    date = datetime.strptime(row['date'], '%d/%m/%y').strftime("%Y-%m-%d")
+                    date = datetime.strptime(str(row['date']).strip(), '%d/%m/%y').strftime("%Y-%m-%d")
                 except:
-                    date = datetime.strptime(row['date'], '%d/%m/%Y').strftime("%Y-%m-%d") 
+                    date = datetime.strptime(str(row['date']).strip(), '%d/%m/%Y').strftime("%Y-%m-%d")
                 day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
-                            beat_plan=beat_plan_object[0], shop_id=row['shop_id'], 
-                            beat_plan_date=date, shop_category=row['category'],
+                            beat_plan=beat_plan_object[0], shop_id=int(row['shop_id']), 
+                            beat_plan_date=date, shop_category=str(row['category']).strip(),
                             next_plan_date=date)
                 
             info_logger.info("Method complete to create Beat Planning from csv file")
         except Exception as e:
-            import traceback; traceback.print_exc()
             error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
                               f" + {str(e)}")
     
