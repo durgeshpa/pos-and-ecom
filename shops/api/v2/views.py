@@ -531,7 +531,7 @@ class ShopUserMappingView(generics.GenericAPIView):
               'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
               'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager', 'shop__shop_owner__last_name',
               'employee_group', 'employee', 'employee__id',  'employee__first_name',  'employee__last_name',
-              'employee__phone_number',)
+              'employee__phone_number',).order_by('-id')
 
     serializer_class = ShopUserMappingCrudSerializers
 
