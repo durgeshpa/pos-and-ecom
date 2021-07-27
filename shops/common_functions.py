@@ -273,8 +273,14 @@ class ShopCls(object):
         """
             Update Parent Shop of the Shop
         """
-        shop.retiler_mapping.filter(
-            status=True).all().update(parent=parent_shop)
+        obj, created = ParentRetailerMapping.objects.update_or_create(
+            retailer=shop, parent=parent_shop,
+            defaults={},
+        )
+        return obj
+        # print(parent_shop)
+        # shop.retiler_mapping.filter(
+        #     status=True).all().update(parent=parent_shop)
 
     @classmethod
     def create_parent_shop(cls, shop, parent_shop):
