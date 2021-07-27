@@ -52,6 +52,7 @@ def get_validate_csv_file(files):
             return {'error': 'Not a valid File, The URL must have an image extensions (.csv)'}
     return {'image': files}
 
+
 def validate_shop_doc_photo(shop_photo):
     """validate shop photo"""
     filename = shop_photo.split('/')[-1:][0]
@@ -89,27 +90,34 @@ def get_validate_shop_documents(shop_documents):
     for shop_doc in shop_documents:
         shop_doc_obj = shop_doc
         try:
-            if 'shop_document_photo' in shop_doc and shop_doc['shop_document_photo']:
-                if 'id' not in shop_doc:
-                    shop_doc_photo = to_file(shop_doc['shop_document_photo'])
-                    shop_doc_obj['shop_document_photo'] = shop_doc_photo
-            if 'shop_document_type' in shop_doc:
-                shop_doc_type = validate_shop_doc_type(
-                    shop_doc['shop_document_type'])
-                if 'error' in shop_doc_type:
-                    return shop_doc_type
-                shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
-            if 'shop_document_number' in shop_doc and 'shop_document_type' in shop_doc and shop_doc[
-                'shop_document_type'] == ShopDocument.GSTIN:
+            if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] or \
+                'shop_document_type' not in shop_doc or not shop_doc['shop_document_type'] or \
+                    'shop_document_number' not in shop_doc or not shop_doc['shop_document_number']:
+                return {'error': "Key 'shop_document_photo', 'shop_document_type', "
+                        "'shop_document_number' are combined mandatory."}
+
+            if 'id' not in shop_doc:
+                shop_doc_photo = to_file(shop_doc['shop_document_photo'])
+                shop_doc_obj['shop_document_photo'] = shop_doc_photo
+
+            shop_doc_type = validate_shop_doc_type(
+                shop_doc['shop_document_type'])
+            if 'error' in shop_doc_type:
+                return shop_doc_type
+            shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
+
+            if shop_doc['shop_document_type'] == ShopDocument.GSTIN:
                 shop_doc_num = validate_gstin_number(
                     shop_doc['shop_document_number'])
                 if 'error' in shop_doc_num:
                     return shop_doc_num
                 shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
+
             shop_doc_list.append(shop_doc_obj)
         except Exception as e:
             logger.error(e)
-            return {'error': 'please provide a valid shop_document id'}
+            # return {'error': 'please provide a valid shop_document id'}
+            return {'error': "Something went wrong, msg: " + str(e)} 
     return {'data': shop_doc_list}
 
 
@@ -142,7 +150,8 @@ def get_validate_related_users(related_users):
     related_users_obj = []
     for related_users_data in related_users:
         try:
-            related_user = get_user_model().objects.get(id=int(related_users_data['id']))
+            related_user = get_user_model().objects.get(
+                id=int(related_users_data['id']))
         except Exception as e:
             logger.error(e)
             return {'error': '{} related_user not found'.format(related_users_data['id'])}
@@ -193,7 +202,8 @@ def get_validate_shop_address(addresses):
         if 'address_contact_number' not in address_data:
             raise ValidationError("address_contact_number can't be empty")
         if 'address_contact_number' in address_data and len(address_data['address_contact_number']) != 10:
-            raise ValidationError("address_contact_number must be of 10 digit.")
+            raise ValidationError(
+                "address_contact_number must be of 10 digit.")
         if 'address_type' not in address_data:
             raise ValidationError("address_type can't be empty")
         if 'address_line1' not in address_data:
@@ -262,11 +272,11 @@ def validate_beat_planning_data_format(request):
 
     if not request.FILES.getlist('file'):
         return {'error': 'Please select a csv file.'}
-    
+
     file = get_validate_csv_file(
         request.FILES.getlist('file'))['image']
     return {'data': file}
-        
+
 
 def validate_data_format(request):
     """ Validate shop data  """
@@ -453,7 +463,8 @@ def read_file(csv_file, upload_type):
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
     csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
-    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]  # Converting headers into lowercase
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
     if upload_type == "shop_user_map":
         required_header_list = ['shop_id', 'shop_name', 'manager', 'employee', 'employee_group',
                                 'employee_group_name', ]
@@ -466,9 +477,11 @@ def read_file(csv_file, upload_type):
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
-        check_mandatory_columns(uploaded_data_by_user_list, csv_file_headers, upload_type)
+        check_mandatory_columns(
+            uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
-        raise ValidationError("Please add some data below the headers to upload it!")
+        raise ValidationError(
+            "Please add some data below the headers to upload it!")
 
 
 def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
@@ -477,46 +490,60 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
         mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+                raise ValidationError(
+                    f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
         for row in uploaded_data_list:
             row_num += 1
             if 'shop_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_id can't be empty")
             if 'shop_id' in row.keys() and row['shop_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_id' can't be empty")
             if 'employee' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'employee' can't be empty")
             if 'employee' in row.keys() and row['employee'] == '':
-                raise ValidationError(f"Row {row_num} | 'employee' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'employee' can't be empty")
             if 'employee_group' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'employee_group' can't be empty")
             if 'employee_group' in row.keys() and row['employee_group'] == '':
-                raise ValidationError(f"Row {row_num} | 'employee_group' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'employee_group' can't be empty")
     if upload_type == "shop_update":
         mandatory_columns = ['shop_id', 'shop_name', ]
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+                raise ValidationError(
+                    f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
         for row in uploaded_data_list:
             row_num += 1
             if 'shop_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_id can't be empty")
             if 'shop_id' in row.keys() and row['shop_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_id' can't be empty")
 
             if 'shop_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'shop_name' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_name' can't be empty")
             if 'shop_name' in row.keys() and row['shop_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'shop_name' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_name' can't be empty")
             # if 'shop_name' in row.keys() and row['shop_name']:
             #     if Shop.objects.filter(shop_name__iexact=str(row['shop_name'].strip()), approval_status=2)\
             #             .exclude(id=int(row['shop_id'])).exists():
             #         raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'shop_name' already exist in the "
             #                               f"system ")
             if 'address_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'address_id' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'address_id' can't be empty")
             if 'address_id' in row.keys() and row['address_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'address_id' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'address_id' can't be empty")
             if 'address_id' in row.keys() and row['address_id']:
                 if not Address.objects.filter(id=int(row['address_id'])).exists():
                     raise ValidationError(f"Row {row_num} | {row['address_id']} | 'address_id' doesn't in the "
@@ -538,13 +565,16 @@ def validate_row(uploaded_data_list, header_list):
                 if not Address.objects.filter(id=int(row['address_id'])).exists():
                     raise ValidationError(f"Row {row_num} | {row['address_id']} | 'address_id' doesn't exist in "
                                           f"the system ")
-                mandatory_fields = ['city', 'state', 'pincode',]
+                mandatory_fields = ['city', 'state', 'pincode', ]
                 if 'city' not in row.keys() or row['city'] == '':
-                    raise ValidationError(f"Row {row_num} | 'city' can't be empty ")
+                    raise ValidationError(
+                        f"Row {row_num} | 'city' can't be empty ")
                 if 'state' not in row.keys() or row['state'] == '':
-                    raise ValidationError(f"Row {row_num} | 'state' can't be empty ")
+                    raise ValidationError(
+                        f"Row {row_num} | 'state' can't be empty ")
                 if 'pincode' not in row.keys() or row['pincode'] == '':
-                    raise ValidationError(f"Row {row_num} | 'pincode' can't be empty ")
+                    raise ValidationError(
+                        f"Row {row_num} | 'pincode' can't be empty ")
                 for field in mandatory_fields:
                     if field not in header_list:
                         raise ValidationError(f"{mandatory_fields} are the essential headers and cannot be empty "
@@ -557,7 +587,7 @@ def validate_row(uploaded_data_list, header_list):
             if 'city' in header_list and 'city' in row.keys() and row['city'] != '':
                 if not City.objects.filter(city_name__iexact=str(row['city']).strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist in "
-                                  f"the system ")
+                                          f"the system ")
             if 'state' in header_list and 'state' in row.keys() and row['state'] != '':
                 if not State.objects.filter(state_name__iexact=str(row['state']).strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['state']} | 'state' doesn't exist in "
@@ -573,20 +603,23 @@ def validate_row(uploaded_data_list, header_list):
                     raise Exception('Mobile no. must be of 10 digits')
 
             if 'city' in header_list and 'state' in header_list and row['city'] and row['state']:
-                state_id = State.objects.filter(state_name__iexact=str(row['state']).strip()).last()
+                state_id = State.objects.filter(
+                    state_name__iexact=str(row['state']).strip()).last()
                 if not City.objects.filter(city_name__iexact=str(row['city']).strip(), state=state_id).exists():
                     raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist for given state"
                                           f"in the system ")
 
             if 'pincode' in header_list and 'state' in header_list and row['state'] and row['pincode']:
-                city_id = City.objects.filter(city_name__iexact=str(row['city']).strip()).last()
+                city_id = City.objects.filter(
+                    city_name__iexact=str(row['city']).strip()).last()
                 if not Pincode.objects.filter(pincode=int(row['pincode']), city=city_id).exists():
                     raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist for given city"
                                           f"the system ")
 
             if 'shop_type' in header_list and 'shop_type' in row.keys() and row['shop_type'] != '':
                 if not ShopType.objects.filter(shop_type__iexact=str(row['shop_type'].lower()).strip()).exists():
-                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_type' doesn't exist in the system ")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['shop_id']} | 'shop_type' doesn't exist in the system ")
 
             if 'address_type' in header_list and 'address_type' in row.keys() and row['address_type'] != '':
                 if not (any(str(row['address_type']).lower() in i for i in address_type_choices)):
@@ -595,7 +628,8 @@ def validate_row(uploaded_data_list, header_list):
 
             if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
                 if not Shop.objects.filter(id=int(row['shop_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
 
             if 'shop_name' in header_list and 'shop_name' in row.keys() and row['shop_name'] != '':
                 if not Shop.objects.filter(shop_name__iexact=str(row['shop_name']).strip()).exists():
@@ -621,12 +655,15 @@ def validate_row(uploaded_data_list, header_list):
             if 'manager' in header_list and 'manager' in row.keys() and row['manager'] != '':
                 if not ShopUserMapping.objects.filter(employee__phone_number=row['manager'].strip(),
                                                       employee__user_type=7, status=True).exists():
-                    raise ValidationError(f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
                 elif row['manager'] == row['employee']:
-                    raise ValidationError('Manager and Employee cannot be same')
+                    raise ValidationError(
+                        'Manager and Employee cannot be same')
 
     except ValueError as e:
-        raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
+        raise ValidationError(
+            f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
     except KeyError as e:
         raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while checking csv data "
                               f"from dictionary")
@@ -638,38 +675,46 @@ def read_beat_planning_file(csv_file, upload_type):
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
     csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
-    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]  # Converting headers into lowercase
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
     if upload_type == "beat_planning":
         required_header_list = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 'address_line1',
-                             'pincode', 'category', 'date']
+                                'pincode', 'category', 'date']
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
-        check_beat_planning_mandatory_columns(uploaded_data_by_user_list, csv_file_headers, upload_type)
+        check_beat_planning_mandatory_columns(
+            uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
-        raise ValidationError("Please add some data below the headers to upload it!")
+        raise ValidationError(
+            "Please add some data below the headers to upload it!")
 
 
 def check_beat_planning_mandatory_columns(uploaded_data_list, header_list, upload_type):
     row_num = 1
     if upload_type == "beat_planning":
-        mandatory_columns = ['employee_phone_number', 'shop_id', 'category', 'date']
+        mandatory_columns = ['employee_phone_number',
+                             'shop_id', 'category', 'date']
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Beat Planning'")
+                raise ValidationError(
+                    f"{mandatory_columns} are mandatory columns for 'Create Beat Planning'")
         for row in uploaded_data_list:
             row_num += 1
             if 'employee_phone_number' not in row.keys() or row['employee_phone_number'] == '':
-                raise ValidationError(f"Row {row_num} | 'employee_phone_number can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'employee_phone_number can't be empty")
             if 'shop_id' not in row.keys() or row['shop_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'shop_id' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'shop_id' can't be empty")
             if 'category' not in row.keys() or row['category'] == '':
-                raise ValidationError(f"Row {row_num} | 'category' can't be empty")
+                raise ValidationError(
+                    f"Row {row_num} | 'category' can't be empty")
             if 'date' not in row.keys() or row['date'] == '':
                 raise ValidationError(f"Row {row_num} | 'date' can't be empty")
-            
+
     validate_beat_planning_row(uploaded_data_list, header_list)
 
 
@@ -689,7 +734,8 @@ def validate_beat_planning_row(uploaded_data_list, header_list):
 
             if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
                 if not Shop.objects.filter(id=int(row['shop_id'])).exists():
-                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
 
             if 'category' in header_list and 'category' in row.keys() and row['category'] != '':
                 if not (any(str(row['category']) in i for i in DayBeatPlanning.shop_category_choice)):
@@ -699,14 +745,18 @@ def validate_beat_planning_row(uploaded_data_list, header_list):
             if 'date' in header_list and 'date' in row.keys() and row['date'] != '':
                 try:
                     try:
-                        date = datetime.strptime(str(row['date']), '%d/%m/%y').strftime("%Y-%m-%d")
+                        date = datetime.strptime(
+                            str(row['date']), '%d/%m/%y').strftime("%Y-%m-%d")
                     except:
-                        date = datetime.strptime(str(row['date']), '%d/%m/%Y').strftime("%Y-%m-%d")
+                        date = datetime.strptime(
+                            str(row['date']), '%d/%m/%Y').strftime("%Y-%m-%d")
                 except:
-                    raise ValidationError(f"Row {row_num} | {row['date']} | 'date' Invalid date format, acceptable (dd/mm/yy).")
+                    raise ValidationError(
+                        f"Row {row_num} | {row['date']} | 'date' Invalid date format, acceptable (dd/mm/yy).")
 
     except ValueError as e:
-        raise ValidationError(f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
+        raise ValidationError(
+            f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
     except KeyError as e:
         raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while checking csv data "
                               f"from dictionary")
