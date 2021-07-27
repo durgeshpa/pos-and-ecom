@@ -1,9 +1,11 @@
 import csv
-from copy import deepcopy
+from datetime import date
+from io import StringIO
 
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
+from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
@@ -593,6 +595,7 @@ class PosCartAdmin(admin.ModelAdmin):
     list_per_page = 10
     inlines = [PosCartProductMappingAdmin]
     search_fields = ('po_no', 'retailer_shop__shop_name')
+    actions = ['download_store_po']
 
     def download_purchase_order(self, obj):
         return format_html("<a href= '%s' >Download PO</a>" % (reverse('admin:pos_download_purchase_order', args=[obj.pk])))
@@ -618,6 +621,22 @@ class PosCartAdmin(admin.ModelAdmin):
                ] + urls
         return urls
 
+    def download_store_po(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['Vendor', 'Retailer', 'PO No', 'Status', 'Raised By', 'GF Order No', 'Created At', 'SKU',
+                         'Product Name', 'Quantity', 'Price'])
+
+        for obj in queryset:
+            for p in obj.po_products.all():
+                writer.writerow([obj.vendor, obj.retailer_shop, obj.po_no, obj.status, obj.raised_by, obj.gf_order_no,
+                                 obj.created_at, p.product.sku, p.product.name, p.qty, p.price])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
+        return response
+
 
 class PosGrnOrderProductMappingAdmin(admin.TabularInline):
     model = PosGRNOrderProductMapping
@@ -641,6 +660,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     list_per_page = 10
     inlines = [PosGrnOrderProductMappingAdmin]
     search_fields = ('order__ordered_cart__po_no', 'order__ordered_cart__retailer_shop__shop_name')
+    actions = ['download_grns']
 
     def po_no(self, obj):
         return obj.order.ordered_cart.po_no
@@ -656,6 +676,25 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def download_grns(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['GRN Id', 'Order No', 'Created At', 'SKU', 'Product Name',
+                         'Recieved Quantity'])
+
+        for obj in queryset:
+            for p in obj.po_grn_products.all():
+                writer.writerow([obj.grn_id, obj.order.order_no,
+                                 obj.created_at, p.product.sku, p.product.name, p.received_qty])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
+        return response
+
+
+
 
 
 @admin.register(PaymentType)

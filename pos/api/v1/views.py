@@ -395,7 +395,8 @@ class CouponOfferCreation(GenericAPIView):
         shop = Shop.objects.filter(id=shop_id).last()
         retailer_primary_product = data['primary_product_id']
         try:
-            retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
+            retailer_primary_product_obj = RetailerProduct.objects.get(~Q(sku_type=4), id=retailer_primary_product,
+                                                                       shop=shop_id)
         except ObjectDoesNotExist:
             return api_response("Primary product not found")
         retailer_free_product = data['free_product_id']
