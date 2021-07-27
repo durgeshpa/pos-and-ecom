@@ -311,7 +311,6 @@ class BrandImageSerializers(serializers.ModelSerializer):
                 aborted_count += 1
 
             else:
-                # brand_obj, created = Brand.objects.update_or_create(id=brand_obj, brand_logo=img, )
                 # brand_obj.update(id=brand_obj.last().id, brand_logo=img, updated_by=validated_data['updated_by'])
                 brand_obj.brand_logo = img
                 brand_obj.updated_by = validated_data['updated_by']

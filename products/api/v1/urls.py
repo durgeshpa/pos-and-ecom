@@ -3,7 +3,7 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
     BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
     ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
-    WeightView, WeightExportAsCSVView, ProductHSNView
+    WeightView, WeightExportAsCSVView, ProductHSNView, HSNExportAsCSVView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -27,6 +27,7 @@ urlpatterns = [
     url(r'^export-csv-tax/', TaxExportAsCSVView.as_view(), name='export-csv-tax'),
     url(r'^weight/', WeightView.as_view(), name='weight'),
     url(r'^export-csv-weight/', WeightExportAsCSVView.as_view(), name='export-csv-weight'),
+    url(r'^export-csv-hsn/', HSNExportAsCSVView.as_view(), name='export-csv-hsn'),
     url(r'^hsn/', ProductHSNView.as_view(), name='hsn'),
 
 ]
