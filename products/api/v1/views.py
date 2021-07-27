@@ -73,6 +73,26 @@ class ProductHSNView(GenericAPIView):
             return get_response('product HSN created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def put(self, request):
+        """ PUT API for Weight Updation """
+
+        info_logger.info("HSN PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update hsn', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        tax_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("HSN Updated Successfully.")
+            return get_response('hsn updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
     # @transaction.atomic
     def delete(self, request):
         """ Delete Product HSN  """
@@ -103,7 +123,6 @@ class ProductHSNView(GenericAPIView):
         # search using product_hsn_code based on criteria that matches
         if search_text:
             self.queryset = product_hsn_search(self.queryset, search_text)
-
         if product_hsn_cd is not None:
             self.queryset = self.queryset.filter(id=int(product_hsn_cd))
 
