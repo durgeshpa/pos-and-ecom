@@ -19,7 +19,7 @@ from addresses.models import Address, City, Pincode, State, address_type_choices
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
-    get_validated_shop, read_beat_planning_file, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
+    get_validated_shop, read_beat_planning_file, validate__existing_shop_with_name_owner, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file
 from shops.common_functions import ShopCls
 
@@ -385,12 +385,6 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         shop_id = self.instance.id if self.instance else None
-        if 'shop_name' in self.initial_data and self.initial_data['shop_name']:
-            shop_obj = validate_shop_name(
-                self.initial_data['shop_name'], shop_id)
-            if shop_obj is not None and 'error' in shop_obj:
-                raise serializers.ValidationError(shop_obj['error'])
-
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
             approval_status = get_validate_approval_status(
                 self.initial_data['approval_status'])
@@ -403,6 +397,13 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_owner:
                 raise serializers.ValidationError((shop_owner["error"]))
             data['shop_owner'] = shop_owner['data']
+            # Validate existing shop with shop name and shop owner
+            shop_obj = validate__existing_shop_with_name_owner(
+                self.initial_data['shop_name'], shop_owner['data'], shop_id)
+            if shop_obj is not None and 'error' in shop_obj:
+                raise serializers.ValidationError(shop_obj['error'])
+        else:
+            raise serializers.ValidationError("'shop_owner': This field is required.")
 
         if 'shop_type' in self.initial_data and self.initial_data['shop_type']:
             shop_type = get_validate_shop_type(self.initial_data['shop_type'])
@@ -416,8 +417,6 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         "Key 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code' are mandatory "
                         "for selected type.")
-                if int(self.initial_data['shop_code_bulk']) < 0:
-                    raise serializers.ValidationError("'shop_code_bulk' | can not ne negative")
                 if int(self.initial_data['warehouse_code']) < 0:
                     raise serializers.ValidationError("'warehouse_code' | can not ne negative")
             data['shop_type'] = shop_type['data']
@@ -450,16 +449,18 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_docs'] = shop_documents['data']
-
-        if not 'address' in self.initial_data or not self.initial_data['address']:
+        else:
             raise serializers.ValidationError(
-                "atleast one address is required")
+                "atleast one shop document is required")
 
         if 'address' in self.initial_data and self.initial_data['address']:
             addresses = get_validate_shop_address(self.initial_data['address'])
             if 'error' in addresses:
                 raise serializers.ValidationError((addresses["error"]))
             data['address'] = addresses['addresses']
+        else:
+            raise serializers.ValidationError(
+                "'address': This field is reuired.")
 
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
             shop_invoice_patterns = get_validate_shop_invoice_pattern(
