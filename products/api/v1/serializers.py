@@ -1121,3 +1121,41 @@ class WeightExportAsCSVSerializers(serializers.ModelSerializer):
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
+
+class HSNExportAsCSVSerializers(serializers.ModelSerializer):
+    hsn_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = ProductHSN
+        fields = ('hsn_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('hsn_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one hsn id must be selected '))
+
+        for h_id in data.get('hsn_id_list'):
+            try:
+                ProductHSN.objects.get(id=h_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'hsn not found for id {h_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = ProductHSN._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by', 'status']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = ProductHSN.objects.filter(id__in=validated_data['hsn_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response
