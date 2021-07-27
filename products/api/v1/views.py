@@ -71,6 +71,7 @@ class ProductHSNView(GenericAPIView):
             return get_response('product HSN created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    # @transaction.atomic
     def delete(self, request):
         """ Delete Product HSN  """
 
@@ -78,17 +79,16 @@ class ProductHSNView(GenericAPIView):
         if not request.data.get('hsn_ids'):
             return get_response('please select hsn', False)
         try:
-            with transaction.atomic():
-                for h_id in request.data.get('hsn_ids'):
-                    hsn_id = self.queryset.get(id=int(h_id))
-                    try:
-                        hsn_id.delete()
-                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'hsn_id': hsn_id}
-                        info_logger.info("hsn deleted info ", dict_data)
-                    except:
-                        return get_response(f'You can not delete hsn {hsn_id.product_hsn_code}, '
-                                            f'because this hsn is mapped with product', False)
+            for h_id in request.data.get('hsn_ids'):
+                hsn_id = self.queryset.get(id=int(h_id))
+                try:
+                    hsn_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'hsn_id': hsn_id}
+                    info_logger.info("hsn deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete hsn {hsn_id.product_hsn_code}, '
+                                        f'because this hsn is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid hsn id {h_id}', False)
