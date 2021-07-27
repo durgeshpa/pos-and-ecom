@@ -97,8 +97,11 @@ def get_validate_shop_documents(shop_documents):
                         "'shop_document_number' are combined mandatory."}
 
             if 'id' not in shop_doc:
-                shop_doc_photo = to_file(shop_doc['shop_document_photo'])
-                shop_doc_obj['shop_document_photo'] = shop_doc_photo
+                try:
+                    shop_doc_photo = to_file(shop_doc['shop_document_photo'])
+                    shop_doc_obj['shop_document_photo'] = shop_doc_photo
+                except:
+                    return {'error': 'invalid shop document photo.'}
 
             shop_doc_type = validate_shop_doc_type(
                 shop_doc['shop_document_type'])
