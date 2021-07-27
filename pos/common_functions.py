@@ -671,3 +671,27 @@ class PosAddToCart(object):
             return view_func(self, request, *args, **kwargs)
 
         return _wrapped_view_func
+
+    @staticmethod
+    def validate_request_body_ecom(view_func):
+
+        @wraps(view_func)
+        def _wrapped_view_func(self, request, *args, **kwargs):
+            # Quantity check
+            qty = request.data.get('qty')
+            if qty is None or not str(qty).isdigit() or qty < 0:
+                return api_response("Qty Invalid!")
+
+            # Product check
+            try:
+                product = RetailerProduct.objects.get(id=request.data.get('product_id'), status='active',
+                                                      shop=kwargs['shop'])
+            except ObjectDoesNotExist:
+                return api_response("Product Not Found!")
+
+            # Return with objects
+            kwargs['product'] = product
+            kwargs['quantity'] = qty
+            return view_func(self, request, *args, **kwargs)
+
+        return _wrapped_view_func

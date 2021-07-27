@@ -1302,6 +1302,7 @@ class CartCentral(GenericAPIView):
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
+    @PosAddToCart.validate_request_body_ecom
     def ecom_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
@@ -1309,12 +1310,7 @@ class CartCentral(GenericAPIView):
         """
         with transaction.atomic():
             # basic validations for inputs
-            shop = kwargs['shop']
-            initial_validation = self.post_ecom_validate(shop)
-            if 'error' in initial_validation:
-                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False)
-            product = initial_validation['product']
-            qty = initial_validation['quantity']
+            shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
 
             # Update or create cart for user for shop
             cart = self.post_update_ecom_cart(shop)
@@ -1372,21 +1368,6 @@ class CartCentral(GenericAPIView):
             return {'error': "Product Is Not Eligible To Order"}
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
-
-    def post_ecom_validate(self, shop, cart_id=None):
-        """
-            Add To Cart
-            Input validation for add to cart for cart type 'ECOM'
-        """
-        # Added Quantity check
-        qty = self.request.data.get('qty')
-        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
-            return {'error': "Qty Invalid!"}
-        try:
-            product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), status='active', shop=shop)
-        except ObjectDoesNotExist:
-            return {'error': "Product Not Found!"}
-        return {'product': product, 'quantity': qty}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
