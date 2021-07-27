@@ -102,3 +102,14 @@ def search_pincode(queryset, search_text):
 def search_city(queryset, search_text):
     queryset = queryset.filter(city_name__icontains=search_text)
     return queryset
+
+
+def search_beat_planning_data(queryset, search_text):
+    '''
+    search using shop name, employee group, employee's phone number based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(manager__phone_number__icontains=search_text) |
+                               Q(executive__phone_number__icontains=search_text) |
+                               Q(manager__first_name__icontains=search_text) |
+                               Q(executive__first_name__icontains=search_text))
+    return queryset

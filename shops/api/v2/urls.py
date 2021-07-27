@@ -1,7 +1,7 @@
 from rest_framework import routers
 from django.conf.urls import url
 
-from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPlanningSampleCSV, BeatPlanningView, ParentShopsListView, RelatedUsersListView,
+from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPlanningListView, BeatPlanningSampleCSV, BeatPlanningView, ParentShopsListView, RelatedUsersListView,
                                 ServicePartnerShopsListView, BulkCreateShopUserMappingView, BulkUpdateShopView,
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
@@ -51,6 +51,7 @@ urlpatterns = [
     url('download/shop-update-sample-csv', BulkUpdateShopSampleCSV.as_view(), name='download/shop-update-sample-csv'),
     url('upload/bulk-shop-update', BulkUpdateShopView.as_view(),
         name='upload/bulk-shop-update'),
+    url('beat-planning/', BeatPlanningListView.as_view(), name='beat-planning'),
     url('download/beat-planning/sample', BeatPlanningSampleCSV.as_view(), name='download-beat-planning-sample'),
     url('upload/beat-planning', BeatPlanningView.as_view(), name='upload/beat-planning'),
 ]
