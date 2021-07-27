@@ -464,6 +464,7 @@ def validate__existing_shop_with_name_owner(shop_name, shop_owner, shop_id):
     if Shop.objects.filter(shop_name__iexact=shop_name, shop_owner=shop_owner, status=True).exclude(id=shop_id).exists():
         return {'error': 'shop with this shop name and shop owner already exists'}
 
+
 # Bulk Upload
 def read_file(csv_file, upload_type):
     """
@@ -487,8 +488,7 @@ def read_file(csv_file, upload_type):
         check_mandatory_columns(
             uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
-        raise ValidationError(
-            "Please add some data below the headers to upload it!")
+        raise ValidationError("Please add some data below the headers to upload it!")
 
 
 def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
@@ -497,8 +497,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
         mandatory_columns = ['shop_id', 'employee', 'employee_group', ]
         for ele in mandatory_columns:
             if ele not in header_list:
-                raise ValidationError(
-                    f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
+                raise ValidationError(f"{mandatory_columns} are mandatory columns for 'Create Shop User Mapping'")
         for row in uploaded_data_list:
             row_num += 1
             if 'shop_id' not in row.keys():
@@ -610,8 +609,7 @@ def validate_row(uploaded_data_list, header_list):
                     raise Exception('Mobile no. must be of 10 digits')
 
             if 'city' in header_list and 'state' in header_list and row['city'] and row['state']:
-                state_id = State.objects.filter(
-                    state_name__iexact=str(row['state']).strip()).last()
+                state_id = State.objects.filter(state_name__iexact=str(row['state']).strip()).last()
                 if not City.objects.filter(city_name__iexact=str(row['city']).strip(), state=state_id).exists():
                     raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist for given state"
                                           f"in the system ")

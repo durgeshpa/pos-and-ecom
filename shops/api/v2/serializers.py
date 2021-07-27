@@ -61,8 +61,7 @@ class ShopTypeSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if 'shop_sub_type' in self.initial_data and self.initial_data['shop_sub_type']:
-            shop_id = validate_shop_sub_type(
-                self.initial_data['shop_sub_type'])
+            shop_id = validate_shop_sub_type(self.initial_data['shop_sub_type'])
             if 'error' in shop_id:
                 raise serializers.ValidationError((shop_id["error"]))
             data['shop_sub_type'] = shop_id['data']
@@ -110,7 +109,12 @@ class ShopTypeSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
-        response['shop_type'] = instance.get_shop_type_display()
+        response['shop_type'] = {
+            "shop_type": instance.shop_type,
+            "shop_type_name": instance.get_shop_type_display()
+        }
+        # response['shop_type'] = instance.shop_type
+        # response['shop_type_name'] = instance.get_shop_type_display()
         return response
 
 
@@ -910,8 +914,7 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(
-                _('Sorry! Only csv file accepted.'))
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
         csv_file_data = csv.reader(codecs.iterdecode(
             data['file'], 'utf-8', errors='ignore'))
@@ -946,8 +949,7 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(
-                _('Sorry! Only csv file accepted.'))
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
         csv_file_data = csv.reader(codecs.iterdecode(
             data['file'], 'utf-8', errors='ignore'))
@@ -955,8 +957,7 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
         if csv_file_data:
             read_file(csv_file_data, "shop_update")
         else:
-            raise serializers.ValidationError(
-                "CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 
@@ -965,8 +966,7 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
         try:
             ShopCls.update_shop(validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(
-                e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return validated_data

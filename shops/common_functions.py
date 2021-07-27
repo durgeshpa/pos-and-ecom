@@ -11,7 +11,8 @@ from django.db import transaction
 from products.common_validators import get_csv_file_data
 from addresses.models import Address, State, City, Pincode
 from products.models import CentralLog
-from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, ShopPhoto, ShopUserMapping, Shop
+from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, \
+    ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
 
 info_logger = logging.getLogger('file-info')
@@ -52,7 +53,8 @@ class ShopCls(object):
               Create Shop User Mapping Log
         """
         action, create_updated_by = created_updated_by(log_obj, action)
-        shop_user_map_log = CentralLog.objects.create(shop_user_map=log_obj, updated_by=create_updated_by, action=action)
+        shop_user_map_log = CentralLog.objects.create(shop_user_map=log_obj, updated_by=create_updated_by,
+                                                      action=action)
         dict_data = {'updated_by': shop_user_map_log.updated_by, 'updated_at': shop_user_map_log.update_at,
                      'shop_user_map': log_obj}
         info_logger.info("shop_log update info ", dict_data)
@@ -96,9 +98,9 @@ class ShopCls(object):
             Update existing beat planning status to False
             """
             executive_user = get_user_model().objects.filter(
-                    phone_number=uploaded_data_by_user_list[0]['employee_phone_number'])
+                phone_number=uploaded_data_by_user_list[0]['employee_phone_number'])
             ShopCls.update_status_existing_beat_planning(executive_user[0])
-            
+
             """
             Upload New Beat Planning
             """
@@ -110,24 +112,22 @@ class ShopCls(object):
                 except:
                     date = datetime.strptime(str(row['date']).strip(), '%d/%m/%Y').strftime("%Y-%m-%d")
                 day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
-                            beat_plan=beat_plan_object[0], shop_id=int(row['shop_id']), 
-                            beat_plan_date=date, shop_category=str(row['category']).strip(),
-                            next_plan_date=date)
-                
+                    beat_plan=beat_plan_object[0], shop_id=int(row['shop_id']),
+                    beat_plan_date=date, shop_category=str(row['category']).strip(),
+                    next_plan_date=date)
+
             info_logger.info("Method complete to create Beat Planning from csv file")
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
                               f" + {str(e)}")
-    
+
     def update_status_existing_beat_planning(executive_user):
         """
         Set status = False for all existing Beat Planning against executive
         """
         beat_planning_objs = BeatPlanning.objects.filter(executive=executive_user)
         if beat_planning_objs:
-            beat_planning_objs.update(status = False)
-        
-
+            beat_planning_objs.update(status=False)
 
     @classmethod
     def update_shop(cls, validated_data):
@@ -381,7 +381,7 @@ def convert_base64_to_image(data):
         # Get the file name extension:
         file_extension = get_file_extension(file_name, decoded_file)
 
-        complete_file_name = "%s.%s" % (file_name, file_extension, )
+        complete_file_name = "%s.%s" % (file_name, file_extension,)
 
         data = ContentFile(decoded_file, name=complete_file_name)
 
