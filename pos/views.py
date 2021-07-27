@@ -1,7 +1,10 @@
 import codecs
 import csv
 import decimal
+from itertools import product
 import os
+import datetime
+from dateutil.relativedelta import relativedelta
 
 from dal import autocomplete
 from django.db.models import Q
@@ -15,12 +18,13 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 
 from django.views import View
-from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage, PosCart
-from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
+from pos.common_functions import PosInventoryCls, RetailerProductCls
+from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct
+from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, PosInventoryChangeCSVDownloadForm
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from .tasks import generate_pdf_data
+from wms.models import PosInventoryChange
 
 
 class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -378,3 +382,55 @@ class DownloadPurchaseOrder(APIView):
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option
         )
+
+class InventoryRetailerProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Retailer Product Filter for Discounted Products
+    """
+    def get_queryset(self, *args, **kwargs):
+        qs = RetailerProduct.objects.filter(~Q(sku_type=4))
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(sku__icontains = self.q))
+        return qs
+
+def download_posinventorychange_products_form_view(request):
+    """
+    PosInventory Change Form
+    """
+    form = PosInventoryChangeCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/posinventorychange_download_list.html',
+        {'form': form}
+    )
+
+def download_posinventorychange_products(request, *args):
+    """
+    Download PosInventory Change Product for last 2 month
+    """
+    try:
+        prod_sku = request.GET['prod_sku']
+        prod = RetailerProduct.objects.get(id = prod_sku)
+        filename = "posinventory_products_sku_"+prod.sku+".csv"
+        pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
+        discount_prod = DiscountedRetailerProduct.objects.filter(product_ref = prod)
+        if len(discount_prod) > 0:
+            discount_pros_inventory = PosInventoryChange.objects.filter(product = discount_prod[0]).order_by('-modified_at')
+            pos_inventory = pos_inventory.union(discount_pros_inventory).order_by('-modified_at')
+    except Exception:
+        filename = "posinventory_products_last2month.csv"
+        today = datetime.date.today()
+        two_month_back = today - relativedelta(months=2)
+        pos_inventory = PosInventoryChange.objects.filter(modified_at__gte = two_month_back).order_by('-modified_at')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+            ['Product Name', 'Product SKU', 'Quantity', 'Transaction Type', 'Transaction Id', 'Initial State', 'Final State', 'Changed By', 'Created at', 'Modfied at',
+            ])
+    for prod in pos_inventory:
+        writer.writerow([prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
+        prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+        ])
+    return response
+

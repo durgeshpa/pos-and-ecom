@@ -20,7 +20,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
-    download_discounted_products_form_view, download_discounted_products
+    download_discounted_products_form_view, download_discounted_products, download_posinventorychange_products_form_view, \
+    download_posinventorychange_products
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
@@ -28,7 +29,7 @@ from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel
-from .forms import RetailerProductsForm, DiscountedRetailerProductsForm
+from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
 
 
 class RetailerProductImageTabularAdmin(admin.TabularInline):
@@ -407,12 +408,15 @@ class PosInventoryAdmin(admin.ModelAdmin):
 
 @admin.register(PosInventoryChange)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
+    forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
                     'changed_by', 'created_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
     list_filter = [ProductInvEanSearch]
+
+    change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
     @staticmethod
     def shop(obj):
@@ -426,6 +430,21 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_urls(self):
+        """" Download CSV of Pos Inventory change along with discounted product"""
+        urls = super(PosInventoryChangeAdmin, self).get_urls()
+        urls = [
+                   url(r'posinventorychange_products_download_form',
+                       self.admin_site.admin_view(download_posinventorychange_products_form_view),
+                       name="posinventorychange_products_download_form"),
+
+                   url(r'posinventorychange_products_download',
+                       self.admin_site.admin_view(download_posinventorychange_products),
+                       name="posinventorychange_products_download"),
+
+               ] + urls
+        return urls
 
 
 class RetailerReturnItemsAdmin(admin.TabularInline):

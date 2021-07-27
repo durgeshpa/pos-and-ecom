@@ -229,3 +229,14 @@ class RetailerProductMultiImageForm(forms.ModelForm):
     class Meta:
         model = RetailerProductImage
         fields = ('image',)
+
+class PosInventoryChangeCSVDownloadForm(forms.Form):
+    """
+        Select sku for downloading PosInventory changes
+    """
+    sku = forms.ModelChoiceField(
+        label='Select Product SKU',
+        queryset = RetailerProduct.objects.filter(~Q(sku_type=4)),
+        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete',)
+    )
+
