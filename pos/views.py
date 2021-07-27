@@ -189,7 +189,7 @@ def DownloadRetailerCatalogue(request, *args):
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
-        retailer_products = retailer_products[:10]
+
         for product in retailer_products:
             product_data = retailer_products_list(product)
             try:

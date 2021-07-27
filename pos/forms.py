@@ -45,7 +45,12 @@ class RetailerProductsCSVUploadForm(forms.Form):
     file = forms.FileField(label='Upload Products')
 
     def __init__(self,*args,**kwargs):
-        self.shop_id = kwargs.pop('shop_id')
+
+        try:
+            self.shop_id = kwargs.pop('shop_id')
+        except:
+            self.shop_id = ''
+            
         super().__init__(*args,**kwargs)
 
     def check_mandatory_data(self, row, key_string, row_num):
