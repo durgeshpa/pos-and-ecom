@@ -27,8 +27,8 @@ from .serializers import (
     AddressSerializer, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
-    RetailerTypeSerializer, DisapproveSelectedShopSerializers,PinCodeSerializer, CitySerializer, StateSerializer,
+    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
+    RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
@@ -592,6 +592,7 @@ class ShopUserMappingView(generics.GenericAPIView):
             return get_response('shop mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    # @transaction.atomic
     def delete(self, request):
         """ Delete Shop User Mapping """
 
@@ -599,17 +600,16 @@ class ShopUserMappingView(generics.GenericAPIView):
         if not request.data.get('shop_user_mapping_id'):
             return get_response('please select shop user mapping id to delete shop user mapping', False)
         try:
-            with transaction.atomic():
-                for id in request.data.get('shop_user_mapping_id'):
-                    shap_user_mapped_id = self.queryset.get(id=int(id))
-                    try:
-                        shap_user_mapped_id.delete()
-                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'shap_user_mapped_id': shap_user_mapped_id}
-                        info_logger.info("shap_user_mapped_id deleted info ", dict_data)
-                    except:
-                        return get_response(f'You can not delete user shop mapping {shap_user_mapped_id}, '
-                                            f'because this user shop mapping getting used', False)
+            for id in request.data.get('shop_user_mapping_id'):
+                shop_user_mapped_id = self.queryset.get(id=int(id))
+                try:
+                    shop_user_mapped_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'shap_user_mapped_id': shop_user_mapped_id}
+                    info_logger.info("shap_user_mapped_id deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete user shop mapping {shop_user_mapped_id}, '
+                                        f'because this user shop mapping getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid shop user mapping id {id}', False)
