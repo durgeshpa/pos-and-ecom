@@ -78,7 +78,14 @@ class VendorSerializers(serializers.ModelSerializer):
         fields = ('id', 'vendor_name', 'mobile')
 
 
+def only_int(value):
+    if value.isdigit() is False:
+        raise serializers.ValidationError('HSN can only be a numeric value.')
+
+
 class ProductHSNSerializers(serializers.ModelSerializer):
+    """ Handles Get & creating """
+
     class Meta:
         model = ProductHSN
         fields = ('id', 'product_hsn_code')
@@ -910,6 +917,43 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
                         items.append(str(getattr(cost_obj, param)))
             writer.writerow(items)
         return response
+
+
+class ProductHSNCrudSerializers(serializers.ModelSerializer):
+    """ Handles Get & creating """
+    product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
+    hsn_log = LogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = ProductHSN
+        fields = ('id', 'product_hsn_code', 'hsn_log')
+
+    def validate(self, data):
+        hsn_id = self.instance.id if self.instance else None
+        if 'product_hsn_code' in self.initial_data and data['product_hsn_code']:
+            if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True)\
+                    .exclude(id=hsn_id).exists():
+                raise serializers.ValidationError("product hsn code already exists.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new HSN"""
+        try:
+            hsn = ProductHSN.objects.create(**validated_data)
+            ProductCls.create_hsn_log(hsn, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return hsn
+
+    def update(self, instance, validated_data):
+        """update hsn"""
+        instance = super().update(instance, validated_data)
+        ProductCls.create_hsn_log(instance, "updated")
+        return instance
 
 
 class TaxCrudSerializers(serializers.ModelSerializer):

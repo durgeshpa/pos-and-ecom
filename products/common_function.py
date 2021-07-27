@@ -233,6 +233,18 @@ class ProductCls(object):
         return tax_log
 
     @classmethod
+    def create_hsn_log(cls, log_obj, action):
+        """
+            Create HSN Log
+        """
+        action, create_updated_by = created_updated_by(log_obj, action)
+        hsn_log = CentralLog.objects.create(hsn=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': hsn_log.updated_by, 'update_at': hsn_log.update_at, 'hsn': log_obj}
+        info_logger.info("hsn update info ", dict_data)
+
+        return hsn_log
+
+    @classmethod
     def create_weight_log(cls, log_obj, action):
         """
             Create Weight Log

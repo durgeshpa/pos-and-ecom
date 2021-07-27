@@ -21,7 +21,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, ProductHSNCrudSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
@@ -33,6 +33,72 @@ from products.services import parent_product_search, child_product_search, produ
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class ProductHSNView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ProductHSN.objects.values('id', 'product_hsn_code')
+    serializer_class = ProductHSNCrudSerializers
+
+    def get(self, request):
+        """ GET API for Product HSN """
+
+        info_logger.info("Product HSN GET api called.")
+        if request.GET.get('id'):
+            """ Get Product HSN for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_hsn = id_validation['data']
+        else:
+            """ GET Product HSN List """
+            self.queryset = self.search_filter_product_hsn()
+            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(product_hsn, many=True)
+        msg = "" if product_hsn else "no product hsn found"
+        return get_response(msg, serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for ProductHSN Creation """
+
+        info_logger.info("ProductHSN POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("product HSN created successfully ")
+            return get_response('product HSN created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Product HSN  """
+
+        info_logger.info("Product HSN DELETE api called.")
+        if not request.data.get('hsn_ids'):
+            return get_response('please select hsn', False)
+        try:
+            with transaction.atomic():
+                for h_id in request.data.get('hsn_ids'):
+                    hsn_id = self.queryset.get(id=int(h_id))
+                    try:
+                        hsn_id.delete()
+                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                     'hsn_id': hsn_id}
+                        info_logger.info("hsn deleted info ", dict_data)
+                    except:
+                        return get_response(f'You can not delete hsn {hsn_id.product_hsn_code}, '
+                                            f'because this hsn is mapped with product', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid hsn id {h_id}', False)
+        return get_response('hsn were deleted successfully!', True)
+
+    def search_filter_product_hsn(self):
+        search_text = self.request.GET.get('search_text')
+        # search using product_hsn_code based on criteria that matches
+        if search_text:
+            self.queryset = product_hsn_search(self.queryset, search_text)
+        return self.queryset
 
 
 class BrandListView(GenericAPIView):

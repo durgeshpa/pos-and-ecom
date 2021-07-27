@@ -1045,6 +1045,7 @@ class CentralLog(models.Model):
     brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
     weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)
+    hsn = models.ForeignKey(ProductHSN, related_name='hsn_log', blank=True, null=True, on_delete=models.CASCADE)
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,

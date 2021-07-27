@@ -534,7 +534,7 @@ class ShopUserMappingView(generics.GenericAPIView):
               'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
               'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager', 'shop__shop_owner__last_name',
               'employee_group', 'employee', 'employee__id',  'employee__first_name',  'employee__last_name',
-              'employee__phone_number',)
+              'employee__phone_number',).order_by('-id')
 
     serializer_class = ShopUserMappingCrudSerializers
 
@@ -904,7 +904,7 @@ class BulkCreateShopUserMappingView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            return get_response('data uploaded successfully!', serializer.data)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)
 
 
@@ -916,7 +916,7 @@ class BulkUpdateShopView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            return get_response('shops updated successfully!', serializer.data)
+            return get_response('shops updated successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)
 
 
