@@ -26,7 +26,10 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
+from retailer_to_sp.models import Order, RoundAmount
+from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
+from .utils import create_order_data_excel
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm
 
 
@@ -129,7 +132,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('order', 'payment_mode', 'paid_by', 'processed_by', 'created_at')
+    list_display = ('order', 'payment_type', 'transaction_id', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number')
 
@@ -303,6 +306,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 10
     list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
+    actions = ["order_data_excel_action"]
 
     fieldsets = (
         (_('Shop Details'), {
@@ -361,6 +365,14 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+    def order_data_excel_action(self, request, queryset):
+        return create_order_data_excel(
+            request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
+            Order, RetailerOrderReturn,
+            RoundAmount, RetailerReturnItems, Shop)
+    order_data_excel_action.short_description = "Download CSV of selected orders"
+
+    
 
 @admin.register(PosInventoryState)
 class PosInventoryStateAdmin(admin.ModelAdmin):

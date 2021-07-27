@@ -61,6 +61,7 @@ from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
 from shops.models import PosShopUserMapping
 from accounts.middlewares import get_current_user
+from pos.models import PosCart
 
 logger = logging.getLogger('django')
 
@@ -596,8 +597,10 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
 class BulkOrderAdmin(admin.ModelAdmin):
     fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
     form = BulkCartForm
-    list_display = ('cart', 'order_type', 'seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'created_at')
+    list_display = ('cart', 'order_type', 'seller_shop', 'buyer_shop', 'shipping_address', 'billing_address',
+                    'create_purchase_order', 'created_at')
     list_filter = (SellerShopFilter, BuyerShopFilter)
+    list_per_page = 20
 
     class Media:
         js = ('admin/js/bulk_order.js', 'admin/js/select2.min.js')
@@ -610,6 +613,24 @@ class BulkOrderAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         if obj:
             return False
+
+    @staticmethod
+    def create_purchase_order(obj):
+        buyer_shop = obj.buyer_shop
+        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
+                buyer_shop.pos_enabled == 1:
+            user = get_current_user()
+            if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
+                order = Order.objects.get(ordered_cart=obj.cart)
+                po = PosCart.objects.filter(retailer_shop=buyer_shop, gf_order_no=order.order_no).last()
+                if po:
+                    return format_html(
+                        "<a href= 'javascript:void(0);' class='order-po-create' data-id='%s'>Update PO (POS Shop)</a>"
+                        "<div>%s</div>" % (order.pk, po.po_no))
+                else:
+                    return format_html(
+                        "<a href= 'javascript:void(0);' class='order-po-create' data-id='%s'>Create PO (POS Shop)</a>"
+                        % order.pk)
 
 
 class ExportCsvMixin:
@@ -969,7 +990,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
-    list_per_page = FIFTY
+    list_per_page = 20
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -991,7 +1012,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
-                    'pickup_completed_at', 'picking_completion_time', 'create_po'
+                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1016,13 +1037,22 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             Q(seller_shop__shop_owner=request.user)
                 )
 
-    def create_po(self, obj):
+    @staticmethod
+    def create_purchase_order(obj):
         buyer_shop = obj.buyer_shop
-        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and\
+        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
                 buyer_shop.pos_enabled == 1:
             user = get_current_user()
             if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
-                return format_html("<a href= '%s' >Create PO For POS Shop</a>" % (reverse('create-franchise-po', args=[obj.pk])))
+                po = PosCart.objects.filter(retailer_shop=buyer_shop, gf_order_no=obj.order_no).last()
+                if po:
+                    return format_html(
+                        "<a href= 'javascript:void(0);' class='order-po-create' data-id='%s'>Update PO (POS Shop)</a>"
+                        "<div>%s</div>" % (obj.pk, po.po_no))
+                else:
+                    return format_html(
+                        "<a href= 'javascript:void(0);' class='order-po-create' data-id='%s'>Create PO (POS Shop)</a>"
+                        % obj.pk)
 
     def buyer_shop_type(self, obj):
         return obj.buyer_shop.shop_type

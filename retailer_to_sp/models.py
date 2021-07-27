@@ -15,7 +15,6 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
-from material.frontend.templatetags.material_frontend import verbose_name_plural
 from model_utils import Choices
 
 from celery.task import task
@@ -2714,6 +2713,17 @@ class OrderReturn(models.Model):
         for item in self.rt_return_list.all():
             return_value += item.return_value
         return return_value
+
+
+class CreditNote(models.Model):
+    credit_note_id = models.CharField(max_length=30)
+    order_return = models.ForeignKey(OrderReturn, related_name="credit_note_order_return_mapping", \
+        on_delete=models.DO_NOTHING)
+    credit_note_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 
 
 class ReturnItems(models.Model):

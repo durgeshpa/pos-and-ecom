@@ -19,3 +19,8 @@ def validate_id(queryset, id):
     if not queryset.filter(id=id).exists():
         return {'error': 'please provide a valid id'}
     return {'data': queryset.filter(id=id)}
+
+def compareList(lst1,lst2):
+    lst1.sort()
+    lst2.sort()
+    return True if lst1 == lst2 else False

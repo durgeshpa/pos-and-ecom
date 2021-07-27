@@ -27,7 +27,7 @@ from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs)
-from pos.common_validators import validate_user_type_for_pos_shop
+from pos.common_validators import compareList, validate_user_type_for_pos_shop
 
 from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
@@ -110,12 +110,13 @@ class PosProductView(GenericAPIView):
             Update product
         """
         shop = kwargs['shop']
-        pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
-        if 'error' in pos_shop_user_obj:
-            return api_response(pos_shop_user_obj['error'])
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
+        if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id']):
+            pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
+            if 'error' in pos_shop_user_obj:
+                return api_response(pos_shop_user_obj['error'])
         serializer = RetailerProductUpdateSerializer(data=modified_data)
         if serializer.is_valid():
             data = serializer.data
@@ -1071,22 +1072,35 @@ class GrnOrderView(GenericAPIView):
 
     @check_pos_shop
     def post(self, request, *args, **kwargs):
-        serializer = PosGrnOrderCreateSerializer(data=request.data,
+        try:
+            data = json.loads(self.request.data["data"])
+        except:
+            return {'error': "Invalid Data Format"}
+        data['invoice'] = request.FILES.get('invoice')
+        serializer = PosGrnOrderCreateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.save()
+            s_data = serializer.data
+            s_data['invoice'] = data['invoice']
+            serializer.create(s_data)
             return api_response('', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
-        data = request.data
+        try:
+            data = json.loads(self.request.data["data"])
+        except:
+            return {'error': "Invalid Data Format"}
+        data['invoice'] = request.FILES.get('invoice')
         data['grn_id'] = kwargs['pk']
-        serializer = PosGrnOrderUpdateSerializer(data=request.data,
+        serializer = PosGrnOrderUpdateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.update(kwargs['pk'], serializer.data)
+            s_data = serializer.data
+            s_data['invoice'] = data['invoice']
+            serializer.update(kwargs['pk'], s_data)
             return api_response('', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))

@@ -502,13 +502,7 @@ class PosShopUserMapping(models.Model):
     class Meta:
         verbose_name = 'POS Shop User Mapping'
         verbose_name_plural = 'POS Shop User Mappings'
-
-    def save(self, *args, **kwargs):
-        if self._state.adding is True:
-            qs = PosShopUserMapping.objects.filter(shop=self.shop, user=self.user, status=True)
-            if qs:
-                qs.update(status=False)
-        super().save(*args, **kwargs)
+        unique_together = ['shop', 'user']
 
     def __str__(self):
         return "%s" % (self.user)
