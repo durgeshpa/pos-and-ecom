@@ -224,28 +224,31 @@ class CommonWarehouseInventoryFunctions(object):
         Create/Update entry in WarehouseInventory
         Create entry in WarehouseInternalInventoryChange
         Params :
-        warehouse : Shop instance
-        product : Product instance
-        inventory_type : InventoryType instance
-        inventory_state : InventoryState instance
-        quantity : integer transaction quantity, positive if increasing the quantity, negative is decreasing the quantity
-        transaction_type : string identifier for transaction
-        transaction_id : string identifier for transaction
+            warehouse : Shop instance
+            product : Product instance
+            inventory_type : InventoryType instance
+            inventory_state : InventoryState instance
+            quantity : integer transaction quantity, positive if increasing the quantity, negative is decreasing the quantity
+            transaction_type : string identifier for transaction
+            transaction_id : string identifier for transaction
+        Returns :
+            WarehouseInventory and WarehouseInternalInventoryChange
         """
 
         info_logger.info("Warehouse Inventory Update Started| Warehouse-{}, SKU-{}, Inventory Type-{}, "
                          "Inventory State-{}, Quantity-{}, Transaction type-{}, Transaction ID-{}"
                          .format(warehouse.id, product.product_sku, inventory_type.inventory_type,
                                  inventory_state.inventory_state, quantity, transaction_type, transaction_id))
-        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock, weight)
-        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
-                                                        transaction_type=transaction_type,
-                                                        transaction_id=transaction_id,
-                                                        inventory_type=inventory_type,
-                                                        inventory_state=inventory_state,
-                                                        quantity=quantity,
-                                                        weight=weight)
+        wi = cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock, weight)
+        wii = WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
+                                                              transaction_type=transaction_type,
+                                                              transaction_id=transaction_id,
+                                                              inventory_type=inventory_type,
+                                                              inventory_state=inventory_state,
+                                                              quantity=quantity,
+                                                              weight=weight)
         info_logger.info("Warehouse Inventory Update| Done")
+        return wi, wii
 
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock, weight=0):
@@ -262,13 +265,14 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
-            WarehouseInventory.objects.get_or_create(
-                warehouse=warehouse,
-                sku=sku,
-                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                in_stock=in_stock, quantity=quantity, weight=weight
-            )
+            ware_house_inventory_obj = WarehouseInventory.objects.get_or_create(
+                                warehouse=warehouse,
+                                sku=sku,
+                                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                                in_stock=in_stock, quantity=quantity, weight=weight
+                            )
+        return ware_house_inventory_obj
 
     @classmethod
     def create_warehouse_inventory_stock_correction(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
@@ -584,14 +588,15 @@ class OrderManagement(object):
             #                                                     inventory_state='reserved').last(),
             #                                                 quantity=ordered_qty)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse_inventory, warehouse_internal_inventory = \
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, state_reserved, ordered_qty, transaction_type, transaction_id )
 
             OrderReserveRelease.objects.create(warehouse=shop,
                                                sku=product,
                                                transaction_id=transaction_id,
-                                               warehouse_internal_inventory_reserve=WarehouseInternalInventoryChange.objects.all().last(),
-                                               reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
+                                               warehouse_internal_inventory_reserve=warehouse_internal_inventory,
+                                               reserved_time=warehouse_internal_inventory.created_at)
 
     @classmethod
     @task
