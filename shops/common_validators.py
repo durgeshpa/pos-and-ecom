@@ -239,8 +239,8 @@ def get_validate_shop_address(addresses):
         addresses_obj.append(address_data)
 
     values_of_key = [a_dict["address_type"] for a_dict in addresses_obj]
-    if 'shipping' not in values_of_key:
-        raise ValidationError("Please add at least one shipping address")
+    if 'shipping' not in values_of_key or 'billing' not in values_of_key:
+        raise ValidationError("Please add at least one shipping and one billing address")
     return {'addresses': addresses_obj}
 
 
@@ -456,6 +456,10 @@ def validate_shop_name(s_name, s_id):
     if Shop.objects.filter(shop_name__iexact=s_name, status=True).exclude(id=s_id).exists():
         return {'error': 'shop with this shop name already exists'}
 
+def validate__existing_shop_with_name_owner(shop_name, shop_owner, shop_id):
+    """ validate shop name already exist in Shop Model  """
+    if Shop.objects.filter(shop_name__iexact=shop_name, shop_owner=shop_owner, status=True).exclude(id=shop_id).exists():
+        return {'error': 'shop with this shop name and shop owner already exists'}
 
 # Bulk Upload
 def read_file(csv_file, upload_type):
