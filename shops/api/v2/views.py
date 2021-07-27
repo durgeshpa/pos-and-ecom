@@ -32,7 +32,7 @@ from .serializers import (
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
-from shops.services import (search_beat_planning_data, shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
+from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
                             shop_type_search, search_state, search_pincode, search_city, shop_owner_search)
 from shops.common_validators import (
@@ -208,11 +208,14 @@ class RelatedUsersListView(generics.GenericAPIView):
                 self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            shops_data = id_validation['data']
+            related_users_data = id_validation['data']
         else:
             """ GET Users List """
-            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shops_data, many=True)
+            search_text = self.request.GET.get('search_text')
+            if search_text:
+                self.queryset = related_user_search(self.queryset, search_text)
+            related_users_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(related_users_data, many=True)
         msg = ""
         return get_response(msg, serializer.data, True)
 
