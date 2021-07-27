@@ -61,7 +61,8 @@ class ShopTypeSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if 'shop_sub_type' in self.initial_data and self.initial_data['shop_sub_type']:
-            shop_id = validate_shop_sub_type(self.initial_data['shop_sub_type'])
+            shop_id = validate_shop_sub_type(
+                self.initial_data['shop_sub_type'])
             if 'error' in shop_id:
                 raise serializers.ValidationError((shop_id["error"]))
             data['shop_sub_type'] = shop_id['data']
@@ -77,7 +78,8 @@ class ShopTypeSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
-        fields = ('id', 'shop_type', 'shop_sub_type', 'shop_min_amount', 'status', 'shop_type_log')
+        fields = ('id', 'shop_type', 'shop_sub_type',
+                  'shop_min_amount', 'status', 'shop_type_log')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -86,7 +88,8 @@ class ShopTypeSerializers(serializers.ModelSerializer):
             shop_type = ShopType.objects.create(**validated_data)
             ShopCls.create_shop_type_log(shop_type, "created")
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return shop_type
@@ -99,7 +102,8 @@ class ShopTypeSerializers(serializers.ModelSerializer):
             shop_instance = super().update(instance, validated_data)
             ShopCls.create_shop_type_log(shop_instance, "updated")
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return shop_instance
@@ -146,7 +150,8 @@ class ShopInvoicePatternSerializer(serializers.ModelSerializer):
 
 
 class ShopDocSerializer(serializers.ModelSerializer):
-    shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES, required=True)
+    shop_document_type = ChoiceField(
+        choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES, required=True)
 
     # def to_representation(self, instance):
     #     representation = super().to_representation(instance)
@@ -168,7 +173,8 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('shop_owner_id', 'first_name', 'last_name', 'phone_number', 'email',)
+        fields = ('shop_owner_id', 'first_name',
+                  'last_name', 'phone_number', 'email',)
 
     def get_user_id(self, obj):
         return obj.shop_owner.id if obj.shop_owner else None
@@ -189,7 +195,8 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('id', 'first_name', 'last_name',
+                  'phone_number', 'email', 'user_photo')
 
 
 class PinCodeAddressSerializer(serializers.ModelSerializer):
@@ -308,7 +315,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
             return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name, obj.shop_owner.last_name,
-                                                  str(obj.shop_type), str(obj.id))
+                str(obj.shop_type), str(obj.id))
 
         elif obj.shop_owner.first_name:
             return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
@@ -328,13 +335,15 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     shop_type = ShopTypeListSerializers(read_only=True)
     parent_shop = serializers.SerializerMethodField('get_parent_shop_obj')
     owner = serializers.SerializerMethodField('get_shop_owner_obj')
-    approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
+    approval_status = ChoiceField(
+        choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
     address = serializers.SerializerMethodField('get_addresses')
     pincode = serializers.SerializerMethodField('get_pin_code')
     city = serializers.SerializerMethodField('get_city_name')
     shop_photo = serializers.SerializerMethodField('get_shop_photos')
     shop_docs = serializers.SerializerMethodField('get_shop_documents')
-    shop_invoice_pattern = serializers.SerializerMethodField('get_shop_invoices')
+    shop_invoice_pattern = serializers.SerializerMethodField(
+        'get_shop_invoices')
 
     class Meta:
         model = Shop
@@ -377,12 +386,14 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
         shop_id = self.instance.id if self.instance else None
         if 'shop_name' in self.initial_data and self.initial_data['shop_name']:
-            shop_obj = validate_shop_name(self.initial_data['shop_name'], shop_id)
+            shop_obj = validate_shop_name(
+                self.initial_data['shop_name'], shop_id)
             if shop_obj is not None and 'error' in shop_obj:
                 raise serializers.ValidationError(shop_obj['error'])
 
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
-            approval_status = get_validate_approval_status(self.initial_data['approval_status'])
+            approval_status = get_validate_approval_status(
+                self.initial_data['approval_status'])
             if 'error' in approval_status:
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
@@ -397,34 +408,52 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             shop_type = get_validate_shop_type(self.initial_data['shop_type'])
             if 'error' in shop_type:
                 raise serializers.ValidationError((shop_type["error"]))
+            if shop_type['data'].shop_type in ['gf', 'sp']:
+                if 'shop_code' not in self.initial_data or not self.initial_data['shop_code'] or \
+                    'shop_code_bulk' not in self.initial_data or not self.initial_data['shop_code_bulk'] or \
+                    'shop_code_discounted' not in self.initial_data or not self.initial_data['shop_code_discounted'] or\
+                        'warehouse_code' not in self.initial_data or not self.initial_data['warehouse_code']:
+                    raise serializers.ValidationError(
+                        "Key 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code' are mandatory "
+                        "for selected type.")
+                if int(self.initial_data['shop_code_bulk']) < 0:
+                    raise serializers.ValidationError("'shop_code_bulk' | can not ne negative")
+                if int(self.initial_data['warehouse_code']) < 0:
+                    raise serializers.ValidationError("'warehouse_code' | can not ne negative")
             data['shop_type'] = shop_type['data']
 
         if 'shop_photo' in self.initial_data and self.initial_data['shop_photo']:
-            photos = get_validate_existing_shop_photos(self.initial_data['shop_photo'])
+            photos = get_validate_existing_shop_photos(
+                self.initial_data['shop_photo'])
             if 'error' in photos:
                 raise serializers.ValidationError((photos["error"]))
             data['shop_photo'] = photos['photos']
 
         if 'related_users' in self.initial_data and self.initial_data['related_users']:
-            related_users = get_validate_related_users(self.initial_data['related_users'])
+            related_users = get_validate_related_users(
+                self.initial_data['related_users'])
             if 'error' in related_users:
                 raise serializers.ValidationError((related_users["error"]))
             data['related_users'] = related_users['related_users']
 
         if 'favourite_products' in self.initial_data and self.initial_data['favourite_products']:
-            favourite_products = get_validate_favourite_products(self.initial_data['favourite_products'])
+            favourite_products = get_validate_favourite_products(
+                self.initial_data['favourite_products'])
             if 'error' in favourite_products:
-                raise serializers.ValidationError((favourite_products["error"]))
+                raise serializers.ValidationError(
+                    (favourite_products["error"]))
             data['favourite_products'] = favourite_products['favourite_products']
 
         if 'shop_docs' in self.initial_data and self.initial_data['shop_docs']:
-            shop_documents = get_validate_shop_documents(self.initial_data['shop_docs'])
+            shop_documents = get_validate_shop_documents(
+                self.initial_data['shop_docs'])
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_docs'] = shop_documents['data']
 
         if not 'address' in self.initial_data or not self.initial_data['address']:
-            raise serializers.ValidationError("atleast one address is required")
+            raise serializers.ValidationError(
+                "atleast one address is required")
 
         if 'address' in self.initial_data and self.initial_data['address']:
             addresses = get_validate_shop_address(self.initial_data['address'])
@@ -433,12 +462,15 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             data['address'] = addresses['addresses']
 
         if 'shop_invoice_pattern' in self.initial_data and self.initial_data['shop_invoice_pattern']:
-            shop_invoice_patterns = get_validate_shop_invoice_pattern(self.initial_data['shop_invoice_pattern'])
+            shop_invoice_patterns = get_validate_shop_invoice_pattern(
+                self.initial_data['shop_invoice_pattern'])
             if 'error' in shop_invoice_patterns:
-                raise serializers.ValidationError((shop_invoice_patterns["error"]))
+                raise serializers.ValidationError(
+                    (shop_invoice_patterns["error"]))
 
         if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            parent_shop = get_validated_parent_shop(self.initial_data['parent_shop'])
+            parent_shop = get_validated_parent_shop(
+                self.initial_data['parent_shop'])
             if 'error' in parent_shop:
                 raise serializers.ValidationError(parent_shop['error'])
             # data['parent_shop'] = parent_shop['data']
@@ -459,10 +491,12 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         try:
             shop_instance = Shop.objects.create(**validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "created")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
+            shop_instance, "created")
         ShopCls.create_shop_log(shop_instance, "created")
         return shop_instance
 
@@ -478,7 +512,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(shop_instance, "updated")
+        self.cr_up_addrs_imgs_docs_invoices_parentshop_relateduser_favouriteprd(
+            shop_instance, "updated")
         ShopCls.create_shop_log(shop_instance, "updated")
         return shop_instance
 
@@ -518,10 +553,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             favourite_prd = self.validated_data['favourite_products']
 
         if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            shop_parent_shop = get_validated_shop(self.initial_data['parent_shop'])
+            shop_parent_shop = get_validated_shop(
+                self.initial_data['parent_shop'])
             if 'error' in shop_parent_shop:
                 raise serializers.ValidationError(shop_parent_shop['error'])
-            
+
             if action == "updated":
                 ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
             elif action == "created":
@@ -532,7 +568,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
-        ShopCls.update_related_users_and_favourite_products(shop, related_usrs, favourite_prd)
+        ShopCls.update_related_users_and_favourite_products(
+            shop, related_usrs, favourite_prd)
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
@@ -546,12 +583,12 @@ class ServicePartnerShopsSerializer(serializers.ModelSerializer):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
             return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                                                  obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
+                obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
 
         elif obj.shop_owner.first_name:
             return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                                               str(obj.shop_type), str(obj.id))
+                str(obj.shop_type), str(obj.id))
 
         return "%s - %s - %s - %s" % (obj.shop_name, str(
             obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
@@ -625,8 +662,8 @@ class ServicePartnerShopsSerializers(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
-                                 f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
-                                 f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
+            f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
+            f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
         representation['shop'] = {
             "id": representation['id'],
             "shop_name": representation['shop_name'],
@@ -643,7 +680,8 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop',  'manager',  'employee', 'employee_group',  'status', 'created_at', 'shop_user_map_log',)
+        fields = ('id', 'shop',  'manager',  'employee', 'employee_group',
+                  'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
 
@@ -672,10 +710,12 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((manager_id["error"]))
             data['manager'] = manager_id['data']
             if data['manager'].employee == data['employee']:
-                raise serializers.ValidationError('Manager and Employee cannot be same')
+                raise serializers.ValidationError(
+                    'Manager and Employee cannot be same')
 
         if 'employee_group' in self.initial_data and self.initial_data['employee_group']:
-            employee_group_id = validate_employee_group(self.initial_data['employee_group'])
+            employee_group_id = validate_employee_group(
+                self.initial_data['employee_group'])
             if 'error' in employee_group_id:
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']
@@ -689,7 +729,8 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             shop_user_map = ShopUserMapping.objects.create(**validated_data)
             ShopCls.create_shop_user_map_log(shop_user_map, "created")
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return shop_user_map
@@ -701,20 +742,23 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             shop_instance = super().update(instance, validated_data)
             ShopCls.create_shop_user_map_log(shop_instance, "updated")
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return shop_instance
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        representation['created_at'] = instance.created_at.strftime(
+            "%b %d %Y %I:%M%p")
         return representation
 
 
 class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
     approval_status = serializers.BooleanField(required=True)
-    shop_id_list = serializers.ListField(child=serializers.IntegerField(min_value=1))
+    shop_id_list = serializers.ListField(
+        child=serializers.IntegerField(min_value=1))
 
     class Meta:
         model = Shop
@@ -723,19 +767,22 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if data.get('approval_status') is None:
-            raise serializers.ValidationError('approval_status field is required')
+            raise serializers.ValidationError(
+                'approval_status field is required')
 
         if not int(data.get('approval_status')) == 0:
             raise serializers.ValidationError('invalid approval_status')
 
         if not 'shop_id_list' in data or not data['shop_id_list']:
-            raise serializers.ValidationError(_('atleast one shop id must be selected '))
+            raise serializers.ValidationError(
+                _('atleast one shop id must be selected '))
 
         for p_id in data.get('shop_id_list'):
             try:
                 Shop.objects.get(id=p_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'shop not found for id {p_id}')
+                raise serializers.ValidationError(
+                    f'shop not found for id {p_id}')
 
         return data
 
@@ -743,11 +790,13 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         try:
-            parent_products = Shop.objects.filter(id__in=validated_data['shop_id_list'])
+            parent_products = Shop.objects.filter(
+                id__in=validated_data['shop_id_list'])
             parent_products.update(approval_status=int(validated_data['approval_status']),
                                    updated_by=validated_data['updated_by'], updated_at=timezone.now())
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return validated_data
@@ -788,13 +837,15 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
     def validate(self, data):
 
         if len(data.get('shop_id_list')) == 0:
-            raise serializers.ValidationError(_('Atleast one shop id must be selected '))
+            raise serializers.ValidationError(
+                _('Atleast one shop id must be selected '))
 
         for s_id in data.get('shop_id_list'):
             try:
                 Shop.objects.get(id=s_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'shop not found for id {s_id}')
+                raise serializers.ValidationError(
+                    f'shop not found for id {s_id}')
 
         return data
 
@@ -813,7 +864,8 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
                        'city', 'address_type', 'imei_no', 'parent_shop_name', 'shop_created_at']
 
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(
+            meta)
 
         writer = csv.writer(response)
         writer.writerow(field_names)
@@ -834,19 +886,22 @@ class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
     def validate(self, data):
 
         if len(data.get('shop_user_id_list')) == 0:
-            raise serializers.ValidationError(_('Atleast one shop user mapping id must be selected '))
+            raise serializers.ValidationError(
+                _('Atleast one shop user mapping id must be selected '))
 
         for s_id in data.get('shop_user_id_list'):
             try:
                 Shop.objects.get(id=s_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'shop user mapping not found for id {s_id}')
+                raise serializers.ValidationError(
+                    f'shop user mapping not found for id {s_id}')
 
         return data
 
 
 class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(label='Upload Shop User Mapping', required=True, write_only=True)
+    file = serializers.FileField(
+        label='Upload Shop User Mapping', required=True, write_only=True)
 
     class Meta:
         model = ShopUserMapping
@@ -854,14 +909,17 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
 
-        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        csv_file_data = csv.reader(codecs.iterdecode(
+            data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
             read_file(csv_file_data, "shop_user_map")
         else:
-            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 
@@ -870,14 +928,16 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
         try:
             ShopCls.create_shop_user_mapping(validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return validated_data
 
 
 class BulkUpdateShopSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(label='Update Shop Data', required=True, write_only=True)
+    file = serializers.FileField(
+        label='Update Shop Data', required=True, write_only=True)
 
     class Meta:
         model = Shop
@@ -885,14 +945,17 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
 
-        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        csv_file_data = csv.reader(codecs.iterdecode(
+            data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
             read_file(csv_file_data, "shop_update")
         else:
-            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 
@@ -901,7 +964,8 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
         try:
             ShopCls.update_shop(validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return validated_data
@@ -923,7 +987,7 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f'user not found for id {u_id}')
         data['id'] = u_id
         return data
-    
+
     def get_manager(self, user):
         return ShopUserMapping.objects.filter(employee=user, status=True)
 
@@ -935,14 +999,15 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
             'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk', 'shop__shop_name_address_mapping__address_contact_number',
             'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode')\
             .filter(employee=query_set[0], manager__in=self.get_manager(user=validated_data['created_by']), status=True,
-                shop__shop_user__shop__approval_status=2).distinct('shop')
+                    shop__shop_user__shop__approval_status=2).distinct('shop')
 
         meta = ShopUserMapping._meta
-        field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 
-                             'address_line1', 'pincode', 'category', 'date']
+        field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number',
+                       'address_line1', 'pincode', 'category', 'date']
 
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(
+            meta)
 
         writer = csv.writer(response)
         writer.writerow(field_names)
@@ -957,11 +1022,13 @@ class BeatPlanningListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BeatPlanning
-        fields = ('id', 'manager', 'executive', 'status', 'created_at', 'modified_at')
+        fields = ('id', 'manager', 'executive',
+                  'status', 'created_at', 'modified_at')
 
 
 class BeatPlanningSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(label='Upload Beat Planning', required=True, write_only=True)
+    file = serializers.FileField(
+        label='Upload Beat Planning', required=True, write_only=True)
 
     class Meta:
         model = BeatPlanning
@@ -969,14 +1036,17 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
-            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
 
-        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        csv_file_data = csv.reader(codecs.iterdecode(
+            data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
             read_beat_planning_file(csv_file_data, "beat_planning")
         else:
-            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 
@@ -985,7 +1055,8 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
         try:
             ShopCls.create_beat_planning(validated_data)
         except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return validated_data

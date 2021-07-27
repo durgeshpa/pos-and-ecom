@@ -18,6 +18,15 @@ def shop_search(queryset, search_text):
     return queryset
 
 
+def related_user_search(queryset, search_text):
+    '''
+    search using shop_name & parent shop based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(first_name__icontains=search_text) | Q(
+        phone_number__icontains=search_text))
+    return queryset
+
+
 def get_distinct_pin_codes(queryset):
     '''
     Fetch unique pincodes from the queryset
