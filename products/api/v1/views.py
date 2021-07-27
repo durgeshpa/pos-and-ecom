@@ -74,7 +74,7 @@ class ProductHSNView(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-        """ PUT API for Weight Updation """
+        """ PUT API for ProductHSN Updation """
 
         info_logger.info("HSN PUT api called.")
         if 'id' not in request.data:
@@ -85,8 +85,8 @@ class ProductHSNView(GenericAPIView):
         if 'error' in id_instance:
             return get_response(id_instance['error'])
 
-        tax_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=tax_instance, data=request.data)
+        hsn_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=hsn_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("HSN Updated Successfully.")
@@ -100,7 +100,6 @@ class ProductHSNView(GenericAPIView):
         info_logger.info("Product HSN DELETE api called.")
         if not request.data.get('hsn_ids'):
             return get_response('please select hsn', False)
-
         try:
             for h_id in request.data.get('hsn_ids'):
                 hsn_id = self.queryset.get(id=int(h_id))
