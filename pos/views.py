@@ -77,22 +77,19 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
         else:
             # we need to update existing product
             try:
-                product = RetailerProduct.objects.get(id = row.get('product_id'))
-            except:
-                # raise ValidationError("Product Id dosent exist")
-                return render(request, 'admin/pos/retailerproductscsvupload.html',
-                        {'form': form,
-                        'error': f"There is no product available with (product id : {row.get('product_id')}) "
-                                f"for the (shop_id: {shop_id})", })
 
-            try:
+                product = RetailerProduct.objects.get(id = row.get('product_id'))
+            
                 if (row.get('linked_product_sku') != '' and Product.objects.get(product_sku=row.get('linked_product_sku'))):
                     linked_product=Product.objects.get(product_sku=row.get('linked_product_sku'))
                     product.linked_product_id = linked_product.id
                 if(product.selling_price != row.get('selling_price')):
                     product.selling_price=row.get('selling_price')
                 if(product.status != row.get('status')):
-                    product.status=row.get('status')
+                    if row.get('status') == 'deactivated':
+                        product.status='deactivated'
+                    else:
+                        product.status="active"
                 product.save()
             except:
                 return render(request, 'admin/pos/retailerproductscsvupload.html',
@@ -106,15 +103,16 @@ def upload_retailer_products_list(request):
     """
     Products Catalogue Upload View
     """
+    shop_id = request.POST.get('shop')
     if request.method == 'POST':
-        form = RetailerProductsCSVUploadForm(request.POST, request.FILES)
+        form = RetailerProductsCSVUploadForm(request.POST, request.FILES, shop_id=shop_id)
 
         if form.errors:
             return render(request, 'admin/pos/retailerproductscsvupload.html', {'form': form})
 
         if form.is_valid():
-            shop_id = request.POST.get('shop')
-            product_status = request.POST.get('catalogue_product_status')
+           
+            # product_status = request.POST.get('catalogue_product_status')
             reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
             header = next(reader, None)
             uploaded_data_by_user_list = []
@@ -127,10 +125,10 @@ def upload_retailer_products_list(request):
                 uploaded_data_by_user_list.append(csv_dict)
                 csv_dict = {}
                 count = 0
-            if product_status == 'create_products':
-                bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
-            else:
-                bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
+            # if product_status == 'create_products':
+            bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
+            # else:
+            #     bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
 
             return render(request, 'admin/pos/retailerproductscsvupload.html',
                           {'form': form,
@@ -187,7 +185,7 @@ def DownloadRetailerCatalogue(request, *args):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+        ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
@@ -200,7 +198,7 @@ def DownloadRetailerCatalogue(request, *args):
                 quantity = 0
 
 
-            writer.writerow([product.id, product.shop, product.sku, product.name,
+            writer.writerow([product.id, shop_id, product.shop, product.sku, product.name,
                             product.mrp, product.selling_price, product_data[0], product.product_ean_code,
                             product.description, product_data[1], product_data[2], product_data[3],
                             product_data[4], product_data[5], product.status, quantity])
@@ -219,9 +217,9 @@ def RetailerCatalogueSampleFile(request, *args):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+        ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
-    writer.writerow(['', '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', ''])
+    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', ''])
 
     return response
 
