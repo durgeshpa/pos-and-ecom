@@ -2,6 +2,7 @@ import codecs
 import csv
 from django.db import transaction
 from django.contrib.auth import get_user_model
+from django.db.models import manager
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
@@ -948,6 +949,16 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
         for obj in data:
             writer.writerow(list(obj))
         return response
+
+
+class BeatPlanningListSerializer(serializers.ModelSerializer):
+    manager = UserSerializers(read_only=True)
+    executive = UserSerializers(read_only=True)
+
+    class Meta:
+        model = BeatPlanning
+        fields = ('id', 'manager', 'executive', 'status', 'created_at', 'modified_at')
+
 
 class BeatPlanningSerializer(serializers.ModelSerializer):
     file = serializers.FileField(label='Upload Beat Planning', required=True, write_only=True)
