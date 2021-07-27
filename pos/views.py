@@ -3,10 +3,12 @@ import csv
 import decimal
 from itertools import product
 import os
+import re
 import datetime
 from dateutil.relativedelta import relativedelta
 
 from dal import autocomplete
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from django.http import HttpResponse, JsonResponse
@@ -23,6 +25,7 @@ from pos.models import RetailerProduct, RetailerProductImage, PosCart, Discounte
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, PosInventoryChangeCSVDownloadForm
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState
 from .tasks import generate_pdf_data
 from wms.models import PosInventoryChange
 
@@ -75,106 +78,76 @@ def download_discounted_products_form_view(request):
     )
 
 
-def bulk_create_products(shop_id, uploaded_data_by_user_list):
+# def bulk_create_products(shop_id, uploaded_data_by_user_list):
+def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list):
+
     """
         This Function will create Product by uploaded_data_by_user_list
     """
     for row in uploaded_data_by_user_list:
-        # if else condition for checking whether, Product we are creating is linked with existing product or not
-        # with the help of 'linked_product_id'
-        if 'linked_product_sku' in row.keys():
-            if row.get('linked_product_sku') != '':
-                # If product is linked with existing product
-                if Product.objects.filter(product_sku=row.get('linked_product_sku')):
-                    product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                    if str(product.product_mrp) == format(
-                            decimal.Decimal(row.get('mrp')), ".2f"):
-                        # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
+        if row.get('product_id') == '':
+            # we need to create this product
+            # if else condition for checking whether, Product we are creating is linked with existing product or not
+            # with the help of 'linked_product_id'
+            if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
+                if row.get('linked_product_sku') != '':
+                    # If product is linked with existing product
+                    if Product.objects.filter(product_sku=row.get('linked_product_sku')):
+                        product = Product.objects.get(product_sku=row.get('linked_product_sku'))
+                  
                         RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                   row.get('selling_price'), product.id,
-                                                                   2, row.get('description'), row.get('product_ean_code'),
-                                                                   row.get('status'))
+                                                                row.get('selling_price'), product.id,
+                                                                2, row.get('description'), row.get('product_ean_code'),
+                                                                request.user, 'product',
+                                                                product_status=row.get('status'))
+                        
+            else:
+                # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
+                RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                        row.get('selling_price'), None,
+                                                        1, row.get('description'), row.get('product_ean_code'),
+                                                        request.user, 'product',
+                                                        product_status=row.get('status'))
+
+        else:
+            # we need to update existing product
+            try:
+
+                product = RetailerProduct.objects.get(id = row.get('product_id'))
+            
+                if (row.get('linked_product_sku') != '' and Product.objects.get(product_sku=row.get('linked_product_sku'))):
+                    linked_product=Product.objects.get(product_sku=row.get('linked_product_sku'))
+                    product.linked_product_id = linked_product.id
+                if(product.selling_price != row.get('selling_price')):
+                    product.selling_price=row.get('selling_price')
+                if(product.status != row.get('status')):
+                    if row.get('status') == 'deactivated':
+                        product.status='deactivated'
                     else:
-                        # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
-                        RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                   row.get('selling_price'), product.id,
-                                                                   3, row.get('description'), row.get('product_ean_code'),
-                                                                   row.get('status'))
-        else:
-            # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-            RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                       row.get('selling_price'), None,
-                                                       1, row.get('description'), row.get('product_ean_code'),
-                                                       row.get('status'))
+                        product.status="active"
+                product.save()
+            except:
+                return render(request, 'admin/pos/retailerproductscsvupload.html',
+                    {'form': form,
+                    'error': "Please check for correct format" })
 
 
-def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
-    """
-       This Function will update Product by uploaded_data_by_user_list
-    """
-    for row in uploaded_data_by_user_list:
-        product_id = row.get('product_id')
-        product_mrp = row.get('mrp')
-        if RetailerProduct.objects.filter(id=product_id, shop_id=shop_id).exists():
-            expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'product_ean_code', 'description', 'status']
-            actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil have product_name with product_id)
-            for key in expected_input_data_list:
-                if key in row.keys():
-                    actual_input_data_list.append(key)
-            product = RetailerProduct.objects.get(id=product_id)
-            linked_product_id = product.linked_product_id
-            if linked_product_id:
-                product.sku_type = 2
-                # if 'mrp' in actual_input_data_list:
-                #     # If MRP in actual_input_data_list
-                #     linked_product = Product.objects.filter(id=linked_product_id)
-                #     if format(decimal.Decimal(product_mrp), ".2f") == str(
-                #             linked_product.values()[0].get('mrp')):
-                #         # If Input_MRP == Product_MRP, Update the product with [SKU Type : Linked]
-                #         product.sku_type = 2
-                #     else:
-                #         # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
-                #         product.sku_type = 3
-            if 'mrp' in actual_input_data_list:
-                # If MRP in actual_input_data_list
-                product.mrp = product_mrp
-            if 'selling_price' in actual_input_data_list:
-                # If selling price in actual_input_data_list
-                product.selling_price = row.get('selling_price')
-            if 'product_name' in actual_input_data_list:
-                # Update Product Name
-                product.name = row.get('product_name')
-            if 'product_ean_code' in actual_input_data_list:
-                # Update product_ean_code
-                product.product_ean_code = row.get('product_ean_code')
-            if 'description' in actual_input_data_list:
-                # Update Description
-                product.description = row.get('description')
-            if 'status' in actual_input_data_list:
-                # Update product_ean_code
-                product.status = row.get('status')
-            product.save()
-
-        else:
-            return render(request, 'admin/pos/retailerproductscsvupload.html',
-                          {'form': form,
-                           'error': f"There is no product available with (product id : {product_id}) "
-                                    f"for the (shop_id: {shop_id})", })
 
 
 def upload_retailer_products_list(request):
     """
     Products Catalogue Upload View
     """
+    shop_id = request.POST.get('shop')
     if request.method == 'POST':
-        form = RetailerProductsCSVUploadForm(request.POST, request.FILES)
+        form = RetailerProductsCSVUploadForm(request.POST, request.FILES, shop_id=shop_id)
 
         if form.errors:
             return render(request, 'admin/pos/retailerproductscsvupload.html', {'form': form})
 
         if form.is_valid():
-            shop_id = request.POST.get('shop')
-            product_status = request.POST.get('catalogue_product_status')
+           
+            # product_status = request.POST.get('catalogue_product_status')
             reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
             header = next(reader, None)
             uploaded_data_by_user_list = []
@@ -187,10 +160,10 @@ def upload_retailer_products_list(request):
                 uploaded_data_by_user_list.append(csv_dict)
                 csv_dict = {}
                 count = 0
-            if product_status == 'create_products':
-                bulk_create_products(shop_id, uploaded_data_by_user_list)
-            else:
-                bulk_update_products(request, form, shop_id, uploaded_data_by_user_list)
+            # if product_status == 'create_products':
+            bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
+            # else:
+            #     bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
 
             return render(request, 'admin/pos/retailerproductscsvupload.html',
                           {'form': form,
@@ -236,7 +209,6 @@ def retailer_products_list(product):
             category = cat[0]['category__category_name']
     return linked_product_sku, sku_type, category, sub_category, brand, sub_brand
 
-
 def DownloadRetailerCatalogue(request, *args):
     """
     This function will return an File in csv format which can be used for Downloading the Product Catalogue
@@ -248,16 +220,23 @@ def DownloadRetailerCatalogue(request, *args):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
-         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+        ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
+
         for product in retailer_products:
             product_data = retailer_products_list(product)
-            writer.writerow([product.id, product.shop, product.sku, product.name,
+            try:
+                quantity = PosInventory.objects.get(product=product, inventory_state__inventory_state=PosInventoryState.AVAILABLE).quantity
+            except:
+                quantity = 0
+
+
+            writer.writerow([product.id, shop_id, product.shop, product.sku, product.name,
                             product.mrp, product.selling_price, product_data[0], product.product_ean_code,
                             product.description, product_data[1], product_data[2], product_data[3],
-                            product_data[4], product_data[5], product.status])
+                            product_data[4], product_data[5], product.status, quantity])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -296,8 +275,11 @@ def RetailerCatalogueSampleFile(request, *args):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'product_ean_code', 'selling_price', 'description', 'status'])
-    writer.writerow(['Noodles', 12, 'PROPROTOY00000019', 'EAEASDF', 10, 'XYZ', 'active'])
+    writer.writerow(
+        ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
+    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', ''])
+
     return response
 
 
@@ -433,4 +415,3 @@ def download_posinventorychange_products(request, *args):
         prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
         ])
     return response
-
