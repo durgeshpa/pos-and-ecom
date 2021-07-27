@@ -638,8 +638,8 @@ def mail_to_vendor_on_po_approval(po_instance):
     recipient_list = get_config("MAIL_DEV")
     bcc_list = None
     if config('OS_ENV') and config('OS_ENV') in ['Production']:
-        if get_config("MAIL_TO_VENDOR", False):
-            recipient_list = [po_instance.supplier_name.email_id]
+        if get_config("MAIL_TO_VENDOR", False) and po_instance.supplier_name.email_id is not None:
+            recipient_list = po_instance.supplier_name.email_id.split(",")
             bcc_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
         else:
             recipient_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
