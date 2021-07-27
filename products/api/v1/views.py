@@ -105,7 +105,7 @@ class ProductHSNView(GenericAPIView):
             self.queryset = product_hsn_search(self.queryset, search_text)
 
         if product_hsn_cd is not None:
-            self.queryset = self.queryset.filter(id=product_hsn_cd)
+            self.queryset = self.queryset.filter(id=int(product_hsn_cd))
 
         return self.queryset
 
