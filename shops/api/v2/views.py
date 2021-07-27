@@ -27,8 +27,8 @@ from .serializers import (
     AddressSerializer, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer, BulkUpdateShopSerializer,ShopEmployeeSerializers, ShopManagerSerializers,
-    RetailerTypeSerializer, DisapproveSelectedShopSerializers,PinCodeSerializer, CitySerializer, StateSerializer,
+    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
+    RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
