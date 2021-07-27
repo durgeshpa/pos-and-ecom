@@ -616,13 +616,13 @@ class PosCartAdmin(admin.ModelAdmin):
                          'Product Name', 'Quantity', 'Price'])
 
         for obj in queryset:
-            for p in obj.products:
+            for p in obj.po_products.all():
                 writer.writerow([obj.vendor, obj.retailer_shop, obj.po_no, obj.status, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, p.qty, p.price])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today() + '.csv'
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
         return response
 
 
@@ -668,17 +668,17 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'Order No', 'Order Amount', 'Added By','Created At', 'SKU', 'Product Name',
+        writer.writerow(['GRN Id', 'Order No', 'Created At', 'SKU', 'Product Name',
                          'Recieved Quantity'])
 
         for obj in queryset:
-            for p in obj.products:
-                writer.writerow([obj.grn_id, obj.order.order_no, obj.order.order_amount, obj.order.added_by,
+            for p in obj.po_grn_products.all():
+                writer.writerow([obj.grn_id, obj.order.order_no,
                                  obj.created_at, p.product.sku, p.product.name, p.received_qty])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today()+'.csv'
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
         return response
 
 

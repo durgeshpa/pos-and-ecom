@@ -16,7 +16,7 @@ from rest_framework.permissions import AllowAny
 
 from django.views import View
 from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage, PosCart   
+from pos.models import RetailerProduct, RetailerProductImage, PosCart
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
