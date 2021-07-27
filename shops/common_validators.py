@@ -538,52 +538,58 @@ def validate_row(uploaded_data_list, header_list):
                 if not Address.objects.filter(id=int(row['address_id'])).exists():
                     raise ValidationError(f"Row {row_num} | {row['address_id']} | 'address_id' doesn't exist in "
                                           f"the system ")
-                # mandatory_fields = ['city', 'state', 'pincode',]
-                # if 'city' not in row.keys() or row['city'] == '':
-                #     raise ValidationError(f"Row {row_num} | 'city' can't be empty ")
-                # if 'state' not in row.keys() or row['state'] == '':
-                #     raise ValidationError(f"Row {row_num} | 'state' can't be empty ")
-                # if 'pincode' not in row.keys() or row['pincode'] == '':
-                #     raise ValidationError(f"Row {row_num} | 'pincode' can't be empty ")
-                # for field in mandatory_fields:
-                #     if field not in header_list:
-                #         raise ValidationError(f"{mandatory_fields} are the essential headers and cannot be empty "
-                #                               f"when address_id is there")
-                #     if row[field] == '':
-                #         raise ValidationError(
-                #             f"Row {row_num} | {row[field]} | {field} cannot be empty {mandatory_fields} "
-                #             f" are the essential fields when address_id is there")
+                mandatory_fields = ['city', 'state', 'pincode',]
+                if 'city' not in row.keys() or row['city'] == '':
+                    raise ValidationError(f"Row {row_num} | 'city' can't be empty ")
+                if 'state' not in row.keys() or row['state'] == '':
+                    raise ValidationError(f"Row {row_num} | 'state' can't be empty ")
+                if 'pincode' not in row.keys() or row['pincode'] == '':
+                    raise ValidationError(f"Row {row_num} | 'pincode' can't be empty ")
+                for field in mandatory_fields:
+                    if field not in header_list:
+                        raise ValidationError(f"{mandatory_fields} are the essential headers and cannot be empty "
+                                              f"when address_id is there")
+                    if row[field] == '':
+                        raise ValidationError(
+                            f"Row {row_num} | {row[field]} | {field} cannot be empty {mandatory_fields} "
+                            f" are the essential fields when address_id is there")
 
-                if 'city' in header_list and 'city' in row.keys() and row['city'] != '':
-                    if not City.objects.filter(city_name__iexact=str(row['city']).strip()).exists():
-                        raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist in "
-                                      f"the system ")
-                if 'state' in header_list and 'state' in row.keys() and row['state'] != '':
-                    if not State.objects.filter(state_name__iexact=str(row['state']).strip()).exists():
-                        raise ValidationError(f"Row {row_num} | {row['state']} | 'state' doesn't exist in "
-                                              f"the system ")
-                if 'pincode' in header_list and 'pincode' in row.keys() and row['pincode'] != '':
-                    if not re.match('^[1-9][0-9]{5}$', str(int(row['pincode']))):
-                        raise Exception('pincode must be of 6 digits')
-                    elif not Pincode.objects.filter(pincode=int(row['pincode']).strip()).exists():
-                        raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist in "
-                                              f"the system ")
-                if 'contact_number' in header_list and 'contact_number' in row.keys() and row['contact_number'] != '':
-                    if not re.match('^[6-9]\d{9}$', str(int(row['contact_number']))):
-                        raise Exception('Mobile no. must be of 10 digits')
+            if 'city' in header_list and 'city' in row.keys() and row['city'] != '':
+                if not City.objects.filter(city_name__iexact=str(row['city']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist in "
+                                  f"the system ")
+            if 'state' in header_list and 'state' in row.keys() and row['state'] != '':
+                if not State.objects.filter(state_name__iexact=str(row['state']).strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['state']} | 'state' doesn't exist in "
+                                          f"the system ")
+            if 'pincode' in header_list and 'pincode' in row.keys() and row['pincode'] != '':
+                if not re.match('^[1-9][0-9]{5}$', str(int(row['pincode']))):
+                    raise Exception('pincode must be of 6 digits')
+                elif not Pincode.objects.filter(pincode=int(row['pincode'])).exists():
+                    raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist in "
+                                          f"the system ")
+            if 'contact_number' in header_list and 'contact_number' in row.keys() and row['contact_number'] != '':
+                if not re.match('^[6-9]\d{9}$', str(int(row['contact_number']))):
+                    raise Exception('Mobile no. must be of 10 digits')
 
-                if 'pincode' in header_list and 'state' in header_list and row['state'] and row['pincode']:
-                    city_id = City.objects.filter(city_name__iexact=str(row['city']).strip()).last()
-                    if not Pincode.objects.filter(pincode=int(row['pincode']), city=city_id).exists():
-                        raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist for given city"
-                                              f"the system ")
+            if 'city' in header_list and 'state' in header_list and row['city'] and row['state']:
+                state_id = State.objects.filter(state_name__iexact=str(row['state']).strip()).last()
+                if not City.objects.filter(city_name__iexact=str(row['city']).strip(), state=state_id).exists():
+                    raise ValidationError(f"Row {row_num} | {row['city']} | 'city' doesn't exist for given state"
+                                          f"in the system ")
+
+            if 'pincode' in header_list and 'state' in header_list and row['state'] and row['pincode']:
+                city_id = City.objects.filter(city_name__iexact=str(row['city']).strip()).last()
+                if not Pincode.objects.filter(pincode=int(row['pincode']), city=city_id).exists():
+                    raise ValidationError(f"Row {row_num} | {row['pincode']} | 'pincode' doesn't exist for given city"
+                                          f"the system ")
 
             if 'shop_type' in header_list and 'shop_type' in row.keys() and row['shop_type'] != '':
-                if not ShopType.objects.filter(shop_type__iexact=str(row['shop_type']).strip()).last().exists():
+                if not ShopType.objects.filter(shop_type__iexact=str(row['shop_type'].lower()).strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_type' doesn't exist in the system ")
 
             if 'address_type' in header_list and 'address_type' in row.keys() and row['address_type'] != '':
-                if not (any(str(row['address_type']) in i for i in address_type_choices)):
+                if not (any(str(row['address_type']).lower() in i for i in address_type_choices)):
                     raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'address_type' doesn't exist in the "
                                           f"system ")
 

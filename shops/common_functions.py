@@ -7,6 +7,7 @@ from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.response import Response
 
+from django.db import transaction
 from products.common_validators import get_csv_file_data
 from addresses.models import Address, State, City, Pincode
 from products.models import CentralLog
@@ -138,36 +139,39 @@ class ShopCls(object):
         info_logger.info('Method Start to Update Shop')
         count = 0
         row_num = 1
-        for row in uploaded_data_by_user_list:
-            row_num += 1
-            count += 1
-            try:
-                shop_obj = Shop.objects.filter(id=row['shop_id'])
-                address = Address.objects.filter(shop_name=shop_obj.last(), id=int(row['address_id']))
-                if address.exists():
-                    state_id = State.objects.get(state_name=row['state']).id
-                    city_id = City.objects.get(city_name=row['city']).id
-                    pincode_id = Pincode.objects.get(pincode=int(row['pincode']), city_id=city_id).id
-                    address.update(nick_name=row['nick_name'],
-                                   address_line1=row['address'],
-                                   address_contact_name=row['contact_person'],
-                                   address_contact_number=int(row['contact_number']),
-                                   pincode_link_id=pincode_id,
-                                   state_id=state_id,
-                                   city_id=city_id,
-                                   address_type=str(row['address_type'].lower()))
-                    shipping_address = Address.objects.filter(shop_name_id=int(row['shop_id']), address_type='shipping')
-                    if not shipping_address.exists():
-                        raise Exception('Atleast one shipping address is required')
-                    Shop.objects.filter(id=int(row['shop_id'])).update(shop_name=row['shop_name'],
-                                                                       status=row['shop_activated'])
-                    shop_obj.update(updated_by=validated_data['updated_by'])
-                ShopCls.create_shop_log(shop_obj.last(), "updated")
+        with transaction.atomic():
+            for row in uploaded_data_by_user_list:
+                row_num += 1
+                count += 1
+                try:
+                    shop_obj = Shop.objects.filter(id=int(row['shop_id']))
+                    address = Address.objects.filter(shop_name=shop_obj.last(), id=int(row['address_id']))
+                    if address.exists():
+                        state_id = State.objects.get(state_name=str(row['state']).strip()).id
+                        city_id = City.objects.get(city_name=str(row['city']).strip()).id
+                        pincode_id = Pincode.objects.get(pincode=int(row['pincode']),
+                                                         city_id=city_id).id
+                        address.update(nick_name=str(row['nick_name']),
+                                       address_line1=str(row['address']),
+                                       address_contact_name=str(row['contact_person']),
+                                       address_contact_number=int(row['contact_number']),
+                                       pincode_link_id=pincode_id,
+                                       state_id=state_id,
+                                       city_id=city_id,
+                                       address_type=str(row['address_type'].lower()))
+                        shipping_address = Address.objects.filter(shop_name_id=int(row['shop_id']),
+                                                                  address_type='shipping')
+                        if not shipping_address.exists():
+                            raise Exception('Atleast one shipping address is required')
+                        Shop.objects.filter(id=int(row['shop_id'])).update(shop_name=str(row['shop_name']),
+                                                                           status=row['shop_activated'])
+                        shop_obj.update(updated_by=validated_data['updated_by'])
+                    ShopCls.create_shop_log(shop_obj.last(), "updated")
 
-                info_logger.info("Method complete to create Shop User Mapping from csv file")
-            except Exception as e:
-                error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
-                                  f" + {str(e)}")
+                    info_logger.info("Method complete to create Shop User Mapping from csv file")
+                except Exception as e:
+                    error_logger.info(f"Something went wrong, while working with createS hop User Mapping  "
+                                      f" + {str(e)}")
 
     @classmethod
     def create_update_shop_address(cls, shop, addresses):
