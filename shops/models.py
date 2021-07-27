@@ -131,6 +131,14 @@ class Shop(models.Model):
                 return self.shop_name_address_mapping.filter(address_type='shipping').last().address_line1
         except:
             return None
+    
+    @property
+    def shipping_address_obj(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last()
+        except:
+            return None
 
     @property
     def city_name(self):
