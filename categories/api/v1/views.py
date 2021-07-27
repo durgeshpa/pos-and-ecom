@@ -176,17 +176,16 @@ class CategoryView(GenericAPIView):
         if not request.data.get('category_ids'):
             return get_response('please select category', False)
         try:
-            with transaction.atomic():
-                for id in request.data.get('category_ids'):
-                    category_id = self.queryset.get(id=int(id))
-                    try:
-                        category_id.delete()
-                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'brand_id': category_id}
-                        info_logger.info("category deleted info ", dict_data)
-                    except:
-                        return get_response(f'You can not delete category {category_id.category_name}, '
-                                            f'because this category is mapped with product', False)
+            for id in request.data.get('category_ids'):
+                category_id = self.queryset.get(id=int(id))
+                try:
+                    category_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'brand_id': category_id}
+                    info_logger.info("category deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete category {category_id.category_name}, '
+                                        f'because this category is mapped with product', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid category {id}', False)
