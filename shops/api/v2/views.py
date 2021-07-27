@@ -681,7 +681,7 @@ class ShopTypeView(GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShopType.objects.select_related('shop_sub_type', 'updated_by', ). \
         prefetch_related('shop_type_log', 'shop_type_log__updated_by', ) \
-        .only('id', 'shop_sub_type', 'updated_by', 'shop_type', 'shop_min_amount')
+        .only('id', 'shop_sub_type', 'updated_by', 'shop_type', 'shop_min_amount').order_by('-id')
     serializer_class = ShopTypeSerializers
 
     def get(self, request):
