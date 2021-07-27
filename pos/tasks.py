@@ -4,17 +4,19 @@ from celery.task import task
 from elasticsearch import Elasticsearch
 import datetime
 from wkhtmltopdf.views import PDFTemplateResponse
+from num2words import num2words
 
 from django.db import transaction
 from django.core.mail import EmailMessage
 
 from global_config.models import GlobalConfig
+from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 from pos.models import RetailerProduct
 from wms.models import PosInventory, PosInventoryState
-from marketing.models import RewardPoint, Referral
+from marketing.models import Referral
 from accounts.models import User
-from pos.common_functions import RewardCls
+from pos.common_functions import RewardCls, RetailerProductCls
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -74,6 +76,7 @@ def update_es(products, shop_id):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
         stock_qty = pos_inv.quantity if pos_inv else 0
+        discounted_product_available = True if RetailerProductCls.is_discounted_product_exists(product) else False
         params = {
             'id': product.id,
             'name': product.name,
@@ -89,7 +92,8 @@ def update_es(products, shop_id):
             'modified_at': product.modified_at,
             'description': product.description if product.description else "",
             'linked_product_id': product.linked_product.id if product.linked_product else '',
-            'stock_qty': stock_qty
+            'stock_qty': stock_qty,
+            'discounted_product_available': discounted_product_available
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
@@ -133,8 +137,10 @@ def mail_to_vendor_on_po_creation(instance):
     recipient_list = [instance.vendor.email]
     vendor_name = instance.vendor.vendor_name
     po_no = instance.po_no
-    subject = "Purchase Order {}, {} - {}".format(po_no, vendor_name, instance.retailer_shop.shop_name)
-    body = "Purchase Order"
+    subject = "Purchase Order {} | {}".format(po_no, instance.retailer_shop.shop_name)
+    body = 'Dear {}, \n \n Find attached PO from {}, PepperTap POS. \n \n Note: Take Prior appointment before delivery ' \
+           'and bring PO copy along with Original Invoice. \n \n Thanks, \n {}'.format(
+            vendor_name, instance.retailer_shop.shop_name, instance.retailer_shop.shop_name)
 
     filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
     template_name = 'admin/purchase_order/retailer_purchase_order.html'
@@ -168,6 +174,9 @@ def generate_pdf_data(instance):
     for m in products:
         sum_qty = sum_qty + m.qty
         sum_amount = sum_amount + m.total_price()
+
+    amt = [num2words(i) for i in str(sum_amount).split('.')]
+    amt_in_words = amt[0]
     data = {
         "object": instance,
         "products": products,
@@ -176,6 +185,9 @@ def generate_pdf_data(instance):
         "shipping": shipping,
         "sum_qty": sum_qty,
         "total_amount": sum_amount,
-        "order_id": order_id
+        "amt_in_words": amt_in_words,
+        "order_id": order_id,
+        "url": get_config('SITE_URL'),
+        "scheme": get_config('CONNECTION'),
     }
     return data

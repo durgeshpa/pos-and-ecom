@@ -332,6 +332,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'order_amount',
                 'picker_order__picker_assigned_date',
                 'picker_order__completed_at')
+    # print(orders)
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
         if offers:

@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 import codecs
@@ -11,6 +12,7 @@ import csv
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product
 from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState
 
 
 class RetailerProductsForm(forms.ModelForm):
@@ -20,6 +22,56 @@ class RetailerProductsForm(forms.ModelForm):
             url='admin:product-price-autocomplete', ),
         required=False
     )
+
+
+class DiscountedRetailerProductsForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset = Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        widget=autocomplete.ModelSelect2(
+            url='retailer-product-autocomplete'
+        )
+    )
+    product_ref = forms.ModelChoiceField(
+        queryset=RetailerProduct.objects.filter(~Q(sku_type=4)),
+        widget=autocomplete.ModelSelect2(
+            url='discounted-product-autocomplete',
+            forward=('shop',),
+            attrs={"onChange": 'getProductDetails()'},
+        )
+    )
+    product_ean_code = forms.CharField(required=False)
+    mrp = forms.DecimalField(required=False)
+    selling_price = forms.DecimalField(min_value=0, decimal_places=2, required=False)
+    discounted_price = forms.DecimalField(min_value=0, decimal_places=2)
+    discounted_stock = forms.IntegerField(initial=0)
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.id:
+            discounted_stock = PosInventory.objects.filter(product=self.instance,
+                                                                inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
+
+            initial_arguments = {'discounted_stock': discounted_stock, 'discounted_price': self.instance.selling_price}
+            kwargs.update(initial=initial_arguments)
+            super().__init__(*args, **kwargs)
+            self.fields['shop'].disabled = True
+            self.fields['product_ref'].disabled = True
+        self.fields['mrp'].disabled = True
+        self.fields['selling_price'].disabled = True
+        self.fields['product_ean_code'].disabled = True
+
+
+    def clean(self):
+        data = self.cleaned_data
+        if not data.get('product_ref'):
+            raise ValidationError(_('Invalid Product.'))
+        product_ref = data.get('product_ref')
+        if data.get('discounted_price') is None or data.get('discounted_price') <= 0 \
+                or data.get('discounted_price') >= product_ref.selling_price:
+            raise ValidationError(_('Invalid discounted price.'))
+        return data
+
 
 
 class RetailerProductsCSVDownloadForm(forms.Form):
@@ -137,3 +189,14 @@ class RetailerProductMultiImageForm(forms.ModelForm):
     class Meta:
         model = RetailerProductImage
         fields = ('image',)
+
+class PosInventoryChangeCSVDownloadForm(forms.Form):
+    """
+        Select sku for downloading PosInventory changes
+    """
+    sku = forms.ModelChoiceField(
+        label='Select Product SKU',
+        queryset = RetailerProduct.objects.filter(~Q(sku_type=4)),
+        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete',)
+    )
+

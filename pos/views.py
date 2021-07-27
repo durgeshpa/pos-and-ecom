@@ -1,8 +1,11 @@
 import codecs
 import csv
 import decimal
+from itertools import product
 import os
 import re
+import datetime
+from dateutil.relativedelta import relativedelta
 
 from dal import autocomplete
 from django.core.exceptions import ValidationError
@@ -10,15 +13,35 @@ from django.db.models import Q
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.shortcuts import get_object_or_404
+from wkhtmltopdf.views import PDFTemplateResponse
+
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from django.views import View
-from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage
-from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
+from pos.common_functions import PosInventoryCls, RetailerProductCls
+from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct
+from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, PosInventoryChangeCSVDownloadForm
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
+from .tasks import generate_pdf_data
+from wms.models import PosInventoryChange
 
+
+class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Retailer Product Filter for Discounted Products
+    """
+    def get_queryset(self, *args, **kwargs):
+        qs = RetailerProduct.objects.none()
+        shop = self.forwarded.get('shop', None)
+        if shop:
+            qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop)
+        if self.q:
+            qs = qs.filter(name__icontains=self.q)
+        return qs
 
 class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
     """
@@ -42,8 +65,25 @@ def download_retailer_products_list_form_view(request):
         {'form': form}
     )
 
+
+def download_discounted_products_form_view(request):
+    """
+    Products Catalogue Download View
+    """
+    form = RetailerProductsCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/discounted_product_download.html',
+        {'form': form}
+    )
+
+
+# def bulk_create_products(shop_id, uploaded_data_by_user_list):
 def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list):
 
+    """
+        This Function will create Product by uploaded_data_by_user_list
+    """
     for row in uploaded_data_by_user_list:
         if row.get('product_id') == '':
             # we need to create this product
@@ -206,6 +246,30 @@ def DownloadRetailerCatalogue(request, *args):
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
 
+def download_discounted_products(request, *args):
+    """
+    Returns CSV of discounted products
+    """
+    shop_id = request.GET['shop_id']
+    filename = "discounted_products_"+shop_id+".csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ['product_id', 'shop', 'product_sku', 'product_ref', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+    if RetailerProduct.objects.filter(shop_id=int(shop_id), sku_type=4).exists():
+        retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id), sku_type=4)
+        for product in retailer_products:
+            product_data = retailer_products_list(product)
+            writer.writerow([product.id, product.shop, product.sku, product.product_ref.sku, product.name,
+                            product.mrp, product.selling_price, product_data[0], product.product_ean_code,
+                            product.description, product_data[1], product_data[2], product_data[3],
+                            product_data[4], product_data[5], product.status])
+    else:
+        writer.writerow(["No doscounted products for selected shop exists"])
+    return response
+
 
 def RetailerCatalogueSampleFile(request, *args):
     """
@@ -267,3 +331,92 @@ class RetailerProductMultiImageUpload(View):
         else:
             data = {'is_valid': False}
         return JsonResponse(data)
+
+
+def get_retailer_product(request):
+    product_id = request.GET.get('product')
+    data = {
+        'found': False
+    }
+    if not product_id:
+        return JsonResponse(data)
+    product = RetailerProduct.objects.filter(pk=product_id).last()
+    if product:
+        data = {
+            'found': True,
+            'product_ean_code':product.product_ean_code,
+            'mrp': product.mrp,
+            'selling_price' : product.selling_price
+        }
+
+    return JsonResponse(data)
+
+
+class DownloadPurchaseOrder(APIView):
+    permission_classes = (AllowAny,)
+    filename = 'purchase_order.pdf'
+    template_name = 'admin/purchase_order/retailer_purchase_order.html'
+
+    def get(self, request, *args, **kwargs):
+        po_obj = get_object_or_404(PosCart, pk=self.kwargs.get('pk'))
+        data = generate_pdf_data(po_obj)
+        cmd_option = {
+            'encoding': 'utf8',
+            'margin-top': 3
+        }
+        return PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+
+class InventoryRetailerProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Retailer Product Filter for Discounted Products
+    """
+    def get_queryset(self, *args, **kwargs):
+        qs = RetailerProduct.objects.filter(~Q(sku_type=4))
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(sku__icontains = self.q))
+        return qs
+
+def download_posinventorychange_products_form_view(request):
+    """
+    PosInventory Change Form
+    """
+    form = PosInventoryChangeCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/posinventorychange_download_list.html',
+        {'form': form}
+    )
+
+def download_posinventorychange_products(request, *args):
+    """
+    Download PosInventory Change Product for last 2 month
+    """
+    try:
+        prod_sku = request.GET['prod_sku']
+        prod = RetailerProduct.objects.get(id = prod_sku)
+        filename = "posinventory_products_sku_"+prod.sku+".csv"
+        pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
+        discount_prod = DiscountedRetailerProduct.objects.filter(product_ref = prod)
+        if len(discount_prod) > 0:
+            discount_pros_inventory = PosInventoryChange.objects.filter(product = discount_prod[0]).order_by('-modified_at')
+            pos_inventory = pos_inventory.union(discount_pros_inventory).order_by('-modified_at')
+    except Exception:
+        filename = "posinventory_products_last2month.csv"
+        today = datetime.date.today()
+        two_month_back = today - relativedelta(months=2)
+        pos_inventory = PosInventoryChange.objects.filter(modified_at__gte = two_month_back).order_by('-modified_at')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+            ['Product Name', 'Product SKU', 'Quantity', 'Transaction Type', 'Transaction Id', 'Initial State', 'Final State', 'Changed By', 'Created at', 'Modfied at',
+            ])
+    for prod in pos_inventory:
+        writer.writerow([prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
+        prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+        ])
+    return response
