@@ -646,6 +646,17 @@ class ShopManagerSerializers(serializers.ModelSerializer):
         }
         return representation['managers']
 
+class BeatPlanningExecutivesListSerializers(serializers.ModelSerializer):
+    employee = ShopEmployeeSerializers()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('id', 'employee',)
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return representation['employee']
+
 
 class ShopTypeSerializer(serializers.ModelSerializer):
     shop_type = ChoiceField(choices=SHOP_TYPE_CHOICES, required=True)
@@ -994,6 +1005,8 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         query_set = ShopUserMapping.objects.filter(
             employee=validated_data['id']).values_list('employee').last()
+        if not query_set:
+            raise serializers.ValidationError("Shop user mapping does not exist.")
         # get the shop queryset assigned with executive
         data = ShopUserMapping.objects.values_list(
             'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk', 'shop__shop_name_address_mapping__address_contact_number',
