@@ -258,6 +258,7 @@ class Product(models.Model):
         ('different_weight', 'Different Weight'),
         ('different_ean', 'Different EAN'),
         ('offer', 'Offer'),
+        ('near_expiry', 'Near Expiry')
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
@@ -271,7 +272,7 @@ class Product(models.Model):
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
     moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
-    discounted_sku = models.OneToOneField('self', related_name='discounted_sku', on_delete=models.CASCADE, null=True, blank=True)
+    discounted_sku = models.OneToOneField('self', related_name='product_ref', on_delete=models.CASCADE, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -916,19 +917,22 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     # product = Product.objects.get(pk=instance.product_id)
     # if not product.product_sku:
     if not instance.product_sku:
-        # cat_sku_code = instance.category.category_sku_part
-        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).first().category
-        cat_sku_code = parent_product_category.category_sku_part
-        parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
-        brand_sku_code = instance.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
-        if last_sku:
-            last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-        else:
-            last_sku_increment = '00000001'
-        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
-        # product.save()
+        if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+            # cat_sku_code = instance.category.category_sku_part
+            parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).first().category
+            cat_sku_code = parent_product_category.category_sku_part
+            parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
+            brand_sku_code = instance.product_brand.brand_code
+            last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
+            if last_sku:
+                last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+            else:
+                last_sku_increment = '00000001'
+            ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+            instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
+        elif instance.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
+            instance.product_sku = 'D'+instance.product_ref.product_sku
+
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',

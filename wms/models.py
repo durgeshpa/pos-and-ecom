@@ -358,7 +358,9 @@ class WarehouseInternalInventoryChange(models.Model):
         ('audit_correction_deduct', 'Audit Correction Deduct'),
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
-        ('franchise_returns', 'Franchise Returns')
+        ('franchise_returns', 'Franchise Returns'),
+        ('moved_to_discounted', 'Moved To Discounted'),
+        ('added_as_discounted', 'Added As Discounted')
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -416,7 +418,9 @@ class BinInternalInventoryChange(models.Model):
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
         ('franchise_returns', 'Franchise Returns'),
-        ('repackaging', 'Repackaging')
+        ('repackaging', 'Repackaging'),
+        ('moved_to_discounted', 'Moved To Discounted'),
+        ('added_as_discounted', 'Added As Discounted')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
