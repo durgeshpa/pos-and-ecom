@@ -19,7 +19,8 @@ from addresses.models import Address, City, Pincode, State, address_type_choices
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
-    get_validated_shop, read_beat_planning_file, validate__existing_shop_with_name_owner, validate_shop_id, validate_shop, validate_employee_group, validate_employee, validate_manager, \
+    get_validated_shop, read_beat_planning_file, validate__existing_shop_with_name_owner, validate_shop_id, \
+    validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file
 from shops.common_functions import ShopCls
 
@@ -320,7 +321,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
             return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name, obj.shop_owner.last_name,
-                str(obj.shop_type), str(obj.id))
+                                                  str(obj.shop_type), str(obj.id))
 
         elif obj.shop_owner.first_name:
             return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
@@ -416,8 +417,9 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((shop_type["error"]))
             if shop_type['data'].shop_type in ['gf', 'sp']:
                 if 'shop_code' not in self.initial_data or not self.initial_data['shop_code'] or \
-                    'shop_code_bulk' not in self.initial_data or not self.initial_data['shop_code_bulk'] or \
-                    'shop_code_discounted' not in self.initial_data or not self.initial_data['shop_code_discounted'] or\
+                        'shop_code_bulk' not in self.initial_data or not self.initial_data['shop_code_bulk'] or \
+                        'shop_code_discounted' not in self.initial_data or not self.initial_data[
+                    'shop_code_discounted'] or \
                         'warehouse_code' not in self.initial_data or not self.initial_data['warehouse_code']:
                     raise serializers.ValidationError(
                         "Key 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code' are mandatory "
@@ -584,12 +586,12 @@ class ServicePartnerShopsSerializer(serializers.ModelSerializer):
         if obj.shop_owner.first_name and obj.shop_owner.last_name:
             return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
+                                                  obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
 
         elif obj.shop_owner.first_name:
             return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
                 obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                str(obj.shop_type), str(obj.id))
+                                               str(obj.shop_type), str(obj.id))
 
         return "%s - %s - %s - %s" % (obj.shop_name, str(
             obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
@@ -633,7 +635,7 @@ class ShopManagerSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'employee', )
+        fields = ('id', 'employee',)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -662,9 +664,10 @@ class ServicePartnerShopsSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
-            f"{representation['shop_owner']['first_name'] } {representation['shop_owner']['last_name']}" \
-            f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
+        representation[
+            'shop_name'] = f"{representation['shop_name']} - {representation['shop_owner']['phone_number']} - " \
+                           f"{representation['shop_owner']['first_name']} {representation['shop_owner']['last_name']}" \
+                           f" - {representation['shop_type']['shop_type']['desc']} - {representation['id']}"
         representation['shop'] = {
             "id": representation['id'],
             "shop_name": representation['shop_name'],
@@ -681,7 +684,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop',  'manager',  'employee', 'employee_group',
+        fields = ('id', 'shop', 'manager', 'employee', 'employee_group',
                   'status', 'created_at', 'shop_user_map_log',)
 
     def validate(self, data):
@@ -720,6 +723,12 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
             if 'error' in employee_group_id:
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']
+
+        # if data['employee'] and data['employee_group']:
+        if data['employee_group'].name == "Sales Manager":
+            if not data['employee'].user_type == 7 or not data['employee'].groups.filter(name="Sales Manager"):
+                raise serializers.ValidationError("Either Employee Type is not 'Sale Manager' or Employee is not "
+                                                  "'Sale Manager' in a group, can not make it Sales Manager ")
 
         return data
 
@@ -763,7 +772,7 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('approval_status', 'shop_id_list', )
+        fields = ('approval_status', 'shop_id_list',)
 
     def validate(self, data):
 
@@ -804,7 +813,6 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
 
 
 class StateSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = State
         fields = ('id', 'state_name',)
@@ -856,7 +864,7 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
             'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
             'address_line1', 'address_contact_name', 'address_contact_number',
             'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
-            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at')\
+            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at') \
             .filter(shop_name__id__in=validated_data['shop_id_list'])
 
         meta = Shop._meta
@@ -906,7 +914,7 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopUserMapping
-        fields = ('file', )
+        fields = ('file',)
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
@@ -918,8 +926,7 @@ class BulkCreateShopUserMappingSerializer(serializers.ModelSerializer):
         if csv_file_data:
             read_file(csv_file_data, "shop_user_map")
         else:
-            raise serializers.ValidationError(
-                "CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 
@@ -941,7 +948,7 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('file', )
+        fields = ('file',)
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
@@ -969,7 +976,6 @@ class BulkUpdateShopSerializer(serializers.ModelSerializer):
 
 
 class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = User
         fields = ('id',)
@@ -993,8 +999,9 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
             employee=validated_data['id']).values_list('employee').last()
         # get the shop queryset assigned with executive
         data = ShopUserMapping.objects.values_list(
-            'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk', 'shop__shop_name_address_mapping__address_contact_number',
-            'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode')\
+            'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk',
+            'shop__shop_name_address_mapping__address_contact_number',
+            'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode') \
             .filter(employee=query_set[0], manager__in=self.get_manager(user=validated_data['created_by']), status=True,
                     shop__shop_user__shop__approval_status=2).distinct('shop')
 
@@ -1066,7 +1073,7 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BeatPlanning
-        fields = ('file', )
+        fields = ('file',)
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
