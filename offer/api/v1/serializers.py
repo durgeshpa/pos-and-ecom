@@ -147,7 +147,17 @@ class OfferPageSerializers(serializers.ModelSerializer):
         return representation
 
 
-class OfferBannerSlotSerializers(serializers.ModelSerializer):
+class OfferPageListSerializers(serializers.ModelSerializer):
+
     class Meta:
         model = OfferPage
-        fields = ('id', 'name', 'page')
+        fields = ('id', 'name',)
+
+
+class OfferBannerSlotSerializers(serializers.ModelSerializer):
+    page = OfferPageListSerializers(read_only=True)
+    offer_banner_slot_log = OfferLogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = OfferBannerSlot
+        fields = ('id', 'name', 'page', 'offer_banner_slot_log')

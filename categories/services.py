@@ -7,3 +7,4 @@ def category_search(queryset, search_text):
                                Q(category_parent__category_name__icontains=search_text) |
                                Q(category_sku_part__icontains=search_text))
     return queryset
+
