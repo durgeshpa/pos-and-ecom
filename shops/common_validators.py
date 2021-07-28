@@ -527,8 +527,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_type):
         for row in uploaded_data_list:
             row_num += 1
             if 'shop_id' not in row.keys():
-                raise ValidationError(
-                    f"Row {row_num} | 'shop_id can't be empty")
+                raise ValidationError(f"Row {row_num} | 'shop_id can't be empty")
             if 'shop_id' in row.keys() and row['shop_id'] == '':
                 raise ValidationError(
                     f"Row {row_num} | 'shop_id' can't be empty")

@@ -38,7 +38,8 @@ debug_logger = logging.getLogger('file-debug')
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code')
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code').\
+        order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
     def get(self, request):
