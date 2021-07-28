@@ -1,6 +1,11 @@
+from django.db import transaction
+
 from rest_framework import serializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage
 from brand.models import Brand
+from offer.models import OfferLog
+from offer.common_function import OfferCls
+from products.api.v1.serializers import UserSerializers
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -85,10 +90,61 @@ class TopSKUSerializer(serializers.ModelSerializer):
         fields = ('product',)
 
 
+class OfferLogSerializers(serializers.ModelSerializer):
+    updated_by = UserSerializers(read_only=True)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['update_at'] = instance.update_at.strftime("%b %d %Y %I:%M%p")
+        return representation
+
+    class Meta:
+        model = OfferLog
+        fields = ('update_at', 'updated_by')
+
+
 class OfferPageSerializers(serializers.ModelSerializer):
+    offer_page_log = OfferLogSerializers(many=True, read_only=True)
+
     class Meta:
         model = OfferPage
-        fields = ('id', 'name',)
+        fields = ('id', 'name', 'offer_page_log')
+
+    def validate(self, data):
+        offer_page_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name']:
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
+                raise serializers.ValidationError(f"offer page with name {self.initial_data['name']} already exists.")
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new offer page"""
+        try:
+            off_page = OfferPage.objects.create(**validated_data)
+            OfferCls.create_offer_page_log(off_page, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return off_page
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update Offer Page"""
+        try:
+            instance = super().update(instance, validated_data)
+            OfferCls.create_offer_page_log(instance, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
 
 
 class OfferBannerSlotSerializers(serializers.ModelSerializer):

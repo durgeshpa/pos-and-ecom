@@ -491,8 +491,7 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).\
-        filter(employee_group__permissions__codename='can_sales_manager_add_shop', employee__user_type=7).\
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).\
         distinct('employee')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
@@ -747,17 +746,16 @@ class ShopTypeView(GenericAPIView):
         if not request.data.get('shop_type_id'):
             return get_response('please select shop type id to delete shop type', False)
         try:
-            with transaction.atomic():
-                for s_id in request.data.get('shop_type_id'):
-                    shop_type_obj = self.queryset.get(id=int(s_id))
-                    try:
-                        shop_type_obj.delete()
-                        dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                     'shop_type_id': shop_type_obj}
-                        info_logger.info("shop_type_id deleted info ", dict_data)
-                    except:
-                        return get_response(f'You can not delete shop type {shop_type_obj}, '
-                                            f'because this shop type getting used', False)
+            for s_id in request.data.get('shop_type_id'):
+                shop_type_obj = self.queryset.get(id=int(s_id))
+                try:
+                    shop_type_obj.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'shop_type_id': shop_type_obj}
+                    info_logger.info("shop_type_id deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete shop type {shop_type_obj}, '
+                                        f'because this shop type getting used', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid shop type id {s_id}', False)
@@ -897,8 +895,8 @@ class BulkCreateShopUserMappingSampleCSV(GenericAPIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         writer = csv.writer(response)
-        writer.writerow(['shop_id', 'shop_name', 'manager', 'employee', 'employee_group', 'employee_group_name', ])
-        writer.writerow(['23', 'ABC', '8989787878', '8989898989', '2', 'Sales Executive'])
+        writer.writerow(['shop_id', 'manager', 'employee', 'employee_group'])
+        writer.writerow(['23', '8989787878', '8989898989', '2'])
         return HttpResponse(response, content_type='text/csv')
 
 

@@ -1,26 +1,17 @@
-from django.shortcuts import render
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import GenericAPIView, CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework.decorators import api_view
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import OfferBannerSerializer, OfferBannerPositionSerializer, OfferBannerSlotSerializer, \
-    OfferBannerDataSerializer, BrandSerializer, TopSKUSerializer, OfferPageSerializers, OfferBannerSlotSerializers
-from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
-from retailer_to_sp.models import OrderedProduct, Feedback
-from rest_framework import viewsets
-from rest_framework.decorators import list_route
-import datetime
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.db.models import Q
-from shops.models import Shop, ParentRetailerMapping
 
 import logging
-import datetime
-
+from datetime import datetime
+from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .serializers import OfferBannerDataSerializer, BrandSerializer, TopSKUSerializer, OfferPageSerializers, OfferBannerSlotSerializers
+from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
+
+
+from shops.models import Shop, ParentRetailerMapping
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -216,13 +207,16 @@ class OfferPageView(GenericAPIView):
         Update OfferPage
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = OfferPage.objects.values('id', 'name',).order_by('-id')
+    permission_classes = (AllowAny,)
+    queryset = OfferPage.objects.select_related('updated_by', 'created_by')\
+        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by', 'created_by').order_by('-id')
     serializer_class = OfferPageSerializers
 
     def get(self, request):
         """ GET API for Offer Page """
 
         info_logger.info("Offer PageGET api called.")
+        offer_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Offer Page for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -232,23 +226,19 @@ class OfferPageView(GenericAPIView):
         else:
             """ GET Offer Page List """
             self.queryset = self.offer_page_search()
+            offer_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
-        msg = "" if offer_page else "no offer page found"
+        msg = f"total count {offer_total_count}" if offer_page else "no offer page found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
         """ POST API for Offer Page Creation """
 
         info_logger.info("Offer Page POST api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
+            serializer.save()
             info_logger.info("Offer Page Created Successfully.")
             return get_response('offer page created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -257,24 +247,19 @@ class OfferPageView(GenericAPIView):
         """ PUT API for Offer Page Updation """
 
         info_logger.info("Offer Page PUT api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        if 'id' not in modified_data:
+        if 'id' not in request.data:
             return get_response('please provide id to update offer page', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        id_instance = validate_id(self.queryset, int(request.data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
+        offer_page_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=offer_page_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("Offer PageUpdated Successfully.")
+            info_logger.info("Offer Page Updated Successfully.")
             return get_response('offer page updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -283,7 +268,7 @@ class OfferPageView(GenericAPIView):
 
         info_logger.info("Offer Page DELETE api called.")
         if not request.data.get('offer_page_ids'):
-            return get_response('please select offer page', False)
+            return get_response('please select atleast offer page', False)
         try:
             for id in request.data.get('offer_page_ids'):
                 offer_page_id = self.queryset.get(id=int(id))
@@ -292,7 +277,7 @@ class OfferPageView(GenericAPIView):
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'offer_page_id': offer_page_id}
                     info_logger.info("offer_page deleted info ", dict_data)
-                except:
+                except Exception as e:
                     return get_response(f'You can not delete offer page {offer_page_id.name}, '
                                         f'because this offer page is mapped with offer', False)
         except ObjectDoesNotExist as e:

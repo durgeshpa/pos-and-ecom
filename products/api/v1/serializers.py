@@ -1030,6 +1030,7 @@ class WeightSerializers(serializers.ModelSerializer):
 
         return weight
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """update weight"""
         try:
