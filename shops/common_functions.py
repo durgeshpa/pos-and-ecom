@@ -254,6 +254,9 @@ class ShopCls(object):
                     ip_id = invoice.pop('id')
                 ShopInvoicePattern.objects.update_or_create(
                     defaults=invoice, id=ip_id)
+        else:
+            if ShopInvoicePattern.objects.filter(shop=shop).exists():
+                ShopInvoicePattern.objects.filter(shop=shop).delete()
 
     @classmethod
     def update_related_users_and_favourite_products(cls, shop, related_users, favourite_products):
@@ -263,10 +266,14 @@ class ShopCls(object):
         if related_users:
             for user in related_users:
                 shop.related_users.add(user)
+        else:
+            shop.related_users.clear()
 
         if favourite_products:
             for prd in favourite_products:
                 shop.favourite_products.add(prd)
+        else:
+            shop.favourite_products.clear()
 
     @classmethod
     def update_parent_shop(cls, shop, parent_shop):
@@ -274,14 +281,15 @@ class ShopCls(object):
             Update Parent Shop of the Shop
         """
         if parent_shop:
-            obj, created = ParentRetailerMapping.objects.update_or_create(
-                retailer=shop, parent=parent_shop,
-                defaults={},
-            )
-            return obj
-        # print(parent_shop)
-        # shop.retiler_mapping.filter(
-        #     status=True).all().update(parent=parent_shop)
+            if shop.retiler_mapping.filter(status=True).exists():
+                shop.retiler_mapping.filter(status=True).update(parent=parent_shop)
+            else:
+                ParentRetailerMapping.objects.create(
+                    retailer=shop, parent=parent_shop
+                )
+        else:
+            if shop.retiler_mapping.filter(status=True).exists():
+                shop.retiler_mapping.filter(status=True).delete()
 
 
 def created_updated_by(log_obj, action):
