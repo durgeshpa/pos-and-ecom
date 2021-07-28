@@ -4656,7 +4656,7 @@ def pdf_generation_retailer(request, order_id):
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
-        discount = total - total_amount - redeem_value
+        discount = round(total - total_amount - redeem_value, 2)
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
@@ -4671,6 +4671,8 @@ def pdf_generation_retailer(request, order_id):
             nick_name, address_line1 = z.nick_name, z.address_line1
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
+
+        total = round(total, 2)
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
