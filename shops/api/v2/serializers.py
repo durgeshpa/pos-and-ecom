@@ -560,11 +560,13 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         if 'favourite_products' in self.validated_data and self.validated_data['favourite_products']:
             favourite_prd = self.validated_data['favourite_products']
 
-        if 'parent_shop' in self.initial_data and self.initial_data['parent_shop']:
-            shop_parent_shop = get_validated_shop(
-                self.initial_data['parent_shop'])
-            if 'error' in shop_parent_shop:
-                raise serializers.ValidationError(shop_parent_shop['error'])
+        if 'parent_shop' in self.initial_data:
+            if self.initial_data['parent_shop']:
+                validated_parent_shop = get_validated_shop(
+                    self.initial_data['parent_shop'])
+                if 'error' in validated_parent_shop:
+                    raise serializers.ValidationError(validated_parent_shop['error'])
+            shop_parent_shop = validated_parent_shop['data']
 
         ShopCls.create_update_shop_address(shop, shop_address)
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
@@ -572,7 +574,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         ShopCls.create_upadte_shop_invoice_pattern(shop, shop_invoice_pattern)
         ShopCls.update_related_users_and_favourite_products(
             shop, related_usrs, favourite_prd)
-        ShopCls.update_parent_shop(shop, shop_parent_shop['data'])
+        ShopCls.update_parent_shop(shop, shop_parent_shop)
+        
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
