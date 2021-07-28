@@ -729,9 +729,11 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
 
         # if data['employee'] and data['employee_group']:
         if data['employee_group'].name == "Sales Manager":
-            if not data['employee'].user_type == 7 or not data['employee'].groups.filter(name="Sales Manager"):
-                raise serializers.ValidationError("Either Employee Type is not 'Sale Manager' or Employee is not "
-                                                  "'Sale Manager' in a group, can not make it Sales Manager ")
+            # not data['employee'].groups.filter(name="Sales Manager")
+            if not data['employee'].user_type == 7:
+                raise serializers.ValidationError(f"User Type is not Sale Manager "
+                                                  f"'{data['employee'].phone_number} - {data['employee'].first_name}"
+                                                  f" {data['employee'].last_name}'")
 
         return data
 
