@@ -124,10 +124,11 @@ For Shop Type List
 
 
 class ShopTypeListSerializers(serializers.ModelSerializer):
-
+    shop_sub_type = RetailerTypeSerializer(read_only=True)
+    
     class Meta:
         model = ShopType
-        fields = ('id', 'shop_type')
+        fields = ('id', 'shop_type', 'shop_sub_type')
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
