@@ -223,6 +223,7 @@ class OfferPageView(GenericAPIView):
         """ GET API for Offer Page """
 
         info_logger.info("Offer PageGET api called.")
+        offer_total_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Offer Page for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -232,9 +233,10 @@ class OfferPageView(GenericAPIView):
         else:
             """ GET Offer Page List """
             self.queryset = self.offer_page_search()
+            offer_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
-        msg = "" if offer_page else "no offer page found"
+        msg = f"total count {offer_total_count}" if offer_page else "no offer page found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
