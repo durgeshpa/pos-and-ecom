@@ -129,7 +129,7 @@ class TopSKU(BaseTimestampUserStatusModel):
     )
 
 
-class CentralLog(models.Model):
+class OfferLog(models.Model):
     action = models.CharField(max_length=50, null=True, blank=True)
     offer_page = models.ForeignKey(OfferPage, related_name='offer_page_log', blank=True, null=True, on_delete=models.CASCADE)
     top_sku = models.ForeignKey(TopSKU, related_name='top_sku_log', blank=True, null=True, on_delete=models.CASCADE)
@@ -140,6 +140,6 @@ class CentralLog(models.Model):
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
-        related_name='updated_by',
+        related_name='offers_updated_by',
         on_delete=models.DO_NOTHING
     )
