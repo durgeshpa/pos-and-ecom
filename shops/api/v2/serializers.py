@@ -1014,7 +1014,7 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
         query_set = ShopUserMapping.objects.filter(
             employee=validated_data['id']).values_list('employee').last()
         if not query_set:
-            raise serializers.ValidationError("Shop user mapping does not exist.")
+            raise serializers.ValidationError({"error": "Shop user mapping does not exist."})
         # get the shop queryset assigned with executive
         data = ShopUserMapping.objects.values_list(
             'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk',
