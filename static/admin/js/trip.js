@@ -5,6 +5,7 @@
   var initialload = true;
   var page_data={};
   var shipment_list=new Array();
+  var trip_status=null;
   $(document).ready(function() {
     HideField('tr#heading');
     HideField('tr#loading');
@@ -15,6 +16,7 @@
     GetResultOnTypingArea();
     GetResultOnChangeSellerShop();
     CallAPI();
+    initTripStatus();
   });
 
 
@@ -30,6 +32,10 @@ function HideField(id){
 
 function ShowField(id){
   $(id).show();
+}
+
+function initTripStatus(){
+    trip_status = $('select#id_trip_status').val()
 }
 
 $(document).ready(function() {
@@ -270,7 +276,7 @@ function CreateResponseTable(data){
       }
   });
   displaySelectedCount();
-  if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED' || GetTripStatus() == 'CLOSED'){
+  if (GetTripStatus() == 'COMPLETED'|| (GetTripStatus() == 'STARTED' && trip_status == 'STARTED') || GetTripStatus() == 'CLOSED'){
     $(".shipment_checkbox").prop("checked", true);
     $(".shipment_checkbox").attr("disabled", true);
     $(".selected_invoice_count").hide();
