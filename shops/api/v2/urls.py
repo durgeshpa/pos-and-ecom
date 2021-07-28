@@ -1,11 +1,13 @@
 from rest_framework import routers
 from django.conf.urls import url
 
-from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPlanningExportAsCSVView, BeatPlanningListView, BeatPlanningSampleCSV, BeatPlanningView, ParentShopsListView, RelatedUsersListView,
-                                ServicePartnerShopsListView, BulkCreateShopUserMappingView, BulkUpdateShopView,
+from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPlanningExportAsCSVView,
+                                BeatPlanningListView, BeatPlanningSampleCSV, BeatPlanningView, ParentShopsListView,
+                                RelatedUsersListView, ServicePartnerShopsListView, BulkCreateShopUserMappingView,
                                 ShopDocumentTypeListView, ShopInvoiceStatusListView, ShopOwnerNameListView,
                                 ShopSalesReportView, ShopTypeListView, ShopTypeView, ShopUserMappingView, ShopView,
-                                ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList, ShopTypeChoiceView,
+                                ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList,
+                                ShopTypeChoiceView, BulkUpdateShopView, BeatPlanningExecutivesListView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
                                 BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV)
 
@@ -55,6 +57,7 @@ urlpatterns = [
     url('download/beat-planning/sample', BeatPlanningSampleCSV.as_view(), name='download-beat-planning-sample'),
     url('upload/beat-planning', BeatPlanningView.as_view(), name='upload/beat-planning'),
     url('beat-planning/', BeatPlanningListView.as_view(), name='beat-planning'),
+    url('beat-plan-employees/', BeatPlanningExecutivesListView.as_view(), name='beat-plan-employees'),
 ]
 
 urlpatterns += router.urls

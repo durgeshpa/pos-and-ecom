@@ -21,20 +21,24 @@ from retailer_backend.utils import SmallOffsetPagination
 
 from retailer_to_sp.models import Order, OrderedProductMapping
 from addresses.models import Address, Pincode, State, City, address_type_choices
-from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
+from shops.models import (BeatPlanning, ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType,
+                          SHOP_TYPE_CHOICES)
 
 from .serializers import (
-    AddressSerializer, BeatPlanningExportAsCSVSerializers, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
-    ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
+    AddressSerializer, BeatPlanningExecutivesListSerializers, BeatPlanningExportAsCSVSerializers,
+    BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer,
+    ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers,
+    ShopCrudSerializers, ShopTypeListSerializers, BulkUpdateShopUserMappingSampleCSVSerializer,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
-    BulkUpdateShopSampleCSVSerializer, BulkUpdateShopUserMappingSampleCSVSerializer, BulkCreateShopUserMappingSerializer
+    BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
 from shops.common_functions import *
-from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes, get_distinct_cities, get_distinct_states,
+from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
+                            get_distinct_cities, get_distinct_states, search_pincode, search_city, shop_owner_search,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search, search_state, search_pincode, search_city, shop_owner_search)
+                            shop_type_search, search_state)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
     validate_pin_code
@@ -467,7 +471,7 @@ class ParentShopsListView(generics.ListAPIView):
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.filter(approval_status=2).select_related('shop_owner', 'shop_type')\
+    queryset = Shop.objects.filter(approval_status=2).select_related('shop_owner', 'shop_type') \
         .only('id', 'shop_name', 'shop_owner', 'shop_type').order_by('-id')
     serializer_class = ShopBasicSerializer
 
@@ -527,14 +531,15 @@ class ShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ShopUserMapping.objects.select_related('shop', 'shop__shop_type', 'shop__shop_owner', 'manager',
-                                                      'employee', 'employee_group',).\
-        prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', )\
+                                                      'employee', 'employee_group', ). \
+        prefetch_related('shop_user_map_log', 'shop_user_map_log__updated_by', ) \
         .only('id', 'status', 'created_at', 'shop', 'shop__status', 'shop__shop_owner', 'shop__shop_owner__id',
               'shop__shop_name', 'shop__shop_type', 'shop__shop_owner', 'shop__shop_code', 'updated_by__id',
               'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
-              'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager', 'shop__shop_owner__last_name',
-              'employee_group', 'employee', 'employee__id',  'employee__first_name',  'employee__last_name',
-              'employee__phone_number',).order_by('-id')
+              'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager',
+              'shop__shop_owner__last_name',
+              'employee_group', 'employee', 'employee__id', 'employee__first_name', 'employee__last_name',
+              'employee__phone_number', ).order_by('-id')
 
     serializer_class = ShopUserMappingCrudSerializers
 
@@ -919,6 +924,41 @@ class BulkUpdateShopView(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class BeatPlanningExecutivesListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = None
+
+    queryset = User.objects.all()
+
+    def get(self, request):
+        info_logger.info("Executive GET api called.")
+        """ GET Executive List """
+        search_text = self.request.GET.get('search_text')
+
+        # get manager object
+        shop_mapping_object = (ShopUserMapping.objects.filter(
+            employee=request.user.shop_employee.instance,
+            employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
+
+        # condition to check the current user is super user  or manager
+        if request.user.shop_employee.instance.is_superuser:
+            self.queryset = self.queryset.filter(user_type=6, is_active=True)
+            self.serializer_class = ShopEmployeeSerializers
+            if search_text:
+                self.queryset = shop_employee_search(self.queryset, search_text)
+        else:
+            self.serializer_class = BeatPlanningExecutivesListSerializers
+            self.queryset = ShopUserMapping.objects.filter(
+                manager=shop_mapping_object, status=True).distinct('employee_id')
+            if search_text:
+                self.queryset = shop_manager_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop manager found"
+        return get_response(msg, serializer.data, True)
+
+
 class BeatPlanningExportAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = BeatPlanningExportAsCSVSerializers
@@ -938,9 +978,9 @@ class BeatPlanningExportAsCSVView(CreateAPIView):
 class BeatPlanningListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = BeatPlanning.objects.select_related('manager', 'executive').\
-        only('id', 'status', 'created_at', 'modified_at', 'manager__id', 'executive__id').\
-            order_by('-id')
+    queryset = BeatPlanning.objects.select_related('manager', 'executive'). \
+        only('id', 'status', 'created_at', 'modified_at', 'manager__id', 'executive__id'). \
+        order_by('-id')
     serializer_class = BeatPlanningListSerializer
 
     def get(self, request):
@@ -963,7 +1003,7 @@ class BeatPlanningListView(GenericAPIView):
         serializer = self.serializer_class(beat_planning_data, many=True)
         msg = f"total count {bp_total_count}" if beat_planning_data else "no beat planning found"
         return get_response(msg, serializer.data, True)
-    
+
     def delete(self, request):
         """ Delete Beat Planning """
 
