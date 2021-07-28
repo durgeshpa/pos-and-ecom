@@ -767,7 +767,7 @@ class ShopTypeView(GenericAPIView):
             self.queryset = shop_type_search(self.queryset, search_text)
 
         if shop_type:
-            self.queryset = self.queryset.filter(shop_type=shop_type)
+            self.queryset = self.queryset.filter(id=shop_type)
         if status:
             self.queryset = self.queryset.filter(status=status)
 
