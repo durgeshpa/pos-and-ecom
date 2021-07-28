@@ -1,26 +1,17 @@
-from django.shortcuts import render
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import GenericAPIView, CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework.decorators import api_view
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import OfferBannerSerializer, OfferBannerPositionSerializer, OfferBannerSlotSerializer, \
-    OfferBannerDataSerializer, BrandSerializer, TopSKUSerializer, OfferPageSerializers, OfferBannerSlotSerializers
-from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
-from retailer_to_sp.models import OrderedProduct, Feedback
-from rest_framework import viewsets
-from rest_framework.decorators import list_route
-import datetime
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.db.models import Q
-from shops.models import Shop, ParentRetailerMapping
 
 import logging
-import datetime
-
+from datetime import datetime
+from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .serializers import OfferBannerDataSerializer, BrandSerializer, TopSKUSerializer, OfferPageSerializers, OfferBannerSlotSerializers
+from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
+
+
+from shops.models import Shop, ParentRetailerMapping
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -277,7 +268,7 @@ class OfferPageView(GenericAPIView):
 
         info_logger.info("Offer Page DELETE api called.")
         if not request.data.get('offer_page_ids'):
-            return get_response('please select offer page', False)
+            return get_response('please select atleast offer page', False)
         try:
             for id in request.data.get('offer_page_ids'):
                 offer_page_id = self.queryset.get(id=int(id))
@@ -286,7 +277,7 @@ class OfferPageView(GenericAPIView):
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'offer_page_id': offer_page_id}
                     info_logger.info("offer_page deleted info ", dict_data)
-                except:
+                except Exception as e:
                     return get_response(f'You can not delete offer page {offer_page_id.name}, '
                                         f'because this offer page is mapped with offer', False)
         except ObjectDoesNotExist as e:
