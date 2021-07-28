@@ -243,14 +243,9 @@ class OfferPageView(GenericAPIView):
         """ POST API for Offer Page Creation """
 
         info_logger.info("Offer Page POST api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
+            serializer.save()
             info_logger.info("Offer Page Created Successfully.")
             return get_response('offer page created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)

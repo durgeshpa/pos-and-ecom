@@ -1,6 +1,9 @@
+from django.db import transaction
+
 from rest_framework import serializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage
 from brand.models import Brand
+from offer.common_function import OfferCls
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -89,6 +92,35 @@ class OfferPageSerializers(serializers.ModelSerializer):
     class Meta:
         model = OfferPage
         fields = ('id', 'name',)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new offer page"""
+        try:
+            off_page = OfferPage.objects.create(**validated_data)
+            OfferCls.create_offer_page_log(off_page, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return off_page
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update Offer Page"""
+        try:
+            instance = super().update(instance, validated_data)
+            OfferCls.create_offer_page_log(instance, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
 
 
 class OfferBannerSlotSerializers(serializers.ModelSerializer):
