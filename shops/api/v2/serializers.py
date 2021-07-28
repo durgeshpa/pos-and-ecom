@@ -1011,23 +1011,30 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         query_set = ShopUserMapping.objects.filter(
             employee=validated_data['id']).values_list('employee').last()
-        if not query_set:
-            raise serializers.ValidationError({"error": "Shop user mapping does not exist."})
+
         # get the shop queryset assigned with executive
-        data = ShopUserMapping.objects.values_list(
-            'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk',
-            'shop__shop_name_address_mapping__address_contact_number',
-            'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode') \
-            .filter(employee=query_set[0], manager__in=self.get_manager(user=validated_data['created_by']), status=True,
-                    shop__shop_user__shop__approval_status=2).distinct('shop')
+        if validated_data['created_by'].is_superuser:
+            data = ShopUserMapping.objects.values_list(
+                'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk',
+                'shop__shop_name_address_mapping__address_contact_number',
+                'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode') \
+                .filter(employee=query_set, status=True, shop__shop_user__shop__approval_status=2).distinct('shop')
+        else:
+            if not query_set:
+                raise serializers.ValidationError({"error": "Shop user mapping does not exist."})
+            data = ShopUserMapping.objects.values_list(
+                'employee__phone_number', 'employee__first_name', 'shop__shop_name', 'shop__pk',
+                'shop__shop_name_address_mapping__address_contact_number',
+                'shop__shop_name_address_mapping__address_line1', 'shop__shop_name_address_mapping__pincode') \
+                .filter(employee=query_set[0], manager__in=self.get_manager(user=validated_data['created_by']),
+                        status=True, shop__shop_user__shop__approval_status=2).distinct('shop')
 
         meta = ShopUserMapping._meta
         field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number',
                        'address_line1', 'pincode', 'category', 'date']
 
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(
-            meta)
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
 
         writer = csv.writer(response)
         writer.writerow(field_names)
@@ -1084,23 +1091,26 @@ class BeatPlanningListSerializer(serializers.ModelSerializer):
 
 
 class BeatPlanningSerializer(serializers.ModelSerializer):
+    executive_id = serializers.IntegerField(required=True)
     file = serializers.FileField(
         label='Upload Beat Planning', required=True, write_only=True)
 
     class Meta:
         model = BeatPlanning
-        fields = ('file',)
+        fields = ('executive_id', 'file',)
 
     def validate(self, data):
+        if not User.objects.filter(id=data['executive_id']).exists():
+            raise serializers.ValidationError(_('Please select a valid executive.'))
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(
                 _('Sorry! Only csv file accepted.'))
-
+        executive_phone = User.objects.filter(id=data['executive_id']).last().phone_number
         csv_file_data = csv.reader(codecs.iterdecode(
             data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
-            read_beat_planning_file(csv_file_data, "beat_planning")
+            read_beat_planning_file(executive_phone, csv_file_data, "beat_planning")
         else:
             raise serializers.ValidationError(
                 "CSV File cannot be empty.Please add some data to upload it!")
