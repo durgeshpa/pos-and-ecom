@@ -194,8 +194,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Discounted price is required to create discounted product")
             elif 'discounted_stock' not in attrs:
                 raise serializers.ValidationError("Discounted stock is required to create discounted product")
-            if attrs['discounted_price'] >= sp:
+            elif attrs['discounted_price'] <= 0 :
+                raise serializers.ValidationError("Discounted Price should be greater than 0")
+            elif attrs['discounted_price'] >= sp:
                 raise serializers.ValidationError("Discounted Price should be less than selling price")
+            elif attrs['discounted_stock'] < 0:
+                raise serializers.ValidationError("Invalid discounted stock")
         return attrs
 
 
