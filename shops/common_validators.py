@@ -90,11 +90,14 @@ def get_validate_shop_documents(shop_documents):
     for shop_doc in shop_documents:
         shop_doc_obj = shop_doc
         try:
-            if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] or \
-                'shop_document_type' not in shop_doc or not shop_doc['shop_document_type'] or \
-                    'shop_document_number' not in shop_doc or not shop_doc['shop_document_number']:
-                return {'error': "Key 'shop_document_photo', 'shop_document_type', "
-                        "'shop_document_number' are combined mandatory."}
+            if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
+                return {'error': "'shop_document_photo' | This field is required."}
+
+            if 'shop_document_type' not in shop_doc or not shop_doc['shop_document_type'] :
+                return {'error': "'shop_document_type' | This field is required."}
+
+            if 'shop_document_number' not in shop_doc or not shop_doc['shop_document_number'] :
+                return {'error': "'shop_document_number' | This field is required."}
 
             if 'id' not in shop_doc:
                 try:

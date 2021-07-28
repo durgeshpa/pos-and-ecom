@@ -1013,6 +1013,43 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
         return response
 
 
+class BeatPlanningExportAsCSVSerializers(serializers.ModelSerializer):
+    beat_planning_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = BeatPlanning
+        fields = ('beat_planning_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('beat_planning_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one beat planning id must be selected '))
+
+        for c_id in data.get('beat_planning_id_list'):
+            try:
+                BeatPlanning.objects.get(id=c_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'beat planning not found for id {c_id}')
+        return data
+
+    def create(self, validated_data):
+        meta = BeatPlanning._meta
+        exclude_fields = ['id', 'modified_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = BeatPlanning.objects.filter(id__in=validated_data['beat_planning_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+
 class BeatPlanningListSerializer(serializers.ModelSerializer):
     manager = UserSerializers(read_only=True)
     executive = UserSerializers(read_only=True)
