@@ -4,6 +4,7 @@ from rest_framework import serializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage
 from brand.models import Brand
 from offer.common_function import OfferCls
+from products.api.v1.serializers import UserSerializers, LogSerializers
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -89,9 +90,19 @@ class TopSKUSerializer(serializers.ModelSerializer):
 
 
 class OfferPageSerializers(serializers.ModelSerializer):
+    offer_page_log = LogSerializers(many=True, read_only=True)
+    updated_by = UserSerializers(write_only=True, required=False)
+
     class Meta:
         model = OfferPage
-        fields = ('id', 'name',)
+        fields = ('id', 'name', 'updated_by', 'offer_page_log')
+
+    def validate(self, data):
+        offer_page_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name']:
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
+                raise serializers.ValidationError(f"offer page with name {self.initial_data['name']} already exists.")
+        return data
 
     @transaction.atomic
     def create(self, validated_data):

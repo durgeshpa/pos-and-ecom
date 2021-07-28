@@ -216,7 +216,10 @@ class OfferPageView(GenericAPIView):
         Update OfferPage
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = OfferPage.objects.values('id', 'name',).order_by('-id')
+    permission_classes = (AllowAny,)
+    queryset = OfferPage.objects.select_related('updated_by',)\
+        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').\
+        only('id', 'name', 'updated_by', 'created_by').order_by('-id')
     serializer_class = OfferPageSerializers
 
     def get(self, request):
@@ -254,24 +257,19 @@ class OfferPageView(GenericAPIView):
         """ PUT API for Offer Page Updation """
 
         info_logger.info("Offer Page PUT api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        if 'id' not in modified_data:
+        if 'id' not in request.data:
             return get_response('please provide id to update offer page', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        id_instance = validate_id(self.queryset, int(request.data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
+        offer_page_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=offer_page_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("Offer PageUpdated Successfully.")
+            info_logger.info("Offer Page Updated Successfully.")
             return get_response('offer page updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
