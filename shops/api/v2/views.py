@@ -16,7 +16,7 @@ from rest_framework import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from rest_framework.generics import GenericAPIView, UpdateAPIView
+from rest_framework.generics import GenericAPIView, UpdateAPIView, CreateAPIView
 from retailer_backend.utils import SmallOffsetPagination
 
 from retailer_to_sp.models import Order, OrderedProductMapping
@@ -24,7 +24,7 @@ from addresses.models import Address, Pincode, State, City, address_type_choices
 from shops.models import (ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType, SHOP_TYPE_CHOICES)
 
 from .serializers import (
-    AddressSerializer, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
+    AddressSerializer, BeatPlanningExportAsCSVSerializers, BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer, ParentShopsListSerializer, PinCodeAddressSerializer,
     ServicePartnerShopsSerializer, ShopTypeSerializers, ShopCrudSerializers, ShopTypeListSerializers,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
@@ -920,6 +920,22 @@ class BulkUpdateShopView(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class BeatPlanningExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BeatPlanningExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Beat Planning CSV """
+
+        info_logger.info("BeatPlanningExportAsCSVView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Beat Planning CSV exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
 class BeatPlanningListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -948,6 +964,28 @@ class BeatPlanningListView(GenericAPIView):
         serializer = self.serializer_class(beat_planning_data, many=True)
         msg = f"total count {bp_total_count}" if beat_planning_data else "no beat planning found"
         return get_response(msg, serializer.data, True)
+    
+    def delete(self, request):
+        """ Delete Beat Planning """
+
+        info_logger.info("Beat Planning DELETE api called.")
+        if not request.data.get('beat_planning_id'):
+            return get_response('please select beat planning id to delete beat planning', False)
+        try:
+            for id in request.data.get('beat_planning_id'):
+                beat_planning_id = self.queryset.get(id=int(id))
+                try:
+                    beat_planning_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'shap_user_mapped_id': beat_planning_id}
+                    info_logger.info("shap_user_mapped_id deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete beat planning {beat_planning_id}, '
+                                        f'because this beat planning getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid beat planning id {id}', False)
+        return get_response('beat planning were deleted successfully!', True)
 
 
 class BeatPlanningSampleCSV(GenericAPIView):
