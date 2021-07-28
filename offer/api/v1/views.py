@@ -217,9 +217,8 @@ class OfferPageView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = OfferPage.objects.select_related('updated_by',)\
-        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').\
-        only('id', 'name', 'updated_by', 'created_by').order_by('-id')
+    queryset = OfferPage.objects.select_related('updated_by', 'created_by')\
+        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by', 'created_by').order_by('-id')
     serializer_class = OfferPageSerializers
 
     def get(self, request):
