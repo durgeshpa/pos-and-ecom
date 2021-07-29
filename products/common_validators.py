@@ -995,7 +995,8 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not categories.filter(id=row['category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_id']} | "
                                           f"'Category_ID' doesn't exist in the system ")
-            if 'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row['parent_category_id'] != '':
+            if 'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row[
+                'parent_category_id'] != '':
                 if not categories.filter(id=row['parent_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['parent_category_id']} | "
                                           f"'parent_category_id' doesn't exist in the system ")
@@ -1029,8 +1030,9 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not child_product.filter(product_sku=row['sku_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist.")
                 product = child_product.filter(product_sku=row['sku_id'])
-                if product[0].repackaging_type !='none':
-                    if 'repackaging_type' in header_list and 'repackaging_type' in row.keys() and row['repackaging_type'] != '':
+                if product[0].repackaging_type != 'none':
+                    if 'repackaging_type' in header_list and 'repackaging_type' in row.keys() and row[
+                        'repackaging_type'] != '':
                         if not str(row['repackaging_type']) == product[0].repackaging_type:
                             raise ValidationError(
                                 f"Row {row_num} | {row['repackaging_type']} | 'Can't Change Repackaging Type "
@@ -1067,7 +1069,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     sub_cat = Category.objects.filter(category_parent=category)
                     if not ParentProductCategory.objects.filter(
                             Q(category__in=sub_cat) | Q(category=category.id)).filter(
-                            parent_product=parent_product[0].id).exists():
+                        parent_product=parent_product[0].id).exists():
                         raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                               f"{category.category_name}) that you have selected in Dropdown Only! ")
 
@@ -1175,10 +1177,10 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
 
             if 'product_special_cess' in header_list and 'product_special_cess' in row.keys():
-                if str(row['product_special_cess']).strip() !='':
+                if str(row['product_special_cess']).strip() != '':
                     if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
                         raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
-    
+
             if 'weight_unit' in header_list and 'weight_unit' in row.keys() and row['weight_unit'] != '':
                 if str(row['weight_unit']).lower() not in ['gm']:
                     raise ValidationError(f"Row {row_num} | 'Weight Unit' can only be 'gm'.")

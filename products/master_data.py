@@ -564,7 +564,7 @@ class UploadMasterData(object):
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user,
                     status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
-                    product_special_cess=(None if not row['product_special_cess'] else float(row['product_special_cess'])))
+                    product_special_cess=(None if str(row['product_special_cess']).strip() == '' else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
 
@@ -594,6 +594,8 @@ class UploadMasterData(object):
 
             info_logger.info("Method complete to create the Child Product from csv file")
         except Exception as e:
+            import traceback;
+            print(traceback.print_exc())
             error_logger.info(f"Something went wrong, while working with create Child Product "
                               f" + {str(e)}")
 
