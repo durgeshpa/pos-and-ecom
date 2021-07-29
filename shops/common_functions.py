@@ -233,33 +233,7 @@ class ShopCls(object):
                 ShopDocument.objects.create(shop_name=shop, **doc)
 
     @classmethod
-    def create_upadte_shop_invoice_pattern(cls, shop, invoice_pattern):
-        """
-            Delete existing Shop Invoice Patterns if not in the request
-            Create shop_invoice_pattern
-        """
-        if invoice_pattern:
-            ids = []
-            for ip in invoice_pattern:
-                if 'id' in ip:
-                    ids.append(ip['id'])
-
-            ShopInvoicePattern.objects.filter(
-                shop=shop).exclude(id__in=ids).delete()
-
-            for invoice in invoice_pattern:
-                invoice['shop'] = shop
-                ip_id = None
-                if 'id' in invoice:
-                    ip_id = invoice.pop('id')
-                ShopInvoicePattern.objects.update_or_create(
-                    defaults=invoice, id=ip_id)
-        else:
-            if ShopInvoicePattern.objects.filter(shop=shop).exists():
-                ShopInvoicePattern.objects.filter(shop=shop).delete()
-
-    @classmethod
-    def update_related_users_and_favourite_products(cls, shop, related_users, favourite_products):
+    def update_related_users(cls, shop, related_users):
         """
             Update Related users of the Shop
         """
@@ -268,12 +242,6 @@ class ShopCls(object):
                 shop.related_users.add(user)
         else:
             shop.related_users.clear()
-
-        if favourite_products:
-            for prd in favourite_products:
-                shop.favourite_products.add(prd)
-        else:
-            shop.favourite_products.clear()
 
     @classmethod
     def update_parent_shop(cls, shop, parent_shop):

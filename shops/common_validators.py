@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+import traceback
 from datetime import datetime
 from django.core.exceptions import ValidationError
 
@@ -80,7 +81,7 @@ def validate_gstin_number(document_num):
     """validate GSTIN Number"""
     gst_regex = "^([0]{1}[1-9]{1}|[1-2]{1}[0-9]{1}|[3]{1}[0-7]{1})([a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}[1-9a-zA-Z]{1}[zZ]{1}[0-9a-zA-Z]{1})+$"
     if not re.match(gst_regex, document_num):
-        raise {'error': 'Please enter valid GSTIN'}
+        return {'error': 'Please enter valid GSTIN'}
     return {'document_num': document_num}
 
 
@@ -117,7 +118,7 @@ def get_validate_shop_documents(shop_documents):
                     shop_doc['shop_document_number'])
                 if 'error' in shop_doc_num:
                     return shop_doc_num
-                shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
+                # shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
 
             shop_doc_list.append(shop_doc_obj)
         except Exception as e:
@@ -677,7 +678,7 @@ def validate_row(uploaded_data_list, header_list):
 
 
 # Beat Planning
-def read_beat_planning_file(csv_file, upload_type):
+def read_beat_planning_file(executive_phone, csv_file, upload_type):
     """
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
@@ -693,13 +694,13 @@ def read_beat_planning_file(csv_file, upload_type):
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
         check_beat_planning_mandatory_columns(
-            uploaded_data_by_user_list, csv_file_headers, upload_type)
+            executive_phone, uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
         raise ValidationError(
             "Please add some data below the headers to upload it!")
 
 
-def check_beat_planning_mandatory_columns(uploaded_data_list, header_list, upload_type):
+def check_beat_planning_mandatory_columns(executive_phone, uploaded_data_list, header_list, upload_type):
     row_num = 1
     if upload_type == "beat_planning":
         mandatory_columns = ['employee_phone_number',
@@ -713,6 +714,8 @@ def check_beat_planning_mandatory_columns(uploaded_data_list, header_list, uploa
             if 'employee_phone_number' not in row.keys() or row['employee_phone_number'] == '':
                 raise ValidationError(
                     f"Row {row_num} | 'employee_phone_number can't be empty")
+            if row['employee_phone_number'] != executive_phone:
+                raise ValidationError(f"Row {row_num} | Please upload beat planning for the selected executive.")
             if 'shop_id' not in row.keys() or row['shop_id'] == '':
                 raise ValidationError(
                     f"Row {row_num} | 'shop_id' can't be empty")
