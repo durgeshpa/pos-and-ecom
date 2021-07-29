@@ -1062,14 +1062,16 @@ class BeatPlanningExecutivesListView(generics.GenericAPIView):
 
         # condition to check the current user is super user  or manager
         if request.user.shop_employee.instance.is_superuser:
-            self.queryset = self.queryset.filter(user_type=6, is_active=True)
+            self.queryset = self.queryset. \
+                filter(user_type=6, employee_group__name__iexact='Sales Executive', is_active=True)
             self.serializer_class = ShopEmployeeSerializers
             if search_text:
                 self.queryset = shop_employee_search(self.queryset, search_text)
         else:
             self.serializer_class = BeatPlanningExecutivesListSerializers
-            self.queryset = ShopUserMapping.objects.filter(
-                manager=shop_mapping_object, status=True).distinct('employee_id')
+            self.queryset = ShopUserMapping.objects. \
+                filter(employee__user_type=6, employee_group__name__iexact='Sales Executive',
+                       manager=shop_mapping_object, status=True).distinct('employee_id')
             if search_text:
                 self.queryset = shop_manager_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
