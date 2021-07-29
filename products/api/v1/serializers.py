@@ -198,7 +198,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
         if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
             if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
-                raise serializers.ValidationError(_('product_images is required'))
+                raise serializers.ValidationError(_('product image is required'))
 
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
             image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
