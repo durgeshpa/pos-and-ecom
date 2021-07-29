@@ -272,11 +272,13 @@ class BasicCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_dt')
     total_quantity = serializers.SerializerMethodField('total_quantity_dt')
     total_amount = serializers.SerializerMethodField('total_amount_dt')
+    total_discount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
-                  'created_at', 'modified_at')
+        fields = ('id', 'cart_no', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
+                  'total_discount', 'amount_payable')
 
     def rt_cart_list_dt(self, obj):
         """
@@ -364,6 +366,20 @@ class BasicCartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
+
+    @staticmethod
+    def get_total_discount(obj):
+        discount = 0
+        offers = obj.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def get_amount_payable(self, obj):
+        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        return round(sub_total, 2)
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
