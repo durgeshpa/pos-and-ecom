@@ -1175,12 +1175,10 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
 
             if 'product_special_cess' in header_list and 'product_special_cess' in row.keys():
-                if row['product_special_cess']:
+                if str(row['product_special_cess']).strip() !='':
                     if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_special_cess'])):
                         raise ValidationError(f"Row {row_num} | 'product_special_cess' can only be a numeric value.")
-                else:
-                    pass
-
+    
             if 'weight_unit' in header_list and 'weight_unit' in row.keys() and row['weight_unit'] != '':
                 if str(row['weight_unit']).lower() not in ['gm']:
                     raise ValidationError(f"Row {row_num} | 'Weight Unit' can only be 'gm'.")
