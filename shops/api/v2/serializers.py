@@ -545,19 +545,6 @@ class ShopSerializers(serializers.ModelSerializer):
         ShopCls.update_parent_shop(shop, shop_parent_shop)
 
 
-class ShopSubTypeDataSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = RetailerType
-        fields = ('id', 'retailer_type_name', 'get_retailer_type_name_display')
-
-
-class ShopTypeDataSerializers(serializers.ModelSerializer):
-    shop_sub_type = ShopSubTypeDataSerializers(read_only=True)
-    class Meta:
-        model = ShopType
-        fields = ('id', 'shop_type', 'get_shop_type_display', 'shop_sub_type')
-
-
 class ParentRetailerMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = Shop
@@ -622,7 +609,7 @@ class AddressDataSerializers(serializers.ModelSerializer):
 class ShopCrudSerializers(serializers.ModelSerializer):
     related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
-    shop_type = ShopTypeDataSerializers(read_only=True)
+    shop_type = ShopTypeListSerializers(read_only=True)
     retiler_mapping = RetailerMappingDataSerializers(read_only=True, many=True)
     shop_owner = UserSerializers(read_only=True)
     approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
