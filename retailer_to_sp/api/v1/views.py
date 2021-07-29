@@ -844,16 +844,16 @@ class CartCentral(GenericAPIView):
                 shop_id
                 cart_type (retail-1 or basic-2)
         """
-        cart_type = self.request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             if self.request.GET.get('cart_id'):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def post(self, request, *args, **kwargs):
         """
@@ -864,13 +864,13 @@ class CartCentral(GenericAPIView):
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.retail_add_to_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
@@ -882,8 +882,8 @@ class CartCentral(GenericAPIView):
                 cart_id
                 qty
         """
-        cart_type = self.request.data.get('cart_type')
-        if cart_type == '2':
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
