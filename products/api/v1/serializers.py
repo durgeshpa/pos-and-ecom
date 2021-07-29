@@ -977,7 +977,7 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
         tax_id = self.instance.id if self.instance else None
         if 'tax_name' in self.initial_data and self.initial_data['tax_name'] is not None:
-            tax_obj = validate_tax_name(self.initial_data['name'], tax_id)
+            tax_obj = validate_tax_name(self.initial_data['tax_name'], tax_id)
             if tax_obj is not None and 'error' in tax_obj:
                 raise serializers.ValidationError(tax_obj['error'])
         if 'tax_type' in self.initial_data and 'tax_percentage' in self.initial_data:
