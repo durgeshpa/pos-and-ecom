@@ -763,7 +763,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
             if self.initial_data['packing_product_rt']:
                 mandatory_fields = ['packing_sku', 'packing_sku_weight_per_unit_sku']
                 for field in mandatory_fields:
-                    if field not in self.initial_data['packing_product_rt']:
+                    if field not in self.initial_data['packing_product_rt'][0]:
                         raise serializers.ValidationError(f"{mandatory_fields} are the essential ")
             packing_product = get_validate_packing_material(self.initial_data['packing_product_rt'])
             if 'error' in packing_product:
