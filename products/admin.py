@@ -1715,11 +1715,12 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     actions = [export_as_csv, disapprove_product_price]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
-class DiscountedProductsAdmin(admin.ModelAdmin):
+
+class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'status',
+        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'products_image', 'ptr_percent',  'status',
         'moving_average_buying_price'
     ]
 
@@ -1727,10 +1728,66 @@ class DiscountedProductsAdmin(admin.ModelAdmin):
 
     search_fields = ['product_name', 'id']
 
+    actions = ['export_as_csv']
     def get_queryset(self, request):
         qs = super().get_queryset(request).filter(product_type=1)
         return qs
-        
+    
+    def product_images(self,obj):
+        if obj.product_pro_image.exists():
+            return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
+                             format(obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_alt_text,
+                                    obj.product_pro_image.last().image.url))
+
+    product_images.short_description = 'Product Image'
+
+    def products_image(self, obj):
+        if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product.parent_product_pro_image.last().image.url,
+                (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
+                obj.parent_product.parent_product_pro_image.last().image.url
+            ))
+        elif not obj.use_parent_image and obj.product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.product_pro_image.last().image.url,
+                (obj.product_pro_image.last().image_alt_text or obj.product_pro_image.last().image_name),
+                obj.product_pro_image.last().image.url
+            ))
+        elif not obj.use_parent_image and obj.child_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.child_product_pro_image.last().image.url,
+                (obj.child_product_pro_image.last().image_alt_text or obj.child_product_pro_image.last().image_name),
+                obj.child_product_pro_image.last().image.url
+            ))
+        return '-'
+
+    def product_gst(self, obj):
+        if obj.product_gst is not None:
+            return "{} %".format(obj.product_gst)
+        return ''
+    product_gst.short_description = 'Product GST'
+
+    def is_ptr_applicable(self, obj):
+        return obj.parent_product.is_ptr_applicable
+
+    def ptr_type(self, obj):
+        return obj.parent_product.ptr_type_text
+
+    def ptr_percent(self, obj):
+        return obj.parent_product.ptr_percent
+
+    def product_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+    product_category.short_description = 'Product Category'
+
+
 
 admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 admin.site.register(ProductImage, ProductImageMainAdmin)
