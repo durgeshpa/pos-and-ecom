@@ -583,6 +583,7 @@ class PincodeDataSerializers(serializers.ModelSerializer):
 
 
 class ShopDocumentDataSerializers(serializers.ModelSerializer):
+    shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)
     class Meta:
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo')
