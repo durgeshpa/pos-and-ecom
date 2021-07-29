@@ -1567,7 +1567,7 @@ class POSerializer(serializers.ModelSerializer):
             for product in cart_products:
                 PosCartProductMapping.objects.create(cart=cart, product_id=product['product_id'], qty=product['qty'],
                                                      price=product['price'])
-            mail_to_vendor_on_po_creation(cart)
+            mail_to_vendor_on_po_creation.delay(cart)
             return cart
 
     def update(self, cart_id, validated_data):
@@ -1589,7 +1589,7 @@ class POSerializer(serializers.ModelSerializer):
             cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
             cart.save()
             if self.context.get('send_mail', False):
-                mail_to_vendor_on_po_creation(cart)
+                mail_to_vendor_on_po_creation.delay(cart)
 
 
 class POProductGetSerializer(serializers.ModelSerializer):
