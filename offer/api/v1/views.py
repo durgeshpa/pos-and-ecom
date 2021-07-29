@@ -355,11 +355,7 @@ class OfferBannerSlotView(GenericAPIView):
 
         info_logger.info("Offer Banner Slot POST api called.")
 
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Offer Banner Slot Created Successfully.")
@@ -370,21 +366,16 @@ class OfferBannerSlotView(GenericAPIView):
         """ PUT API for Offer Banner Slot Updation """
 
         info_logger.info("Offer Banner Slot PUT api called.")
-
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        if 'id' not in modified_data:
+        if 'id' not in request.data:
             return get_response('please provide id to update offer banner slot', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        id_instance = validate_id(self.queryset, int(request.data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        offer_banner_slot = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=offer_banner_slot, data=modified_data)
+        offer_banner_slot = id_instance['data'].last()
+        serializer = self.serializer_class(instance=offer_banner_slot, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Offer Banner Slot Updated Successfully.")

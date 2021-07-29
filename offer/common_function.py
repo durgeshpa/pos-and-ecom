@@ -22,3 +22,17 @@ class OfferCls(object):
         info_logger.info("offer page update info ", dict_data)
 
         return offer_page_product_log
+
+    @classmethod
+    def create_offer_banner_slot_log(cls, log_obj, action):
+        """
+            Create Parent Product Log
+        """
+        action, create_updated_by = created_updated_by(log_obj, action)
+        offer_page_product_log = OfferLog.objects.create(offer_page=log_obj, updated_by=create_updated_by,
+                                                         action=action)
+        dict_data = {'updated_by': offer_page_product_log.updated_by, 'updated_at': offer_page_product_log.update_at,
+                     'offer_page': log_obj, }
+        info_logger.info("offer page update info ", dict_data)
+
+        return offer_page_product_log
