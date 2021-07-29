@@ -395,7 +395,7 @@ class OfferBannerSlotView(GenericAPIView):
                     offer_banner_slot_id.delete()
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'offer_banner_slot': offer_banner_slot_id}
-                    info_logger.info("offer_page deleted info ", dict_data)
+                    info_logger.info("offer_banner_slot deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete offer banner slot {offer_banner_slot_id.name}, '
                                         f'because this offer banner slot is mapped with offer', False)
