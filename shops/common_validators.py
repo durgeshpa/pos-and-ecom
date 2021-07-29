@@ -122,7 +122,6 @@ def get_validate_shop_documents(shop_documents):
 
             shop_doc_list.append(shop_doc_obj)
         except Exception as e:
-            traceback.print_exc()
             logger.error(e)
             # return {'error': 'please provide a valid shop_document id'}
             return {'error': "Something went wrong, msg: " + str(e)} 
