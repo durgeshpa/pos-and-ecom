@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 
 from pos import views
-from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete
+from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, InventoryRetailerProductAutocomplete
 from pos.filters import PosShopAutocomplete
 
 urlpatterns = [
@@ -13,4 +13,7 @@ urlpatterns = [
     url(r'^pos-shop-autocomplete/$', PosShopAutocomplete.as_view(), name='pos-shop-autocomplete'),
     url(r'^download-purchase-order/(?P<pk>\d+)/$', DownloadPurchaseOrder.as_view(), name='pos_download_purchase_order'),
     url(r'^api/', include('pos.api.urls')),
+    url(r'^inventory-product-autocomplete/', InventoryRetailerProductAutocomplete.as_view(),
+        name='inventory-product-autocomplete'),
+    
 ]

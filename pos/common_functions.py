@@ -2,22 +2,26 @@ import logging
 import json
 from functools import wraps
 from copy import deepcopy
+from decimal import Decimal
 
 from rest_framework.response import Response
 from rest_framework import status
 from django.urls import reverse
-from django.db.models import Q, Sum
+from django.db.models import Sum
+from django.core.exceptions import ObjectDoesNotExist
 
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
-from shops.models import PosShopUserMapping, Shop
-from accounts.models import User
+from shops.models import Shop
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
 from rest_auth.utils import AutoUser
+from products.models import Product
 
+from .common_validators import validate_user_type_for_pos_shop
+from pos import error_code
 from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields
 
 ORDER_STATUS_MAP = {
@@ -103,6 +107,8 @@ class RetailerProductCls(object):
             return 'LINKED'
         if sku_type == 3:
             return 'LINKED_EDITED'
+        if sku_type == 4:
+            return 'DISCOUNTED'
 
     @classmethod
     def is_discounted_product_exists(cls, product):
@@ -553,3 +559,108 @@ class ProductChangeLogs(object):
             for col in product_changes:
                 ProductChangeFields.objects.create(product_change=product_change_obj, column_name=col,
                                                    old_value=product_changes[col][0], new_value=product_changes[col][1])
+
+
+class PosAddToCart(object):
+
+    @staticmethod
+    def validate_request_body(view_func):
+
+        @wraps(view_func)
+        def _wrapped_view_func(self, request, *args, **kwargs):
+            shop, cart_id = kwargs['shop'], kwargs['pk'] if 'pk' in kwargs else None
+
+            # Check if existing or new cart
+            cart = None
+            if cart_id:
+                cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+                if not cart:
+                    return api_response("Cart Doesn't Exist")
+                elif cart.cart_status == Cart.ORDERED:
+                    return api_response("Order already placed on this cart!", None, status.HTTP_406_NOT_ACCEPTABLE,
+                                        False, {'error_code': error_code.CART_NOT_ACTIVE})
+                elif cart.cart_status == Cart.DELETED:
+                    return api_response("This cart was deleted!", None, status.HTTP_406_NOT_ACCEPTABLE,
+                                        False, {'error_code': error_code.CART_NOT_ACTIVE})
+                elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
+                    return api_response("Active Cart Doesn't Exist!")
+
+            # Quantity check
+            qty = request.data.get('qty')
+            if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+                return api_response("Qty Invalid!")
+
+            # Either existing product OR info for adding new product
+            product = None
+            new_product_info = dict()
+            # Adding new product in catalogue and cart
+            if not request.data.get('product_id'):
+                # User permission check
+                pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
+                if 'error' in pos_shop_user_obj:
+                    if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                        return api_response('Unauthorised user to add new product.')
+                    return api_response(pos_shop_user_obj['error'])
+
+                # Provided product info check
+                name, sp, ean = request.data.get('product_name'), request.data.get(
+                    'selling_price'), request.data.get('product_ean_code')
+                if not name or not sp or not ean:
+                    return api_response("Please provide product_id OR product_name, product_ean_code, selling_price!")
+
+                # Linked product check
+                linked_pid = request.data.get('linked_product_id') if request.data.get('linked_product_id') else None
+                new_product_info['mrp'], new_product_info['type'] = 0, 1
+                if linked_pid:
+                    linked_product = Product.objects.filter(id=linked_pid).last()
+                    if not linked_product:
+                        return api_response(f"GramFactory product not found for given {linked_pid}")
+                    new_product_info['mrp'], new_product_info['type'] = linked_product.product_mrp, 2
+
+                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
+                new_product_info['ean'] = ean
+            # Add by Product Id
+            else:
+                try:
+                    product = RetailerProduct.objects.get(id=request.data.get('product_id'), shop=shop)
+                except ObjectDoesNotExist:
+                    return api_response("Product Not Found!")
+                # Check if selling price is less than equal to mrp if price change
+                price_change = request.data.get('price_change')
+                if price_change in [1, 2]:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+
+                    # Price update check
+                    selling_price = request.data.get('selling_price')
+                    if not selling_price:
+                        return api_response("Please provide selling price to change price")
+                    if product.mrp and Decimal(selling_price) > product.mrp:
+                        return api_response("Selling Price should be equal to OR less than MRP")
+
+                # Check discounted product
+                if product.sku_type == 4:
+                    discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+                    if product.status != 'active':
+                        return api_response("This product is de-activated!")
+                    elif discounted_stock < qty:
+                        return api_response("This product has only {} in stock!".format(discounted_stock))
+
+                check_discounted = request.data.get('check_discounted', None)
+                if check_discounted and RetailerProductCls.is_discounted_product_exists(
+                        product) and product.discounted_product.status == 'active':
+                    return api_response('Discounted product found', self.serialize_product(product),
+                                        status.HTTP_300_MULTIPLE_CHOICES, False)
+
+            # Return with objects
+            kwargs['product'] = product
+            kwargs['new_product_info'] = new_product_info
+            kwargs['quantity'] = qty
+            kwargs['cart'] = cart
+            return view_func(self, request, *args, **kwargs)
+
+        return _wrapped_view_func

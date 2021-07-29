@@ -1,9 +1,11 @@
 import csv
-from copy import deepcopy
+from datetime import date
+from io import StringIO
 
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
+from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
@@ -19,7 +21,9 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
                      ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
-    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder
+    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
+    download_discounted_products_form_view, download_discounted_products, download_posinventorychange_products_form_view, \
+    download_posinventorychange_products
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
@@ -27,7 +31,7 @@ from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel
-from .forms import RetailerProductsForm, DiscountedRetailerProductsForm
+from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
 
 
 class RetailerProductImageTabularAdmin(admin.TabularInline):
@@ -66,8 +70,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                       'description', 'sku_type', 'status', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+
+    
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
@@ -99,7 +104,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
-        """" Download & Upload(For Creating OR Updating Bulk Products) Retailer Product CSV"""
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
                    url(r'retailer_products_csv_download_form',
@@ -407,12 +411,15 @@ class PosInventoryAdmin(admin.ModelAdmin):
 
 @admin.register(PosInventoryChange)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
+    forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
                     'changed_by', 'created_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
     list_filter = [ProductInvEanSearch]
+
+    change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
     @staticmethod
     def shop(obj):
@@ -426,6 +433,21 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_urls(self):
+        """" Download CSV of Pos Inventory change along with discounted product"""
+        urls = super(PosInventoryChangeAdmin, self).get_urls()
+        urls = [
+                   url(r'posinventorychange_products_download_form',
+                       self.admin_site.admin_view(download_posinventorychange_products_form_view),
+                       name="posinventorychange_products_download_form"),
+
+                   url(r'posinventorychange_products_download',
+                       self.admin_site.admin_view(download_posinventorychange_products),
+                       name="posinventorychange_products_download"),
+
+               ] + urls
+        return urls
 
 
 class RetailerReturnItemsAdmin(admin.TabularInline):
@@ -483,6 +505,8 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
 
+    change_list_template = 'admin/pos/discounted_product_change_list.html'
+
     def get_queryset(self, request):
         qs = super(DiscountedRetailerProductAdmin, self).get_queryset(request)
         qs = qs.filter(sku_type=4)
@@ -500,6 +524,21 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_urls(self):
+        """" Download & Upload(For Creating OR Updating Bulk Products) Retailer Product CSV"""
+        urls = super(DiscountedRetailerProductAdmin, self).get_urls()
+        urls = [
+                   url(r'discounted_products_download_form',
+                       self.admin_site.admin_view(download_discounted_products_form_view),
+                       name="discounted_products_download_form"),
+
+                   url(r'discounted_products_download',
+                       self.admin_site.admin_view(download_discounted_products),
+                       name="discounted_products_download"),
+
+               ] + urls
+        return urls
 
     class Media:
         js = (
@@ -576,6 +615,7 @@ class PosCartAdmin(admin.ModelAdmin):
     list_per_page = 10
     inlines = [PosCartProductMappingAdmin]
     search_fields = ('po_no', 'retailer_shop__shop_name')
+    actions = ['download_store_po']
 
     def download_purchase_order(self, obj):
         return format_html("<a href= '%s' >Download PO</a>" % (reverse('admin:pos_download_purchase_order', args=[obj.pk])))
@@ -601,6 +641,22 @@ class PosCartAdmin(admin.ModelAdmin):
                ] + urls
         return urls
 
+    def download_store_po(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['Vendor', 'Retailer', 'PO No', 'Status', 'Raised By', 'GF Order No', 'Created At', 'SKU',
+                         'Product Name', 'Quantity', 'Price'])
+
+        for obj in queryset:
+            for p in obj.po_products.all():
+                writer.writerow([obj.vendor, obj.retailer_shop, obj.po_no, obj.status, obj.raised_by, obj.gf_order_no,
+                                 obj.created_at, p.product.sku, p.product.name, p.qty, p.price])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
+        return response
+
 
 class PosGrnOrderProductMappingAdmin(admin.TabularInline):
     model = PosGRNOrderProductMapping
@@ -624,6 +680,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     list_per_page = 10
     inlines = [PosGrnOrderProductMappingAdmin]
     search_fields = ('order__ordered_cart__po_no', 'order__ordered_cart__retailer_shop__shop_name')
+    actions = ['download_grns']
 
     def po_no(self, obj):
         return obj.order.ordered_cart.po_no
@@ -639,6 +696,25 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def download_grns(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['GRN Id', 'Order No', 'Created At', 'SKU', 'Product Name',
+                         'Recieved Quantity'])
+
+        for obj in queryset:
+            for p in obj.po_grn_products.all():
+                writer.writerow([obj.grn_id, obj.order.order_no,
+                                 obj.created_at, p.product.sku, p.product.name, p.received_qty])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
+        return response
+
+
+
 
 
 @admin.register(PaymentType)

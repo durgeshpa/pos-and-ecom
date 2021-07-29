@@ -110,7 +110,7 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
-    type = models.CharField(max_length=20)
+    type = models.CharField(max_length=20, unique=True)
     enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -277,7 +277,8 @@ class PosGRNOrderProductMapping(models.Model):
 
 
 class Document(models.Model):
-    grn_order = models.ForeignKey(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE)
+    grn_order = models.OneToOneField(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE,
+                                     related_name='pos_grn_invoice')
     document = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')
 
 
@@ -304,4 +305,4 @@ class ProductChangeFields(models.Model):
     product_change = models.ForeignKey(ProductChange, related_name='price_change_cols', on_delete=models.DO_NOTHING)
     column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
     old_value = models.CharField(max_length=255, null=True)
-    new_value = models.CharField(max_length=255)
+    new_value = models.CharField(max_length=255, null=True)
