@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+import traceback
 from datetime import datetime
 from django.core.exceptions import ValidationError
 
@@ -80,7 +81,7 @@ def validate_gstin_number(document_num):
     """validate GSTIN Number"""
     gst_regex = "^([0]{1}[1-9]{1}|[1-2]{1}[0-9]{1}|[3]{1}[0-7]{1})([a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}[1-9a-zA-Z]{1}[zZ]{1}[0-9a-zA-Z]{1})+$"
     if not re.match(gst_regex, document_num):
-        raise {'error': 'Please enter valid GSTIN'}
+        return {'error': 'Please enter valid GSTIN'}
     return {'document_num': document_num}
 
 
@@ -117,10 +118,11 @@ def get_validate_shop_documents(shop_documents):
                     shop_doc['shop_document_number'])
                 if 'error' in shop_doc_num:
                     return shop_doc_num
-                shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
+                # shop_doc_obj['shop_document_number'] = shop_doc_num['document_num']
 
             shop_doc_list.append(shop_doc_obj)
         except Exception as e:
+            traceback.print_exc()
             logger.error(e)
             # return {'error': 'please provide a valid shop_document id'}
             return {'error': "Something went wrong, msg: " + str(e)} 
