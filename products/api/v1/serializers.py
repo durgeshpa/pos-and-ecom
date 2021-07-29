@@ -355,8 +355,8 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         meta = ParentProduct._meta
         field_names = [
             'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
-            'product_surcharge', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
-            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory'
+            'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
+            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory',
         ]
 
         response = HttpResponse(content_type='text/csv')
