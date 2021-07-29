@@ -1060,7 +1060,7 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'parent_id' in header_list and 'parent_id' in row.keys():
                 if row['parent_id'] != '':
-                    if not parent_products.filter(parent_id=row['parent_id']).exists():
+                    if not parent_products.filter(parent_id=str(row['parent_id']).strip()).exists():
                         raise ValidationError(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist.")
                 parent_product = parent_products.filter(parent_id=row['parent_id'])
                 if category and 'sku_id' not in row.keys():
