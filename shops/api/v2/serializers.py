@@ -1304,6 +1304,10 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
     file = serializers.FileField(
         label='Upload Beat Planning', required=True, write_only=True)
 
+    def __init__(self, *args, **kwargs):
+        super(BeatPlanningSerializer, self).__init__(*args, **kwargs)  # call the super()
+        self.fields['executive_id'].error_messages['required'] = 'Please select a valid executive.'
+
     class Meta:
         model = BeatPlanning
         fields = ('executive_id', 'file',)
