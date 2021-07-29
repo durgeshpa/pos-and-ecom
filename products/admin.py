@@ -1715,7 +1715,24 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     actions = [export_as_csv, disapprove_product_price]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
+class DiscountedProductsAdmin(admin.ModelAdmin):
+    list_display = [
+        'product_sku', 'product_name', 'parent_product', 'parent_name',
+        'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
+        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'status',
+        'moving_average_buying_price'
+    ]
 
+    list_filter = [ProductSearch, ChildParentIDFilter]
+
+    search_fields = ['product_name', 'id']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).filter(product_type=1)
+        return qs
+        
+
+admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(Size, SizeAdmin)
