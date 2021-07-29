@@ -1007,10 +1007,10 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        if instance.tax_start_at:
-            representation['tax_start_at'] = instance.tax_start_at.strftime("%b %d %Y %I:%M%p")
-        if instance.tax_end_at:
-            representation['tax_end_at'] = instance.tax_end_at.strftime("%b %d %Y %I:%M%p")
+        # if instance.tax_start_at:
+        #     representation['tax_start_at'] = instance.tax_start_at.strftime("%b %d %Y %I:%M%p")
+        # if instance.tax_end_at:
+        #     representation['tax_end_at'] = instance.tax_end_at.strftime("%b %d %Y %I:%M%p")
         if representation['tax_name']:
             representation['tax_name'] = representation['tax_name'].title()
         return representation
