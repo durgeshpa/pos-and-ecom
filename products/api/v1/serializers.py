@@ -877,7 +877,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         meta = Product._meta
-        exclude_fields = ['created_at', 'updated_at']
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
 
@@ -938,7 +938,7 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
         if 'product_hsn_code' in self.initial_data and data['product_hsn_code']:
             if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True)\
                     .exclude(id=hsn_id).exists():
-                raise serializers.ValidationError("product hsn code already exists.")
+                raise serializers.ValidationError("hsn code already exists.")
 
         return data
 
