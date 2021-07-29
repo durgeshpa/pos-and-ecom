@@ -1075,7 +1075,7 @@ class GrnOrderView(GenericAPIView):
         try:
             data = json.loads(self.request.data["data"])
         except:
-            return {'error': "Invalid Data Format"}
+            return api_response("Invalid Data Format")
         data['invoice'] = request.FILES.get('invoice')
         serializer = PosGrnOrderCreateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
@@ -1092,7 +1092,7 @@ class GrnOrderView(GenericAPIView):
         try:
             data = json.loads(self.request.data["data"])
         except:
-            return {'error': "Invalid Data Format"}
+            return api_response("Invalid Data Format")
         data['invoice'] = request.FILES.get('invoice')
         data['grn_id'] = kwargs['pk']
         serializer = PosGrnOrderUpdateSerializer(data=data,
