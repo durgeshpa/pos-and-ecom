@@ -1064,10 +1064,21 @@ class PosShopUserMappingView(generics.GenericAPIView):
     queryset = PosShopUserMapping.objects.order_by('-id')
     serializer_class = PosShopUserMappingCrudSerializers
 
-    @check_pos_shop
+    def check_pos_enabled_shop(self, shop_id):
+        qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=1)
+        qs = qs.filter(id=shop_id)
+        shop = qs.last()
+        return shop
+
     def get(self, request, *args, **kwargs):
         """ GET API for PosShopUserMapping """
-        self.queryset = self.queryset.filter(shop=kwargs['shop'])
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        self.queryset = self.queryset.filter(shop=shop)
 
         if request.GET.get('id'):
             """ Get PosShopUserMapping for specific ID """
@@ -1085,11 +1096,14 @@ class PosShopUserMappingView(generics.GenericAPIView):
         msg = "" if shop_user_data else "no shop found"
         return get_response(msg, serializer.data, True)
 
-    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """ POST API for PosShopUserMapping Creation"""
-        shop = kwargs['shop']
-
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
@@ -1105,10 +1119,15 @@ class PosShopUserMappingView(generics.GenericAPIView):
             return get_response('shop created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    @check_pos_shop
     def put(self, request, *args, **kwargs):
         """ PUT API for PosShopUserMapping Updation"""
-        shop = kwargs['shop']
+
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
         self.queryset = self.queryset.filter(shop=shop)
 
         modified_data = validate_data_format(self.request)
@@ -1132,10 +1151,15 @@ class PosShopUserMappingView(generics.GenericAPIView):
             return get_response('Shop User Mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    @check_pos_shop
     def delete(self, request, *args, **kwargs):
         """ Delete PosShopUserMapping """
-        self.queryset = self.queryset.filter(shop=kwargs['shop'])
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        self.queryset = self.queryset.filter(shop=shop)
 
         if not request.data.get('psu_id'):
             return get_response('please provide psu_id', False)
