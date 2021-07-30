@@ -56,7 +56,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload)
+                    packing_material_inventory_sample_upload, HSNAutocomplete)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -356,6 +356,20 @@ class ProductSearch(InputFilter):
             )
 
 
+class ProductEanSearch(InputFilter):
+    parameter_name = 'product_ean_search'
+    title = 'Product Ean Code'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_ean = self.value()
+            if product_ean is None:
+                return
+            return queryset.filter(
+                Q(product_ean_code__icontains=product_ean)
+            )
+
+
 class ProductSKUSearch(InputFilter):
     parameter_name = 'product_sku'
     title = 'Product SKU'
@@ -651,22 +665,27 @@ class ParentProductAdmin(admin.ModelAdmin):
         from django.conf.urls import url
         urls = super(ParentProductAdmin, self).get_urls()
         urls = [
-                   url(
-                       r'^parent-product-upload-csv/$',
-                       self.admin_site.admin_view(parent_product_upload),
-                       name="parent-product-upload"
-                   ),
-                   url(
-                       r'^parent-products-download-sample-csv/$',
-                       self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
-                       name="parent-products-download-sample-csv"
-                   ),
-                   url(
-                       r'^parent-product-multiple-photos-upload/$',
-                       self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
-                       name='parent_product_multiple_photos_upload'
-                   ),
-               ] + urls
+            url(
+                r'^parent-product-upload-csv/$',
+                self.admin_site.admin_view(parent_product_upload),
+                name="parent-product-upload"
+            ),
+            url(
+                r'^parent-products-download-sample-csv/$',
+                self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
+                name="parent-products-download-sample-csv"
+            ),
+            url(
+                r'^parent-product-multiple-photos-upload/$',
+                self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
+                name='parent_product_multiple_photos_upload'
+            ),
+           url(
+               r'^hsn-autocomplete/$',
+               self.admin_site.admin_view(HSNAutocomplete.as_view()),
+               name="hsn-autocomplete"
+           ),
+        ] + urls
         return urls
 
 
@@ -1012,7 +1031,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
 
     search_fields = ['product_name', 'id']
-    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status', ProductEanSearch]
     list_per_page = 50
 
     inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
@@ -1717,7 +1736,7 @@ admin.site.register(PackageSize, PackageSizeAdmin)
 admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
-admin.site.register(ProductPrice, ProductPriceAdmin)
+# admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)

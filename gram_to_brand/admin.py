@@ -21,12 +21,12 @@ from retailer_backend.filters import (BrandFilter, SupplierStateFilter, Supplier
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from products.models import ProductVendorMapping, ParentProduct
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from .views import DownloadPurchaseOrder, GetMessage
+from .views import DownloadPurchaseOrder, GetMessage, DownloadPOItems
 from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
-                     PickListItems, OrderedProductReserved, Po_Message)
+                     PickListItems, OrderedProductReserved, Po_Message, VendorShopMapping)
 from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
-                    POGenerationAccountForm, POGenerationForm, DocumentForm)
+                    POGenerationAccountForm, POGenerationForm, DocumentForm, VendorShopMappingForm)
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -118,6 +118,7 @@ class CartAdmin(admin.ModelAdmin):
             obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         if is_approved:
+            obj.is_approve = True
             obj.approved_by = request.user
             obj.approved_at = datetime.datetime.now()
         obj.save()
@@ -173,6 +174,9 @@ class CartAdmin(admin.ModelAdmin):
                    url(r'^message-list/$',
                        self.admin_site.admin_view(GetMessage.as_view()),
                        name='message-list'),
+                   url(r'^download-po-items/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadPOItems.as_view()),
+                       name='download-po-items'),
                ] + urls
         return urls
 
@@ -482,8 +486,15 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
                     'reserve_status')
 
 
+class VendorShopMappingAdmin(admin.ModelAdmin):
+    form = VendorShopMappingForm
+    list_display = ('vendor', 'shop')
+
+
+
 admin.site.register(PickList, PickListAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(OrderedProductReserved, OrderedProductReservedAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(GRNOrder, GRNOrderAdmin)
+admin.site.register(VendorShopMapping, VendorShopMappingAdmin)

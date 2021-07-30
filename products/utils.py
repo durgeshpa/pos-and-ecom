@@ -10,6 +10,8 @@ from django.db.models import Q
 
 from addresses.models import Address, City, State
 from products.models import ProductVendorMapping
+from .models import ProductHSN
+from django.db.models.functions import Length
 
 
 def create_shops_excel(queryset):
@@ -244,3 +246,14 @@ def vendor_product_mapping(supplier, product_id, price, mrp, case_size, unit):
                                                                  product_price_pack=price, product_mrp=mrp,
                                                                  case_size=case_size, status=True)
     return vendor_product_obj
+
+
+def hsn_queryset(self):
+    """
+    return query set from Product HSN which length is gte 6 and lte 8
+    """
+
+    qs = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
+                                                                                 text_len__lte=8,
+                                                                                 product_hsn_code__icontains=self.q)
+    return qs

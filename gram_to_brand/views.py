@@ -25,6 +25,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from dal import autocomplete
 
 from barCodeGenerator import merged_barcode_gen
+from common import constants
 from products.models import Product
 from gram_to_brand.models import (
     Order, CartProductMapping, Cart,
@@ -42,6 +43,14 @@ from retailer_backend.messages import SUCCESS_MESSAGES
 import logging
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
+
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.all()
+        if self.q:
+            qs = qs.filter(vendor_name__startswith=self.q)
+        return qs
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -191,7 +200,11 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin = shop.gf_shipping_address.shop_name. \
             shop_name_documents.filter(shop_document_type='gstin').last()
-
+        shop_id = order_obj.gf_billing_address.shop_name_id
+        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
+        is_gf_shop = False
+        if shop_id in gf_shops:
+            is_gf_shop = True
         tax_inline, sum_amount, sum_qty = 0, 0, 0
         gst_list = []
         cess_list = []
@@ -201,28 +214,10 @@ class DownloadPurchaseOrder(APIView):
             sum_amount = sum_amount + m.total_price
             inline_sum_amount = m.total_price
             tax_percentage = 0
-            # if m.cart_product.parent_product:
-            #     tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + \
-            #                      m.cart_product.parent_product.surcharge
-            # else:
-            #     for n in m.cart_product.product_pro_tax.all():
-            #         tax_percentage += n.tax.tax_percentage
             for n in m.cart_product.product_pro_tax.all():
                 tax_percentage += n.tax.tax_percentage
             divisor = (1 + (tax_percentage / 100))
             original_amount = (inline_sum_amount / divisor)
-            # if m.cart_product.parent_product:
-            #     gst_list.append((original_amount * (m.cart_product.parent_product.gst / 100)))
-            #     cess_list.append((original_amount * (m.cart_product.parent_product.cess / 100)))
-            #     surcharge_list.append((original_amount * (m.cart_product.parent_product.surcharge / 100)))
-            # else:
-            #     for n in m.cart_product.product_pro_tax.all():
-            #         if n.tax.tax_type == 'gst':
-            #             gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
-            #         elif n.tax.tax_type == 'cess':
-            #             cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
-            #         elif n.tax.tax_type == 'surcharge':
-            #             surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
             for n in m.cart_product.product_pro_tax.all():
                 if n.tax.tax_type == 'gst':
                     gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
@@ -253,7 +248,11 @@ class DownloadPurchaseOrder(APIView):
             "total_amount": total_amount,
             "order_id": order_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
-            "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+            "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
+            "is_gf_shop" : is_gf_shop
+        }
+
+
         cmd_option = {
             'encoding': 'utf8',
             'margin-top': 3
@@ -279,6 +278,11 @@ class DownloadDebitNote(APIView):
         pk = self.kwargs.get('pk')
         a = GRNOrder.objects.get(pk=pk)
         shop = a
+        shop_id = order_obj.order.ordered_cart.gf_billing_address.shop_name_id
+        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
+        is_gf_shop = False
+        if shop_id in gf_shops:
+            is_gf_shop = True
         debit_note_id = a.grn_order_brand_note.all()
         products = a.grn_order_grn_order_product.all()
         product_list = {}
@@ -342,7 +346,8 @@ class DownloadDebitNote(APIView):
             "order_id": order_id, "total_amount_int": total_amount_int,
             "debit_note_id": debit_note_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
-            "gram_factory_shipping_gstin": gram_factory_shipping_gstin
+            "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
+            "is_gf_shop": is_gf_shop
         }
         cmd_option = {'encoding': 'utf8', 'margin-top': 3}
         response = PDFTemplateResponse(
@@ -629,11 +634,116 @@ def mail_to_vendor_on_po_approval(po_instance):
     """
     Send mail to vendor once po is approved.
     """
-    pass
-    # sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
-    # recipient_list = [po_instance.email]
-    # today = datetime.datetime.today().date()
-    # subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(today)
-    # body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY'].format(today)
-    # attachment_list = []
-    # send_mail(sender, recipient_list, subject, body, attachment_list)
+    sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
+    recipient_list = get_config("MAIL_DEV")
+    bcc_list = None
+    if config('OS_ENV') and config('OS_ENV') in ['Production']:
+        if get_config("MAIL_TO_VENDOR", False) and po_instance.supplier_name.email_id is not None:
+            recipient_list = po_instance.supplier_name.email_id.split(",")
+            bcc_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
+        else:
+            recipient_list = get_config("ARS_MAIL_TO_VENDOR_BCC")
+    vendor_name = po_instance.supplier_name.vendor_name
+    po_no = po_instance.po_no
+    subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_no,
+                                                                 vendor_name,
+                                                                 po_instance.brand.brand_name)
+    body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY']
+
+    filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
+    template_name = 'admin/purchase_order/purchase_order.html'
+
+    cmd_option = {
+        'encoding': 'utf8',
+        'margin-top': 3
+    }
+
+    data = generate_pdf_data(po_instance)
+    response = PDFTemplateResponse(
+        request=None, template=template_name,
+        filename=filename, context=data,
+        show_content_in_browser=False, cmd_options=cmd_option
+    )
+    attachment = {'name': filename, 'type': 'application/pdf', 'value': response.rendered_content}
+    send_mail(sender, recipient_list, subject, body, [attachment], bcc= bcc_list)
+
+
+def generate_pdf_data(po_instance):
+    """
+    Takes PO(Cart) instance and generated the data required for PO PDF
+    """
+    products = po_instance.cart_list.all()
+    order = po_instance.order_cart_mapping
+    order_id = order.order_no
+    gram_factory_billing_gstin = po_instance.gf_billing_address.shop_name. \
+        shop_name_documents.filter(shop_document_type='gstin').last()
+    gram_factory_shipping_gstin = po_instance.gf_shipping_address.shop_name. \
+        shop_name_documents.filter(shop_document_type='gstin').last()
+    tax_inline, sum_amount, sum_qty = 0, 0, 0
+    gst_list = []
+    cess_list = []
+    surcharge_list = []
+    for m in products:
+        sum_qty = sum_qty + m.qty
+        sum_amount = sum_amount + m.total_price
+        inline_sum_amount = m.total_price
+        tax_percentage = 0
+        for n in m.cart_product.product_pro_tax.all():
+            tax_percentage += n.tax.tax_percentage
+        divisor = (1 + (tax_percentage / 100))
+        original_amount = (inline_sum_amount / divisor)
+        for n in m.cart_product.product_pro_tax.all():
+            if n.tax.tax_type == 'gst':
+                gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            elif n.tax.tax_type == 'cess':
+                cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            elif n.tax.tax_type == 'surcharge':
+                surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
+    igst = sum(gst_list)
+    cgst = igst / 2
+    sgst = igst / 2
+    cess = sum(cess_list)
+    surcharge = sum(surcharge_list)
+    total_amount = sum_amount
+    data = {
+        "object": po_instance,
+        "products": products,
+        "shop": po_instance,
+        "sum_qty": sum_qty,
+        "sum_amount": sum_amount,
+        "url": get_config('SITE_URL'),
+        "scheme": get_config('CONNECTION'),
+        "igst": igst,
+        "cgst": cgst,
+        "sgst": sgst,
+        "cess": cess,
+        "surcharge": surcharge,
+        "total_amount": total_amount,
+        "order_id": order_id,
+        "gram_factory_billing_gstin": gram_factory_billing_gstin,
+        "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+    return data
+
+
+class DownloadPOItems(APIView):
+
+    permission_classes = (AllowAny,)
+    filename = 'purchase_order.pdf'
+
+    def get(self, request, *args, **kwargs):
+        pk = self.kwargs.get('pk')
+        cart = Cart.objects.filter(pk=int(pk)).last()
+        filename ="po_item_list_" + cart.po_no + ".csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['parent_id', 'parent_name', 'id', 'product_name', 'sku', 'case_size', 'number_of_cases', 'mrp',
+                         'brand_to_gram_price_unit', 'brand_to_gram_price'])
+        po_items = CartProductMapping.objects.filter(cart=cart)
+
+        for p in po_items:
+            writer.writerow([p.cart_parent_product.parent_id, p.cart_parent_product.name, p.cart_product_id, p.cart_product.product_name,
+                             p.cart_product.product_sku, p.case_size, p.no_of_cases, p.cart_product.product_mrp,
+                             p.vendor_product.brand_to_gram_price_unit, p.price])
+
+        return response

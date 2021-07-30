@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from django.db.models import Value, Case, When, F, Q
 from django.db import transaction
 from model_utils import Choices
+from django.db.models.functions import Length
 
 from tempus_dominus.widgets import DatePicker, DateTimePicker, TimePicker
 
@@ -413,7 +414,16 @@ class DestinationRepackagingCostMappingForm(forms.ModelForm):
         }
 
 
+# query set from Product HSN which length is gte 6 and lte 8
+hsn_choices = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6, text_len__lte=8)
+
+
 class ParentProductForm(forms.ModelForm):
+    """
+    Parent Product Form
+    """
+    product_hsn = forms.ModelChoiceField(queryset=hsn_choices,
+                                         widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete',))
 
     class Meta:
         model = ParentProduct
@@ -787,6 +797,9 @@ class UploadMasterDataAdminForm(forms.Form):
                                 product_hsn_code=row['hsn']).exists() and not ProductHSN.objects.filter(
                                 product_hsn_code='0' + str(row['hsn'])).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
+                        if len(str(row['hsn'])) < 6 or len(str(row['hsn'])) > 8:
+                            raise ValidationError(
+                                _(f"Row {row_num} | {row['hsn']} |'HSN' code should be min 6 char and max 8 char."))
                 if 'tax_1(gst)' in header_list and 'tax_1(gst)' in row.keys():
                     if row['tax_1(gst)'] != '':
                         if not Tax.objects.filter(tax_name=row['tax_1(gst)']).exists():
@@ -887,7 +900,7 @@ class UploadMasterDataAdminForm(forms.Form):
 
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
-                        if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
+                        if not row['repackaging_type'].lower() in ['none', 'source', 'destination', 'packing_material']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
                                   f"'source', 'destination' or 'packing_material'!"))

@@ -1,42 +1,30 @@
-from decimal import Decimal
 import math
+import datetime
+
+from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
+from django.contrib.auth import get_user_model
+from django.db.models import Sum, Q
 from rest_framework import serializers
 
-from common.common_utils import convert_date_format_ddmmmyyyy
+from accounts.models import UserWithName
+from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
+                             Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
+from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
+                                   Trip, PickerDashboard, ShipmentRescheduling)
 
-from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption,
-                             Size, Color, Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice,
-                             PriceSlab)
-from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
-
-from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-    OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
- )
-from addresses.models import Address,City,State,Country
-from payments.models import ShipmentPayment, PaymentMode
-
-from gram_to_brand.models import GRNOrderProductMapping
-
-from sp_to_gram.models import OrderedProductMapping
-from accounts.api.v1.serializers import UserSerializer
-from django.urls import reverse
-from django.db.models import F,Sum
-from gram_to_brand.models import GRNOrderProductMapping
-from addresses.api.v1.serializers import AddressSerializer
-from brand.api.v1.serializers import BrandSerializer
-from django.core.validators import RegexValidator
-from django.utils.translation import ugettext_lazy as _
-from django.core.exceptions import ObjectDoesNotExist
-from shops.models import Shop
-from shops.models import ShopTiming
-
-from django.contrib.auth import get_user_model
-from coupon.serializers import CouponSerializer
-import datetime
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
+                                     Payment as GramMappedPayment)
 from coupon.models import Coupon
-from django.db.models import F,Sum, Q
+from sp_to_gram.models import OrderedProductMapping
+from gram_to_brand.models import GRNOrderProductMapping
+from shops.models import Shop, ShopTiming
+from accounts.api.v1.serializers import UserSerializer
+from addresses.api.v1.serializers import AddressSerializer
+from coupon.serializers import CouponSerializer
+from retailer_backend.utils import SmallOffsetPagination
 
 User = get_user_model()
 
@@ -267,7 +255,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         if current_price:
             self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1),
                                                                                   obj.product_inner_case_size)
-            return self.product_price
+            return ("%.2f" % round(self.product_price, 2))
 
     def m_per_piece_price(self, obj):
         return round(self.product_price/obj.product_inner_case_size, 2)
@@ -347,11 +335,17 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def is_available_dt(self,obj):
+        """
+            Check is quantity of product is available
+        """
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
         self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False
         return self.is_available
 
     def no_pieces_dt(self, obj):
+        """
+            No of pieces of Product
+        """
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
     def product_sub_total_dt(self, obj):
@@ -359,12 +353,16 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         price_per_piece = product_price.get_per_piece_price(obj.qty)
         return round((price_per_piece * obj.no_of_pieces), 2)
 
+
     def product_coupons_dt(self, obj):
+        """
+            Coupons for a product
+        """
         product_coupons = []
         date = datetime.datetime.now()
-        sku_no_of_pieces = int(obj.cart_product.product_inner_case_size) * int(obj.qty)
-        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
-            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date).\
+                exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f'):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date).exclude(shop__shop_type__shop_type='f'):
                 product_coupons.append(rule.coupon_code)
         parent_product_brand = obj.cart_product.parent_product.parent_brand if obj.cart_product.parent_product else None
         if parent_product_brand:
@@ -372,7 +370,6 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         else:
             parent_brand = None
         product_brand_id = obj.cart_product.parent_product.parent_brand.id if obj.cart_product.parent_product else None
-        # parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
         brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
@@ -388,18 +385,18 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                         for i in coupons:
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
-            keyValList3 = ['discount_on_product']
-            keyValList2 = ['discount_on_brand']
-            exampleSet3 = obj.cart.offers
-            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
-            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet3))
+            product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], obj.cart.offers))
+            brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], obj.cart.offers))
             for j in coupons:
-                for i in (array3 + array2):
+                for i in (product_offers + brand_offers):
                     if j['coupon_code'] == i['coupon_code']:
                         j['is_applied'] = True
             return coupons
 
     def margin_dt(self, obj):
+        """
+            Mrp, selling price margin
+        """
         product_price = obj.cart_product.\
             get_current_shop_price(self.context.get('parent_mapping_id'),
                              self.context.get('buyer_shop_id'))
@@ -418,9 +415,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    rt_cart_list = CartProductMappingSerializer(many=True)
+    rt_cart_list = serializers.SerializerMethodField('rt_cart_list_dt')
     last_modified_by = UserSerializer()
-
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
@@ -433,7 +429,24 @@ class CartSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount', 'shop_min_amount',
-                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers',)
+
+    def rt_cart_list_dt(self, obj):
+        """
+         Search and pagination on cart
+        """
+        qs = CartProductMapping.objects.filter(cart=obj)
+        search_text = self.context.get('search_text')
+        # Search on name, ean and sku
+        if search_text:
+            qs = qs.filter(Q(cart_product__product_sku__icontains=search_text)
+                              | Q(cart_product__product_name__icontains=search_text)
+                              | Q(cart_product__product_ean_code__icontains=search_text))
+        # Pagination
+        # if qs.exists() and self.context.get('request'):
+        #     qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
+
+        return CartProductMappingSerializer(qs, many=True, context=self.context).data
 
     def get_discounted_prices_sum(self, obj):
         sum = 0
@@ -459,7 +472,6 @@ class CartSerializer(serializers.ModelSerializer):
     def total_amount_id(self, obj):
         self.total_amount = 0
         self.items_count = 0
-        total_discount = self.get_total_discount(obj)
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             pro_price = cart_pro.cart_product.get_current_shop_price(self.context.get('parent_mapping_id'),
@@ -1088,6 +1100,16 @@ class ShipmentSerializer(serializers.ModelSerializer):
     break_start_time = serializers.SerializerMethodField()
     break_end_time = serializers.SerializerMethodField()
     off_day = serializers.SerializerMethodField()
+    sales_executive = serializers.SerializerMethodField()
+
+    def get_sales_executive(self, obj):
+        shop_user_mapping = obj.order.buyer_shop.shop_user.filter(status=True, employee_group__name='Sales Executive').last()
+        sales_executive = None
+        if shop_user_mapping:
+            sales_executive = shop_user_mapping.employee
+        serializer = ShopExecutiveUserSerializer(sales_executive)
+        return serializer.data
+
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
@@ -1129,7 +1151,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
             'total_paid_amount', 'shop_open_time', 'shop_close_time',
-            'break_start_time', 'break_end_time', 'off_day')
+            'break_start_time', 'break_end_time', 'off_day', 'sales_executive')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):
@@ -1173,6 +1195,27 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
                   #'cash_discount', 'loyalty_incentive', 'margin',
                   'shipped_qty',  'returned_qty','returned_damage_qty', 'product_image')
 
+
+class OrderHistoryUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserWithName
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
+class OrderHistoryTripSerializer(serializers.ModelSerializer):
+    dispatch_no = serializers.ReadOnlyField()
+    delivery_boy = OrderHistoryUserSerializer()
+
+    class Meta:
+        model = Trip
+        fields = ('dispatch_no', 'delivery_boy')
+
+
+class ShopExecutiveUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('first_name', 'last_name', 'phone_number')
+
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
@@ -1193,6 +1236,7 @@ class TripSerializer(serializers.ModelSerializer):
             return round(float(obj.total_trip_amount_value) - float(obj.cash_to_be_collected()),2)
         except:
             return 0
+
 
     class Meta:
         model = Trip
@@ -1250,13 +1294,35 @@ class SellerOrderedCartListSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id','order_id','cart_status','rt_cart_list')
 
+class ShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
 class SellerOrderListSerializer(serializers.ModelSerializer):
     ordered_cart = SellerOrderedCartListSerializer()
-    order_status = serializers.CharField(source='get_order_status_display')
+    order_status = serializers.SerializerMethodField()
     rt_order_order_product = serializers.SerializerMethodField()
     is_ordered_by_sales = serializers.SerializerMethodField('is_ordered_by_sales_dt')
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
+    trip_details = serializers.SerializerMethodField()
+
+
+    def get_order_status(self, obj):
+        if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                     Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
+            return 'New'
+        elif obj.order_status in [Order.DISPATCHED]:
+            return 'In Transit'
+        elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
+            return 'Completed'
+        return obj.order_status
+
+    def get_trip_details(self, obj):
+        qs = Trip.objects.filter(rt_invoice_trip__order_id=obj.id)
+        serializer = OrderHistoryTripSerializer(instance=qs, many=True)
+        return serializer.data
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -1281,7 +1347,8 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
-                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
+                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
+                  'trip_details')
 
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:

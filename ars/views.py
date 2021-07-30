@@ -7,20 +7,22 @@ from io import StringIO
 from dal import autocomplete
 from decouple import config
 from django.db import transaction
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, Case, When
 from django.http import HttpResponse
 
 from accounts.models import User
 from addresses.models import Address
 from ars.models import ProductDemand, VendorDemand, VendorDemandProducts
+from common import constants
 from global_config.views import get_config
-from gram_to_brand.models import Cart, CartProductMapping, GRNOrderProductMapping
+from gram_to_brand.models import Cart, CartProductMapping, GRNOrderProductMapping, VendorShopMapping
 from products.models import ProductVendorMapping, ParentProduct
 from retailer_backend.common_function import bulk_create, send_mail
 from retailer_backend.messages import SUCCESS_MESSAGES
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, OrderedProductMapping
 from services.models import WarehouseInventoryHistoric
 from shops.models import ParentRetailerMapping, Shop
+from whc.models import SourceDestinationMapping
 from wms.common_functions import get_inventory_in_stock
 from wms.models import Putaway, WarehouseInventory, InventoryState, InventoryType
 
@@ -74,7 +76,7 @@ def populate_daily_average():
                                                        inventory_state__inventory_state__in=['reserved', 'ordered',
                                                                                              'to_be_picked',
                                                                                              'total_available'])\
-                                               .prefetch_related('sku__parent_product')
+                                               .prefetch_related('sku__parent_product', 'inventory_state')
     master_data = {}
     for item in inventory_data:
         if master_data.get(item.sku.parent_product_id) is None:
@@ -91,8 +93,10 @@ def populate_daily_average():
     # From historic data, get the total number of days on which the product has been visible,
     # starting from starting_avg_from date
     historic_data = WarehouseInventoryHistoric.objects.filter(warehouse__id__in=warehouse_list, visible=True,
+                                                              inventory_type__inventory_type='normal',
+                                                              inventory_state__inventory_state='total_available',
                                                               sku__parent_product_id__in=master_data.keys(),
-                                                              archived_at__gte=starting_avg_from) \
+                                                              archived_at__gt=starting_avg_from) \
                                                       .values('warehouse', 'sku__parent_product', 'archived_at__date') \
                                                       .annotate(days=Count('sku__parent_product', distinct=True))
 
@@ -103,32 +107,48 @@ def populate_daily_average():
 
         master_data[item['sku__parent_product']][item['warehouse']]['visible_days'] += item['days']
 
-    # Get total no of pieces ordered starting from starting_avg_from date
-    total_products_ordered = Order.objects.filter(seller_shop__id__in=warehouse_list,
-                                                  ordered_cart__rt_cart_list__cart_product__parent_product_id__in=master_data.keys(),
-                                                  created_at__gte=starting_avg_from).order_by() \
-                                          .values('seller_shop', 'ordered_cart__rt_cart_list__cart_product__parent_product') \
-                                          .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
+    # Get total no of pieces ordered where invoice is not yet generated starting from starting_avg_from date
+    ordered_qty_not_invoiced = Order.objects.filter(seller_shop__id__in=warehouse_list,
+                                                    ordered_cart__rt_cart_list__cart_product__parent_product_id__in=master_data.keys(),
+                                                    created_at__gt=starting_avg_from).order_by() \
+                                            .values('seller_shop', 'ordered_cart__rt_cart_list__cart_product__parent_product') \
+                                            .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces', filter=Q(rt_order_order_product__isnull=True)))
 
+    for item in ordered_qty_not_invoiced:
+        master_data[item['ordered_cart__rt_cart_list__cart_product__parent_product']][item['seller_shop']]['ordered_pieces'] = \
+            item['ordered_pieces'] if item['ordered_pieces'] else 0
 
-    for item in total_products_ordered:
-        master_data[item['ordered_cart__rt_cart_list__cart_product__parent_product']][item['seller_shop']]['ordered_pieces'] = item['ordered_pieces']
+    # Get total no of pieces invoiced starting from starting_avg_from date
+    shipped_qty = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop__id__in=warehouse_list,
+                                                       product__parent_product_id__in=master_data.keys(),
+                                                       ordered_product__order__created_at__gt=starting_avg_from).order_by() \
+                                               .values('ordered_product__order__seller_shop', 'product__parent_product') \
+                                               .annotate(shipped_pieces=Sum('shipped_qty'))
+
+    for item in shipped_qty:
+        master_data[item['product__parent_product']][item['ordered_product__order__seller_shop']]['ordered_pieces'] +=\
+            item['shipped_pieces'] if item['shipped_pieces'] else 0
 
 
     # Get total no of pieces in process currently which are not yet added in warehouse inventory
     parent_retailer_mappings = ParentRetailerMapping.objects.filter(retailer__id__in=warehouse_list, status=True,
                                                         parent__shop_type__shop_type='gf').values('parent_id', 'retailer_id')
     parent_retailer_mapping_dict = {mapping['parent_id']:mapping['retailer_id'] for mapping in parent_retailer_mappings}
-    inventory_in_process = Cart.objects.filter(gf_billing_address__shop_name__id__in=parent_retailer_mapping_dict.keys(),
-                                               po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL],
-                                               cart_list__cart_product__parent_product_id__in=master_data.keys())\
-                                       .values('gf_billing_address__shop_name','cart_list__cart_product__parent_product')\
-                                       .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
+    inventory_in_process = CartProductMapping.objects.filter(
+                                               cart__gf_billing_address__shop_name__id__in=parent_retailer_mapping_dict.keys(),
+                                               cart_product__parent_product_id__in=master_data.keys(),
+                                               cart__po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL,
+                                                                    Cart.PARTIAL_DELIVERED],
+                                               cart__po_validity_date__gt=datetime.date.today(),
+                                               is_grn_done=False
+                                               )\
+                                       .values('cart__gf_billing_address__shop_name','cart_product__parent_product')\
+                                       .annotate(no_of_pieces=Sum('no_of_pieces'))
 
     for item in inventory_in_process:
-        if parent_retailer_mapping_dict.get(item['gf_billing_address__shop_name']):
-            retailer_id = parent_retailer_mapping_dict[item['gf_billing_address__shop_name']]
-            master_data[item['cart_list__cart_product__parent_product']][retailer_id]['in_process_inventory'] = item['no_of_pieces']
+        if parent_retailer_mapping_dict.get(item['cart__gf_billing_address__shop_name']):
+            retailer_id = parent_retailer_mapping_dict[item['cart__gf_billing_address__shop_name']]
+            master_data[item['cart_product__parent_product']][retailer_id]['in_process_inventory'] = item['no_of_pieces']
 
     # Get total no of pieces pending for putaway currently.
     pending_putaway = Putaway.objects.filter(~Q(quantity=F('putaway_quantity')), warehouse__id__in=warehouse_list,
@@ -150,8 +170,10 @@ def get_daily_average(warehouse, parent_product):
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
+                                                         inventory_type__inventory_type='normal',
+                                                         inventory_state__inventory_state='total_available',
                                                          sku__parent_product=parent_product, visible=True,
-                                                         archived_at__gte=starting_avg_from) \
+                                                         archived_at__gt=starting_avg_from) \
                                               .values('sku__parent_product', 'archived_at__date')\
                                               .distinct('sku__parent_product__id', 'archived_at__date').count()
     # avg_days = query.last()['days'] if query.exists() else 0
@@ -167,12 +189,14 @@ def get_inventory_in_process(warehouse, parent_product):
     shop_mapping = ParentRetailerMapping.objects.filter(retailer_id=warehouse, status=True,
                                                         parent__shop_type__shop_type='gf')
     gf_shop = shop_mapping.last().parent
-    inventory_in_process = Cart.objects.filter(gf_billing_address__shop_name=gf_shop,
-                                               po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL],
-                                               cart_list__cart_product__parent_product=parent_product)\
-                                       .values('cart_list__cart_product__parent_product')\
-                                       .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
-    return inventory_in_process[0]['no_of_pieces'] if inventory_in_process.exists() else 0
+    inventory_in_process = CartProductMapping.objects.filter(cart__gf_billing_address__shop_name=gf_shop,
+                                                            cart__po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL,
+                                                                                 Cart.PARTIAL_DELIVERED],
+                                                            cart__po_validity_date__gt=datetime.date.today(),
+                                                            cart_product__parent_product=parent_product,
+                                                            is_grn_done=False)\
+                                                     .aggregate(no_of_pieces=Sum('no_of_pieces'))
+    return inventory_in_process.get('no_of_pieces') if inventory_in_process.get('no_of_pieces') else 0
 
 
 def get_inventory_pending_for_putaway(warehouse, parent_product):
@@ -180,10 +204,9 @@ def get_inventory_pending_for_putaway(warehouse, parent_product):
     Returns total no of pieces  of all the children for a given parent and given warehouse which are pending for putaway.
     """
     pending_putaway = Putaway.objects.filter(~Q(quantity=F('putaway_quantity')), warehouse=warehouse,
-                                                 sku__parent_product=parent_product)\
-                                         .values('sku__parent_product')\
-                                         .annotate(pending_qty=Sum(F('quantity')-F('putaway_quantity')))
-    return pending_putaway[0]['pending_qty'] if pending_putaway.exists() else 0
+                                             sku__parent_product=parent_product)\
+                                     .aggregate(pending_qty=Sum(F('quantity')-F('putaway_quantity')))
+    return pending_putaway.get('pending_qty') if pending_putaway.get('pending_qty') else 0
 
 
 def get_demand_by_parent_product(warehouse, parent_product):
@@ -215,16 +238,19 @@ def get_current_inventory(warehouse, parent_product):
 
 def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     """
-    Returns total no of peices ordered of all the children for a given parent product and warehouse
+    Returns total no of peices ordered/invoiced of all the children for a given parent product and warehouse
     starting from the given date.
     """
-    query = Order.objects.filter(seller_shop=warehouse,
-                                                ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
-                                                created_at__gte=starting_from_date).order_by()\
-                                         .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
-                                         .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
-    no_of_pieces_ordered = query[0]['ordered_pieces'] if query.exists() else 0
-    return no_of_pieces_ordered
+    ordered_qty_not_invoiced = Order.objects.filter(seller_shop=warehouse, ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
+                                                created_at__gt=starting_from_date).order_by()\
+                                        .aggregate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces', filter=Q(rt_order_order_product__isnull=True)))
+    shipped_qty = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=warehouse,product__parent_product=parent_product,
+                                                ordered_product__order__created_at__gt=starting_from_date).order_by()\
+                                        .aggregate(shipped_pieces=Sum('shipped_qty'))
+
+    no_of_pieces_ordered = ordered_qty_not_invoiced.get('ordered_pieces') if ordered_qty_not_invoiced.get('ordered_pieces') else 0\
+                            + shipped_qty.get('shipped_pieces') if  shipped_qty.get('shipped_pieces') else 0
+    return no_of_pieces_ordered if no_of_pieces_ordered else 0
 
 
 def initiate_ars():
@@ -237,57 +263,76 @@ def initiate_ars():
     info_logger.info("initiate_ars|Started| Day of Week {} ".format(datetime.date.today().isoweekday()))
 
     min_inventory_factor = get_config('ARS_MIN_INVENTORY_FACTOR', 70)
-    warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
-    if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
-        return
-    warehouse_ids = warehouse_ids_as_string.split(",")
-    warehouse_list = Shop.objects.filter(id__in=warehouse_ids)
 
     product_vendor_mappings = ProductVendorMapping.objects.filter(
                                                             product__parent_product__is_ars_applicable=True,
                                                             vendor__ordering_days__contains=datetime.date.today().isoweekday(),
                                                             is_default=True, status=True)
+    vendor_warehouse_mapping_qs = VendorShopMapping.objects.all()
+    vendor_warehouse_mapping = {item.vendor_id : item.shop_id for item in vendor_warehouse_mapping_qs}
+    gf_shop_ids = vendor_warehouse_mapping_qs.distinct('shop_id').values_list('shop_id', flat=True)
+    shop_mappings = ParentRetailerMapping.objects.filter(parent__id__in=gf_shop_ids,
+                                                         retailer__shop_type__shop_type='sp', status=True)
+    parent_retailer_dict = {item.parent_id:item.retailer for item in shop_mappings}
+    is_whc_on = get_config('is_wh_consolidation_on')
+    whc_source_dest_mapping = {}
+    if is_whc_on:
+        whc_source_dest_mapping_qs = SourceDestinationMapping.objects.all()
+        whc_source_dest_mapping = {item.source_wh_id: item.dest_wh_id for item in whc_source_dest_mapping_qs}
 
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
-        brand = parent_product.parent_brand_id
+        brand = parent_product.parent_brand_id if parent_product.parent_brand.brand_parent is None else parent_product.parent_brand.brand_parent_id
 
-        for warehouse in warehouse_list:
-            if brand_product_dict.get(brand) is None:
-                brand_product_dict[brand] = {warehouse.id: {item.vendor_id: {}}}
-            elif brand_product_dict[brand].get(warehouse.id) is None:
-                brand_product_dict[brand][warehouse.id] = {item.vendor_id: {}}
-            elif brand_product_dict[brand][warehouse.id].get(item.vendor_id) is None:
-                brand_product_dict[brand][warehouse.id][item.vendor_id] = {}
-            if parent_product not in brand_product_dict[brand][warehouse.id][item.vendor_id].keys():
-                is_eligible_to_raise_demand = False
-                daily_average = get_daily_average(warehouse, parent_product)
-                if daily_average <= 0:
-                    continue
-                current_inventory = get_current_inventory(warehouse, parent_product)
-                max_inventory_in_days = parent_product.max_inventory
+        gf_shop_id = vendor_warehouse_mapping.get(item.vendor_id)
+        if gf_shop_id is None:
+            info_logger.info('initiate_ars | No shop mapped for this vendor. Vendor id {}'.format(item.vendor_id))
+            continue
+        warehouse = parent_retailer_dict.get(gf_shop_id)
+        if warehouse is None:
+            info_logger.info('initiate_ars | No retailer shop mapped for this shop. Shop id {}'.format(gf_shop_id))
+            continue
+
+        if brand_product_dict.get(brand) is None:
+            brand_product_dict[brand] = {warehouse.id: {item.vendor_id: {}}}
+        elif brand_product_dict[brand].get(warehouse.id) is None:
+            brand_product_dict[brand][warehouse.id] = {item.vendor_id: {}}
+        elif brand_product_dict[brand][warehouse.id].get(item.vendor_id) is None:
+            brand_product_dict[brand][warehouse.id][item.vendor_id] = {}
+        if parent_product not in brand_product_dict[brand][warehouse.id][item.vendor_id].keys():
+            is_eligible_to_raise_demand = False
+            max_inventory_in_days = parent_product.max_inventory
+            if parent_product.is_lead_time_applicable:
+                max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
+
+            daily_average = get_daily_average(warehouse, parent_product)
+            current_inventory = get_current_inventory(warehouse, parent_product)
+            demand = (daily_average * max_inventory_in_days) - current_inventory
+            demand = 0 if demand < 0 else demand
+            if whc_source_dest_mapping.get(warehouse.id) is not None:
+                dest_warehouse = whc_source_dest_mapping.get(warehouse.id)
+
+                daily_average = get_daily_average(dest_warehouse, parent_product)
+                current_inventory += get_current_inventory(dest_warehouse, parent_product)
                 demand = (daily_average * max_inventory_in_days) - current_inventory
-                if demand <= 0:
-                    continue
-                if parent_product.is_lead_time_applicable:
-                    max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
-                    
-                min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
-                max_inventory = max_inventory_in_days * daily_average
-                min_inventory = min_inventory_in_days * daily_average
-                if demand >= (max_inventory - min_inventory):
-                    is_eligible_to_raise_demand = True
+                demand = 0 if demand < 0 else demand
+            if demand <= 0:
+                continue
+            min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
+            max_inventory = max_inventory_in_days * daily_average
+            min_inventory = min_inventory_in_days * daily_average
+            if demand >= (max_inventory - min_inventory):
+                is_eligible_to_raise_demand = True
 
-                if is_eligible_to_raise_demand:
-                    brand_product_dict[brand][warehouse.id][item.vendor_id][parent_product.id] = demand
+            if is_eligible_to_raise_demand:
+                brand_product_dict[brand][warehouse.id][item.vendor_id][parent_product.id] = demand
 
     for brand, warehouse_demand_dict in brand_product_dict.items():
         for wh, vendor_demand_dict in warehouse_demand_dict.items():
             for vendor, product_demand_dict in vendor_demand_dict.items():
                 with transaction.atomic():
                     if len(product_demand_dict) > 0:
-
                         existing_demand_raised = VendorDemand.objects.filter(brand_id=brand,
                                                                              vendor_id=vendor,
                                                                              warehouse_id=wh,
@@ -310,16 +355,19 @@ def get_child_product_with_latest_grn(warehouse_id, parent_product_id):
     In case there are more than one child products with same GRN time then it returns the child product with greater MRP
     """
     child_product_with_latest_grn = None
-    products = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_billing_address__shop_name_id=warehouse_id,
-                                                     product__parent_product_id=parent_product_id).order_by('-created_at')
+    products = GRNOrderProductMapping.objects.filter(product__parent_product_id=parent_product_id)\
+                                             .prefetch_related('product', 'product__parent_product')\
+                                             .order_by('-created_at')
     if products.exists():
-        child_product_with_latest_grn = products[0].product
+        child_product_with_latest_grn = products.first().product
+        product_mrp = child_product_with_latest_grn.product_mrp
         created_at = child_product_with_latest_grn.created_at
         for p in products:
             if p.created_at != created_at:
                 break
-            if p.product.product_mrp > child_product_with_latest_grn.product.product_mrp:
+            if p.product.product_mrp > product_mrp:
                 child_product_with_latest_grn = p
+                product_mrp = child_product_with_latest_grn.product.product_mrp
     return child_product_with_latest_grn
 
 
@@ -397,14 +445,14 @@ def create_po_from_demand(demand):
     if shipp_address is None or bill_address is None:
         info_logger.info("create_po_from_demand|Address not found|shop -{}".format(gf_shop))
         return
-
+    po_valid_for_days = get_config('PO_VALIDITY_IN_DAYS', constants.PO_VALIDITY_IN_DAYS)
     cart_instance = Cart.objects.create(brand=demand.brand, supplier_name=demand.vendor, supplier_state=demand.vendor.state,
                                         gf_shipping_address=shipp_address,
                                         gf_billing_address=bill_address,
                                         po_raised_by=system_user, last_modified_by=system_user,
                                         cart_type=Cart.CART_TYPE_CHOICE.AUTO,
                                         po_status=Cart.PENDING_APPROVAL,
-                                        po_validity_date=datetime.date.today() + datetime.timedelta(days=15),
+                                        po_validity_date=datetime.date.today() + datetime.timedelta(days=po_valid_for_days),
                                         po_delivery_date=datetime.datetime.today() +
                                                          datetime.timedelta(days=demand.vendor.lead_time))
 
@@ -416,7 +464,6 @@ def create_po_from_demand(demand):
         parent_retailer_mapping = ParentRetailerMapping.objects.filter(retailer=demand.warehouse).last()
 
         product = get_child_product_with_latest_grn(parent_retailer_mapping.parent_id, demand_product.product_id)
-
         info_logger.info("create_po_from_demand|Parent Product-{}, Child Product to be added in PO-{}"
                          .format(demand_product.product, product))
 
@@ -452,11 +499,10 @@ def create_po_from_demand(demand):
             info_logger.info("create_po_from_demand|Vendor Product Mapping does not exist | "
                              "vendor-{}, parent product-{}, product-{}"
                             .format(demand.vendor, demand_product.product, product))
-            demand.status = VendorDemand.STATUS_CHOICE.FAILED
-            demand.comment = 'Vendor Product Mapping does not exist'
-            demand.save()
-            raise Exception('Vendor Product Mapping does not exist| vendor-{}, parent product-{}, product-{}'
-                            .format(demand.vendor, demand_product.product, product))
+            continue
+    if cart_instance.products.count() == 0:
+        raise Exception('PO could not be raised | No product added in PO | demand id -{}'
+                        .format(demand.id))
     demand.status = VendorDemand.STATUS_CHOICE.DEMAND_CREATED
     demand.po = cart_instance
     demand.status = VendorDemand.STATUS_CHOICE.PO_CREATED

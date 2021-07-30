@@ -3,6 +3,7 @@
 {% load staticfiles %}
 {% load app_filters%}
 {% load humanize %}
+{% load mathfilters %}
 
 <html>
 
@@ -166,9 +167,9 @@ table tr td,th,h4,span,address{
 									<td class="text-center">{{m.qty}}</td>
     								<td class="text-center">{{m.price}}</td>
     								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.qty| qty}}</div>
+										   <div style="display:none"> {{m.qty| intcomma}}</div>
 
-    								<td class="text-right">{{m.price| price | floatformat:2 | intcomma }}/-</td>
+    								<td class="text-right">{{m.qty|mul:m.price | floatformat:2 | intcomma}}/-</td>
     							</tr>
 									{% endfor %}
 
@@ -284,7 +285,7 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-        							<td colspan="11"><strong>{{total_amount | floatformat:2 | amount }}</strong></td>
+        							<td colspan="11"><strong>{{total_amount | floatformat:2 }}</strong></td>
 
                                 </tr>
     						</tbody>
@@ -327,13 +328,23 @@ table tr td,th,h4,span,address{
 								<strong>Declaration</strong> <br>
 We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
 									</td>
-        							<td class="text-right" colspan="5" height="100">
-
-										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
- 												Authorised Signatory
-												<br>Navneet Singh
-									</td>
-
+									{% if is_gf_shop %}
+										<td class="text-center" colspan="4" height="100">
+											<strong>For GFDN Services Pvt Ltd</strong> <br>
+											<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80" style="text-align: center">
+											<br>
+											Authorised Signatory
+											<br>Navneet Singh
+										</td>
+									{% else %}
+										<td class="text-center" colspan="4" height="100">
+											<strong>For ADDISTRO TECHNOLOGIES PVT LTD</strong></br>
+											<img src="{{scheme}}://{{url}}/static/admin/img/addistro_stamp.png" width="90" height="80" style="text-align: center">
+											<br>
+											Authorised Signatory
+											<br>Navneet Singh
+										</td>
+									{% endif %}
 
                                 </tr>
 
@@ -349,5 +360,52 @@ We declare that this invoice shows the actual price of the goods described and t
 </div>
 	</div>
 
+<div class="row">
+	<div class="col-xs-12">
+		<div class="table">
+				<table class="table table-condensed">
+					<tr><td class="text-center" colspan="2"><strong>Terms &amp; Conditions</strong></td></tr>
+					<tr><td>1.</td><td align="justify"> The goods / products for delivery to our warehouse should always be accompanied with a duly signed and stamped original invoice (P.O number incorporated therein) and a copy of P.O. (in case of computer-generated invoice and not duly signed, please mention on the Invoice that this is an approved electronically generated and confirmed invoice does not require any signature</td>
+					</tr>
+					<tr><td>2.</td><td align="justify">The counterfoil of waybill / road permit (with all details mentioned therein) duly signed and stamped by the authority must accompany the goods / products (wherever it is applicable).
+					</td></tr>
+					<tr><td>3.</td><td align="justify">The supply of goods / products should be strictly as per the PO and should have been packed in good condition and order.
+					</td></tr>
+					<tr><td>4.</td><td align="justify">Shelf life receiving norms: 70%
+					</td></tr>
+					<tr><td>5.</td><td align="justify">The goods / products supplied under single consignment should always carry same MRP
+					</td></tr>
+					<tr><td>6.</td><td align="justify">If there is any change or difference in MRP / Cost / Tax etc., of the Invoiced goods / products as compared to that of the details mentioned in the PO, then at the time of delivery, the change / difference should be brought to the notice of the Officials of Addistro Technologies Private Limited/ GFDN Private Limited and supplier/vendor need to endeavour to resolve associated issue.
+					</td></tr>
+					<tr><td>7.</td><td align="justify">Standard delivery timing for all goods / products (except fresh produce) upto 5 p.m. during working days except on Sunday's, festivals and national holidays. For actual delivery time contact respective delivery location (mentioned in the PO)
+					</td></tr>
+					<tr><td>8.</td><td align="justify">In case of any discrepancies noticed during in-warding the consignment at warehouse / store, the same shall be communicated to the Supplier / Vendor on the Goods Receipt Note (GRN). The endorsement as to the quantity and value of the Product/s by Addistro Technologies Private Limited/ GFDN Private Limited on the GRN at time of receiving / inward of products / goods is final and binding on the parties.
+					</td></tr>
+					<tr><td>9.</td><td align="justify">The vendor upon request at any time will supply us with all supporting document/s in support of having discharged duties / tax liabilities to the Authority.
+					</td></tr>
+					<tr><td>10.</td><td align="justify">Goods received through Courier or Transports or through a carrier, in a damaged or unsalable condition, will not be received by the Warehouse. Such goods, if not taken back by the Carrier through which they are sent, will be retained at Warehouse. Necessary information would be passed on to the supplier for collection of such damaged or unsalable goods. Suppliers / vendors should make arrangements to ensure the goods are collected within a period of 30 Days from the date of receipt/ GRN. Such goods would be scrapped at the respective receiving locations in case if they are not collected back by the vendor/suppliers within the stipulated period of 30 days.
+					</td></tr>
+					<tr><td>11.</td><td align="justify">In case of any change in tax rates after purchase, the difference of tax amount on the stock held on the date of change shall be recovered from the seller.
+					</td></tr>
+					<tr><td>12.</td><td align="justify">All disputes will be subject to exclusive jurisdiction of Courts at Gurgaon/Gurugram (Haryana) only.
+					</td></tr>
+					<tr><td>13.</td><td align="justify">Escalation Matrix: Warehouse/ Supply Chain & Replenishment- b2bfcmail@gramfactory.com b2cwarehouse@gramfactory.com
+					</td></tr><tr>
+				</table>
+		</div>
 
+		<div class="table">
+				<table class="table table-bordered">
+					<tr><td><strong>Concerns</strong></td><td><strong>Contact Details</strong></td>
+					</tr>
+					<tr><td>Location address & other WH related queries</td><td align="justify">Prakash (9871467268), Shubham (7277278887)</td></tr>
+					<tr><td>Cost, PO Schedule, PO Expiry, EAN Code, HSN, case pack</td><td align="justify">
+						Anarul Hossain (9818420514) Anarul@gramfactory.com/Deepak (7053558941) Deepak@gramfactory.com/Shashi Bhushan (9811112408) shashi@gramfactory.com
+					</td></tr>
+				</table>
+		</div>
+
+	</div>
+
+</div>
 </body></html>

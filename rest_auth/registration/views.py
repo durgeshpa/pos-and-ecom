@@ -2,11 +2,11 @@ from django.conf import settings
 from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
+from django.contrib.auth import login as django_login
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import (AllowAny,
-                                        IsAuthenticated)
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.generics import CreateAPIView, ListAPIView, GenericAPIView
 from rest_framework.exceptions import NotFound
 from rest_framework import status
@@ -19,28 +19,31 @@ from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
 
-from rest_auth.app_settings import (TokenSerializer,
-                                    JWTSerializer,
-                                    create_token)
+from rest_auth.app_settings import create_token
 from rest_auth.models import TokenModel
-from rest_auth.registration.serializers import (VerifyEmailSerializer,
-                                                SocialLoginSerializer,
-                                                SocialAccountSerializer,
-                                                SocialConnectSerializer
-                                                )
+from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
+                                                SocialConnectSerializer, MlmOtpRegisterSerializer)
+from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer, api_serializer_errors
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
-from .app_settings import RegisterSerializer, register_permission_classes
 
-from otp.models import PhoneOTP
+from .app_settings import RegisterSerializer, register_permission_classes
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')
 )
 
+APPLICATION_REGISTRATION_SERIALIZERS_MAP = {
+    '0': RegisterSerializer,
+    '1': MlmOtpRegisterSerializer
+}
+APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
+    '0': LoginResponseSerializer,
+    '1': MlmResponseSerializer
+}
+
 
 class RegisterView(CreateAPIView):
-    serializer_class = RegisterSerializer
     permission_classes = register_permission_classes()
     token_model = TokenModel
 
@@ -48,67 +51,52 @@ class RegisterView(CreateAPIView):
     def dispatch(self, *args, **kwargs):
         return super(RegisterView, self).dispatch(*args, **kwargs)
 
-    def get_response_data(self, user):
-        if allauth_settings.EMAIL_VERIFICATION == \
-                allauth_settings.EmailVerificationMethod.MANDATORY:
-            return {"detail": _("Verification e-mail sent.")}
+    def get_serializer_class(self):
+        """
+        Return Serializer Class Based On App Type Requested
+        """
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_REGISTRATION_SERIALIZERS_MAP else '0'
+        return APPLICATION_REGISTRATION_SERIALIZERS_MAP[app]
 
-        if getattr(settings, 'REST_USE_JWT', False):
-            data = {
-                'user': user,
-                'token': self.token
-            }
-            return JWTSerializer(data).data
-        else:
-            return TokenSerializer(user.auth_token).data
+    def get_response_serializer(self):
+        """
+        Return Response Serializer Class Based On App Type Requested
+        """
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP else '0'
+        return APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP[app]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.data)
         if serializer.is_valid():
-            number = request.data.get('username')
-            user_otp = PhoneOTP.objects.filter(phone_number=number).last()
-            if user_otp and user_otp.is_verified:
-                user = self.perform_create(serializer)
-                headers = self.get_success_headers(serializer.data)
-                msg = {'is_success': True,
-                        'message': ['Successfully signed up!'],
-                        'response_data':[{'access_token':self.get_response_data(user)['key']}] }
-                return Response(msg,
-                                status=status.HTTP_201_CREATED,
-                                headers=headers)
-            else:
-                msg = {'is_success': False,
-                        'message': ['Please verify your mobile number first!'],
-                        'response_data': None }
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
-
+            user, token = self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return self.get_response(user, headers, token)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
-        if getattr(settings, 'REST_USE_JWT', False):
-            self.token = jwt_encode(user)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
+        data = serializer.data
+        if 'user_exists' in data and data['user_exists'] and getattr(settings, 'REST_SESSION_LOGIN', True):
+            django_login(self.request, user)
         else:
-            create_token(self.token_model, user, serializer)
+            complete_signup(self.request._request, user, allauth_settings.EMAIL_VERIFICATION, None)
+        return user, token
 
-        complete_signup(self.request._request, user,
-                        allauth_settings.EMAIL_VERIFICATION,
-                        None)
-        return user
+    def get_response(self, user, headers, token):
+        """
+        Get Response Based on Authentication and App Type Requested
+        """
+        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        response_serializer_class = self.get_response_serializer()
+        response_serializer = response_serializer_class(instance={'user': user, 'token': token})
+        return Response({'is_success': True, 'message': ['Signed Up Successfully!'],
+                         'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class VerifyEmailView(APIView, ConfirmEmailView):
     permission_classes = (AllowAny,)

@@ -11,12 +11,16 @@ delete_link_html = '<img src="/static/admin/img/icon-deletelink.svg" ' +
     'width="10" height="10" alt="Delete row" style="margin-top:0.5em" />';
 position_field = 'order'; // Name of inline model field (integer) used for ordering. Defaults to "position".
 
+var noOfItems;
 jQuery(function($) {
+    noOfItems= $("td.field-picked_pieces input").length
     changeExpPieces()
     changeval()
     changePickedPieces()
     updateval()
     changeDamagedPieces()
+    changeMissingPieces()
+    changeRejectedPieces()
     loadPickedPieces()
     loadToShip()
     removeAddAnotherButton()
@@ -228,7 +232,7 @@ function changeval(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
@@ -248,7 +252,7 @@ function changePickedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-pickup_quantity']").keyup(function(){
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
@@ -268,7 +272,10 @@ function changeDamagedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-damaged_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -276,6 +283,9 @@ function changeDamagedPieces(){
 //            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
             var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
             var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var missing_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-missing_qty` + "]").val())
+            var rejected_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-rejected_qty` + "]").val())
+
             var quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
 //            if (isNaN(tot)){
 //                tot = 0
@@ -286,13 +296,19 @@ function changeDamagedPieces(){
             if (isNaN(expired_qty)){
                 expired_qty = 0
             }
+            if (isNaN(missing_qty)){
+                missing_qty = 0
+            }
+            if (isNaN(rejected_qty)){
+                rejected_qty = 0
+            }
             if (isNaN(quantity)){
                 quantity = 0
             }
             if (isNaN(final_qty)){
                 final_qty = 0
             }
-            additional_qty = damaged_qty + expired_qty
+            additional_qty = damaged_qty + expired_qty + missing_qty + rejected_qty
             if (additional_qty > quantity)
             {
             sum +=damaged_qty
@@ -302,14 +318,13 @@ function changeDamagedPieces(){
             }
             else
             {
-            var final_qty = quantity -(damaged_qty + expired_qty)
+            var final_qty = quantity -(damaged_qty + expired_qty + missing_qty + rejected_qty)
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
             sum +=damaged_qty
             final_sum +=final_qty
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-damaged_qty` + "]").val(sum);
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
-        }
         }
         });
     })
@@ -319,7 +334,10 @@ function changeExpPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
         $("input[name$='-expired_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
         var final_sum = 0
         var additional_qty = 0
@@ -327,6 +345,8 @@ function changeExpPieces(){
 //            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
             var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
             var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var missing_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-missing_qty` + "]").val())
+            var rejected_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-rejected_qty` + "]").val())
             var pickup_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
 //            if (isNaN(tot)){
 //                tot = 0
@@ -337,13 +357,19 @@ function changeExpPieces(){
             if (isNaN(expired_qty)){
                 expired_qty = 0
             }
+            if (isNaN(missing_qty)){
+                missing_qty = 0
+            }
+            if (isNaN(rejected_qty)){
+                rejected_qty = 0
+            }
             if (isNaN(pickup_quantity)){
                 quantity = 0
             }
             if (isNaN(final_qty)){
                 final_qty = 0
             }
-            additional_qty = damaged_qty + expired_qty
+            additional_qty = damaged_qty + expired_qty + missing_qty + rejected_qty
             if (additional_qty > pickup_quantity)
             {
             sum +=expired_qty
@@ -353,7 +379,7 @@ function changeExpPieces(){
             }
             else
             {
-            var final_qty = pickup_quantity -(damaged_qty + expired_qty)
+            var final_qty = pickup_quantity -(damaged_qty + expired_qty + missing_qty + rejected_qty)
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
             sum +=expired_qty
             final_sum +=final_qty
@@ -361,15 +387,144 @@ function changeExpPieces(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
             }
         }
+        });
+    })
+}
+
+
+function changeMissingPieces(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-missing_qty']").keyup(function(){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
+
+        var sum = 0
+        var final_sum = 0
+        var additional_qty = 0
+        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var missing_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-missing_qty` + "]").val())
+            var rejected_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-rejected_qty` + "]").val())
+            var pickup_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+//            if (isNaN(tot)){
+//                tot = 0
+//            }
+            if (isNaN(damaged_qty)){
+                damaged_qty = 0
+            }
+            if (isNaN(expired_qty)){
+                expired_qty = 0
+            }
+
+            if (isNaN(missing_qty)){
+                missing_qty = 0
+            }
+
+            if (isNaN(rejected_qty)){
+                rejected_qty = 0
+            }
+            if (isNaN(pickup_quantity)){
+                pickup_quantity = 0
+            }
+            if (isNaN(final_qty)){
+                final_qty = 0
+            }
+            additional_qty = damaged_qty + expired_qty + missing_qty + rejected_qty
+            if (additional_qty > pickup_quantity)
+            {
+            sum +=missing_qty
+            final_sum =pickup_quantity
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-missing_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_sum)
+            }
+            else
+            {
+            var final_qty = pickup_quantity -(damaged_qty + expired_qty + missing_qty + rejected_qty)
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
+            sum +=missing_qty
+            final_sum +=final_qty
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-missing_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
+            }
         }
         });
     })
 }
 
+function changeRejectedPieces(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-rejected_qty']").keyup(function(){
+
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
+
+        var sum = 0
+        var final_sum = 0
+        var additional_qty = 0
+        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var missing_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-missing_qty` + "]").val())
+            var rejected_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-rejected_qty` + "]").val())
+            var pickup_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+//            if (isNaN(tot)){
+//                tot = 0
+//            }
+            if (isNaN(damaged_qty)){
+                damaged_qty = 0
+            }
+            if (isNaN(expired_qty)){
+                expired_qty = 0
+            }
+
+            if (isNaN(missing_qty)){
+                missing_qty = 0
+            }
+
+            if (isNaN(rejected_qty)){
+                rejected_qty = 0
+            }
+            if (isNaN(pickup_quantity)){
+                pickup_quantity = 0
+            }
+            if (isNaN(final_qty)){
+                final_qty = 0
+            }
+            additional_qty = damaged_qty + expired_qty + missing_qty + rejected_qty
+            if (additional_qty > pickup_quantity)
+            {
+            sum +=rejected_qty
+            final_sum =pickup_quantity
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rejected_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_sum)
+            }
+            else
+            {
+            var final_qty = pickup_quantity -(damaged_qty + expired_qty + missing_qty + rejected_qty)
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
+            sum +=rejected_qty
+            final_sum +=final_qty
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rejected_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
+            }
+        }
+        });
+    })
+}
+
+
 function loadPickedPieces(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
@@ -387,7 +542,7 @@ function loadPickedPieces(){
 function loadToShip(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
-    for(var i=0;i<10;i++){
+    for(var i=0;i<noOfItems;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
@@ -405,17 +560,20 @@ function loadToShip(){
 function updateval(){
         xx = [0,1,2,3,4,5,6]
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
-    for(var i=0;i<10;i++){
+        var elementId = $(this).attr('id')
+        const arr = elementId.split("-")
+        var i = arr[1]
         var sum = 0
-//        var final_sum  = 0
         for (var j=0; j<10;j++){
             var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
             var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var missing_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-missing_qty` + "]").val())
+            var rejected_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-rejected_qty` + "]").val())
             var quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
             var initial_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
             if (quantity != initial_quantity){
-            final_sum = damaged_qty + expired_qty
-            quantity_value = quantity -(damaged_qty + expired_qty)
+            final_sum = damaged_qty + expired_qty + missing_qty + rejected_qty
+            quantity_value = quantity -(damaged_qty + expired_qty + missing_qty + rejected_qty)
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(quantity_value))
             }
             if (isNaN(tot)){
@@ -424,7 +582,6 @@ function updateval(){
             sum +=tot
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(sum);
 
-        }
         }
     })
 }

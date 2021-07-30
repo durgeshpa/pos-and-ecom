@@ -78,10 +78,11 @@ class Vendor(models.Model):
 
 class Brand(BaseTimestampUserStatusModel):
     brand_name = models.CharField(max_length=100)
-    brand_slug = models.SlugField(blank=True, null=True)
+    brand_slug = models.SlugField(blank=True, null=True, max_length=100)
     brand_logo = models.FileField(upload_to='brand_logo_file', validators=[validate_image], blank=False, null=True)
     brand_parent = models.ForeignKey('self', related_name='brand_child', null=True, blank=True,
                                      on_delete=models.CASCADE, limit_choices_to={'brand_parent': None}, )
+    # brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
     brand_description = models.TextField(null=True, blank=True)
     brand_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three "
                                                                                          "character for SKU")

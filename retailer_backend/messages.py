@@ -1,10 +1,10 @@
 VALIDATION_ERROR_MESSAGES = {
     'INVALID_MOBILE_NUMBER': 'Mobile Number is not valid',
     'INVALID_NAME': 'Invalid name. Only alphabets are allowed',
-    'OTP_ATTEMPTS_EXCEEDED': 'Exceeded maximum attempts! Please enter the new OTP',
-    'OTP_EXPIRED': 'OTP expired! Please enter the new OTP',
-    'OTP_NOT_MATCHED': 'OTP does not match',
-    'USER_NOT_EXIST': 'Invalid data',
+    'OTP_ATTEMPTS_EXCEEDED': "You have exceeded limit for OTP attempts or resends. Please try in {} minutes",
+    'OTP_EXPIRED': 'OTP expired! Please request a new OTP.',
+    'OTP_NOT_MATCHED': 'Incorrect OTP',
+    'INVALID_DATA': 'Invalid data',
     'INVALID_UNIT_NAME': 'Invalid unit name (eg: kg, litres)',
     'INVALID_VALUE': 'Invalid value. Only numbers are allowed',
     'INVALID_PRODUCT_NAME': 'Invalid product name. Special characters allowed are _ , @ . / # & + -',
@@ -32,7 +32,7 @@ VALIDATION_ERROR_MESSAGES = {
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
     'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted',
     'OTP_EXPIRED_GENERATE_AGAIN':'Entered OTP expired! Please enter the new OTP',
-    'Referral_code':'Please provide valid referral code',
+    'Referral_code':'Please provide a valid referral code',
     'User_Already_Exist':'User Already Registered Please Login',
     'Enter_OTP':'Please Enter otp',
     'Phone_Number':'Please Enter Phone Number,',
@@ -41,7 +41,7 @@ VALIDATION_ERROR_MESSAGES = {
 
 SUCCESS_MESSAGES = {
     'USER_IMPORT_SUCCESSFULLY': 'User Import Successfully.',
-    'MOBILE_NUMBER_VERIFIED': 'Your mobile number verified successfully',
+    'MOBILE_NUMBER_VERIFIED': 'Verified Successfully',
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
     'USER_SHOP_ADDED': 'Shop added successfully',
     'CHANGED_STATUS': 'Po_Status changed to %s',
@@ -55,8 +55,10 @@ SUCCESS_MESSAGES = {
     'ARS_MAIL_PO_APPROVAL_BODY':'PFA the list of Auto PO’s generated on {}. '
                                 'Please note that these PO’s will not be placed until approved '
                                 'by concerned category managers by going to Seller Panel.',
-    'ARS_MAIL_VENDOR_SUBJECT': 'PO Raised | Brand - {} | PO Number - {}',
-    'ARS_MAIL_VENDOR_BODY': 'PFA the copy of PO generated',
+    'ARS_MAIL_VENDOR_SUBJECT': 'PO_{}_{}_{}',
+    'ARS_MAIL_VENDOR_BODY': 'Dear Partners, \n \n Find attached PO from Pepper Tap/Gram Factory. \n \n'
+                            'Note: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n '
+                            'Thanks, \n Gram Factory',
     'ARS_MAIL_WAREHOUSE_SUBJECT': 'Summary of Auto PO’s approved and placed on {}',
     'ARS_MAIL_WAREHOUSE_BODY': 'PFA the list of Auto PO’s approved on {}. '
                                'Please note the delivery dates of the respective POs in the CSV attached. '
@@ -114,4 +116,8 @@ ERROR_MESSAGES = {
     "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "1002": "Selected file status is QC pending, you can't download this file.",
     "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"
+}
+
+NOTIFICATIONS = {
+    "TRIP_START_MSG" : "Hi {}, Your order is out for delivery with {}({}). Total invoice value is {}.  Thanks, Team GramFactory"
 }

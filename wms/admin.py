@@ -189,8 +189,8 @@ class TransactionIDFilter(InputFilter):
         return queryset
 
 
-class OrderNumberFilterForOrderRelease(InputFilter):
-    title = 'Order Number'
+class CartNumberFilterForOrderRelease(InputFilter):
+    title = 'Cart Number'
     parameter_name = 'warehouse_internal_inventory_release'
 
     def queryset(self, request, queryset):
@@ -856,7 +856,7 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
 
 class OrderReleaseAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'release_type', 'ordered_quantity', 'transaction_id', 'order_number', 'warehouse_internal_inventory_reserve',
+        'warehouse', 'sku', 'release_type', 'ordered_quantity', 'transaction_id', 'cart_number', 'warehouse_internal_inventory_reserve',
         'warehouse_internal_inventory_release',
         'reserved_time', 'release_time', 'created_at')
     readonly_fields = (
@@ -865,10 +865,10 @@ class OrderReleaseAdmin(admin.ModelAdmin):
         'release_time', 'created_at')
 
     search_fields = ('sku__product_sku',)
-    list_filter = [Warehouse, SKUFilter, TransactionIDFilter, OrderNumberFilterForOrderRelease, 'release_type']
+    list_filter = [Warehouse, SKUFilter, TransactionIDFilter, CartNumberFilterForOrderRelease, 'release_type']
     list_per_page = 50
 
-    def order_number(self, obj):
+    def cart_number(self, obj):
         try:
             if obj is None:
                 pass
@@ -876,7 +876,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
         except:
             return obj.warehouse_internal_inventory_reserve.transaction_id
 
-    order_number.short_description = 'Order Number'
+    cart_number.short_description = 'Cart Number'
 
     class Media:
         pass

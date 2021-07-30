@@ -4,14 +4,15 @@ import logging
 import datetime
 from operator import or_
 from functools import reduce
+from dateutil.relativedelta import relativedelta
 
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
-from django.core.exceptions import ValidationError
-from django.db.models import Q
-from django.db.models import F, Sum, OuterRef, Subquery
+from django.core.exceptions import ValidationError, FieldError
+from django.db.models import Q, Count, FloatField, Avg
+from django.db.models import F, Sum, OuterRef, Subquery, IntegerField, CharField, Value
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
 from django.urls import reverse
@@ -20,11 +21,14 @@ from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
+from nested_admin.nested import NestedTabularInline, NestedModelAdmin
+
+from global_config.models import GlobalConfig
 
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_backend.utils import time_diff_days_hours_mins_secs
+from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_seconds
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
@@ -45,7 +49,7 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -54,7 +58,6 @@ from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCr
                       DeliveryCompletedAt, OrderCreatedAt)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
-from nested_admin import NestedModelAdmin, NestedStackedInline, NestedTabularInline
 from retailer_backend.messages import ERROR_MESSAGES
 
 logger = logging.getLogger('django')
@@ -245,13 +248,12 @@ class InvoiceSearch(InputFilter):
     title = 'Invoice No.'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             invoice_no = self.value().split(',')
-            if invoice_no is None:
-                return
             return queryset.filter(
                 Q(invoice__invoice_no__in=invoice_no)
             )
+        return queryset
 
 class OrderInvoiceSearch(InputFilter):
     parameter_name = 'invoice_no'
@@ -270,13 +272,12 @@ class ShipmentOrderIdSearch(InputFilter):
     title = 'Order Id'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             order_id = self.value().split(',')
-            if order_id is None:
-                return
             return queryset.filter(
                 Q(order__order_no__in=order_id)
             )
+        return queryset
 
 
 class ShipmentSellerShopSearch(InputFilter):
@@ -284,13 +285,12 @@ class ShipmentSellerShopSearch(InputFilter):
     title = 'Seller Shop'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             seller_shop_name = self.value()
-            if seller_shop_name is None:
-                return
             return queryset.filter(
                 Q(order__seller_shop__shop_name__icontains=seller_shop_name)
             )
+        return queryset
 
 class SellerShopFilter(AutocompleteFilter):
     field_name = 'seller_shop'
@@ -305,7 +305,7 @@ class BuyerShopFilter(AutocompleteFilter):
 
 class OrderIDFilter(InputFilter):
     parameter_name = 'order_id'
-    title = 'order_id'
+    title = 'Order ID'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -358,7 +358,8 @@ class ShopSearch(InputFilter):
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchForm
-    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty',
+              'missing_qty', 'rejected_qty', 'reason_for_rejection')
     readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date')
     extra=0
     classes = ['batch_inline', ]
@@ -487,6 +488,10 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/product_no_of_pieces.js', 'admin/js/select2.min.js')
+
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        return qs.exclude(cart_type='BASIC')
 
     def get_urls(self):
         from django.conf.urls import url
@@ -1001,6 +1006,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
+        qs = qs.exclude(ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1195,6 +1201,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1314,22 +1321,21 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
-    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty']
-    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
+    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty',
+              'missing_qty', 'rejected_qty', 'reason_for_rejection']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date', 'reason_for_rejection']
     extra = 0
     max_num = 0
     classes = ['table_inline', ]
+
     def has_delete_permission(self, request, obj=None):
         return False
-
 
     def expiry_date(self, obj=None):
         return "-"
 
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj and obj.shipment_status == 'READY_TO_SHIP':
-    #         return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
-    #     return self.readonly_fields
+    def reason_for_rejection(self, obj=None):
+        return '--------'
 
 
 class ShipmentAdmin(NestedModelAdmin):
@@ -1368,7 +1374,6 @@ class ShipmentAdmin(NestedModelAdmin):
         search_term:- search strings
 
         """
-
         queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
             request, queryset, search_term)
         if queryset:
@@ -1440,20 +1445,28 @@ class ShipmentAdmin(NestedModelAdmin):
 
 
     def pincode(self, obj):
-        return obj.order.shipping_address.pincode
+        try:
+            return obj.order.shipping_address.pincode
+        except:
+            return obj.order.seller_shop.shipping_address.pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         address = obj.order.shipping_address
+        if address is None:
+            address = obj.order.seller_shop.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
         shop_name = address.shop_name.shop_name
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
+        try:
+            city = obj.order.shipping_address.city
+        except:
+            city = obj.order.seller_shop.shipping_address.city
         return str(city)
 
     def start_qc(self,obj):
@@ -1492,13 +1505,18 @@ class ShipmentAdmin(NestedModelAdmin):
                 total_ordered_qty)
 
     def get_queryset(self, request):
-        qs = super(ShipmentAdmin, self).get_queryset(request)
+        order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
+        to_date = datetime.date.today() + datetime.timedelta(days=1)
+        from_date = to_date + relativedelta(months=-(order_config.value))
+        qs = super(ShipmentAdmin, self).get_queryset(request).filter(
+            created_at__lte=to_date, created_at__gte=from_date)
         if request.user.is_superuser:
             return qs
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
-                )
+                ).filter(
+            created_at__lte=to_date, created_at__gte=from_date)
 
 
 class DeliveryBoySearch(InputFilter):
@@ -1998,6 +2016,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
@@ -2021,7 +2040,306 @@ class InvoiceAdmin(admin.ModelAdmin):
         return False
 
 
-# admin.site.register(Return, ReturnAdmin)
+class SQSum(Subquery):
+    """
+    Subclass of subquery get the sum
+    """
+    template = '(SELECT SUM(%(field)s) FROM (%(subquery)s) _sum)'
+
+    def as_sql(self, compiler, connection, template=None, **extra_context):
+        if 'field' not in extra_context and 'field' not in self.extra:
+            if len(self.queryset._fields) > 1:
+                raise FieldError('You must provide the field name, or have a single column')
+            extra_context['field'] = self.queryset._fields[0]
+        return super(SQSum, self).as_sql(
+            compiler, connection, template=template, **extra_context
+        )
+
+class DeliveryPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    # change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
+    list_display = ['dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                    'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                    'delivered_amount', 'delivered_value_percent',
+                    'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run']
+    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch, ('created_at', DateTimeRangeFilter)]
+    actions = ['export_as_csv']
+
+    def delivered_cnt(self, obj):
+        return obj.delivered_cnt
+
+    def returned_cnt(self, obj):
+        return obj.returned_cnt
+
+    def pending_cnt(self, obj):
+        return obj.pending_cnt
+
+    def rescheduled_cnt(self, obj):
+        return obj.rescheduled_cnt
+
+    def total_shipments(self, obj):
+        return obj.total_shipments
+
+    def invoice_amount(self, obj):
+        return obj.invoice_amount
+
+    def delivered_amount(self, obj):
+        return obj.delivered_amount
+
+    def delivery_percent(self, obj):
+        return self.get_percent(obj.delivered_cnt, obj.total_shipments)
+
+    def get_percent(self, part, whole):
+        return round(part / whole * 100) if whole and whole>0 else 0
+
+    def returned_percent(self, obj):
+        return self.get_percent(obj.returned_cnt, obj.total_shipments)
+
+    def rescheduled_percent(self, obj):
+        return self.get_percent(obj.rescheduled_cnt, obj.total_shipments)
+
+    def delivered_value_percent(self, obj):
+        return self.get_percent(obj.delivered_amount, obj.invoice_amount)
+
+    def km_run(self, obj):
+        return obj.closing_kms-obj.opening_kms if obj.closing_kms and obj.opening_kms else 0
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def dispathces(self, obj):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (obj.pk,
+                                                                                                   obj.dispatch_no))
+
+    def get_queryset(self, request):
+
+        qs = super(DeliveryPerformanceDashboard, self).get_queryset(request)
+        #today = datetime.datetime.now().date()
+        #start_from = today-datetime.timedelta(days=60)
+        to_date, from_date = self.get_date(request)
+        qs = qs.filter(created_at__gte=from_date, created_at__lte=to_date)
+
+        metrics = {
+            'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
+                                  F('rt_invoice_trip__rt_order_product_order_product_mapping__shipped_qty'), output_field=FloatField()),
+            'delivered_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
+                                    F('rt_invoice_trip__rt_order_product_order_product_mapping__delivered_qty'), output_field=FloatField())
+        }
+        delivered_status_list = ['PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_DELIVERED_AND_COMPLETED',
+                                 'PARTIALLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_VERIFIED',
+                                 'PARTIALLY_DELIVERED_AND_CLOSED', 'FULLY_DELIVERED_AND_CLOSED']
+        returned_status_list = ['FULLY_RETURNED_AND_COMPLETED', 'FULLY_RETURNED_AND_VERIFIED',
+                                'FULLY_RETURNED_AND_CLOSED']
+        pending_status_list = ['OUT_FOR_DELIVERY']
+
+        qs = qs.annotate(**metrics,
+                         delivered_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=delivered_status_list)),
+                         returned_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=returned_status_list)),
+                         pending_cnt=Count('rt_invoice_trip', filter=Q(rt_invoice_trip__shipment_status__in=pending_status_list)),
+                         rescheduled_cnt=Count('rescheduling_shipment_trip'),
+                         total_shipments=Count('rt_invoice_trip')
+                         ).order_by('-id').prefetch_related('delivery_boy')
+        return qs
+
+    def get_date(self, request):
+        try:
+            if request.GET['created_at__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['created_at__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['created_at__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['created_at__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('dispathces', 'delivery_boy', 'delivered_cnt', 'returned_cnt', 'pending_cnt', 'rescheduled_cnt',
+                        'total_shipments', 'delivery_percent', 'returned_percent', 'rescheduled_percent', 'invoice_amount',
+                        'delivered_amount', 'delivered_value_percent',
+                        'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'km_run')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([obj.dispatch_no, obj.delivery_boy, obj.delivered_cnt, obj.returned_cnt,
+                             obj.rescheduled_cnt, obj.total_shipments, self.delivery_percent(obj),
+                             self.returned_percent(obj), self.rescheduled_percent(obj), obj.invoice_amount,
+                             obj.delivered_amount, self.delivered_value_percent(obj), obj.starts_at, obj.completed_at,
+                             obj.opening_kms, obj.closing_kms, self.km_run(obj)])
+        return response
+
+
+class PickerPerformancePickerBoyFilter(InputFilter):
+    title = 'Picker Boy'
+    parameter_name = 'phone_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(
+                  Q(picker_boy__phone_number=value)
+                )
+        return queryset
+
+class PickerPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    list_filter = [PickerPerformancePickerBoyFilter, ('picker_assigned_date', DateTimeRangeFilter)]
+    list_display = ('picker_number', 'full_name', 'assigned_order_count', 'order_amount', 'invoice_amount', 'fill_rate',
+                    'picked_order_count', 'picked_sku_count', 'picked_pieces_count',)
+    actions = ['export_as_csv']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @staticmethod
+    def picker_number(obj):
+        try:
+            return obj.picker_boy.phone_number
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+    @staticmethod
+    def full_name(obj):
+        try:
+            return obj.picker_boy.get_full_name()
+        except Exception as e:
+            logger.exception(e)
+            return ''
+
+
+    def assigned_order_count(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def order_amount(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(Sum('order__order_amount'))['order__order_amount__sum']
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def invoice_amount(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date).aggregate(inv_amount=Sum(
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__effective_price')
+                *
+                F('order__rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
+                output_field=FloatField()))['inv_amount']
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def get_percent(self, part, whole):
+        return "{:.2f}".format((1-(part / whole))*100) if whole and whole>0 else 0
+
+    def fill_rate(self, obj):
+        try:
+            fill_rate = self.get_percent(self.invoice_amount(obj), self.order_amount(obj))
+        except:
+            fill_rate = 0
+        return fill_rate
+
+    def picked_order_count(self, obj):
+        try:
+            return obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                              picker_assigned_date__date__lte=obj.to_date,
+                                              picking_status='picking_complete').count()
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+    def picked_sku_count(self, obj):
+        try:
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,picker_assigned_date__date__lte=obj.to_date, picking_status='picking_complete')
+            picked_count = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)).count()
+            return picked_count
+        except:
+            return 0
+
+    def picked_pieces_count(self, obj):
+        try:
+            qs = obj.picker_boy.picker_user.filter(picker_assigned_date__date__gte=obj.from_date,
+                                                   picker_assigned_date__date__lte=obj.to_date,
+                                                   picking_status='picking_complete')
+
+            picked_quantity = Pickup.objects.filter(pickup_type_id__in=qs.values_list('order__order_no', flat=True)
+                                                  ).aggregate(Sum('pickup_quantity'))['pickup_quantity__sum']
+            return picked_quantity
+
+        except Exception as e:
+            logger.exception(e)
+            return 0
+
+
+    def get_queryset(self, request):
+        """
+        request object
+        return:-queryset
+        """
+
+        to_date, from_date = self.get_date(request)
+        qs = super(PickerPerformanceDashboard, self).get_queryset(request)
+        queryset = qs.filter(
+            picker_assigned_date__date__lte=to_date, picker_assigned_date__date__gte=from_date).order_by(
+            'picker_boy').distinct('picker_boy').select_related('order').prefetch_related('order__rt_order_order_product',
+                                                                                         'order__rt_order_order_product__rt_order_product_order_product_mapping').prefetch_related('picker_boy__picker_user').annotate(to_date=Value(to_date, output_field=CharField()), from_date=Value(from_date, output_field=CharField()))
+        return queryset
+
+    def get_date(self, request):
+        try:
+            if request.GET['picker_assigned_date__lte_0'] is None:
+                to_date = datetime.date.today() + datetime.timedelta(days=1)
+            else:
+                to_date = request.GET['picker_assigned_date__lte_0']
+        except:
+            to_date = datetime.date.today() + datetime.timedelta(days=1)
+        try:
+            if request.GET['picker_assigned_date__gte_0'] is None:
+                from_date = to_date + relativedelta(days=-(1))
+            else:
+                from_date = request.GET['picker_assigned_date__gte_0']
+        except:
+            from_date = to_date + relativedelta(days=-(1))
+        return to_date, from_date
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('picker_number','full_name', 'assigned_order_count','order_amount','invoice_amount','fill_rate',
+                    'picked_order_count', 'picked_sku_count','picked_pieces_count')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            writer.writerow([self.picker_number(obj), self.full_name(obj), self.assigned_order_count(obj),
+                             self.order_amount(obj), self.invoice_amount(obj), self.fill_rate(obj),
+                             self.picked_order_count(obj), self.picked_sku_count(obj),
+                             self.picked_pieces_count(obj)])
+        return response
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2036,3 +2354,5 @@ admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
+admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
+admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)

@@ -82,7 +82,7 @@ class ShopTypeSearch(InputFilter):
             shop_type = self.value()
             if shop_type is None:
                 return
-            return queryset.filter(shop_type__shop_type__icontains=shop_type)
+            return queryset.filter(shop_type__shop_type=shop_type)
 
 
 class ShopRelatedUserSearch(InputFilter):
@@ -211,9 +211,10 @@ class ShopCityFilter(InputFilter):
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
+    change_form_template = 'admin/shops/shop/change_form.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'approval_status']
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'approval_status']
     actions = ["export_as_csv", "disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -222,7 +223,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
-        'shop_mapped_product', 'imei_no',
+        'shop_mapped_product', 'imei_no', 'warehouse_code'
     )
     filter_horizontal = ('related_users',)
     list_filter = (ShopCityFilter, ServicePartnerFilter, ShopNameSearch, ShopTypeSearch, ShopRelatedUserSearch,
@@ -232,6 +233,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.shop_type.shop_type == 'f':
+            return self.readonly_fields + ('shop_code', 'warehouse_code')
+        return self.readonly_fields
 
     def get_urls(self):
         from django.conf.urls import url

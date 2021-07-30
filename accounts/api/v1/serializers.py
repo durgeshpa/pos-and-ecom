@@ -5,8 +5,9 @@ from products.models import Product
 from django.contrib.auth import get_user_model
 from accounts.models import UserDocument, AppVersion
 from django.contrib.auth.models import Group
-
 from django.db.models import Q
+
+from marketing.models import ReferralCode
 
 User = get_user_model()
 
@@ -14,23 +15,23 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk', 'id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('pk', 'id', 'first_name', 'last_name', 'phone_number', 'email', 'is_whatsapp', 'user_photo')
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
             'email': {'required': True},
             'user_photo': {'required': True},
-            }
+        }
         read_only_fields = ('phone_number',)
 
 
 class UserDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserDocument
-        fields = ('user_document_type','user_document_photo','user_document_number')
+        fields = ('user_document_type', 'user_document_photo', 'user_document_number')
         extra_kwargs = {
             'user_document_type': {'required': True},
-            }
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,7 +41,8 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         self.fields['user_document_photo'].error_messages['required'] = "Please upload document photo"
 
     def validate_user_document_number(self, data):
-        if UserDocument.objects.filter(~Q(user_id=self.context.get('request').user.id), user_document_number=data).exists():
+        if UserDocument.objects.filter(~Q(user_id=self.context.get('request').user.id),
+                                       user_document_number=data).exists():
             raise serializers.ValidationError('Document number is already registered')
         return data
 
@@ -54,7 +56,8 @@ class UserDocumentSerializer(serializers.ModelSerializer):
 class AppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
-        fields = ('app_version', 'update_recommended','force_update_required')
+        fields = ('app_version', 'update_recommended', 'force_update_required')
+
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -63,7 +66,51 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = ('id', 'name',)
 
 
+
 class DeliveryAppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
-        fields = ('app_version', 'update_recommended','force_update_required')
+        fields = ('app_version', 'update_recommended', 'force_update_required')
+
+
+class UserPhoneSerializer(serializers.ModelSerializer):
+    """
+         UserPhoneNumber Serializer
+    """
+
+    class Meta:
+        model = User
+        fields = ('phone_number',)
+
+
+class PosUserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    is_mlm = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_is_mlm(obj):
+        return ReferralCode.is_marketing_user(obj)
+
+    @staticmethod
+    def get_name(obj):
+        return obj.first_name + ' ' + obj.last_name if obj.first_name and obj.last_name else (
+            obj.first_name if obj.first_name else '')
+
+    class Meta:
+        model = User
+        fields = ('phone_number', 'name', 'email', 'is_whatsapp', 'is_mlm')
+
+
+class PosShopUserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    active = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return obj.first_name + ' ' + obj.last_name
+
+    def get_active(self, obj):
+        return True
+
+    class Meta:
+        model = User
+        fields = ('phone_number', 'name', 'email', 'active')

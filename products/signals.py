@@ -3,10 +3,10 @@ from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ParentProductCategory
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from sp_to_gram.tasks import update_shop_product_es, update_product_es
+from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
@@ -17,6 +17,10 @@ from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
+from brand.models import Brand
+from categories.models import Category
+from global_config.models import GlobalConfig
+
 logger = logging.getLogger('django')
 
 from .tasks import approve_product_price
@@ -24,29 +28,38 @@ from .tasks import approve_product_price
 
 @receiver(post_save, sender=ProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    update_shop_product_es(instance.seller_shop.id, instance.product.id)
-    visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
-    for prod_id, visibility in visibility_changes.items():
-        sibling_product = Product.objects.filter(pk=prod_id).last()
-        update_visibility(instance.seller_shop.id, sibling_product, visibility)
-        if prod_id == instance.product.id:
-            update_shop_product_es.delay(instance.seller_shop.id, prod_id)
-        else:
-            update_product_es.delay(instance.seller_shop.id, prod_id, visible=visibility)
+    product = Product.objects.filter(pk=instance.product.id).last()
+    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.seller_shop.id
+        product_id = instance.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 @receiver(post_save, sender=SlabProductPrice)
 def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
-    shop_id = instance.seller_shop.id
-    product_id = instance.product.id
-    update_product_visibility(product_id, shop_id)
+    product = Product.objects.filter(pk=instance.product.id).last()
+    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.seller_shop.id
+        product_id = instance.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 @receiver(post_save, sender=PriceSlab)
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
-    shop_id = instance.product_price.seller_shop.id
-    product_id = instance.product_price.product.id
-    update_product_visibility(product_id, shop_id)
+    product = Product.objects.filter(pk=instance.product_price.product.id).last()
+    if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
+        product.status = 'active'
+        product.save()
+    else:
+        shop_id = instance.product_price.seller_shop.id
+        product_id = instance.product_price.product.id
+        update_product_visibility(product_id, shop_id)
 
 
 def update_product_visibility(product_id, shop_id):
@@ -432,3 +445,48 @@ def update_raw_material_cost_delete(sender, instance=None, created=False, **kwar
 
 
 post_save.connect(get_category_product_report, sender=Product)
+
+
+@receiver(post_save, sender=Category)
+def update_parent_category_elasticsearch(sender, instance=None, created=False, **kwargs):
+    shops_str = GlobalConfig.objects.get(key='category_brand_es_shop_ids').value
+    shops = str(shops_str).split(',') if shops_str else None
+    update_product_on_category_update(instance, shops)
+
+    child_categories = instance.cat_parent.all()
+    for child_category in child_categories:
+        child_category.save()
+
+
+def update_product_on_category_update(instance, shops):
+    parent_pro_categories = instance.parent_category_pro_category.all()
+    for category in parent_pro_categories:
+        parent_product = category.parent_product
+        child_products = parent_product.product_parent_product.filter(status='active')
+        for product in child_products:
+            qs = product.product_pro_price.filter(status=True)
+            qs = qs.filter(seller_shop__id__in=shops) if shops else qs
+            for prod_price in qs.distinct('seller_shop').values('seller_shop', 'product'):
+                update_shop_product_es_cat.delay(prod_price['seller_shop'], prod_price['product'])
+
+
+@receiver(post_save, sender=Brand)
+def update_parent_brand_elasticsearch(sender, instance=None, created=False, **kwargs):
+    shops_str = GlobalConfig.objects.get(key='category_brand_es_shop_ids').value
+    shops = str(shops_str).split(',') if shops_str else None
+    update_product_on_brand_update(instance, shops)
+
+    child_brands = instance.brnd_parent.all()
+    for child_brand in child_brands:
+        child_brand.save()
+
+
+def update_product_on_brand_update(instance, shops):
+    parent_products = instance.parent_brand_product.all()
+    for parent_product in parent_products:
+        child_products = parent_product.product_parent_product.filter(status='active')
+        for product in child_products:
+            qs = product.product_pro_price.filter(status=True)
+            qs = qs.filter(seller_shop__id__in=shops) if shops else qs
+            for prod_price in qs.distinct('seller_shop').values('seller_shop', 'product'):
+                update_shop_product_es_brand.delay(prod_price['seller_shop'], prod_price['product'])
