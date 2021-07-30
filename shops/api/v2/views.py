@@ -1063,7 +1063,8 @@ class BeatPlanningExecutivesListView(generics.GenericAPIView):
         # condition to check the current user is super user  or manager
         if request.user.shop_employee.instance.is_superuser:
             self.queryset = self.queryset. \
-                filter(user_type=6, employee_group__name__iexact='Sales Executive', is_active=True)
+                filter(user_type=6, shop_employee__employee_group__name__iexact='Sales Executive', is_active=True). \
+                distinct('id')
             self.serializer_class = ShopEmployeeSerializers
             if search_text:
                 self.queryset = shop_employee_search(self.queryset, search_text)
