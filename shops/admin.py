@@ -444,7 +444,7 @@ class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop', 'manager', 'employee', 'employee_group', 'created_at', 'status')
-    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'employee_group', 'status', ('created_at', DateTimeRangeFilter), ]
     search_fields = ('shop__shop_name', 'employee_group__permissions__codename', 'employee__phone_number')
 
     def get_urls(self):
