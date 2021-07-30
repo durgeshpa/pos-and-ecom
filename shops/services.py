@@ -18,6 +18,17 @@ def shop_search(queryset, search_text):
     return queryset
 
 
+def parent_shop_search(queryset, search_string):
+    '''
+    search using shop_name & parent shop based on criteria that matches
+    '''
+    sts_list = search_string.split(' ')
+    for search_text in sts_list:
+        queryset = queryset.filter(Q(parent__shop_name__icontains=search_text) | Q(
+            parent__shop_owner__phone_number__icontains=search_text))
+    return queryset
+
+
 def related_user_search(queryset, search_text):
     '''
     search using shop_name & parent shop based on criteria that matches

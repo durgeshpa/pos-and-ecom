@@ -787,40 +787,44 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
 
 class ServicePartnerShopsSerializer(serializers.ModelSerializer):
-    shop = serializers.SerializerMethodField('get_shop_repr')
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop')
+        fields = ('id', '__str__')
 
-    def get_shop_repr(self, obj):
-        if obj.shop_owner.first_name and obj.shop_owner.last_name:
-            return "%s - %s - %s %s - %s - %s" % (obj.shop_name, str(
-                obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                                                  obj.shop_owner.last_name, str(obj.shop_type), str(obj.id))
-
-        elif obj.shop_owner.first_name:
-            return "%s - %s - %s - %s - %s" % (obj.shop_name, str(
-                obj.shop_owner.phone_number), obj.shop_owner.first_name,
-                                               str(obj.shop_type), str(obj.id))
-
-        return "%s - %s - %s - %s" % (obj.shop_name, str(
-            obj.shop_owner.phone_number), str(obj.shop_type), str(obj.id))
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['service_partner'] = {
+            'id': representation['id'],
+            'shop': representation['__str__']
+        }
+        return representation['service_partner']
 
 
-class ParentShopsListSerializer(serializers.ModelSerializer):
-    parent_id = serializers.SerializerMethodField('get_parent_shop_id')
-    parent = serializers.SerializerMethodField('get_parent_shop')
-
+class ParentShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('parent_id', 'parent',)
+        fields = ('id', '__str__')
 
-    def get_parent_shop_id(self, obj):
-        return obj.parent.id
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['parent'] = {
+            'parent_id': representation['id'],
+            'parent': representation['__str__']
+        }
+        return representation['parent']
 
-    def get_parent_shop(self, obj):
-        return obj.parent.__str__()
+
+class ParentRetailerMappingListSerializer(serializers.ModelSerializer):
+    parent = ParentShopSerializer(read_only=True)
+
+    class Meta:
+        model = ParentRetailerMapping
+        fields = ('parent',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return representation['parent']
 
 
 class ManagerSerializers(serializers.ModelSerializer):

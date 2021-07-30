@@ -27,7 +27,7 @@ from shops.models import (BeatPlanning, ParentRetailerMapping, ShopType, Shop, S
 from .serializers import (
     AddressSerializer, BeatPlanningExecutivesListSerializers, BeatPlanningExportAsCSVSerializers,
     BeatPlanningListSerializer, BeatPlanningSampleCSVSerializer, BeatPlanningSerializer, CityAddressSerializer,
-    ParentShopsListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers,
+    ParentRetailerMappingListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers,
     ShopSerializers, ShopCrudSerializers, ShopTypeListSerializers, BulkUpdateShopUserMappingSampleCSVSerializer,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
@@ -38,7 +38,7 @@ from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
                             get_distinct_cities, get_distinct_states, search_pincode, search_city, shop_owner_search,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search, search_state)
+                            shop_type_search, search_state, parent_shop_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
     validate_pin_code
@@ -566,25 +566,40 @@ class ShopSalesReportView(APIView):
 
 
 class ServicePartnerShopsListView(generics.ListAPIView):
-    queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', ]).all()
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type', 'shop_type__shop_sub_type', ) \
+        .filter(shop_type__shop_type__in=['sp', ]) \
+        .only('id', 'shop_name', 'status', 'shop_type__shop_type', 'shop_type__shop_sub_type__retailer_type_name',
+              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number',)
     serializer_class = ServicePartnerShopsSerializer
     permission_classes = (AllowAny,)
 
-    def list(self, request):
+    def list(self, request, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return get_response("", serializer.data, True)
 
 
-class ParentShopsListView(generics.ListAPIView):
-    queryset = ParentRetailerMapping.objects.filter(status=True).only('parent').distinct('parent')
-    serializer_class = ParentShopsListSerializer
+class ParentShopsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    queryset = ParentRetailerMapping.objects.filter(status=True). \
+        select_related('parent', 'parent__shop_owner', 'parent__shop_type', 'parent__shop_type__shop_sub_type',) \
+        .only('parent__id', 'parent__shop_name', 'parent__status', 'parent__shop_owner__id',
+              'parent__shop_owner__first_name', 'parent__shop_owner__last_name', 'parent__shop_owner__phone_number',
+              'parent__shop_type__shop_type', 'parent__shop_type__shop_sub_type__retailer_type_name',) \
+        .distinct('parent__id')
+    serializer_class = ParentRetailerMappingListSerializer
 
-    def list(self, request):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return get_response("", serializer.data, True)
+    def get(self, request):
+        info_logger.info("Shop GET api called.")
+        """ GET Shop List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = parent_shop_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop found"
+        return get_response(msg, serializer.data, True)
 
 
 class ShopListView(generics.GenericAPIView):
