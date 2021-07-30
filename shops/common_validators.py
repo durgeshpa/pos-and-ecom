@@ -678,7 +678,7 @@ def validate_row(uploaded_data_list, header_list):
 
 
 # Beat Planning
-def read_beat_planning_file(executive_phone, csv_file, upload_type):
+def read_beat_planning_file(executive, csv_file, upload_type):
     """
         Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
     """
@@ -694,13 +694,19 @@ def read_beat_planning_file(executive_phone, csv_file, upload_type):
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
         check_beat_planning_mandatory_columns(
-            executive_phone, uploaded_data_by_user_list, csv_file_headers, upload_type)
+            executive, uploaded_data_by_user_list, csv_file_headers, upload_type)
     else:
         raise ValidationError(
             "Please add some data below the headers to upload it!")
 
 
-def check_beat_planning_mandatory_columns(executive_phone, uploaded_data_list, header_list, upload_type):
+def check_beat_planning_mandatory_columns(executive, uploaded_data_list, header_list, upload_type):
+    """
+        This method will check that Data uploaded by user is not empty for mandatory fields.
+    """
+    shop_ids = get_executive_shops(executive)
+    if not shop_ids:
+        raise ValidationError("No shop mapped to the selected Sales executive.")
     row_num = 1
     if upload_type == "beat_planning":
         mandatory_columns = ['employee_phone_number',
@@ -711,62 +717,41 @@ def check_beat_planning_mandatory_columns(executive_phone, uploaded_data_list, h
                     f"{mandatory_columns} are mandatory columns for 'Create Beat Planning'")
         for row in uploaded_data_list:
             row_num += 1
-            if 'employee_phone_number' not in row.keys() or row['employee_phone_number'] == '':
+            if 'employee_phone_number' not in row.keys() or str(row['employee_phone_number']).strip() == '':
                 raise ValidationError(
                     f"Row {row_num} | 'employee_phone_number can't be empty")
-            if row['employee_phone_number'] != executive_phone:
+            if str(row['employee_phone_number']).strip() != executive.phone_number:
                 raise ValidationError(f"Row {row_num} | Please upload beat planning for the selected executive.")
-            if 'shop_id' not in row.keys() or row['shop_id'] == '':
+
+            if 'shop_id' not in row.keys() or str(row['shop_id']).strip() == '':
                 raise ValidationError(
                     f"Row {row_num} | 'shop_id' can't be empty")
-            if 'category' not in row.keys() or row['category'] == '':
+            if int(str(row['shop_id']).strip()) not in shop_ids:
+                raise ValidationError(
+                    f"Row {row_num} | {row['shop_id']} | Shop not mapped to the selected Sales executive")
+
+            if 'category' not in row.keys() or str(row['category']).strip() == '':
                 raise ValidationError(
                     f"Row {row_num} | 'category' can't be empty")
+            if not (any(str(row['category']).strip() in i for i in DayBeatPlanning.shop_category_choice)):
+                raise ValidationError(f"Row {row_num} | {row['category']} | 'category' doesn't exist in the "
+                                      f"system.")
+
             if 'date' not in row.keys() or row['date'] == '':
                 raise ValidationError(f"Row {row_num} | 'date' can't be empty")
-
-    validate_beat_planning_row(uploaded_data_list, header_list)
-
-
-def validate_beat_planning_row(uploaded_data_list, header_list):
-    """
-        This method will check that Data uploaded by user is valid or not.
-    """
-    try:
-        row_num = 1
-        for row in uploaded_data_list:
-            row_num += 1
-
-            if 'employee_phone_number' in header_list and 'employee_phone_number' in row.keys() and row['employee_phone_number'] != '':
-                if not get_user_model().objects.filter(phone_number=row['employee_phone_number'].strip()).exists():
-                    raise ValidationError(
-                        f"Row {row_num} | {row['employee_phone_number']} | 'employee_phone_number' doesn't exist in the system ")
-
-            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
-                if not Shop.objects.filter(id=int(row['shop_id'])).exists():
-                    raise ValidationError(
-                        f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
-
-            if 'category' in header_list and 'category' in row.keys() and row['category'] != '':
-                if not (any(str(row['category']) in i for i in DayBeatPlanning.shop_category_choice)):
-                    raise ValidationError(f"Row {row_num} | {row['category']} | 'category' doesn't exist in the "
-                                          f"system ")
-
-            if 'date' in header_list and 'date' in row.keys() and row['date'] != '':
+            try:
                 try:
-                    try:
-                        date = datetime.strptime(
-                            str(row['date']), '%d/%m/%y').strftime("%Y-%m-%d")
-                    except:
-                        date = datetime.strptime(
-                            str(row['date']), '%d/%m/%Y').strftime("%Y-%m-%d")
+                    datetime.strptime(str(row['date']), '%d/%m/%y').strftime("%Y-%m-%d")
                 except:
-                    raise ValidationError(
-                        f"Row {row_num} | {row['date']} | 'date' Invalid date format, acceptable (dd/mm/yy).")
+                    datetime.strptime(str(row['date']), '%d/%m/%Y').strftime("%Y-%m-%d")
+            except:
+                raise ValidationError(
+                    f"Row {row_num} | {row['date']} | 'date' Invalid date format, acceptable (dd/mm/yy).")
 
-    except ValueError as e:
-        raise ValidationError(
-            f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
-    except KeyError as e:
-        raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while checking csv data "
-                              f"from dictionary")
+
+def get_executive_shops(executive):
+    shop_ids = []
+    shops = Shop.objects.filter(shop_user__employee=executive).only('id').values('id')
+    if shops:
+        shop_ids = [sp['id'] for sp in shops]
+    return shop_ids
