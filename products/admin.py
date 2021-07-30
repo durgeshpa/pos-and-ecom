@@ -1720,8 +1720,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'products_image', 'ptr_percent',  'status',
-        'moving_average_buying_price'
+        'product_mrp',   'products_image',  'status'
     ]
 
     list_filter = [ProductSearch, ChildParentIDFilter]
