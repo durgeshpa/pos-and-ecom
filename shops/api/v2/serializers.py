@@ -1305,7 +1305,7 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super(BeatPlanningSerializer, self).__init__(*args, **kwargs)  # call the super()
-        self.fields['executive_id'].error_messages['required'] = 'Please select a valid executive.'
+        self.fields['executive_id'].error_messages['required'] = 'Please select an executive.'
 
     class Meta:
         model = BeatPlanning
@@ -1317,12 +1317,12 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(
                 _('Sorry! Only csv file accepted.'))
-        executive_phone = User.objects.filter(id=data['executive_id']).last().phone_number
+        executive = User.objects.filter(id=data['executive_id']).last()
         csv_file_data = csv.reader(codecs.iterdecode(
             data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
-            read_beat_planning_file(executive_phone, csv_file_data, "beat_planning")
+            read_beat_planning_file(executive, csv_file_data, "beat_planning")
         else:
             raise serializers.ValidationError(
                 "CSV File cannot be empty.Please add some data to upload it!")
