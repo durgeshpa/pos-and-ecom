@@ -31,6 +31,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 
+from global_config.views import get_config
 from retailer_backend.common_function import bulk_create
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
@@ -49,7 +50,7 @@ from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBin
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice, Repackaging, ProductCategory
+from products.models import Product, ProductPrice, Repackaging, ProductCategory, PriceSlab
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -2052,53 +2053,110 @@ def test(r):
 
 
 def create_move_discounted_products():
+    warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
     type_normal = InventoryType.objects.get(inventory_type='normal')
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
-    inventory = BinInventory.objects.filter(inventory_type=type_normal, quantity__gt=0) \
-        .prefetch_related('sku__parent_product') \
-        .prefetch_related(Prefetch('sku__ins', queryset=In.objects.all().order_by('-created_at'), to_attr='latest_in'))[:100]
+    tr_type_move_to_discounted = 'moved_to_discounted'
+    tr_type_added_as_discounted = 'added_as_discounted'
+    today = datetime.today().date()
+    tr_id = today.isoformat()
+    inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
+                                            inventory_type=type_normal, quantity__gt=0,
+                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
+                                    .prefetch_related('sku__parent_product') \
+                                    .prefetch_related(Prefetch('sku__ins',
+                                                                 queryset=In.objects.all().order_by('-created_at'),
+                                                                 to_attr='latest_in'))[:10]
 
     for i in inventory:
-        print(i.sku_id)
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
-        print(discounted_life_percent)
         expiry_date = i.sku.latest_in[0].expiry_date
-        print(expiry_date)
         manufacturing_date = i.sku.latest_in[0].manufacturing_date
-        print(manufacturing_date)
         product_life = expiry_date - manufacturing_date
-        print (product_life)
-        today = datetime.today().date()
         remaining_life = expiry_date - today
-        print (remaining_life)
         discounted_life = floor(product_life.days * discounted_life_percent / 100)
-        print (discounted_life)
         if discounted_life >= remaining_life.days:
-            print("product to be moved to discounted")
-            discounted_product_sku = 'D'+i.sku_id
-            with transaction.atomic():
-                discounted_product, created = Product.objects.get_or_create(product_sku=discounted_product_sku,
-                                                                   product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
-                                                                   parent_product=i.sku.parent_product,
-                                                                   reason_for_child_sku='near_expiry',
-                                                                   product_name=i.sku.product_name,
-                                                                   product_ean_code=i.sku.product_ean_code,
-                                                                   product_mrp=i.sku.product_mrp,
-                                                                   weight_value=i.sku.weight_value,
-                                                                   weight_unit=i.sku.weight_unit,
-                                                                   repackaging_type=i.sku.repackaging_type
-                                                                   )
-                CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                                                i.warehouse, i.bin, i.sku, i.batch_id, i.inventory_type, i.inventory_type,
-                                                -1*i.quantity, True, 'moved_to_discounted', 1)
-                CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                                                i.warehouse, i.bin, discounted_product, i.batch_id, i.inventory_type, i.inventory_type,
-                                                i.quantity, True, 'added_as_discounted', 1)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                                                i.warehouse, i.sku, i.inventory_type, state_total_available, -1*i.quantity,
-                                                            'moved_to_discounted', 1)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                                                i.warehouse, discounted_product, i.inventory_type, state_total_available, i.quantity,
-                                                            'added_as_discounted', 1)
+            try:
+                with transaction.atomic():
+                    #create discounted product
+                    discounted_product = create_discounted_product(i.sku)
+                    #move inventory
+                    move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date, i.quantity,
+                                   state_total_available, type_normal,  tr_id, tr_type_added_as_discounted,
+                                   tr_type_move_to_discounted)
+
+                    # Setting price
+                    create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life, remaining_life)
+            except Exception as e:
+                info_logger.error(e)
+                info_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
+                                 .format(i.batch_id, i.quantity))
+
+
+def create_discounted_product(product):
+    discounted_product_sku = 'D' + product.product_sku
+    discounted_product, created = Product.objects.get_or_create(product_sku=discounted_product_sku,
+                                                                product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
+                                                                parent_product=product.parent_product,
+                                                                reason_for_child_sku='near_expiry',
+                                                                product_name=product.product_name,
+                                                                product_ean_code=product.product_ean_code,
+                                                                product_mrp=product.product_mrp,
+                                                                weight_value=product.weight_value,
+                                                                weight_unit=product.weight_unit,
+                                                                repackaging_type=product.repackaging_type
+                                                                )
+    return discounted_product
+
+
+def move_inventory(warehouse, discounted_product, original_product, bin, batch_id, manufacturing_date, quantity,
+                   state_total_available, type_normal, tr_id, tr_type_added_as_discounted, tr_type_move_to_discounted):
+
+    discounted_batch_id = batch_id
+    CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, original_product, batch_id,
+                                                                          type_normal, type_normal, -1 * quantity,
+                                                                          True, tr_type_move_to_discounted, tr_id)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, original_product,
+                                                                                      type_normal, state_total_available,
+                                                                                      -1 * quantity,
+                                                                                      tr_type_move_to_discounted, tr_id)
+    # OutCommonFunctions.create_out(warehouse, tr_type_move_to_discounted, tr_id,original_product, batch_id, quantity,
+    #                               type_normal)
+    # InCommonFunctions.create_in(warehouse, tr_type_added_as_discounted, tr_id, discounted_product, discounted_batch_id,
+    #                             quantity, quantity, type_normal, 0, manufacturing_date)
+    CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product,
+                                                                          discounted_batch_id, type_normal,type_normal,
+                                                                          quantity, True, tr_type_added_as_discounted,
+                                                                          tr_id)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
+                                                                                      type_normal, state_total_available,
+                                                                                      quantity, tr_type_added_as_discounted,
+                                                                                      tr_id)
+
+
+def create_price_for_discounted_product(warehouse, discounted_product, original_product,
+                                        discounted_life, remaining_life):
+    half_life = (discounted_life - 2) / 2
+    product_price = original_product.product_pro_price.filter(seller_shop=warehouse,
+                                                   approval_status=ProductPrice.APPROVED).last()
+    base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+    base_price = base_price_slab.ptr
+
+    if remaining_life.days <= half_life:
+        selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
+    else:
+        selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
+
+    discounted_price = ProductPrice.objects.create(
+        product=discounted_product,
+        mrp=discounted_product.product_mrp,
+        selling_price=selling_price,
+        seller_shop=warehouse,
+        start_date=datetime.today(),
+        approval_status=ProductPrice.APPROVED)
+    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+                             selling_price=selling_price)
+
+
 
 

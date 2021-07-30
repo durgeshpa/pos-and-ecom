@@ -452,14 +452,6 @@ def get_visibility_changes(shop, product):
         if not product_price_entries:
             visibility_changes[child.id] = False
             continue
-        # warehouse_entries = WarehouseInventory.objects.filter(
-        #     Q(sku=child),
-        #     Q(warehouse=shop),
-        #     Q(quantity__gt=0),
-        #     Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-        #     Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-        #     Q(in_stock='t')
-        # )
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         product_qty_dict = get_stock(shop, type_normal, [child.id])
         if len(product_qty_dict) == 0:
@@ -471,6 +463,9 @@ def get_visibility_changes(shop, product):
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
             continue
+        # if child.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
+        #     visibility_changes[child.id] = True
+        #     continue
         sum_qty_warehouse_entries = product_qty_dict[child.id]
         if sum_qty_warehouse_entries == 0 or int(sum_qty_warehouse_entries/child.product_inner_case_size)==0:
             visibility_changes[child.id] = False
