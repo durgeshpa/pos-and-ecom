@@ -802,7 +802,6 @@ class ServicePartnerShopsSerializer(serializers.ModelSerializer):
 
 
 class ParentShopSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Shop
         fields = ('id', '__str__')

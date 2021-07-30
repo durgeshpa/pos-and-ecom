@@ -566,11 +566,14 @@ class ShopSalesReportView(APIView):
 
 
 class ServicePartnerShopsListView(generics.ListAPIView):
-    queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', ]).all()
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type', 'shop_type__shop_sub_type', ) \
+        .filter(shop_type__shop_type__in=['sp', ]) \
+        .only('id', 'shop_name', 'status', 'shop_type__shop_type', 'shop_type__shop_sub_type__retailer_type_name',
+              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number',)
     serializer_class = ServicePartnerShopsSerializer
     permission_classes = (AllowAny,)
 
-    def list(self, request):
+    def list(self, request, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return get_response("", serializer.data, True)
@@ -579,8 +582,12 @@ class ServicePartnerShopsListView(generics.ListAPIView):
 class ParentShopsListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ParentRetailerMapping.objects.filter(status=True).select_related('parent') \
-        .only('parent__id', 'parent__shop_name').distinct('parent__id')
+    queryset = ParentRetailerMapping.objects.filter(status=True). \
+        select_related('parent', 'parent__shop_owner', 'parent__shop_type', 'parent__shop_type__shop_sub_type',) \
+        .only('parent__id', 'parent__shop_name', 'parent__status', 'parent__shop_owner__id',
+              'parent__shop_owner__first_name', 'parent__shop_owner__last_name', 'parent__shop_owner__phone_number',
+              'parent__shop_type__shop_type', 'parent__shop_type__shop_sub_type__retailer_type_name',) \
+        .distinct('parent__id')
     serializer_class = ParentRetailerMappingListSerializer
 
     def get(self, request):
