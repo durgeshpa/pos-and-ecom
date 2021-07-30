@@ -784,15 +784,15 @@ class ParentProductTaxMapping(BaseTimeModel):
 
 class DestinationRepackagingCostMapping(models.Model):
     destination = models.ForeignKey(Product, related_name='destination_product_repackaging', on_delete=models.CASCADE)
-    raw_material = models.DecimalField(max_digits=10, decimal_places=2)
-    wastage = models.DecimalField(max_digits=10, decimal_places=2)
-    fumigation = models.DecimalField(max_digits=10, decimal_places=2)
-    label_printing = models.DecimalField(max_digits=10, decimal_places=2)
-    packing_labour = models.DecimalField(max_digits=10, decimal_places=2)
-    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    raw_material = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    wastage = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    fumigation = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    label_printing = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    packing_labour = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
 
     def __str__(self):
         return "{}".format(self.destination)

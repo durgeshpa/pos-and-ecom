@@ -1070,8 +1070,7 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
     def validate(self, data):
 
         if len(data.get('shop_id_list')) == 0:
-            raise serializers.ValidationError(
-                _('Atleast one shop id must be selected '))
+            raise serializers.ValidationError(_('Atleast one shop id must be selected '))
 
         for s_id in data.get('shop_id_list'):
             try:
@@ -1119,8 +1118,7 @@ class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
     def validate(self, data):
 
         if len(data.get('shop_user_id_list')) == 0:
-            raise serializers.ValidationError(
-                _('Atleast one shop user mapping id must be selected '))
+            raise serializers.ValidationError(_('Atleast one shop user mapping id must be selected '))
 
         for s_id in data.get('shop_user_id_list'):
             try:

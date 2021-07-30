@@ -463,6 +463,7 @@ def validate_shop_name(s_name, s_id):
     if Shop.objects.filter(shop_name__iexact=s_name, status=True).exclude(id=s_id).exists():
         return {'error': 'shop with this shop name already exists'}
 
+
 def validate__existing_shop_with_name_owner(shop_name, shop_owner, shop_id):
     """ validate shop name already exist in Shop Model  """
     if Shop.objects.filter(shop_name__iexact=shop_name, shop_owner=shop_owner, status=True).exclude(id=shop_id).exists():
@@ -636,8 +637,11 @@ def validate_row(uploaded_data_list, header_list):
 
             if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
                 if not Shop.objects.filter(id=int(row['shop_id'])).exists():
-                    raise ValidationError(
-                        f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
+
+            if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
+                if not Shop.objects.filter(id=int(row['shop_id']), approval_status=2).exists():
+                    raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop' is not approved")
 
             if 'shop_name' in header_list and 'shop_name' in row.keys() and row['shop_name'] != '':
                 if not Shop.objects.filter(shop_name__iexact=str(row['shop_name']).strip()).exists():
@@ -648,6 +652,10 @@ def validate_row(uploaded_data_list, header_list):
                 if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():
                     raise ValidationError(
                         f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
+
+            if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
+                if not get_user_model().objects.filter(phone_number=row['employee'].strip(), user_type=7).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' Type is not Sales Manager  ")
 
             if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
                 if not Group.objects.filter(id=row['employee_group'].strip()).exists():

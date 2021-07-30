@@ -198,7 +198,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
         if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
             if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
-                raise serializers.ValidationError(_('product_images is required'))
+                raise serializers.ValidationError(_('product image is required'))
 
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
             image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
@@ -760,6 +760,11 @@ class ChildProductSerializers(serializers.ModelSerializer):
             if 'error' in destination_product:
                 raise serializers.ValidationError(_(destination_product["error"]))
 
+            if self.initial_data['packing_product_rt']:
+                mandatory_fields = ['packing_sku', 'packing_sku_weight_per_unit_sku']
+                for field in mandatory_fields:
+                    if field not in self.initial_data['packing_product_rt'][0]:
+                        raise serializers.ValidationError(f"{mandatory_fields} are mandatory fields")
             packing_product = get_validate_packing_material(self.initial_data['packing_product_rt'])
             if 'error' in packing_product:
                 raise serializers.ValidationError(_(packing_product["error"]))
@@ -872,7 +877,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         meta = Product._meta
-        exclude_fields = ['created_at', 'updated_at']
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
 
@@ -933,7 +938,7 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
         if 'product_hsn_code' in self.initial_data and data['product_hsn_code']:
             if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True)\
                     .exclude(id=hsn_id).exists():
-                raise serializers.ValidationError("product hsn code already exists.")
+                raise serializers.ValidationError("hsn code already exists.")
 
         return data
 
@@ -972,7 +977,7 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
         tax_id = self.instance.id if self.instance else None
         if 'tax_name' in self.initial_data and self.initial_data['tax_name'] is not None:
-            tax_obj = validate_tax_name(self.initial_data['name'], tax_id)
+            tax_obj = validate_tax_name(self.initial_data['tax_name'], tax_id)
             if tax_obj is not None and 'error' in tax_obj:
                 raise serializers.ValidationError(tax_obj['error'])
         if 'tax_type' in self.initial_data and 'tax_percentage' in self.initial_data:
@@ -1002,10 +1007,10 @@ class TaxCrudSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        if instance.tax_start_at:
-            representation['tax_start_at'] = instance.tax_start_at.strftime("%b %d %Y %I:%M%p")
-        if instance.tax_end_at:
-            representation['tax_end_at'] = instance.tax_end_at.strftime("%b %d %Y %I:%M%p")
+        # if instance.tax_start_at:
+        #     representation['tax_start_at'] = instance.tax_start_at.strftime("%b %d %Y %I:%M%p")
+        # if instance.tax_end_at:
+        #     representation['tax_end_at'] = instance.tax_end_at.strftime("%b %d %Y %I:%M%p")
         if representation['tax_name']:
             representation['tax_name'] = representation['tax_name'].title()
         return representation

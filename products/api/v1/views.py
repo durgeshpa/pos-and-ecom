@@ -298,9 +298,12 @@ class TaxView(GenericAPIView):
 
     def search_filter_product_tax(self):
         search_text = self.request.GET.get('search_text')
+        status = self.request.GET.get('status')
         # search using tax_name and tax_type based on criteria that matches
         if search_text:
             self.queryset = tax_search(self.queryset, search_text.strip())
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
         return self.queryset
 
 
