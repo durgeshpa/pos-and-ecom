@@ -1123,8 +1123,7 @@ class BulkUpdateShopUserMappingSampleCSVSerializer(serializers.ModelSerializer):
             try:
                 Shop.objects.get(id=s_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(
-                    f'shop user mapping not found for id {s_id}')
+                raise serializers.ValidationError(f'shop user mapping not found for id {s_id}')
 
         return data
 

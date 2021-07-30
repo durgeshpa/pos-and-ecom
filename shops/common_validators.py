@@ -686,8 +686,6 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(
                         'Manager and Employee cannot be same')
 
-
-
     except ValueError as e:
         raise ValidationError(
             f"Row {row_num} | ValueError : {e} | Please Enter valid Data")
