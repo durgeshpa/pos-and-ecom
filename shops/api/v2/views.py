@@ -644,8 +644,9 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', 'shop').\
-        filter(employee__user_type=7, status=True, shop__approval_status=2).order_by('-id')
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee',).\
+        filter(employee__user_type=7, employee_group__permissions__codename='can_sales_manager_add_shop',
+               status=True).order_by('-id')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
     serializer_class = ShopManagerListSerializers
@@ -653,6 +654,9 @@ class ShopManagerListView(generics.GenericAPIView):
     def get(self, request):
         info_logger.info("Shop Manager GET api called.")
         """ GET Shop Manager List """
+        shop_id = self.request.GET.get('shop_id')
+        if shop_id:
+            self.queryset = self.queryset.filter(shop_id=shop_id)
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = shop_manager_search(self.queryset, search_text)

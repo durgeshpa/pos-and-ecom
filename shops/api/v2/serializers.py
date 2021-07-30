@@ -855,21 +855,10 @@ class ShopNameOwnerSerializers(serializers.ModelSerializer):
 
 class ShopManagerListSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
-    shop = ShopNameOwnerSerializers()
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'shop', 'employee',)
-
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     representation['managers'] = {
-    #         "shop": representation['shop']['shop_name'],
-    #         "shop": representation['shop']['shop_name'],
-    #         "id": representation['employee']['id'],
-    #         "manager": representation['employee'],
-    #     }
-    #     return representation['managers']
+        fields = ('id', 'employee',)
 
 
 class ShopManagerListDistSerializers(serializers.ModelSerializer):
