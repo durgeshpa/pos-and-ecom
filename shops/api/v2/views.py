@@ -1088,9 +1088,9 @@ class BeatPlanningExecutivesListView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
 
         # get manager object
-        shop_mapping_object = (ShopUserMapping.objects.filter(
+        shop_mapping_object = ShopUserMapping.objects.filter(
             employee=request.user.shop_employee.instance,
-            employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
+            employee_group__permissions__codename='can_sales_manager_add_shop', status=True)
 
         # condition to check the current user is super user  or manager
         if request.user.shop_employee.instance.is_superuser:
@@ -1104,7 +1104,7 @@ class BeatPlanningExecutivesListView(generics.GenericAPIView):
             self.serializer_class = BeatPlanningExecutivesListSerializers
             self.queryset = ShopUserMapping.objects. \
                 filter(employee__user_type=6, employee_group__name__iexact='Sales Executive',
-                       manager=shop_mapping_object, status=True).distinct('employee_id')
+                       manager__in=shop_mapping_object, status=True).distinct('employee_id')
             if search_text:
                 self.queryset = shop_manager_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
