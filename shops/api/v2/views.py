@@ -644,7 +644,8 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7, status=True)
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', 'shop').\
+        filter(employee__user_type=7, status=True, shop__approval_status=2).order_by('-id')
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
     serializer_class = ShopManagerListSerializers
