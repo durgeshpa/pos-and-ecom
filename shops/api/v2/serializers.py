@@ -940,8 +940,7 @@ class ShopUserMappingCrudSerializers(serializers.ModelSerializer):
                     'Manager and Employee cannot be same')
 
         if 'employee_group' in self.initial_data and self.initial_data['employee_group']:
-            employee_group_id = validate_employee_group(
-                self.initial_data['employee_group'])
+            employee_group_id = validate_employee_group(self.initial_data['employee_group'])
             if 'error' in employee_group_id:
                 raise serializers.ValidationError((employee_group_id["error"]))
             data['employee_group'] = employee_group_id['data']

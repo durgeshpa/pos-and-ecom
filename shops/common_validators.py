@@ -648,14 +648,23 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(f"Row {row_num} | {row['shop_name']} | 'shop_name' doesn't exist in the "
                                           f"system ")
 
-            if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
-                if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():
-                    raise ValidationError(
-                        f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
+            if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
+                if not Group.objects.filter(id=row['employee_group'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee_group']} | 'employee group' doesn't "
+                                          f"exist in the system ")
 
             if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
-                if not get_user_model().objects.filter(phone_number=row['employee'].strip(), user_type=7).exists():
-                    raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' Type is not Sales Manager  ")
+                if not get_user_model().objects.filter(phone_number=row['employee'].strip()).exists():
+                    raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
+
+            if 'employee_group' in header_list and 'employee_group' in row.keys() and 'employee' in header_list and \
+                    'employee' in row.keys():
+                if row['employee_group'] != '' and row['employee'] != '':
+                    emp_group = Group.objects.filter(id=row['employee_group'].strip())
+                    if emp_group.name == "Sales Manager":
+                        if not get_user_model().objects.filter(phone_number=row['employee'].strip(), user_type=7).exists():
+                            raise ValidationError(f"Row {row_num} | {row['employee']} | "
+                                                  f"'employee' Type is not Sales Manager  ")
 
             if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
                 if not Group.objects.filter(id=row['employee_group'].strip()).exists():
@@ -676,6 +685,8 @@ def validate_row(uploaded_data_list, header_list):
                 elif row['manager'] == row['employee']:
                     raise ValidationError(
                         'Manager and Employee cannot be same')
+
+
 
     except ValueError as e:
         raise ValidationError(
