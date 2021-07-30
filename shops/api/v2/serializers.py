@@ -861,6 +861,18 @@ class ShopManagerListSerializers(serializers.ModelSerializer):
         return representation['managers']
 
 
+class ShopManagerListDistSerializers(serializers.ModelSerializer):
+    employee = ShopEmployeeSerializers()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('employee',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return representation['employee']
+
+
 class ShopManagerSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
 

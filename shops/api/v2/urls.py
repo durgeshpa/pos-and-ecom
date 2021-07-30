@@ -9,7 +9,7 @@ from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPla
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList,
                                 ShopTypeChoiceView, BulkUpdateShopView, BeatPlanningExecutivesListView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
-                                BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV, ShopCrudView)
+                                BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV, ShopCrudView, ShopManagerListDisView)
 
 router = routers.DefaultRouter()
 
@@ -34,6 +34,7 @@ urlpatterns = [
     url('sp-shop/', ServicePartnerShopsListView.as_view(), name='sp-shop'),
     url('parent-shop/', ParentShopsListView.as_view(), name='parent-shop'),
     url('shop-users-mapping/', ShopUserMappingView.as_view(), name='shop-users-mapping'),
+    url('shop-users-mapping-list/', ShopManagerListDisView.as_view(), name='shop-users-mapping-list'),
     url('shop-managers/', ShopManagerListView.as_view(), name='shop-managers'),
     url('shop-employees/', ShopEmployeeListView.as_view(), name='shop-employees'),
     url('retailer-type-list/', RetailerTypeList.as_view(), name='retailer-type-list'),

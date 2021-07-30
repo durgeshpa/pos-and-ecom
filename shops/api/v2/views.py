@@ -32,7 +32,7 @@ from .serializers import (
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
-    BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer
+    BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers
 )
 from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
@@ -618,6 +618,26 @@ class ShopListView(generics.GenericAPIView):
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
         msg = "" if shop else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShopManagerListDisView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    # get 'Sales Manager'
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).\
+        distinct('employee')
+    serializer_class = ShopManagerListDistSerializers
+
+    def get(self, request):
+        info_logger.info("Shop Manager GET api called.")
+        """ GET Shop Manager List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_manager_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop manager found"
         return get_response(msg, serializer.data, True)
 
 
