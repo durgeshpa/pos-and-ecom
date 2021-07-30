@@ -654,7 +654,7 @@ def validate_row(uploaded_data_list, header_list):
                         f"Row {row_num} | {row['employee']} | 'employee' doesn't exist in the system ")
 
             if 'employee' in header_list and 'employee' in row.keys() and row['employee'] != '':
-                if not get_user_model().objects.filter(phone_number=row['employee'].strip(), employee__user_type=7).exists():
+                if not get_user_model().objects.filter(phone_number=row['employee'].strip(), user_type=7).exists():
                     raise ValidationError(f"Row {row_num} | {row['employee']} | 'employee' Type is not Sales Manager  ")
 
             if 'employee_group' in header_list and 'employee_group' in row.keys() and row['employee_group'] != '':
