@@ -640,7 +640,7 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop_id' doesn't exist in the system ")
 
             if 'shop_id' in header_list and 'shop_id' in row.keys() and row['shop_id'] != '':
-                if not Shop.objects.filter(id=int(row['shop_id'], approval_status=2)).exists():
+                if not Shop.objects.filter(id=int(row['shop_id']), approval_status=2).exists():
                     raise ValidationError(f"Row {row_num} | {row['shop_id']} | 'shop' is not approved")
 
             if 'shop_name' in header_list and 'shop_name' in row.keys() and row['shop_name'] != '':
