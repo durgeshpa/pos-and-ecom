@@ -253,6 +253,7 @@ def DownloadRetailerCatalogue(request, *args):
             if not brand:
                 brand = sub_brand
                 sub_brand = None
+            discounted_stock = None
             if product['discounted_product']:
                 discounted_stock = inventory_data.get(product['discounted_product'], 0)
             writer.writerow(
