@@ -875,16 +875,18 @@ class ShopManagerListDistSerializers(serializers.ModelSerializer):
 
 class ShopManagerSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
+    employee_group = GroupSerializer()
 
     class Meta:
         model = ShopUserMapping
-        fields = ('id', 'employee',)
+        fields = ('id', 'employee', 'employee_group')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['managers'] = {
             "id": representation['id'],
             "manager": representation['employee'],
+            "employee_group": representation['employee_group'],
         }
         return representation['managers']
 
