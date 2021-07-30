@@ -787,7 +787,7 @@ class ShopUserMappingView(generics.GenericAPIView):
         if shop_id:
             self.queryset = self.queryset.filter(shop__id=shop_id)
         if manager_id:
-            self.queryset = self.queryset.filter(manager__id=manager_id)
+            self.queryset = self.queryset.filter(manager__employee__id=manager_id)
         if emp_id:
             self.queryset = self.queryset.filter(employee__id=emp_id)
         if status:
