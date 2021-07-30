@@ -845,6 +845,22 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
         fields = ('id', 'phone_number', 'first_name', 'last_name')
 
 
+class ShopManagerListSerializers(serializers.ModelSerializer):
+    employee = ShopEmployeeSerializers()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('employee',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['managers'] = {
+            "id": representation['employee']['id'],
+            "manager": representation['employee'],
+        }
+        return representation['managers']
+
+
 class ShopManagerSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
 
@@ -859,6 +875,7 @@ class ShopManagerSerializers(serializers.ModelSerializer):
             "manager": representation['employee'],
         }
         return representation['managers']
+
 
 class BeatPlanningExecutivesListSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()

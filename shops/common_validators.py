@@ -683,8 +683,7 @@ def validate_row(uploaded_data_list, header_list):
                     raise ValidationError(
                         f"Row {row_num} | {row['manager']} | 'manager' doesn't exist in the system ")
                 elif row['manager'] == row['employee']:
-                    raise ValidationError(
-                        'Manager and Employee cannot be same')
+                    raise ValidationError('Manager and Employee cannot be same')
 
     except ValueError as e:
         raise ValidationError(

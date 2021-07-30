@@ -30,7 +30,7 @@ from .serializers import (
     ParentRetailerMappingListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers,
     ShopSerializers, ShopCrudSerializers, ShopTypeListSerializers, BulkUpdateShopUserMappingSampleCSVSerializer,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers,
+    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer
 )
@@ -625,11 +625,10 @@ class ShopManagerListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).\
-        distinct('employee')
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7)
     # queryset = ShopUserMapping.objects.filter(employee_group__permissions__codename='can_sales_manager_add_shop').\
     #     distinct('employee')
-    serializer_class = ShopManagerSerializers
+    serializer_class = ShopManagerListSerializers
 
     def get(self, request):
         info_logger.info("Shop Manager GET api called.")
@@ -671,9 +670,8 @@ class ShopUserMappingView(generics.GenericAPIView):
               'shop__shop_name', 'shop__shop_type', 'shop__shop_owner', 'shop__shop_code', 'updated_by__id',
               'updated_by__first_name', 'updated_by__phone_number', 'updated_by__last_name', 'shop__shop_owner__id',
               'shop__shop_owner__first_name', 'shop__shop_owner__phone_number', 'manager',
-              'shop__shop_owner__last_name',
-              'employee_group', 'employee', 'employee__id', 'employee__first_name', 'employee__last_name',
-              'employee__phone_number', ).order_by('-id')
+              'shop__shop_owner__last_name', 'employee_group', 'employee', 'employee__id', 'employee__first_name',
+              'employee__last_name', 'employee__phone_number', ).order_by('-id')
 
     serializer_class = ShopUserMappingCrudSerializers
 
