@@ -41,8 +41,7 @@ def related_user_search(queryset, search_text):
     '''
     search using shop_name & parent shop based on criteria that matches
     '''
-    queryset = queryset.filter(Q(first_name__icontains=search_text) | Q(
-        phone_number__icontains=search_text))
+    queryset = queryset.filter(Q(first_name__icontains=search_text) | Q(phone_number__icontains=search_text))
     return queryset
 
 
