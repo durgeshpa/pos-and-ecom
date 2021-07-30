@@ -872,7 +872,7 @@ class ShopTypeView(GenericAPIView):
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'shop_type_id': shop_type_obj}
                     info_logger.info("shop_type_id deleted info ", dict_data)
-                except:
+                except Exception as e:
                     return get_response(f'You can not delete shop type {shop_type_obj}, '
                                         f'because this shop type getting used', False)
         except ObjectDoesNotExist as e:
