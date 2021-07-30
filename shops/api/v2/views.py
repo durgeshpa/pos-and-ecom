@@ -30,7 +30,7 @@ from .serializers import (
     ParentRetailerMappingListSerializer, PinCodeAddressSerializer, ServicePartnerShopsSerializer, ShopTypeSerializers,
     ShopSerializers, ShopCrudSerializers, ShopTypeListSerializers, BulkUpdateShopUserMappingSampleCSVSerializer,
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
-    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerSerializers, ShopManagerListSerializers,
+    ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers
 )
@@ -38,7 +38,7 @@ from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
                             get_distinct_cities, get_distinct_states, search_pincode, search_city, shop_owner_search,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search, search_state, parent_shop_search)
+                            shop_type_search, search_state, parent_shop_search, shop_list_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
     validate_pin_code
@@ -614,7 +614,7 @@ class ShopListView(generics.GenericAPIView):
         """ GET Shop List """
         search_text = self.request.GET.get('search_text')
         if search_text:
-            self.queryset = shop_search(self.queryset, search_text)
+            self.queryset = shop_list_search(self.queryset, search_text)
         shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shop, many=True)
         msg = "" if shop else "no shop found"
