@@ -13,8 +13,16 @@ def shop_search(queryset, search_text):
     '''
     search using shop_name & parent shop based on criteria that matches
     '''
-    queryset = queryset.filter(Q(shop_name__icontains=search_text) | Q(
-        retiler_mapping__parent__shop_name__icontains=search_text))
+    queryset = queryset.filter(Q(shop_name__icontains=search_text) |
+                               Q(retiler_mapping__parent__shop_name__icontains=search_text))
+    return queryset
+
+
+def shop_list_search(queryset, search_text):
+    '''
+    search using shop_name & parent shop based on criteria that matches
+    '''
+    queryset = queryset.filter(shop_name__icontains=search_text)
     return queryset
 
 
