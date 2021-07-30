@@ -475,10 +475,6 @@ class TeamListView(generics.ListAPIView):
             data.append(rt)
             store_added_total += store_added
             shops_considered += buyer_shops
-<<<<<<< HEAD
-        avg_order_total = round(ordered_amount_total / shops_ordered_total, 2)
-        avg_order_line_items_total = round(no_of_ordered_sku_total / shops_ordered_total, 2)
-=======
         try:
             avg_order_total = round(ordered_amount_total/shops_ordered_total, 2)
         except:
@@ -487,7 +483,6 @@ class TeamListView(generics.ListAPIView):
             avg_order_line_items_total = round(no_of_ordered_sku_total/shops_ordered_total, 2)
         except:
             avg_order_line_items_total = 0
->>>>>>> 02ad24394953792b6640dbf12e3e978320dfa96d
         dt = {
             'ordered_sku_pieces': ordered_sku_pieces_total,
             'ordered_amount': ordered_amount_total,
@@ -713,11 +708,7 @@ class SellerShopProfile(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
-<<<<<<< HEAD
-        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
-=======
         shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name','shop__shop_owner__phone_number').order_by('shop__shop_name')
->>>>>>> 02ad24394953792b6640dbf12e3e978320dfa96d
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)
@@ -744,13 +735,8 @@ class SellerShopProfile(generics.ListAPIView):
                 order_value = 0
             rt = {
                 'name': shop['shop__shop_name'],
-<<<<<<< HEAD
-                'last_order_date': order_map[shop['shop']][3].strftime('%d-%m-%Y %H:%M') if shop[
-                                                                                                'shop'] in order_map else 0,
-=======
                 'shop_contact_number':shop['shop__shop_owner__phone_number'],
                 'last_order_date': order_map[shop['shop']][3].strftime('%d-%m-%Y %H:%M') if shop['shop'] in order_map else 0,
->>>>>>> 02ad24394953792b6640dbf12e3e978320dfa96d
                 'last_order_value': order_value,
                 'ordered_amount': avg_order_map[shop['shop']][1] if shop['shop'] in buyer_order_map else 0,
                 'avg_order_value': round(avg_order_map[shop['shop']][1] / buyer_order_map[shop['shop']][0], 2) if shop[
