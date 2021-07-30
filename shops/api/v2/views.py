@@ -625,8 +625,7 @@ class ShopManagerListDisView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     # get 'Sales Manager'
-    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).\
-        distinct('employee')
+    queryset = ShopUserMapping.objects.select_related('manager', 'employee', ).filter(employee__user_type=7).distinct('employee')
     serializer_class = ShopManagerListDistSerializers
 
     def get(self, request):

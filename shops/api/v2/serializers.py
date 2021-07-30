@@ -847,14 +847,16 @@ class ShopEmployeeSerializers(serializers.ModelSerializer):
 
 class ShopManagerListSerializers(serializers.ModelSerializer):
     employee = ShopEmployeeSerializers()
+    shop = ParentRetailerMappingSerializers()
 
     class Meta:
         model = ShopUserMapping
-        fields = ('employee',)
+        fields = ('shop', 'employee',)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['managers'] = {
+            "shop": representation['shop']['shop_name'],
             "id": representation['employee']['id'],
             "manager": representation['employee'],
         }
