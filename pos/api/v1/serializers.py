@@ -4,7 +4,7 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Func, Value, CharField
 from django.db import transaction
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
@@ -1544,7 +1544,7 @@ class VendorSerializer(serializers.ModelSerializer):
 class VendorListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ('id', 'vendor_name')
+        fields = ('id', 'vendor_name', 'contact_person_name', 'phone_number', 'status')
 
 
 class POProductSerializer(serializers.ModelSerializer):
@@ -1627,16 +1627,22 @@ class POSerializer(serializers.ModelSerializer):
 
 
 class POProductGetSerializer(serializers.ModelSerializer):
+    mrp = serializers.SerializerMethodField()
     grned_qty = serializers.SerializerMethodField()
 
-    def get_grned_qty(self, obj):
+    @staticmethod
+    def get_grned_qty(obj):
         already_grn = obj.product.pos_product_grn_order_product.filter(grn_order__order__ordered_cart=obj.cart). \
             aggregate(Sum('received_qty')).get('received_qty__sum')
         return already_grn if already_grn else 0
 
+    @staticmethod
+    def get_mrp(obj):
+        return obj.product.mrp
+
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'price', 'qty', 'grned_qty')
+        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty')
 
 
 class POGetSerializer(serializers.ModelSerializer):
@@ -1663,17 +1669,34 @@ class POProductInfoSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_po_price_history(obj):
         return PosCartProductMapping.objects.filter(cart__retailer_shop=obj.shop, product=obj).order_by(
-            '-created_at')[:3].values_list('price', flat=True)
+            '-created_at').annotate(date=Func(F('created_at'), Value('DD Mon YYYY'),
+                                              function='to_char', output_field=CharField()))[:3].values('price', 'date')
 
     class Meta:
         model = RetailerProduct
-        fields = ('selling_price', 'stock_qty', 'po_price_history')
+        fields = ('name', 'selling_price', 'stock_qty', 'po_price_history')
 
 
 class POListSerializer(serializers.ModelSerializer):
+    total_qty = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_qty(obj):
+        return obj.po_products.aggregate(Sum('qty')).get('qty__sum')
+
+    @staticmethod
+    def get_total_price(obj):
+        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+
+    @staticmethod
+    def get_date(obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
+
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'status')
+        fields = ('id', 'po_no', 'vendor_name', 'total_qty', 'total_price', 'status', 'date')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
