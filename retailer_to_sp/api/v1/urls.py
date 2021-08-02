@@ -8,7 +8,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList
+                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView
                     )
 
 router = routers.DefaultRouter()
@@ -21,16 +21,19 @@ urlpatterns = [
     url('^GRN/search/$', SearchProducts.as_view()),
     # CART
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
-    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
-    url('^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
+    url(r'^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
+    url(r'^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
     url('^user/$', UserView.as_view()),
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
-    url('^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
-    # ORDER
+    url(r'^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
+    # COMMIT TO ORDER
+    url('^cart/check/stock_qty/$', CartStockCheckView.as_view(), name='ecom_cart_check'),
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
+    url('^payment-data/$', PaymentDataView.as_view(), name='ecom-payment-data'),
+    # ORDER
     url('^order/$', OrderCentral.as_view()),
-    url('^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
+    url(r'^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
     url('^order-list/$', OrderListCentral.as_view(), name='order_list'),
     url('^order-dashboard/$', OrderedItemCentralDashBoard.as_view()),
     # RETURNS
