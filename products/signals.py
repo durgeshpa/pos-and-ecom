@@ -476,7 +476,7 @@ def update_parent_brand_elasticsearch(sender, instance=None, created=False, **kw
     shops = str(shops_str).split(',') if shops_str else None
     update_product_on_brand_update(instance, shops)
 
-    child_brands = instance.brnd_parent.all()
+    child_brands = instance.brand_child.all()
     for child_brand in child_brands:
         child_brand.save()
 
