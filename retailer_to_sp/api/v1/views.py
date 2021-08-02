@@ -4207,6 +4207,59 @@ class OrderReturnsCheckout(APIView):
         return response
 
 
+class PaymentDataView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        pass
+
+
+class CartStockCheckView(APIView):
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        """
+            Check stock qty cart
+        """
+        try:
+            cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
+                                                                     seller_shop=kwargs['shop'], cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+
+        # Check for changes in cart - price / offers / available inventory
+        cart_products = cart.rt_cart_list.all()
+        out_of_stock_items = []
+
+        for cart_product in cart_products:
+            # Refresh prices
+            product = cart_product.retailer_product
+            if product.offer_price and product.offer_start_date and product.offer_end_date and \
+                    product.offer_start_date < datetime.now() < product.offer_end_date:
+                cart_product.selling_price = cart_product.retailer_product.offer_price
+            else:
+                cart_product.selling_price = cart_product.retailer_product.selling_price
+            cart_product.save()
+            # Check out of stock items
+            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+            if available_inventory < cart_product.qty:
+                out_of_stock_items += [{
+                    "name": product.name,
+                    "qty": cart_product.qty,
+                    "mrp": product.mrp,
+                    "selling_price": cart_product.selling_price,
+                }]
+
+        # Return error for out of stock items else return payment methods
+        if out_of_stock_items:
+            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+        else:
+            return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+
+
 class OrderReturnComplete(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
