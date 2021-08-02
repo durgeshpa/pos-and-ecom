@@ -329,7 +329,7 @@ class ShopView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop_name_address_mapping__id=pin_code)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
 
         if city:
             self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
