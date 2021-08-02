@@ -55,11 +55,11 @@ class BrandSerializer(serializers.ModelSerializer):
 
 
 class AllCategorySerializer(serializers.ModelSerializer):
-    sub_category = SubCategorySerializer(many=True, read_only=True)
+    cat_parent = SubCategorySerializer(many=True, read_only=True)
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'sub_category', 'category_image', 'category_desc')
+        fields = ('id', 'category_name', 'cat_parent', 'category_image', 'category_desc')
 
 
 class SubCategorySerializer(serializers.ModelSerializer):
@@ -92,7 +92,7 @@ class SubCategorySerializers(serializers.ModelSerializer):
 
 
 class CategoryCrudSerializers(serializers.ModelSerializer):
-    sub_category = SubCategorySerializers(many=True, read_only=True)
+    cat_parent = SubCategorySerializers(many=True, read_only=True)
     category_parent = ParentCategorySerializers(read_only=True)
     category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
@@ -101,7 +101,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
-                  'updated_by', 'status', 'category_parent', 'category_log', 'sub_category')
+                  'updated_by', 'status', 'category_parent', 'category_log', 'cat_parent')
 
     def validate(self, data):
         """ category_slug validation."""

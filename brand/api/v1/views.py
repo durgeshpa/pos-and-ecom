@@ -54,8 +54,8 @@ class GetSlotBrandListView(APIView):
                 for brand_slot in brand_slots:
                     if brand_slot.brand_data.id in stock_available_brands_list:
                         brand_subbrands.append(brand_slot)
-                    elif brand_slot.brand_data.brnd_parent.filter(active_status='active').count() > 0:
-                        for active_sub_brand in brand_slot.brand_data.brnd_parent.filter(active_status='active'):
+                    elif brand_slot.brand_data.brand_child.filter(active_status='active').count() > 0:
+                        for active_sub_brand in brand_slot.brand_data.brand_child.filter(active_status='active'):
                             if active_sub_brand.id in stock_available_brands_list:
                                 brand_subbrands.append(brand_slot)
                                 break
@@ -82,7 +82,7 @@ class GetSubBrandsListView(APIView):
         brand = Brand.objects.get(pk=brand_id)
         if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
             parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
-            product_subbrands = brand.brnd_parent.filter(active_status='active')
+            product_subbrands = brand.brand_child.filter(active_status='active')
             if product_subbrands.exists():
                 # get list of brand ids with available inventory
                 stock_available_brands_list = get_stock_available_brand_list(parent)
@@ -95,7 +95,7 @@ class GetSubBrandsListView(APIView):
                 product_subbrands = []
                 brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
         else:
-            product_subbrands = brand.brnd_parent.filter(active_status='active')
+            product_subbrands = brand.brand_child.filter(active_status='active')
             brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
 
         is_success = True if product_subbrands else False
