@@ -44,7 +44,7 @@ from .forms import (
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
     UploadChildProductAdminForm, ParentProductImageForm, BulkProductVendorMapping,
-    UploadMasterDataAdminForm, UploadSlabProductPriceForm, UploadPackingSkuInventoryAdminForm
+    UploadMasterDataAdminForm, UploadSlabProductPriceForm, UploadPackingSkuInventoryAdminForm, UploadDiscountedProductPriceForm
 )
 from .master_data import UploadMasterData, SetMasterData
 from products.models import (
@@ -59,6 +59,7 @@ from products.models import (
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
+from global_config.views import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -1870,6 +1871,56 @@ def FetchProductDdetails(request):
 
     return JsonResponse(data)
 
+def FetchDiscountedProductdetails(request):
+    product_id = request.GET.get('product')
+    seller_shop = request.GET.get('seller_shop')
+    data = {
+        'found': 0
+    }
+    if not product_id:
+        return JsonResponse(data)
+    def_product = Product.objects.filter(pk=product_id).last()
+    if not seller_shop:
+        if def_product:
+            data = {
+            'found': 1,
+            'product_mrp': def_product.product_mrp,
+            }
+        return JsonResponse(data)
+    print(product_id, ' ', seller_shop)
+    shop = Shop.objects.filter(pk = seller_shop).last()
+    selling_price = None
+    if def_product and shop:
+        original_prod = def_product.product_ref
+        expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
+        manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
+        product_life = expiry_date - manufacturing_date
+        print(product_life, datetime.datetime.today())
+        remaining_life = expiry_date - datetime.date.today()
+        print(remaining_life)
+        discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+        print(discounted_life)
+        product_price = original_prod.product_pro_price.filter(seller_shop=shop,
+                                                   approval_status=ProductPrice.APPROVED).last()
+        print(product_price)
+        base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+        base_price = base_price_slab.ptr
+
+        half_life = (discounted_life - 2) / 2
+
+        if remaining_life.days <= half_life:
+            selling_price = round(base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+        else:
+            selling_price = round(base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+        data = {
+            'found': 2,
+            'product_mrp': def_product.product_mrp,
+            'selling_price' : selling_price,
+            # 'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
+        }
+        print(data)
+    return JsonResponse(data)
+
 
 def get_selling_price(def_product):
     selling_price = 0
@@ -2378,6 +2429,74 @@ def slab_product_price_csv_upload(request):
         form = UploadSlabProductPriceForm()
     return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
 
+def discounted_product_price_csv_upload(request):
+    """
+    Creates Discounted Product Prices in bulk through CSV upload
+    """
+    if request.method == 'POST':
+        form = UploadDiscountedProductPriceForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            first_row = next(reader)
+
+            try:
+                for row_id, row in enumerate(reader):
+                    product = Product.objects.filter(product_sku=row[0]).last()
+                    seller_shop_id = int(row[2])
+
+                    # Create ProductPrice
+                    product_price = SlabProductPrice(product=product, mrp=product.product_mrp,
+                                                     seller_shop_id=seller_shop_id)
+                    product_price.save()
+
+                    # Get selling price applicable for first price slab
+                    is_ptr_applicable = product.parent_product.is_ptr_applicable
+                    if is_ptr_applicable:
+                        selling_price = get_selling_price(product)
+                    else:
+                        selling_price = float(row[6])
+
+                    # Create Price Slabs
+
+                    # Create Price Slab 1
+                    price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
+                                             selling_price=selling_price)
+                    if row[7]:
+                        price_slab_1.offer_price = float(row[7])
+                        price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
+                        price_slab_1.offer_price_end_date = getStrToDate(row[9], '%d-%m-%y').strftime('%Y-%m-%d')
+                    price_slab_1.save()
+
+                    #If slab 1 quantity is Zero then slab is not to be created
+                    if int(row[5]) == 0:
+                        continue
+                    # Create Price Slab 2
+                    price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
+                                             selling_price=float(row[11]))
+                    if row[12]:
+                        price_slab_2.offer_price = float(row[12])
+                        price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
+                        price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
+                    price_slab_2.save()
+
+            except Exception as e:
+                print(e)
+                msg =  'Unable to create price for row {}'.format(row_id+1)
+                return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form, 'error': msg})
+
+            return render(request, 'admin/products/bulk-discounted-product-price.html', {
+                'form': form,
+                'success': 'Slab Product Prices uploaded successfully !',
+            })
+    else:
+        form = UploadDiscountedProductPriceForm()
+    return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form})
+
 
 class PackingProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -2577,4 +2696,16 @@ class HSNAutocomplete(autocomplete.Select2QuerySetView):
     """
     def get_queryset(self, *args, **kwargs):
         qs = hsn_queryset(self)
+        return qs
+
+class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Get discounted product
+    """
+    def get_queryset(self):
+        qs = Product.objects.filter(product_type=1)
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
         return qs

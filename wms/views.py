@@ -2067,7 +2067,6 @@ def create_move_discounted_products():
                                     .prefetch_related(Prefetch('sku__ins',
                                                                  queryset=In.objects.all().order_by('-created_at'),
                                                                  to_attr='latest_in'))[:10]
-
     for i in inventory:
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
         expiry_date = i.sku.latest_in[0].expiry_date
