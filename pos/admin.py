@@ -499,7 +499,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     form = DiscountedRetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'product_ref', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'status', 'created_at', 'modified_at')
-    fields = ('shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_price', 'discounted_stock')
+    fields = ('shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_selling_price', 'discounted_stock')
     readonly_fields = ('sku', 'name', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
@@ -548,7 +548,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         discounted_stock = form.cleaned_data['discounted_stock']
-        discounted_price = form.cleaned_data['discounted_price']
+        discounted_price = form.cleaned_data['discounted_selling_price']
         product_status = 'active' if discounted_stock > 0 else 'deactivated'
         product_ref = obj.product_ref
         inventory_initial_state = PosInventoryState.NEW

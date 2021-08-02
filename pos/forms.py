@@ -9,7 +9,7 @@ from dal import autocomplete
 from django import forms
 import csv
 
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct
 from products.models import Product
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
@@ -26,7 +26,7 @@ class RetailerProductsForm(forms.ModelForm):
 
 class DiscountedRetailerProductsForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset = Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        queryset = Shop.objects.filter(shop_type__shop_type__in=['f']),
         widget=autocomplete.ModelSelect2(
             url='retailer-product-autocomplete'
         )
@@ -42,7 +42,7 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
     product_ean_code = forms.CharField(required=False)
     mrp = forms.DecimalField(required=False)
     selling_price = forms.DecimalField(min_value=0, decimal_places=2, required=False)
-    discounted_price = forms.DecimalField(min_value=0, decimal_places=2)
+    discounted_selling_price = forms.DecimalField(min_value=0, decimal_places=2)
     discounted_stock = forms.IntegerField(initial=0)
 
 
@@ -52,7 +52,7 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
             discounted_stock = PosInventory.objects.filter(product=self.instance,
                                                                 inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
 
-            initial_arguments = {'discounted_stock': discounted_stock, 'discounted_price': self.instance.selling_price}
+            initial_arguments = {'discounted_stock': discounted_stock, 'discounted_selling_price': self.instance.selling_price}
             kwargs.update(initial=initial_arguments)
             super().__init__(*args, **kwargs)
             self.fields['shop'].disabled = True
@@ -67,9 +67,12 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
         if not data.get('product_ref'):
             raise ValidationError(_('Invalid Product.'))
         product_ref = data.get('product_ref')
-        if data.get('discounted_price') is None or data.get('discounted_price') <= 0 \
-                or data.get('discounted_price') >= product_ref.selling_price:
+        if data.get('discounted_selling_price') is None or data.get('discounted_selling_price') <= 0 \
+                or data.get('discounted_selling_price') >= product_ref.selling_price:
             raise ValidationError(_('Invalid discounted price.'))
+        if self.instance.id is None and \
+                DiscountedRetailerProduct.objects.filter(product_ref=data['product_ref']).exists():
+            raise ValidationError(_('Discounted product already exists for this product'))
         return data
 
 
