@@ -453,7 +453,7 @@ def update_parent_category_elasticsearch(sender, instance=None, created=False, *
     shops = str(shops_str).split(',') if shops_str else None
     update_product_on_category_update(instance, shops)
 
-    child_categories = instance.sub_category.all()
+    child_categories = instance.cat_parent.all()
     for child_category in child_categories:
         child_category.save()
 
