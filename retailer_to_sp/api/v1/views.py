@@ -1710,11 +1710,25 @@ class CartCheckout(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Checkout
-            Apply Any Available Cart Offer - Either coupon or spot discount
+            Apply Offer
+        """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.post_pos_cart_checkout(request, *args, **kwargs)
+        # ECOM
+        elif app_type == '3':
+            return self.post_ecom_cart_checkout(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def post_pos_cart_checkout(self, request, *args, **kwargs):
+        """
+            POS Checkout
             Inputs
             cart_id
             coupon_id
@@ -1722,7 +1736,7 @@ class CartCheckout(APIView):
             is_percentage (spot discount type)
         """
         # Input validation
-        initial_validation = self.post_validate(kwargs['shop'])
+        initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         cart = initial_validation['cart']
@@ -1744,10 +1758,49 @@ class CartCheckout(APIView):
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
-    @check_pos_shop
+    @check_ecom_user_shop
+    def post_ecom_cart_checkout(self, request, *args, **kwargs):
+        """
+            Ecom Checkout
+            Inputs
+            coupon_id
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+        if not self.request.data.get('coupon_id'):
+            return api_response("Invalid request")
+        with transaction.atomic():
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            if 'error' in offers:
+                return api_response(offers['error'], None, offers['code'])
+            if offers['applied']:
+                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+            else:
+                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+
     def get(self, request, *args, **kwargs):
         """
             Get Checkout Amount Info, Offers Applied-Applicable
+        """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.get_pos_cart_checkout(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_cart_checkout(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def get_pos_cart_checkout(self, request, *args, **kwargs):
+        """
+            POS cart checkout
         """
         cart_id = self.request.GET.get('cart_id')
         try:
@@ -1767,12 +1820,48 @@ class CartCheckout(APIView):
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
             return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
-    @check_pos_shop
+    @check_ecom_user_shop
+    def get_ecom_cart_checkout(self, request, *args, **kwargs):
+        """
+            ECOM cart checkout
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+
+        with transaction.atomic():
+            redeem_points = self.request.GET.get('redeem_points')
+            # Auto apply highest applicable discount
+            auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
+            # Redeem reward points on order
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            data = self.serialize(cart, offers)
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            data.update({'default_address': address})
+            return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
+
     def delete(self, request, *args, **kwargs):
         """
             Checkout
             Delete any applied cart offers
         """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.delete_pos_offer(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.delete_ecom_offer(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def delete_pos_offer(self, request, *args, **kwargs):
         try:
             cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'],
                                     cart_type='BASIC')
@@ -1788,10 +1877,32 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            # Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
 
-    def post_validate(self, shop):
+    @check_ecom_user_shop
+    def delete_ecom_offer(self, request, *args, **kwargs):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            cart.offers = offers_list
+            cart.save()
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+
+    def post_basic_validate(self, shop):
         """
             Add cart offer in checkout
             Input validation
