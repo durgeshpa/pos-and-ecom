@@ -44,7 +44,7 @@ class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
     """
 
     def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+        qs = Shop.objects.filter(shop_type__shop_type__in=['f'])
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs

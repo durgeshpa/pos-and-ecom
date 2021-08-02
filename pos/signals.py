@@ -53,8 +53,11 @@ def update_product_status_on_inventory_update(sender, instance=None, created=Fal
     """
         update product status on inventory update
     """
-    if instance.product.sku_type == 4 and instance.quantity == 0:
-        instance.product.status = 'deactivated'
+    if instance.product.sku_type == 4:
+        if instance.quantity == 0:
+            instance.product.status = 'deactivated'
+        else:
+            instance.product.status = 'active'
         instance.product.save()
 
 
