@@ -2066,7 +2066,7 @@ def create_move_discounted_products():
                                     .prefetch_related('sku__parent_product') \
                                     .prefetch_related(Prefetch('sku__ins',
                                                                  queryset=In.objects.all().order_by('-created_at'),
-                                                                 to_attr='latest_in'))[:10]
+                                                                 to_attr='latest_in'))
 
     for i in inventory:
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
@@ -2106,6 +2106,9 @@ def create_discounted_product(product):
                                                                 weight_unit=product.weight_unit,
                                                                 repackaging_type=product.repackaging_type
                                                                 )
+    if created:
+        product.discounted_sku = discounted_product
+        product.save()
     return discounted_product
 
 
