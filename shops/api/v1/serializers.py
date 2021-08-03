@@ -17,6 +17,7 @@ from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from django.db.models import Q
+from addresses.models import Address
 
 
 User =  get_user_model()
@@ -251,7 +252,10 @@ class BeatShopSerializer(serializers.ModelSerializer):
         :param obj: day beat plan object
         :return: shop contact number
         """
-        return obj.shipping_address.address_contact_number
+
+        add_obj = obj.shipping_address
+        address = Address.objects.get(id=add_obj)
+        return address.address_contact_number
 
     class Meta:
         """ Meta class """

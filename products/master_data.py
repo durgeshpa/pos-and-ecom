@@ -940,8 +940,8 @@ class DownloadMasterData(object):
     def update_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                   'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
-                   'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
+                   'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
+                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
                    'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
         writer.writerow(columns)
 
