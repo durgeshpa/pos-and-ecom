@@ -90,7 +90,7 @@ class ShopCls(object):
         csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
         csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
         # Converting headers into lowercase
-        csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+        csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
         uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
         try:
             info_logger.info('Method Start to create Beat Planning')
