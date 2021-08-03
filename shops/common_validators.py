@@ -700,7 +700,7 @@ def read_beat_planning_file(executive, csv_file, upload_type):
     """
     csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
     # Converting headers into lowercase
-    csv_file_headers = [str(ele).lower() for ele in csv_file_header_list]
+    csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
     if upload_type == "beat_planning":
         required_header_list = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 'address_line1',
                                 'pincode', 'category', 'date']

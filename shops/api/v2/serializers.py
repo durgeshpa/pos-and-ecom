@@ -1066,7 +1066,7 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
 
         meta = ShopUserMapping._meta
         field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number',
-                       'address_line1', 'pincode', 'category', 'date']
+                       'address_line1', 'pincode', 'category', 'date (dd/mm/yy)']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
