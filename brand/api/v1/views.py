@@ -34,7 +34,7 @@ class GetSlotBrandListView(APIView):
     def get(self, *args, **kwargs):
         pos_name = self.kwargs.get('slot_position_name')
         shop_id = self.request.GET.get('shop_id')
-        brand_slots = BrandData.objects.filter(brand_data__active_status='active')
+        brand_slots = BrandData.objects.filter(brand_data__status=True)
 
         if pos_name and not shop_id:
             brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
