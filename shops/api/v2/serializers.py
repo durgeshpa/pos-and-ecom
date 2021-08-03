@@ -13,7 +13,8 @@ from rest_framework import serializers
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
-                          ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping)
+                          ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
+                          DayBeatPlanning)
 from addresses.models import Address, City, Pincode, State, address_type_choices
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
@@ -1065,7 +1066,7 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
 
         meta = ShopUserMapping._meta
         field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number',
-                       'address_line1', 'pincode', 'category', 'date']
+                       'address_line1', 'pincode', 'category', 'date (dd/mm/yy)']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1100,17 +1101,29 @@ class BeatPlanningExportAsCSVSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         meta = BeatPlanning._meta
-        exclude_fields = ['id', 'modified_at', 'created_by', 'updated_by']
-        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
-
+        field_names = ["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
+                       "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yyyy)", "Status"]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-
         writer = csv.writer(response)
         writer.writerow(field_names)
+
         queryset = BeatPlanning.objects.filter(id__in=validated_data['beat_planning_id_list'])
-        for obj in queryset:
-            writer.writerow([getattr(obj, field) for field in field_names])
+        for query in queryset:
+            day_beat_plan_query_set = query.beat_plan.select_related('shop')
+            for plan_obj in day_beat_plan_query_set:
+                address_contact_number, address_line1, pincode = None, None, None
+                if plan_obj.shop.shop_name_address_mapping.exists():
+                    address = plan_obj.shop.shop_name_address_mapping.select_related('pincode_link'). \
+                        only('pincode_link__pincode', 'address_contact_number', 'address_line1').last()
+                    address_contact_number = address.address_contact_number
+                    address_line1 = address.address_line1
+                    pincode = address.pincode_link.pincode
+
+                writer.writerow([plan_obj.beat_plan.executive, plan_obj.beat_plan.manager, plan_obj.shop_id,
+                                 address_contact_number, address_line1, pincode, plan_obj.shop_category,
+                                 plan_obj.beat_plan_date.strftime("%d/%m/%y"),
+                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
         return response
 
 
