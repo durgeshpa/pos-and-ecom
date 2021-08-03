@@ -20,11 +20,14 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
     writer = csv.writer(response)
     writer.writerow([
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Seller Shop ID',
-        'Seller Shop Name', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 'Buyer Name',
-        'Mobile No(Buyer)', 'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Quantity',
-        'Product Type', 'Selling Price', 'Subtotal', 'Order Amount',
+        'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 
+        'Buyer Id', 'Buyer Name','Mobile No(Buyer)',
+        'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category', 'Quantity',
+        'Product Type', 'MRP', 'Selling Price' , 'Offer Discount' ,'Subtotal', 'Order Amount', 'Payment Mode',
         # 'Return Id', 'Return Status', 'Return Processed By', 
-        # 'Return Product Id', 'Return Product SKU', 'Return Product Name', 'Quantity','Product Type', 'Selling Price', 
+        # 'Return Product Id', 'Return Product SKU', 'Return Product Name', 'Quantity','Product Type', 'Selling Price',
+        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
+        'Tax Slab', 'Tax Type', 
         'Return Quantity', 'Return Amount'])
 
     orders = queryset\
@@ -36,16 +39,18 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
             #                             output_field=FloatField(),
             #                         )
             )\
-        .values('order__order_no', 'invoice__invoice_no', 'order__order_status', 'order__created_at', 
+        .values('id','order__order_no', 'invoice__invoice_no', 'order__order_status', 'order__created_at', 
                 'order__seller_shop__id', 'order__seller_shop__shop_name' ,
-                'order__seller_shop__shop_owner__first_name', 'order__seller_shop__shop_owner__phone_number',
+                'order__seller_shop__shop_owner__id','order__seller_shop__shop_owner__first_name', 'order__seller_shop__shop_owner__phone_number',
                 'order__seller_shop__shop_type__shop_type',
-                'order__buyer__first_name', 'order__buyer__phone_number',
+                'order__buyer__id','order__buyer__first_name', 'order__buyer__phone_number',
                 "rt_order_product_order_product_mapping__id",
                 'purchased_subtotal', 'order__order_amount',)
 
 
     for order in orders.iterator():
+        ordered_prod = RetailerOrderedProduct.objects.get(id = order.get('id'))
+
         order_prod_mapping = RetailerOrderedProductMapping.objects.get(id = order.get('rt_order_product_order_product_mapping__id'))
         return_item = order_prod_mapping.rt_return_ordered_product.all()
 
@@ -68,25 +73,38 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
             order.get('order__created_at'),
             order.get('order__seller_shop__id'),
             order.get('order__seller_shop__shop_name'),
+            order.get('order__seller_shop__shop_owner__id'),
             order.get('order__seller_shop__shop_owner__first_name'),
             order.get('order__seller_shop__shop_owner__phone_number'),
             order.get('order__seller_shop__shop_type__shop_type'),
+            order.get('order__buyer__id'),
             order.get('order__buyer__first_name'),
             order.get('order__buyer__phone_number'),
             order_prod_mapping.retailer_product.id,
             order_prod_mapping.retailer_product.sku,
             order_prod_mapping.retailer_product.name,
+            order_prod_mapping.retailer_product.product_ean_code,
             # order.get('rt_order_product_order_product_mapping__shipped_qty'),
             # retailer_product_type.get(
             #     order.get('rt_order_product_order_product_mapping__product_type'),
             #     order.get('rt_order_product_order_product_mapping__product_type')),
+            order_prod_mapping.retailer_product.linked_product.parent_product.parent_product_pro_category.all()[0].category.category_name,
             order_prod_mapping.shipped_qty,
             retailer_product_type.get(
                 order_prod_mapping.product_type,
                 order_prod_mapping.product_type),
+            order_prod_mapping.retailer_product.mrp,
             order_prod_mapping.retailer_product.selling_price,
+            ordered_prod.order.ordered_cart.offer_discount,
             order.get('purchased_subtotal'),
             order.get('order__order_amount'),
+            ordered_prod.order.payment_mode,
+            order_prod_mapping.retailer_product.linked_product.parent_product.id,
+            order_prod_mapping.retailer_product.linked_product.parent_name,
+            order_prod_mapping.retailer_product.linked_product.product_name,
+            order_prod_mapping.retailer_product.linked_product.product_brand,
+            list(order_prod_mapping.retailer_product.linked_product.product_pro_tax.all().values_list('tax__tax_type')),
+            list(order_prod_mapping.retailer_product.linked_product.product_pro_tax.all().values_list('tax__tax_percentage')),
             order.get('return_qty', None),
             order.get('refund_amount', None)
         ])
