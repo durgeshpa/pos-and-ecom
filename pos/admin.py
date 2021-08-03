@@ -307,7 +307,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 10
-    list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
+    list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
 
     fieldsets = (
@@ -317,8 +317,9 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         (_('Order Details'), {
             'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer')}),
 
-        (_('Amount Details'), {
-            'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
+        (_('Payment Details'), {
+            'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount', 'payment_type',
+                       'transaction_id')}),
     )
 
     def seller_shop(self, obj):
@@ -344,6 +345,14 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order.order_no
+
+    def payment_type(self, obj):
+        pay_obj = obj.order.rt_payment_retailer_order.last()
+        return pay_obj.payment_type.type if (pay_obj and pay_obj.payment_type) else '-'
+
+    def transaction_id(self, obj):
+        pay_obj = obj.order.rt_payment_retailer_order.last()
+        return pay_obj.transaction_id if (pay_obj and pay_obj.transaction_id) else '-'
 
     def get_queryset(self, request):
         qs = super(RetailerOrderProductAdmin, self).get_queryset(request)

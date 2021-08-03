@@ -12,10 +12,13 @@ def run(*args):
     for payment in payments:
         if payment.payment_mode == 'cash':
             payment.payment_type = cash_type
+            payment.save()
         elif payment.payment_mode == 'credit':
             payment.payment_type = credit_type
+            payment.save()
         elif payment.payment_mode == 'online':
             payment.payment_type = online_type
+            payment.save()
         else:
             print("Payment Type Not Found - {} - order {}".format(payment.payment_mode, payment.order.id))
 
