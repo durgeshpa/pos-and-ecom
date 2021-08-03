@@ -629,8 +629,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
         shop_id = self.instance.id if self.instance else None
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
-            approval_status = get_validate_approval_status(
-                self.initial_data['approval_status'])
+            approval_status = get_validate_approval_status(self.initial_data['approval_status'])
             if 'error' in approval_status:
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
@@ -671,6 +670,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in photos:
                 raise serializers.ValidationError((photos["error"]))
             data['shop_name_photos'] = photos['photos']
+        else:
+            raise serializers.ValidationError("'shop_name_photos': This field is required.")
 
         if 'related_users' in self.initial_data and self.initial_data['related_users']:
             related_users = get_validate_related_users(self.initial_data['related_users'])
