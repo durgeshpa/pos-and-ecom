@@ -1,6 +1,6 @@
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
 {% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
-{% block breadcrumb2 %}<a href="/admin/products/slabproductprice/">Discounted Slab Product Price<a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/discountedproductprice/">Discounted Product Price<a>{% endblock %}
 {% block breadcrumb3 %}<a href="#">Upload Discounted Product Prices in Bulk</a>{% endblock %}
 
 {% block content %}
@@ -37,7 +37,7 @@
                      {{form.as_p}}
                   </fieldset>
                   <div class="submit-row">
-                     <a href="{% url 'admin:slab_product_price_sample_csv' %}" class="button">Get CSV sample</a>
+                     <a href="{% url 'admin:discounted_product_price_sample_csv' %}" class="button">Get CSV sample</a>
                      <input type="submit" value="Save" class="button" name="_save" >
                   </div>
                </div>

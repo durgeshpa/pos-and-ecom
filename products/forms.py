@@ -31,7 +31,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping, DiscountedSlabProductPrice)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping, DiscountedProductPrice)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -2348,7 +2348,7 @@ class UploadDiscountedProductPriceForm(forms.Form):
     file = forms.FileField(label='Upload Discounted Product Prices')
 
     class Meta:
-        model = DiscountedSlabProductPrice
+        model = DiscountedProductPrice
 
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
@@ -2364,55 +2364,25 @@ class UploadDiscountedProductPriceForm(forms.Form):
             product = Product.objects.filter(product_sku=row[0]).last()
             if not row[0] or product is None:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
-            if product.type != 1:
+            if int(product.product_type) != 1:
                 raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not discounted"))
-            # is_ptr_applicable = product.parent_product.is_ptr_applicable
-            # case_size = product.parent_product.inner_case_size
-            # selling_price = float(row[6])
-            # selling_price_per_saleable_unit = selling_price
-            # if is_ptr_applicable:
-            #     ptr_percent = product.parent_product.ptr_percent
-            #     ptr_type = product.parent_product.ptr_type
-            #     if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
-            #         selling_price = product.product_mrp / (1 + (ptr_percent / 100))
-            #     elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
-            #         selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-            #     selling_price_per_saleable_unit = float(round(selling_price, 2))
-
-
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
-            elif not row[5]:
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
-            if not row[6] or float(row[6]) <= 0:
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling price'"))
-            elif selling_price_per_saleable_unit != float(row[6]):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
-            elif float(row[6]) > float(product.product_mrp):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
-            elif row[7] and float(row[7]) >= float(row[6]):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
-            elif row[7] and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
-                             or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
-                             or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
-                             or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
-            elif int(row[5]) > 0 :
-                if not row[10] or int(row[10]) != int(row[5])+1:
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-                elif not row[11] or float(row[11]) <= 0:
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
-                elif float(row[11]) >= float(row[6]):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
-                elif (row[7] and float(row[11]) >= float(row[7])):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
-                elif row[12] and float(row[12]) >= float(row[11]):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
-                elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
-                                  or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
-                                  or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
-                                  or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+            seller_shop = Shop.objects.filter(pk = int(row[2])).last()
+            manual_price_update = int(row[4])
+            selling_price = float(row[5])
+            if not manual_price_update:
+                original_product = product.product_ref
+                product_price = original_product.product_pro_price.all()
+                shops = Shop.objects.filter(shop_product_price__in = product_price).distinct()
+                if seller_shop not in shops:
+                    raise ValidationError(_(f"Row {row_id + 1} | No original product exist for this shop and no selling price is provided."))
+            if manual_price_update and not selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | No 'Selling Price' in case of manual price update"))
+            if manual_price_update and selling_price:
+                if selling_price == 0 \
+                        or selling_price > product.product_mrp:
+                    raise ValidationError('Invalid Selling Price')
         return self.cleaned_data['file']
     
 def only_int(value):
@@ -2764,7 +2734,7 @@ class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
 
 
         if data.get('selling_price') is None or data.get('selling_price') == 0 \
-                or data.get('selling_price') > data['mrp']*data['product'].product_inner_case_size:
+                or data.get('selling_price') > data['mrp']:
             raise ValidationError('Invalid Selling Price')
 
         return data

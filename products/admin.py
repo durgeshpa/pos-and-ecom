@@ -60,7 +60,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload)
+                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload, 
+                    get_discounted_product_price_sample_csv)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -1832,9 +1833,9 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
         urls = super(DiscountedProductSlabPriceAdmin, self).get_urls()
         urls = [
                    url(
-                       r'^slab_product_price_sample_csv/$',
-                       self.admin_site.admin_view(get_slab_product_price_sample_csv),
-                       name="slab_product_price_sample_csv"
+                       r'^discounted_product_price_sample_csv/$',
+                       self.admin_site.admin_view(get_discounted_product_price_sample_csv),
+                       name="discounted_product_price_sample_csv"
                    ),
                    url(
                        r'^discounted_product_price_csv_upload/$',
@@ -1866,4 +1867,4 @@ admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttribut
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
-admin.site.register(DiscountedSlabProductPrice, DiscountedProductSlabPriceAdmin)
+admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)

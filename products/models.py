@@ -647,7 +647,7 @@ class SlabProductPrice(ProductPrice):
     class Meta:
         proxy = True
 
-class DiscountedSlabProductPrice(ProductPrice):
+class DiscountedProductPrice(ProductPrice):
 
     class Meta:
         proxy = True

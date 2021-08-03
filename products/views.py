@@ -55,7 +55,7 @@ from products.models import (
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
     DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
-    ProductPackingMapping
+    ProductPackingMapping, DiscountedProductPrice
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
@@ -2361,6 +2361,19 @@ def get_slab_product_price_sample_csv(request):
                      "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-21", "30-04-21" ])
     return response
 
+def get_discounted_product_price_sample_csv(request):
+    """
+    returns sample CSV for bulk creation of Slab Product Prices
+    """
+    filename = "discounted_product_price_sample_csv.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "is manual price update", "selling price"])
+    writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)",
+                    "1", "123.00"])
+    return response
+
 def slab_product_price_csv_upload(request):
     """
     Creates Slab Product Prices in bulk through CSV upload
@@ -2446,43 +2459,43 @@ def discounted_product_price_csv_upload(request):
 
             try:
                 for row_id, row in enumerate(reader):
-                    product = Product.objects.filter(product_sku=row[0]).last()
-                    seller_shop_id = int(row[2])
+                    with transaction.atomic():
+                        product = Product.objects.filter(product_sku=row[0]).last()
+                        seller_shop_id = int(row[2])
+                        seller_shop = Shop.objects.filter(pk = seller_shop_id).last()
 
-                    # Create ProductPrice
-                    product_price = SlabProductPrice(product=product, mrp=product.product_mrp,
-                                                     seller_shop_id=seller_shop_id)
-                    product_price.save()
+                        if not int(row[4]):
+                            original_prod = product.product_ref
+                            expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
+                            manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
+                            product_life = expiry_date - manufacturing_date
+                            remaining_life = expiry_date - datetime.date.today()
+                            discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+                            product_price = original_prod.product_pro_price.filter(seller_shop=seller_shop,
+                                                                    approval_status=ProductPrice.APPROVED).last()
+                            base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+                            base_price = base_price_slab.ptr
 
-                    # Get selling price applicable for first price slab
-                    is_ptr_applicable = product.parent_product.is_ptr_applicable
-                    if is_ptr_applicable:
-                        selling_price = get_selling_price(product)
-                    else:
-                        selling_price = float(row[6])
+                            half_life = (discounted_life - 2) / 2
 
-                    # Create Price Slabs
+                            if remaining_life.days <= half_life:
+                                selling_price = round(base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+                            else:
+                                selling_price = round(base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+                        
+                        else:
+                            selling_price = float(row[5])
 
-                    # Create Price Slab 1
-                    price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
-                                             selling_price=selling_price)
-                    if row[7]:
-                        price_slab_1.offer_price = float(row[7])
-                        price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
-                        price_slab_1.offer_price_end_date = getStrToDate(row[9], '%d-%m-%y').strftime('%Y-%m-%d')
-                    price_slab_1.save()
+                        #Create Product Price
+                        product_price = DiscountedProductPrice(product=product, mrp=product.product_mrp,
+                                                        seller_shop_id=seller_shop_id, is_manual_price_update = row[4], selling_price = selling_price,
+                                                        start_date=datetime.datetime.today(), approval_status=ProductPrice.APPROVED)
+                        product_price.save()
 
-                    #If slab 1 quantity is Zero then slab is not to be created
-                    if int(row[5]) == 0:
-                        continue
-                    # Create Price Slab 2
-                    price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
-                                             selling_price=float(row[11]))
-                    if row[12]:
-                        price_slab_2.offer_price = float(row[12])
-                        price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
-                        price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
-                    price_slab_2.save()
+                        #Create Price for discounted Product
+                        discounted_product_price = PriceSlab(product_price = product_price, selling_price = selling_price,
+                                                                            start_value = 1, end_value = 0)
+                        discounted_product_price.save()
 
             except Exception as e:
                 print(e)
