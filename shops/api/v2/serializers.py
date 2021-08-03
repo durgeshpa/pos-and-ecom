@@ -455,8 +455,11 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         "Key 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code' are mandatory "
                         "for selected type.")
-                if int(self.initial_data['warehouse_code']) < 0:
-                    raise serializers.ValidationError("'warehouse_code' | can not ne negative")
+                try:
+                    if int(self.initial_data['warehouse_code']) < 0:
+                        raise serializers.ValidationError("'warehouse_code' | can not ne negative")
+                except ValueError:
+                    raise serializers.ValidationError("'warehouse_code' | can only be positive integer value.")
             data['shop_type'] = shop_type['data']
 
         if 'shop_name_photos' in self.initial_data and self.initial_data['shop_name_photos']:
