@@ -18,6 +18,12 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
 
+def get_ptr_type_text(ptr_type=None):
+    if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
+        return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
+    return ''
+
+
 class SetMasterData(object):
     """
     It will call the functions mentioned in UploadMasterData class as per the condition of header_list
@@ -218,10 +224,10 @@ class UploadMasterData(object):
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
-                              'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
-                              'sub_brand_id', 'category_id', 'is_ptr_applicable', 'ptr_type',
-                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
+                              'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
+                              'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
+                              'max_inventory_in_days', 'is_lead_time_applicable']
 
                     available_fields = []
                     for col in fields:
@@ -256,6 +262,9 @@ class UploadMasterData(object):
 
                         if col == 'inner_case_size':
                             parent_product.update(inner_case_size=int(row['inner_case_size']))
+
+                        if col == 'brand_case_size':
+                            parent_product.update(brand_case_size=int(row['brand_case_size']))
 
                         if col == 'brand_id':
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
@@ -502,6 +511,7 @@ class UploadMasterData(object):
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
+                    brand_case_size = int(row['brand_case_size']),
                     status=True if str(row['status'].lower()) == 'active' else False,
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
@@ -785,12 +795,12 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
-                   "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
+                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
                    "max_inventory_in_days", "is_lead_time_applicable", "status"]
         writer.writerow(columns)
         data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
-                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "b2c", "no",
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
+                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "5", "b2c", "no",
                  " ", "", "no", "2", "yes", "active"]]
 
         for row in data:
@@ -930,7 +940,7 @@ class DownloadMasterData(object):
     def update_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                   'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
+                   'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', 'category_id',
                    'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
                    'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
         writer.writerow(columns)
@@ -940,6 +950,7 @@ class DownloadMasterData(object):
                                                                'parent_product__name', 'parent_product__product_type',
                                                                'parent_product__product_hsn__product_hsn_code',
                                                                'parent_product__inner_case_size',
+                                                               'parent_product__brand_case_size',
                                                                'parent_product__parent_brand__id',
                                                                'parent_product__parent_brand__brand_name',
                                                                'parent_product__parent_brand__brand_parent_id',
@@ -974,6 +985,7 @@ class DownloadMasterData(object):
                     tax_list[2] = tax.tax.tax_name
             row.extend(tax_list)
             row.append(product['parent_product__inner_case_size'])
+            row.append(product['parent_product__brand_case_size'])
 
             if product['parent_product__parent_brand__brand_parent_id']:
                 row.append(product['parent_product__parent_brand__brand_parent_id'])
@@ -1053,7 +1065,3 @@ class DownloadMasterData(object):
         return response
 
 
-def get_ptr_type_text(ptr_type=None):
-    if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
-        return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
-    return ''
