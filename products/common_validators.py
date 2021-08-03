@@ -340,16 +340,16 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "parent_product_update":
         required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
-                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
+                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id', 'brand_case_size',
                                 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
+
     if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'product_special_cess', 'repackaging_type',
                                 'category_name', 'source_sku_id', 'raw_material', 'wastage', 'fumigation',
                                 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
                                 "packing_sku_id", "packing_material_weight", 'status']
-
     if upload_master_data == "create_child_product":
         required_header_list = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
@@ -364,7 +364,8 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "create_parent_product":
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                                 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                                'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
+                                'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
+                                'brand_case_size', ]
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
@@ -1123,6 +1124,11 @@ def validate_row(uploaded_data_list, header_list, category):
                 if not re.match("^\d+$", str(row['inner_case_size'])):
                     raise ValidationError(f"Row {row_num} | {row['inner_case_size']} "
                                           f"'Inner Case Size' can only be a numeric value.")
+
+            if 'brand_case_size' in header_list and 'brand_case_size' in row.keys() and row['brand_case_size'] != '':
+                if not re.match("^\d+$", str(row['brand_case_size'])):
+                    raise ValidationError(f"Row {row_num} | {row['brand_case_size']} |"
+                                          f"'Brand Case Size' can only be a numeric value.")
 
             if 'max_inventory_in_days' in header_list and 'max_inventory_in_days' in row.keys() \
                     and row['max_inventory_in_days'] != '':

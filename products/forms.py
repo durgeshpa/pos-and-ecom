@@ -427,8 +427,8 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn',
-                  'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
+        fields = ('parent_brand', 'name', 'product_hsn', 'brand_case_size', 'inner_case_size', 'product_type',
+                  'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
                   'is_lead_time_applicable')
 
     def __init__(self, *args, **kwargs):
@@ -814,12 +814,12 @@ class UploadMasterDataAdminForm(forms.Form):
                         if not Tax.objects.filter(tax_name=row['tax_3(surcharge)']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['tax_3(surcharge)']} "
                                                     f"| Invalid Tax(Surcharge)!"))
-                # if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
-                #         if row['brand_case_size'] != '':
-                #             if not re.match("^\d+$", str(row['brand_case_size'])):
-                #                 raise ValidationError(
-                #                     _(
-                #                         f"Row {row_num} | {row['brand_case_size']} |'Brand Case Size' can only be a numeric value."))
+                if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
+                        if row['brand_case_size'] != '':
+                            if not re.match("^\d+$", str(row['brand_case_size'])):
+                                raise ValidationError(_(f"Row {row_num} | {row['brand_case_size']} |"
+                                                        f"'Brand Case Size' can only be a numeric value."))
+
                 if 'inner_case_size' in header_list and 'inner_case_size' in row.keys():
                     if row['inner_case_size'] != '':
                         if not re.match("^\d+$", str(row['inner_case_size'])):
