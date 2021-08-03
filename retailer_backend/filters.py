@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.contrib.admin import SimpleListFilter
 from categories.models import Category
 
+
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field

@@ -143,6 +143,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         ('b2c', 'B2C'),
         ('both', 'Both B2B and B2C'),
     )
+    brand_case_size = models.PositiveIntegerField(blank=False)
     product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
@@ -158,6 +159,11 @@ class ParentProduct(BaseTimestampUserStatusModel):
         related_name='parent_product_updated_by',
         on_delete=models.DO_NOTHING
     )
+
+
+    @property
+    def product_case_size(self):
+        return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def ptr_type_text(self):
@@ -248,6 +254,7 @@ class Product(BaseTimestampUserStatusModel):
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
+
     status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
