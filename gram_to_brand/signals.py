@@ -99,7 +99,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 SpPOProducts.objects.create(
                     cart=sp_po,
                     cart_product=instance.product,
-                    case_size=instance.product.product_case_size,
+                    # case_size=instance.product.product_case_size,
                     number_of_cases=instance.grn_order.order.ordered_cart.cart_list.filter(
                         cart_product=instance.product).last().no_of_cases,
                     qty=int(instance.delivered_qty),

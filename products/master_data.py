@@ -7,7 +7,7 @@ from django.db.models import Q
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping, ProductSourceMapping, ProductPackingMapping
+    DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping
 
 from products.common_function import ParentProductCls, ProductCls
 from categories.common_function import CategoryCls

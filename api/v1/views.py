@@ -164,7 +164,7 @@ class MasterReport(CreateAPIView):
                         tax_surcharge_percentage = tax.tax.tax_percentage
                 service_partner = products.seller_shop
                 pack_size = products.product.product_inner_case_size
-                case_size = products.product.product_case_size
+                # case_size = products.product.product_case_size
                 hsn_code = products.product.product_hsn
                 product_id = products.product.id
                 sku_code = products.product.product_sku
