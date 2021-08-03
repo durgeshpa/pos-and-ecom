@@ -285,6 +285,10 @@ class Product(BaseTimestampUserStatusModel):
         verbose_name_plural = 'Child Products'
 
     @property
+    def product_case_size(self):
+        return '1'
+
+    @property
     def product_brand(self):
         return self.parent_product.parent_brand if self.parent_product else ''
 
