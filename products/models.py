@@ -160,11 +160,6 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
 
-
-    @property
-    def product_case_size(self):
-        return self.parent_product.brand_case_size if self.parent_product else '1'
-
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -272,6 +267,7 @@ class Product(BaseTimestampUserStatusModel):
         ('destination', 'Destination'),
         ('packing_material', 'Packing Material')
     )
+
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
@@ -291,6 +287,10 @@ class Product(BaseTimestampUserStatusModel):
         verbose_name = 'Child Product'
         verbose_name_plural = 'Child Products'
 
+    @property
+    def product_case_size(self):
+        return self.parent_product.brand_case_size if self.parent_product else '1'
+    
     @property
     def product_brand(self):
         return self.parent_product.parent_brand if self.parent_product else ''
