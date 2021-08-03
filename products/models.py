@@ -248,6 +248,7 @@ class Product(BaseTimestampUserStatusModel):
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
+    brand_case_size = models.PositiveIntegerField(blank=False)
     status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
@@ -286,7 +287,7 @@ class Product(BaseTimestampUserStatusModel):
 
     @property
     def product_case_size(self):
-        return '1'
+        return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def product_brand(self):
