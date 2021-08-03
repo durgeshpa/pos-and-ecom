@@ -6,9 +6,7 @@ from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 
 from categories.models import Category
-from products.models import BulkUploadForProductAttributes, ParentProduct, ProductHSN, ProductCapping, \
-    ParentProductImage, ProductVendorMapping, Product, Tax, ProductSourceMapping, ProductPackingMapping, \
-    ProductSourceMapping, Weight
+from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
     CategoryListSerializers
