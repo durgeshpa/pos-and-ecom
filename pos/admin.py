@@ -23,8 +23,9 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
-    download_discounted_products_form_view, download_discounted_products, download_posinventorychange_products_form_view, \
-    download_posinventorychange_products
+    download_discounted_products_form_view, download_discounted_products, \
+    download_posinventorychange_products_form_view, \
+    download_posinventorychange_products, get_product_details
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
@@ -651,26 +652,7 @@ class PosCartAdmin(admin.ModelAdmin):
 
         for obj in queryset:
             for p in obj.po_products.all():
-                parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
-                if p.product.linked_product:
-                    parent_id = p.product.linked_product.parent_product.parent_id
-                    prodct = Product.objects.values('parent_product__parent_brand__brand_name',
-                                                    'parent_product__parent_brand__brand_parent__brand_name') \
-                        .filter(Q(id=p.product.linked_product.id))
-                    if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
-                        brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
-                        sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
-                    else:
-                        brand = prodct[0]['parent_product__parent_brand__brand_name']
-
-                    cat = ParentProductCategory.objects.values('category__category_name',
-                                                               'category__category_parent__category_name').filter \
-                        (parent_product__id=p.product.linked_product.parent_product.id)
-                    if cat[0]['category__category_parent__category_name']:
-                        category = cat[0]['category__category_parent__category_name']
-                        sub_category = cat[0]['category__category_name']
-                    else:
-                        category = cat[0]['category__category_name']
+                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
@@ -731,26 +713,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
-                parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
-                if p.product.linked_product:
-                    parent_id = p.product.linked_product.parent_product.parent_id
-                    prodct = Product.objects.values('parent_product__parent_brand__brand_name',
-                                                    'parent_product__parent_brand__brand_parent__brand_name') \
-                        .filter(Q(id=p.product.linked_product.id))
-                    if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
-                        brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
-                        sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
-                    else:
-                        brand = prodct[0]['parent_product__parent_brand__brand_name']
-
-                    cat = ParentProductCategory.objects.values('category__category_name',
-                                                               'category__category_parent__category_name').filter \
-                        (parent_product__id=p.product.linked_product.parent_product.id)
-                    if cat[0]['category__category_parent__category_name']:
-                        category = cat[0]['category__category_parent__category_name']
-                        sub_category = cat[0]['category__category_name']
-                    else:
-                        category = cat[0]['category__category_name']
+                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
                 writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
@@ -762,9 +725,6 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
         return response
-
-
-
 
 
 @admin.register(PaymentType)
