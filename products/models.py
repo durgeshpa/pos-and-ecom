@@ -290,7 +290,7 @@ class Product(BaseTimestampUserStatusModel):
     @property
     def product_case_size(self):
         return self.parent_product.brand_case_size if self.parent_product else '1'
-    
+
     @property
     def product_brand(self):
         return self.parent_product.parent_brand if self.parent_product else ''
