@@ -13,6 +13,7 @@ from accounts.middlewares import get_current_user
 
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
+from products.models import Product, ParentProductCategory
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from .common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
@@ -644,17 +645,40 @@ class PosCartAdmin(admin.ModelAdmin):
     def download_store_po(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Vendor', 'Retailer', 'PO No', 'Status', 'Raised By', 'GF Order No', 'Created At', 'SKU',
-                         'Product Name', 'Quantity', 'Price'])
+        writer.writerow([ 'PO No', 'Status',  'Vendor', 'Store Id', 'Store Name', 'Shop User',  'Raised By',
+                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category',
+                          'Brand', 'Sub Brand', 'Quantity', 'Price'])
 
         for obj in queryset:
             for p in obj.po_products.all():
-                writer.writerow([obj.vendor, obj.retailer_shop, obj.po_no, obj.status, obj.raised_by, obj.gf_order_no,
-                                 obj.created_at, p.product.sku, p.product.name, p.qty, p.price])
+                parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
+                if p.product.linked_product:
+                    parent_id = p.product.linked_product.parent_product.parent_id
+                    prodct = Product.objects.values('parent_product__parent_brand__brand_name',
+                                                    'parent_product__parent_brand__brand_parent__brand_name') \
+                        .filter(Q(id=p.product.linked_product.id))
+                    if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
+                        brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
+                        sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
+                    else:
+                        brand = prodct[0]['parent_product__parent_brand__brand_name']
+
+                    cat = ParentProductCategory.objects.values('category__category_name',
+                                                               'category__category_parent__category_name').filter \
+                        (parent_product__id=p.product.linked_product.parent_product.id)
+                    if cat[0]['category__category_parent__category_name']:
+                        category = cat[0]['category__category_parent__category_name']
+                        sub_category = cat[0]['category__category_name']
+                    else:
+                        category = cat[0]['category__category_name']
+                writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
+                                 obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
+                                 obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
+                                 brand, sub_brand, p.qty, p.price])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
+        response['Content-Disposition'] = 'attachment; filename=pos_store_po_' + date.today().isoformat() + '.csv'
         return response
 
 
@@ -700,13 +724,39 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'Order No', 'Created At', 'SKU', 'Product Name',
-                         'Recieved Quantity'])
+        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Created At',
+                          'Vendor', 'Store Id', 'Store Name', 'Shop User',
+                          'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
+                          'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
-                writer.writerow([obj.grn_id, obj.order.order_no,
-                                 obj.created_at, p.product.sku, p.product.name, p.received_qty])
+                parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
+                if p.product.linked_product:
+                    parent_id = p.product.linked_product.parent_product.parent_id
+                    prodct = Product.objects.values('parent_product__parent_brand__brand_name',
+                                                    'parent_product__parent_brand__brand_parent__brand_name') \
+                        .filter(Q(id=p.product.linked_product.id))
+                    if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
+                        brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
+                        sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
+                    else:
+                        brand = prodct[0]['parent_product__parent_brand__brand_name']
+
+                    cat = ParentProductCategory.objects.values('category__category_name',
+                                                               'category__category_parent__category_name').filter \
+                        (parent_product__id=p.product.linked_product.parent_product.id)
+                    if cat[0]['category__category_parent__category_name']:
+                        category = cat[0]['category__category_parent__category_name']
+                        sub_category = cat[0]['category__category_name']
+                    else:
+                        category = cat[0]['category__category_name']
+                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.created_at,
+                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
+                                 obj.order.ordered_cart.retailer_shop.shop_name,
+                                 obj.order.ordered_cart.retailer_shop.shop_owner,
+                                 p.product.sku, p.product.name, parent_id, category, sub_category,
+                                 brand, sub_brand, p.received_qty])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
