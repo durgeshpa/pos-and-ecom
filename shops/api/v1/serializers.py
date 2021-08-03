@@ -253,9 +253,11 @@ class BeatShopSerializer(serializers.ModelSerializer):
         :return: shop contact number
         """
 
-        add_obj = obj.shipping_address
-        address = Address.objects.get(id=add_obj)
-        return address.address_contact_number
+        if obj.shop_name_address_mapping.exists():
+            address = obj.shop_name_address_mapping.only('address_contact_number'). \
+                values('address_contact_number').last()
+            return address['address_contact_number']
+        return None
 
     class Meta:
         """ Meta class """
