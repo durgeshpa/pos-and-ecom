@@ -420,7 +420,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         shop_id = self.instance.id if self.instance else None
         if not 'shop_name_photos' in self.initial_data or not self.initial_data['shop_name_photos']:
             if not 'shop_images' in self.initial_data or not self.initial_data['shop_images']:
-                raise serializers.ValidationError(_('image is required'))
+                raise serializers.ValidationError(_('shop photo is required'))
 
         if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
             approval_status = get_validate_approval_status(self.initial_data['approval_status'])
@@ -690,7 +690,7 @@ class BeatPlanningExecutivesListSerializers(serializers.ModelSerializer):
     class Meta:
         model = ShopUserMapping
         fields = ('id', 'employee',)
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         return representation['employee']
