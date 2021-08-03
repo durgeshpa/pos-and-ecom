@@ -479,3 +479,29 @@ def download_posinventorychange_products(request, *args):
         prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
         ])
     return response
+
+
+
+def get_product_details(product):
+    parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
+    if product.linked_product:
+        parent_id = product.linked_product.parent_product.parent_id
+        brand_details = Product.objects.values('parent_product__parent_brand__brand_name',
+                                        'parent_product__parent_brand__brand_parent__brand_name') \
+            .filter(Q(id=product.linked_product.id))
+        if brand_details[0]['parent_product__parent_brand__brand_parent__brand_name']:
+            brand = brand_details[0]['parent_product__parent_brand__brand_parent__brand_name']
+            sub_brand = brand_details[0]['parent_product__parent_brand__brand_name']
+        else:
+            brand = brand_details[0]['parent_product__parent_brand__brand_name']
+
+        cat = ParentProductCategory.objects.values('category__category_name',
+                                                   'category__category_parent__category_name').filter \
+            (parent_product__id=product.linked_product.parent_product.id)
+        if cat[0]['category__category_parent__category_name']:
+            category = cat[0]['category__category_parent__category_name']
+            sub_category = cat[0]['category__category_name']
+        else:
+            category = cat[0]['category__category_name']
+    return parent_id, category, sub_category, brand, sub_brand
+
