@@ -397,7 +397,7 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue
         """
         search_type = self.request.GET.get('search_type', '2')
-        app_type = self.request.GET.get('app_type', '0')
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type != '2':
             # Normal Search
             if search_type == '2':
@@ -512,7 +512,7 @@ class SearchProducts(APIView):
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
         filter_list = []
-        if self.request.GET.get('app_type') != '2':
+        if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
@@ -842,7 +842,7 @@ class CartCentral(GenericAPIView):
             Get Cart
             Inputs:
                 shop_id
-                cart_type (retail-1 or basic-2)
+                app_type (retail-1 or basic-2)
         """
         app_type = request.META.get('HTTP_APP_TYPE', '1')
         if app_type == '1':
@@ -859,7 +859,7 @@ class CartCentral(GenericAPIView):
         """
             Add To Cart
             Inputs
-                cart_type (retail-1 or basic-2)
+                app_type (retail-1 or basic-2)
                 cart_product (Product for 'retail', RetailerProduct for 'basic'
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
@@ -876,7 +876,7 @@ class CartCentral(GenericAPIView):
         """
             Add/Update Item To Basic Cart
             Inputs
-                cart_type (2)
+                app_type (2)
                 product_id
                 shop_id
                 cart_id
@@ -886,7 +886,7 @@ class CartCentral(GenericAPIView):
         if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     @check_pos_shop
     def delete(self, request, *args, **kwargs):
@@ -2272,28 +2272,28 @@ class OrderCentral(APIView):
         """
             Get Order Details
             Inputs
-            cart_type
+            app_type
             order_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_order()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
             allowed updates to order status
         """
-        cart_type = request.data.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.put_retail_order(kwargs['pk'])
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     @check_pos_shop
     def put_basic_order(self, request, *args, **kwargs):
@@ -2361,7 +2361,7 @@ class OrderCentral(APIView):
             Place Order
             Inputs
             cart_id
-            cart_type (retail-1 or basic-2)
+            app_type (retail-1 or basic-2)
                 retail
                     shop_id (Buyer shop id)
                     billing_address_id
@@ -2370,13 +2370,13 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.post_retail_order()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.post_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def get_retail_order(self):
         """
@@ -3156,16 +3156,16 @@ class OrderListCentral(GenericAPIView):
         """
             Get Order List
             Inputs
-            cart_type
+            app_type
             shop_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_order_list()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order_list(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def get_retail_order_list(self):
         """
@@ -3277,10 +3277,10 @@ class OrderedItemCentralDashBoard(APIView):
             shop_id for retail(Buyer shop id)
 
         """
-        cart_type = request.GET.get('app_type')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_order_overview()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order_overview(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
