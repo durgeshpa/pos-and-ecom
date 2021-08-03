@@ -660,8 +660,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
     if upload_master_data == "create_parent_product":
         row_num = 1
         mandatory_columns = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
-                             'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                             'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
+                             'brand_case_size', 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type',
+                             'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
+                             'status']
         for ele in mandatory_columns:
             if ele not in header_list:
                 raise ValidationError(f"{mandatory_columns} are mandatory columns for to Create Parent Product")
@@ -706,6 +707,11 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' is a mandatory field")
             if 'inner_case_size' in row.keys() and row['inner_case_size'] == '':
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' can't be empty")
+
+            if 'brand_case_size' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_case_size' is a mandatory field")
+            if 'brand_case_size' in row.keys() and row['brand_case_size'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_case_size' can't be empty")
 
             if 'brand_name' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'brand_name' is a mandatory field")

@@ -259,10 +259,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'product_images',
-                  'parent_product_pro_image', 'product_parent_product', 'parent_product_log', 'brand_case_size')
+                  'parent_product_pro_image', 'product_parent_product', 'parent_product_log', )
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
