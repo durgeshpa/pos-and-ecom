@@ -22,6 +22,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
+from django.http import JsonResponse
+from django.urls import reverse
 
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
@@ -55,6 +57,8 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from pos.models import RetailerProduct
+from retailer_to_sp.common_function import create_po_franchise
 
 
 logger = logging.getLogger('django')
@@ -1276,7 +1280,9 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Shop.objects.none()
 
-        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'], shop_owner=self.request.user)
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+        if not self.request.user.is_superuser:
+            qs = qs.filter(shop_owner=self.request.user)
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1788,3 +1794,30 @@ def shipment_status(request):
         context['count'] = -1
     return HttpResponse(json.dumps(context))
 
+
+def create_franchise_po(request, pk):
+    try:
+        order = get_object_or_404(Order, pk=pk)
+        products = order.ordered_cart.rt_cart_list.all()
+        for mapp in products:
+            p = mapp.cart_product
+            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
+                url = f"""<div><a style="color:blue;" href="%s" target="_blank">Download Unmapped Products List 
+                                        </a></div>""" % (reverse('admin:franchise_po_fail_list', args=(pk,)))
+                error = mark_safe(
+                    f"<div class='create-po-resp'><span style='color:crimson;'>PO could not be created</span>"
+                    f"{url}</div>")
+                return JsonResponse({'response': error})
+        created, po_no = create_po_franchise(request.user, order.order_no, order.seller_shop, order.buyer_shop,
+                                             products)
+        if created:
+            return JsonResponse(
+                {'response': "<div class='create-po-resp'><span style='color:green;'>PO %s created successfully!</span>"
+                             "</div>" % po_no})
+        else:
+            return JsonResponse(
+                {'response': "<div class='create-po-resp'><span style='color:green;'>PO updated successfully!</span>"
+                             "</div>"})
+    except:
+        return JsonResponse(
+            {'response': "<div class='create-po-resp'><span style='color:crimson;'>Some Error Occurred</span></div>"})

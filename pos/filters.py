@@ -16,11 +16,12 @@ class ShopFilter(AutocompleteFilter):
 class PosShopAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self, *args, **kwargs):
-        if not self.request.user.is_authenticated:
-            return Shop.objects.none()
-        qs = Shop.objects.filter()
+        # if not self.request.user.is_authenticated:
+        #     return Shop.objects.none()
+        qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                pos_enabled=1)
         if self.q:
-            qs = qs.filter(shop_name__icontains=self.q)
+            qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
         return qs
 
 
