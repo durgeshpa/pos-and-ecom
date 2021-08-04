@@ -12,7 +12,7 @@ from django.core.mail import EmailMessage
 from global_config.models import GlobalConfig
 from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, PosCart
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
@@ -133,7 +133,8 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
 
 
 @task()
-def mail_to_vendor_on_po_creation(instance):
+def mail_to_vendor_on_po_creation(cart_id):
+    instance = PosCart.objects.get(id=cart_id)
     recipient_list = [instance.vendor.email]
     vendor_name = instance.vendor.vendor_name
     po_no = instance.po_no

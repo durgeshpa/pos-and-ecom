@@ -185,11 +185,11 @@ class PosOtpLoginSerializer(serializers.Serializer):
         number = attrs.get('username')
         user = UserModel.objects.filter(phone_number=number).last()
         if not user:
-            raise serializers.ValidationError("You are not registered on GramFactory.")
+            raise serializers.ValidationError("You are not registered on PepperTap.")
         # Check Shop
         qs = filter_pos_shop(user)
         if not qs.exists():
-            raise serializers.ValidationError("You do not have any shop registered for GramFactory POS.")
+            raise serializers.ValidationError("You are not registered on PepperTap POS.")
 
         phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
         if phone_otp:

@@ -15,23 +15,45 @@ from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
-from .common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
+from .common_functions import RetailerProductCls, PosInventoryCls
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
                      ProductChangeFields, DiscountedRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
-    download_discounted_products_form_view, download_discounted_products, download_posinventorychange_products_form_view, \
-    download_posinventorychange_products
+    download_discounted_products_form_view, download_discounted_products, \
+    download_posinventorychange_products_form_view, \
+    download_posinventorychange_products, get_product_details
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
     RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
     RetailerOrderReturn, RetailerReturnItems
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import create_order_data_excel
+from .utils import create_order_data_excel, create_order_return_excel
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
+
+class ExportCsvMixin:
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        exclude_fields = ['modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+    export_as_csv.short_description = "Download CSV of Selected Objects"
+
+    def export_order_return_as_csv(self, request, queryset):
+        return create_order_return_excel(queryset)
+
+    export_as_csv.short_description = "Download CSV of Selected Order Return"
 
 
 class RetailerProductImageTabularAdmin(admin.TabularInline):
@@ -70,8 +92,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                       'description', 'sku_type', 'status', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+
+    
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
@@ -306,7 +329,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 10
-    list_display = ('order', 'invoice_no', 'order_amount', 'created_at')
+    list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
 
     fieldsets = (
@@ -316,8 +339,9 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         (_('Order Details'), {
             'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer')}),
 
-        (_('Amount Details'), {
-            'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
+        (_('Payment Details'), {
+            'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount', 'payment_type',
+                       'transaction_id')}),
     )
 
     def seller_shop(self, obj):
@@ -343,6 +367,14 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order.order_no
+
+    def payment_type(self, obj):
+        pay_obj = obj.order.rt_payment_retailer_order.last()
+        return pay_obj.payment_type.type if (pay_obj and pay_obj.payment_type) else '-'
+
+    def transaction_id(self, obj):
+        pay_obj = obj.order.rt_payment_retailer_order.last()
+        return pay_obj.transaction_id if (pay_obj and pay_obj.transaction_id) else '-'
 
     def get_queryset(self, request):
         qs = super(RetailerOrderProductAdmin, self).get_queryset(request)
@@ -473,7 +505,8 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 
 
 @admin.register(RetailerOrderReturn)
-class RetailerOrderReturnAdmin(admin.ModelAdmin):
+class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
+    actions = ['export_order_return_as_csv']
     list_display = ('order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
                     'refund_mode', 'created_at')
     fields = list_display
@@ -498,7 +531,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     form = DiscountedRetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'product_ref', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'status', 'created_at', 'modified_at')
-    fields = ('shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_price', 'discounted_stock')
+    fields = ('shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_selling_price', 'discounted_stock')
     readonly_fields = ('sku', 'name', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
@@ -547,7 +580,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         discounted_stock = form.cleaned_data['discounted_stock']
-        discounted_price = form.cleaned_data['discounted_price']
+        discounted_price = form.cleaned_data['discounted_selling_price']
         product_status = 'active' if discounted_stock > 0 else 'deactivated'
         product_ref = obj.product_ref
         inventory_initial_state = PosInventoryState.NEW
@@ -643,17 +676,21 @@ class PosCartAdmin(admin.ModelAdmin):
     def download_store_po(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Vendor', 'Retailer', 'PO No', 'Status', 'Raised By', 'GF Order No', 'Created At', 'SKU',
-                         'Product Name', 'Quantity', 'Price'])
+        writer.writerow([ 'PO No', 'Status',  'Vendor', 'Store Id', 'Store Name', 'Shop User',  'Raised By',
+                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category',
+                          'Brand', 'Sub Brand', 'Quantity', 'Price'])
 
         for obj in queryset:
             for p in obj.po_products.all():
-                writer.writerow([obj.vendor, obj.retailer_shop, obj.po_no, obj.status, obj.raised_by, obj.gf_order_no,
-                                 obj.created_at, p.product.sku, p.product.name, p.qty, p.price])
+                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
+                                 obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
+                                 obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
+                                 brand, sub_brand, p.qty, p.price])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
+        response['Content-Disposition'] = 'attachment; filename=pos_store_po_' + date.today().isoformat() + '.csv'
         return response
 
 
@@ -699,21 +736,25 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'Order No', 'Created At', 'SKU', 'Product Name',
-                         'Recieved Quantity'])
+        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Created At',
+                          'Vendor', 'Store Id', 'Store Name', 'Shop User',
+                          'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
+                          'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
-                writer.writerow([obj.grn_id, obj.order.order_no,
-                                 obj.created_at, p.product.sku, p.product.name, p.received_qty])
+                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.created_at,
+                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
+                                 obj.order.ordered_cart.retailer_shop.shop_name,
+                                 obj.order.ordered_cart.retailer_shop.shop_owner,
+                                 p.product.sku, p.product.name, parent_id, category, sub_category,
+                                 brand, sub_brand, p.received_qty])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
         return response
-
-
-
 
 
 @admin.register(PaymentType)
@@ -724,6 +765,9 @@ class PaymentTypeAdmin(admin.ModelAdmin):
     search_fields = ('type',)
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
 
