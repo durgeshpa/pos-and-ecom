@@ -139,7 +139,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_images = [
 			{
 				"image_name": p_i.image_name,
-				"image_alt": p_i.image_alt_text,
+				# "image_alt": p_i.image_alt_text,
 				"image_url": p_i.image.url
 			}
 			for p_i in product_img
@@ -149,7 +149,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 				product_images = [
 					{
 						"image_name": p_i.image_name,
-						"image_alt": p_i.image_alt_text,
+						# "image_alt": p_i.image_alt_text,
 						"image_url": p_i.image.url
 					}
 					for p_i in product.parent_product.parent_product_pro_image.all()
@@ -158,7 +158,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 				product_images = [
 					{
 						"image_name": p_i.image_name,
-						"image_alt": p_i.image_alt_text,
+						# "image_alt": p_i.image_alt_text,
 						"image_url": p_i.image.url
 					}
 					for p_i in product.child_product_pro_image.all()
