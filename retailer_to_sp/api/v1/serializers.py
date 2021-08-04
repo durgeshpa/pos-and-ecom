@@ -571,7 +571,7 @@ class ProductsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
-                  'product_ean_code','created_at','modified_at','status','product_pro_image',
+                  'product_ean_code','created_at','updated_at','status','product_pro_image',
                   'product_opt_product', 'product_case_size_picies',
                   #'product_price','product_inner_case_size','product_case_size','margin', 'loyalty_discount', 'cash_discount'
          )
