@@ -462,7 +462,7 @@ def update_product_on_category_update(instance, shops):
     parent_pro_categories = instance.parent_category_pro_category.all()
     for category in parent_pro_categories:
         parent_product = category.parent_product
-        child_products = parent_product.product_parent_product.filter(status='active')
+        child_products = parent_product.product_parent_product.filter(status=True)
         for product in child_products:
             qs = product.product_pro_price.filter(status=True)
             qs = qs.filter(seller_shop__id__in=shops) if shops else qs
@@ -484,7 +484,7 @@ def update_parent_brand_elasticsearch(sender, instance=None, created=False, **kw
 def update_product_on_brand_update(instance, shops):
     parent_products = instance.parent_brand_product.all()
     for parent_product in parent_products:
-        child_products = parent_product.product_parent_product.filter(status='active')
+        child_products = parent_product.product_parent_product.filter(status=True)
         for product in child_products:
             qs = product.product_pro_price.filter(status=True)
             qs = qs.filter(seller_shop__id__in=shops) if shops else qs
