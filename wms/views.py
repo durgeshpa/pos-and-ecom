@@ -732,7 +732,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     manufacturing_date = get_manufacturing_date(batch_id)
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
-                                                         batch_id, qty, qty, inv_type, manufacturing_date)
+                                                         batch_id, qty, qty, inv_type, 0, manufacturing_date)
                     transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
                                                                                         putaway_type=in_obj.in_type,
                                                                                         putaway_type_id=in_obj.id,

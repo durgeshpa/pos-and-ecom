@@ -447,7 +447,7 @@ def get_stock(shop, inventory_type, product_id_list=None):
             sku_qty_dict[item.sku.id] -= item.quantity
         elif inventory_state == 'to_be_picked':
             sku_qty_dict[item.sku.id] -= item.quantity
-    sku_qty_dict = add_discounted_product_quantity(shop, inventory_type, sku_qty_dict)
+    # sku_qty_dict = add_discounted_product_quantity(shop, inventory_type, sku_qty_dict)
     return sku_qty_dict
 
 
@@ -1459,6 +1459,7 @@ def create_batch_id(sku, expiry_date):
     :return:
     """
     try:
+        sku = sku.lstrip('D')
         try:
             batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
 
