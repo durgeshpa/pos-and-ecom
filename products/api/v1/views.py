@@ -10,8 +10,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
-    ProductSourceMapping, Weight
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight
 from categories.models import Category
 from brand.models import Brand
 
@@ -25,7 +24,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers
 
 from products.common_function import get_response, serializer_error
-from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
+from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search
 
@@ -33,100 +32,6 @@ from products.services import parent_product_search, child_product_search, produ
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
-
-
-class ProductHSNView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code').\
-        order_by('-id')
-    serializer_class = ProductHSNCrudSerializers
-
-    def get(self, request):
-        """ GET API for Product HSN """
-
-        info_logger.info("Product HSN GET api called.")
-        ch_hsn_total_count = self.queryset.count()
-        if request.GET.get('id'):
-            """ Get Product HSN for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            product_hsn = id_validation['data']
-        else:
-            """ GET Product HSN List """
-            self.queryset = self.search_filter_product_hsn()
-            ch_hsn_total_count = self.queryset.count()
-            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(product_hsn, many=True)
-        msg = f"total count {ch_hsn_total_count}" if product_hsn else "no hsn found"
-        return get_response(msg, serializer.data)
-
-    def post(self, request, *args, **kwargs):
-        """ POST API for ProductHSN Creation """
-
-        info_logger.info("ProductHSN POST api called.")
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            info_logger.info("product HSN created successfully ")
-            return get_response('product HSN created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def put(self, request):
-        """ PUT API for ProductHSN Updation """
-
-        info_logger.info("HSN PUT api called.")
-        if 'id' not in request.data:
-            return get_response('please provide id to update hsn', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data['id']))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-
-        hsn_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=hsn_instance, data=request.data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
-            info_logger.info("HSN Updated Successfully.")
-            return get_response('hsn updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    # @transaction.atomic
-    def delete(self, request):
-        """ Delete Product HSN  """
-
-        info_logger.info("Product HSN DELETE api called.")
-        if not request.data.get('hsn_ids'):
-            return get_response('please select hsn', False)
-        try:
-            for h_id in request.data.get('hsn_ids'):
-                hsn_id = self.queryset.get(id=int(h_id))
-                try:
-                    hsn_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
-                                 'hsn_id': hsn_id}
-                    info_logger.info("hsn deleted info ", dict_data)
-                except:
-                    return get_response(f'You can not delete hsn {hsn_id.product_hsn_code}, '
-                                        f'because this hsn is mapped with product', False)
-        except ObjectDoesNotExist as e:
-            error_logger.error(e)
-            return get_response(f'please provide a valid hsn id {h_id}', False)
-        return get_response('hsn were deleted successfully!', True)
-
-    def search_filter_product_hsn(self):
-        search_text = self.request.GET.get('search_text')
-        product_hsn_cd = self.request.GET.get('product_hsn_code')
-        # search using product_hsn_code based on criteria that matches
-        if search_text:
-            self.queryset = product_hsn_search(self.queryset, search_text)
-        if product_hsn_cd is not None:
-            self.queryset = self.queryset.filter(id=int(product_hsn_cd))
-
-        return self.queryset
 
 
 class BrandListView(GenericAPIView):
@@ -620,38 +525,6 @@ class ChildProductView(GenericAPIView):
         return self.queryset
 
 
-class ParentProductExportAsCSVView(CreateAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ParentProductExportAsCSVSerializers
-
-    def post(self, request):
-        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
-
-        info_logger.info("Parent Product ExportAsCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("Parent Product CSVExported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
-class ChildProductExportAsCSVView(CreateAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ChildProductExportAsCSVSerializers
-
-    def post(self, request):
-        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
-
-        info_logger.info("Parent Product ExportAsCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("Parent Product CSVExported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
 class ActiveDeactiveSelectedParentProductView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     parent_product_list = ParentProducts.objects.values('id', )
@@ -781,6 +654,100 @@ class ProductCappingView(GenericAPIView):
         if product_name is not None:
             self.queryset = self.queryset.filter(
                 product_id=product_name)
+
+        return self.queryset
+
+
+class ProductHSNView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code').\
+        order_by('-id')
+    serializer_class = ProductHSNCrudSerializers
+
+    def get(self, request):
+        """ GET API for Product HSN """
+
+        info_logger.info("Product HSN GET api called.")
+        ch_hsn_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Product HSN for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_hsn = id_validation['data']
+        else:
+            """ GET Product HSN List """
+            self.queryset = self.search_filter_product_hsn()
+            ch_hsn_total_count = self.queryset.count()
+            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(product_hsn, many=True)
+        msg = f"total count {ch_hsn_total_count}" if product_hsn else "no hsn found"
+        return get_response(msg, serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for ProductHSN Creation """
+
+        info_logger.info("ProductHSN POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("product HSN created successfully ")
+            return get_response('product HSN created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for ProductHSN Updation """
+
+        info_logger.info("HSN PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update hsn', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        hsn_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=hsn_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("HSN Updated Successfully.")
+            return get_response('hsn updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    # @transaction.atomic
+    def delete(self, request):
+        """ Delete Product HSN  """
+
+        info_logger.info("Product HSN DELETE api called.")
+        if not request.data.get('hsn_ids'):
+            return get_response('please select hsn', False)
+        try:
+            for h_id in request.data.get('hsn_ids'):
+                hsn_id = self.queryset.get(id=int(h_id))
+                try:
+                    hsn_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'hsn_id': hsn_id}
+                    info_logger.info("hsn deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete hsn {hsn_id.product_hsn_code}, '
+                                        f'because this hsn is mapped with product', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid hsn id {h_id}', False)
+        return get_response('hsn were deleted successfully!', True)
+
+    def search_filter_product_hsn(self):
+        search_text = self.request.GET.get('search_text')
+        product_hsn_cd = self.request.GET.get('product_hsn_code')
+        # search using product_hsn_code based on criteria that matches
+        if search_text:
+            self.queryset = product_hsn_search(self.queryset, search_text)
+        if product_hsn_cd is not None:
+            self.queryset = self.queryset.filter(id=int(product_hsn_cd))
 
         return self.queryset
 
@@ -963,5 +930,37 @@ class HSNExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("HSN CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ChildProductExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
+
+        info_logger.info("Parent Product ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Parent Product CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ParentProductExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ParentProductExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
+
+        info_logger.info("Parent Product ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Parent Product CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

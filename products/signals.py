@@ -1,9 +1,8 @@
-from django.contrib.auth.models import User
 from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ParentProductCategory
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand

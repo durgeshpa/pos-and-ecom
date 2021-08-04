@@ -1,24 +1,14 @@
-import sys
-import os
-import datetime
-import json
-import itertools
 from celery.task import task
-from celery.contrib import rdb
-import requests
-import json
-from django.db.models import F,Sum, Q
 from elasticsearch import Elasticsearch, NotFoundError
 
 from shops.models import Shop
-from sp_to_gram import models
+
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF
-from wms.common_functions import get_visibility_changes
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 
-from wms.models import InventoryType,WarehouseInventory,InventoryState
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
@@ -77,6 +67,7 @@ def get_product_price(shop_id, products):
 
 		price_dict[price.product.id] = product_active_prices
 	return price_dict
+
 
 def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	if inventory_type is None:

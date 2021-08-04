@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from products.models import ParentProductImage, ParentProduct, Product, ChildProductImage
+from products.models import ParentProductImage, ParentProduct
 
 
 def run():
@@ -28,5 +28,6 @@ def run():
         if child_product_with_latest_grn is not None:
             child_image = child_product_with_latest_grn.product_pro_image.latest("created_at")
             print("Child Image-->{}".format(child_image))
-            parent_image = ParentProductImage.objects.create(parent_product=parent, image_name=child_image.image_name, image=child_image.image)
+            parent_image = ParentProductImage.objects.create(parent_product=parent, image_name=child_image.image_name,
+                                                             image=child_image.image)
             print("Parent Image created-->{}".format(parent_image))

@@ -14,10 +14,10 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework.generics import GenericAPIView
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, viewsets, permissions, authentication
+from rest_framework import status, generics, permissions, authentication
 
 from wkhtmltopdf.views import PDFTemplateResponse
 from num2words import num2words
@@ -48,7 +48,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return)
+                                   OrderReturn, ReturnItems)
 from retailer_to_sp.common_function import check_date_range, capping_check
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
@@ -58,16 +58,13 @@ from brand.models import Brand
 from addresses.models import Address
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
 from common.data_wrapper_view import DataWrapperViewSet
-from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
-                                 whatsapp_order_refund)
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
-    PosInventoryChange
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
     update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error
 from pos.offers import BasicCartOffers
@@ -75,7 +72,7 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
     PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
-from retailer_backend.settings import AWS_MEDIA_URL
+
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
