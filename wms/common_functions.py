@@ -384,6 +384,7 @@ def get_brand_in_shop_stock(shop_id, brand):
 
     return shop_stock
 
+
 def get_stock(shop, inventory_type, product_id_list=None):
     inventory_states = InventoryState.objects.filter(inventory_state__in=['reserved', 'ordered',
                                                                           'to_be_picked', 'total_available'])
@@ -409,8 +410,6 @@ def get_stock(shop, inventory_type, product_id_list=None):
         elif inventory_state == 'to_be_picked':
             sku_qty_dict[item.sku.id] -= item.quantity
     return sku_qty_dict
-
-
 
 
 def get_visibility_changes(shop, product):
@@ -2209,7 +2208,6 @@ def get_stock_available_category_list(warehouse=None):
 
 def is_product_not_eligible(product_id):
     return Product.objects.filter(id=product_id, repackaging_type='packing_material').exists()
-
 
 
 def get_inventory_in_stock(warehouse, parent_product):
