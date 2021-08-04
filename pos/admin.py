@@ -31,8 +31,29 @@ from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCoupon
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import create_order_data_excel
+from .utils import create_order_data_excel, create_order_return_excel
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
+
+class ExportCsvMixin:
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        exclude_fields = ['modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+    export_as_csv.short_description = "Download CSV of Selected Objects"
+
+    def export_order_return_as_csv(self, request, queryset):
+        return create_order_return_excel(queryset)
+
+    export_as_csv.short_description = "Download CSV of Selected Order Return"
 
 
 class RetailerProductImageTabularAdmin(admin.TabularInline):
@@ -484,7 +505,8 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 
 
 @admin.register(RetailerOrderReturn)
-class RetailerOrderReturnAdmin(admin.ModelAdmin):
+class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
+    actions = ['export_order_return_as_csv']
     list_display = ('order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
                     'refund_mode', 'created_at')
     fields = list_display
