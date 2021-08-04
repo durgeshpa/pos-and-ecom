@@ -70,7 +70,8 @@ from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping 
                                      Order as GramMappedOrder)
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems)
+                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
+                                   CreditNote)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
