@@ -1629,6 +1629,14 @@ class POSerializer(serializers.ModelSerializer):
 class POProductGetSerializer(serializers.ModelSerializer):
     mrp = serializers.SerializerMethodField()
     grned_qty = serializers.SerializerMethodField()
+    po_price_history = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_po_price_history(obj):
+        product = obj.product
+        return PosCartProductMapping.objects.filter(cart__retailer_shop=product.shop, product=product).order_by(
+            '-created_at').annotate(date=Func(F('created_at'), Value('DD Mon YYYY'),
+                                              function='to_char', output_field=CharField()))[:3].values('price', 'date')
 
     @staticmethod
     def get_grned_qty(obj):
@@ -1642,7 +1650,7 @@ class POProductGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty')
+        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history')
 
 
 class POGetSerializer(serializers.ModelSerializer):
