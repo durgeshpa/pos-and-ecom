@@ -19,7 +19,7 @@ from .common_functions import RetailerProductCls, PosInventoryCls
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
-                     ProductChangeFields, DiscountedRetailerProduct)
+                     ProductChangeFields, DiscountedRetailerProduct, Document)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -710,8 +710,8 @@ class PosGrnOrderProductMappingAdmin(admin.TabularInline):
 
 @admin.register(PosGRNOrder)
 class PosGrnOrderAdmin(admin.ModelAdmin):
-    list_display = ('grn_id', 'po_no', 'retailer_shop', 'added_by', 'last_modified_by',
-                    'created_at', 'modified_at')
+    list_display = ('grn_id', 'po_no', 'retailer_shop', 'invoice_no', 'invoice_date', 'invoice_amount', 'added_by',
+                    'last_modified_by', 'created_at', 'modified_at')
     fields = list_display
     list_per_page = 10
     inlines = [PosGrnOrderProductMappingAdmin]
