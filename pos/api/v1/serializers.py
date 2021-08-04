@@ -1649,11 +1649,16 @@ class POGetSerializer(serializers.ModelSerializer):
     po_products = POProductGetSerializer(many=True)
     raised_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
+    total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_price(obj):
+        return obj.po_products.aggregate(Sum('price')).get('price__sum')
 
     class Meta:
         model = PosCart
-        fields = ('id', 'vendor_id', 'vendor_name', 'po_no', 'status', 'po_products', 'raised_by', 'last_modified_by',
-                  'created_at', 'modified_at')
+        fields = ('id', 'vendor_id', 'vendor_name', 'po_no', 'status', 'po_products', 'total_price', 'raised_by',
+                  'last_modified_by', 'created_at', 'modified_at')
 
 
 class POProductInfoSerializer(serializers.ModelSerializer):
