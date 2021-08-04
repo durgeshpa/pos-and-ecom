@@ -6,7 +6,8 @@ from django.http import HttpResponse
 
 from retailer_to_sp.models import ReturnItems
 from .models import PAYMENT_MODE_POS
-from .views import get_product_details
+from .views import get_product_details, get_tax_details
+from products.models import ParentProduct
 
 
 def create_order_data_excel(request, queryset, RetailerOrderedProduct,
@@ -21,35 +22,38 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
     writer = csv.writer(response)
     writer.writerow([
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Seller Shop ID',
-        'Seller Shop Name', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 'Buyer Name',
-        'Mobile No(Buyer)', 'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Quantity',
-        'Product Type', 'Selling Price', 'Subtotal', 'Order Amount',
+        'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 
+        'Buyer Id', 'Buyer Name','Mobile No(Buyer)',
+        'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category',
+        'Product SubCategory', 'Quantity',
+        'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount', 'Item Level Discount' ,'Subtotal', 'Order Amount', 'Payment Mode',
         # 'Return Id', 'Return Status', 'Return Processed By', 
-        # 'Return Product Id', 'Return Product SKU', 'Return Product Name', 'Quantity','Product Type', 'Selling Price', 
+        # 'Return Product Id', 'Return Product SKU', 'Return Product Name', 'Quantity','Product Type', 'Selling Price',
+        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
+        'Tax Slab(GST)', 'Tax Slab(Cess)', 'Tax Slab(Surcharge)', 'Tax Slab(TCS)', 
         'Return Quantity', 'Return Amount'])
 
     orders = queryset \
         .annotate(
-        purchased_subtotal=RoundAmount(
-            Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),
-                output_field=FloatField())),
-        # purchased_reward_point = Case(
-        #                             When(order__ordered_cart__redeem_factor = 0, then = Value(0.0)),
-        #                             default=Value(F('order__rt_order_cart_mapping__redeem_points') / F('order__rt_order_cart_mapping__redeem_factor')),
-        #                             output_field=FloatField(),
-        #                         )
-    ) \
-        .values('order__order_no', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
-                'order__seller_shop__id', 'order__seller_shop__shop_name',
-                'order__seller_shop__shop_owner__first_name', 'order__seller_shop__shop_owner__phone_number',
+            purchased_subtotal=RoundAmount(Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
+            # purchased_reward_point = Case(
+            #                             When(order__ordered_cart__redeem_factor = 0, then = Value(0.0)),
+            #                             default=Value(F('order__rt_order_cart_mapping__redeem_points') / F('order__rt_order_cart_mapping__redeem_factor')),
+            #                             output_field=FloatField(),
+            #                         )
+            )\
+        .values('id','order__order_no', 'invoice__invoice_no', 'order__order_status', 'order__created_at', 
+                'order__seller_shop__id', 'order__seller_shop__shop_name' ,
+                'order__seller_shop__shop_owner__id','order__seller_shop__shop_owner__first_name', 'order__seller_shop__shop_owner__phone_number',
                 'order__seller_shop__shop_type__shop_type',
-                'order__buyer__first_name', 'order__buyer__phone_number',
+                'order__buyer__id','order__buyer__first_name', 'order__buyer__phone_number',
                 "rt_order_product_order_product_mapping__id",
-                'purchased_subtotal', 'order__order_amount', )
+                'purchased_subtotal', 'order__order_amount', 'order__rt_payment_retailer_order__payment_mode')
 
     for order in orders.iterator():
-        order_prod_mapping = RetailerOrderedProductMapping.objects.get(
-            id=order.get('rt_order_product_order_product_mapping__id'))
+        ordered_prod = RetailerOrderedProduct.objects.get(id = order.get('id'))
+
+        order_prod_mapping = RetailerOrderedProductMapping.objects.get(id = order.get('rt_order_product_order_product_mapping__id'))
         return_item = order_prod_mapping.rt_return_ordered_product.all()
 
         no_of_product_return = 0
@@ -63,6 +67,15 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
 
         if no_of_product_return:
             order.update({'return_qty': no_of_product_return, 'refund_amount': cost})
+        
+        product_details = get_product_details(order_prod_mapping.retailer_product)
+
+        parent_product = ParentProduct.objects.filter(parent_id = product_details[0]).last()
+
+        tax_details = get_tax_details(order_prod_mapping.retailer_product)
+        
+        cart_offers = ordered_prod.order.ordered_cart.offers
+        offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
 
         writer.writerow([
             order.get('order__order_no'),
@@ -71,25 +84,45 @@ def create_order_data_excel(request, queryset, RetailerOrderedProduct,
             order.get('order__created_at'),
             order.get('order__seller_shop__id'),
             order.get('order__seller_shop__shop_name'),
+            order.get('order__seller_shop__shop_owner__id'),
             order.get('order__seller_shop__shop_owner__first_name'),
             order.get('order__seller_shop__shop_owner__phone_number'),
             order.get('order__seller_shop__shop_type__shop_type'),
+            order.get('order__buyer__id'),
             order.get('order__buyer__first_name'),
             order.get('order__buyer__phone_number'),
             order_prod_mapping.retailer_product.id,
             order_prod_mapping.retailer_product.sku,
             order_prod_mapping.retailer_product.name,
+            order_prod_mapping.retailer_product.product_ean_code,
             # order.get('rt_order_product_order_product_mapping__shipped_qty'),
             # retailer_product_type.get(
             #     order.get('rt_order_product_order_product_mapping__product_type'),
             #     order.get('rt_order_product_order_product_mapping__product_type')),
+            product_details[1],
+            product_details[2],
             order_prod_mapping.shipped_qty,
             retailer_product_type.get(
                 order_prod_mapping.product_type,
                 order_prod_mapping.product_type),
+            order_prod_mapping.retailer_product.mrp,
             order_prod_mapping.retailer_product.selling_price,
+            offers[0]['coupon_description']
+            if len(offers) else None,
+            ordered_prod.order.ordered_cart.offer_discount,
+            order_prod_mapping.discounted_price,
             order.get('purchased_subtotal'),
             order.get('order__order_amount'),
+            order.get('order__rt_payment_retailer_order__payment_mode'),
+            product_details[0],
+            parent_product.name
+            if parent_product else None,
+            product_details[3],
+            product_details[4],
+            tax_details[0],
+            tax_details[1],
+            tax_details[2],
+            tax_details[3],
             order.get('return_qty', None),
             order.get('refund_amount', None)
         ])
