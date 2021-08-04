@@ -505,3 +505,18 @@ def get_product_details(product):
             category = cat[0]['category__category_name']
     return parent_id, category, sub_category, brand, sub_brand
 
+
+def get_tax_details(product):
+    gst_amount, cess_amount, surcharge_amount, tcs_amount = 0, 0, 0, 0
+    if product.linked_product:
+        tax_details = product.linked_product.product_pro_tax
+        if tax_details.filter(tax__tax_type='gst').last():
+            gst_amount = tax_details.filter(tax__tax_type='gst').last().tax.tax_percentage
+        if tax_details.filter(tax__tax_type='cess').last():
+            cess_amount = tax_details.filter(tax__tax_type='cess').last().tax.tax_percentage
+        if tax_details.filter(tax__tax_type='surcharge').last():
+            surcharge_amount = tax_details.filter(tax__tax_type='surcharge').last().tax.tax_percentage
+        if tax_details.filter(tax__tax_type='tcs').last():
+            tcs_amount = tax_details.filter(tax__tax_type='tcs').last().tax.tax_percentage
+    return gst_amount, cess_amount, surcharge_amount, tcs_amount
+
