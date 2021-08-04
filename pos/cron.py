@@ -3,8 +3,10 @@ import datetime
 import logging
 
 # app imports
+from wms.models import PosInventory
+from services.models import  PosInventoryHistoric
 from coupon.models import Coupon
-
+from retailer_backend.common_function import bulk_create
 # logger configuration
 info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
@@ -28,3 +30,25 @@ def deactivate_coupon_combo_offer():
     except Exception as e:
         cron_logger.error(e)
         cron_logger.error('Exception in Coupon/RuleSetProductMapping status deactivated cron')
+
+def pos_archive_inventory_cron():
+
+    try:
+        cron_logger.info("POS : Archiving POS inventory data started at {}".format(datetime.datetime.now()))
+        pos_inventory_list = PosInventory.objects.all()
+        bulk_create(PosInventoryHistoric, pos_inventory_data_generator(pos_inventory_list))
+        cron_logger.info("POS : Archiving POS inventory data ended at {}".format(datetime.datetime.now()))
+    except Exception as e:
+        cron_logger.error(e)
+        cron_logger.error('Exception in pos_archive_inventory')
+
+
+def pos_inventory_data_generator(data):
+    for row in data:
+        yield PosInventoryHistoric(
+                                    product=row.product,
+                                    quantity=row.quantity,
+                                    inventory_state=row.inventory_state,
+                                    created_at=row.created_at,
+                                    modified_at=row.modified_at
+                                    )

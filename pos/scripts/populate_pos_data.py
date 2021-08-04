@@ -97,7 +97,7 @@ def run(*args):
             # Create product, inventory, images
             product = RetailerProductCls.create_retailer_product(shop.id, row[1], round(Decimal(row[3]), 2),
                                                                  round(Decimal(row[5]), 2), gf_product_id, sku_type,
-                                                                 row[1], row[0])
+                                                                 row[1], row[0], user, 'bulk_upload')
             # Upload GF linked product available images
             if gf_product:
                 images = []

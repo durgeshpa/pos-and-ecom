@@ -13,22 +13,23 @@ from django.http import HttpResponse
 
 # app imports
 from .models import (
-    Shop, ShopType, RetailerType, ParentRetailerMapping,
+    PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
 from addresses.models import Address
 from addresses.forms import AddressForm
-from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
+from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
 
-from .views import (StockAdjustmentView,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
+from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
+                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
+from pos.filters import PosShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
-from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
+from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter, UserFilter
 from common.constants import DOWNLOAD_BEAT_PLAN_CSV, FIFTY
 
 logger = logging.getLogger('shop-admin')
@@ -476,6 +477,37 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         pass
 
+class PosShopUserMappingAdmin(admin.ModelAdmin):
+    form = PosShopUserMappingForm
+    list_display = ('shop', 'user', 'user_type', 'created_at', 'status')
+    list_filter = [ShopFilter, UserFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    search_fields = ('shop__shop_name', 'user__phone_number')
+
+    class Media:
+        pass
+
+    # def has_change_permission(self, request, obj=None):
+    #     pass
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PosShopUserMappingAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^user-autocomplete/$',
+                       self.admin_site.admin_view(UserAutocomplete.as_view()),
+                       name="user-autocomplete"
+                   ),
+                    url(
+                        r'^pos-shop-autocomplete/$',
+                        self.admin_site.admin_view(PosShopAutocomplete.as_view()),
+                        name="pos-shop-autocomplete"
+                    ),
+
+               ] + urls
+        return urls
+
+    
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version', 'update_recommended', 'force_update_required', 'created_at', 'modified_at')
@@ -580,3 +612,4 @@ admin.site.register(ShopUserMapping, ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
 admin.site.register(ShopTiming, ShopTimingAdmin)
 admin.site.register(BeatPlanning, BeatPlanningAdmin)
+admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
