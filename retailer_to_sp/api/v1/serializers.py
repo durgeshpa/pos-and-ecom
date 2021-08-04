@@ -292,7 +292,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description',
                   'product_sku','product_mrp', 'price_details', 'product_price', 'per_piece_price',
-                  'product_ean_code','created_at','modified_at','status','product_pro_image', 'product_opt_product',
+                  'product_ean_code','created_at','updated_at','status','product_pro_image', 'product_opt_product',
                   'product_inner_case_size', 'product_case_size','product_case_size_picies', 'margin',
                   'loyalty_discount', 'cash_discount')
 

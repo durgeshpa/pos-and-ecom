@@ -254,7 +254,7 @@ class BeatShopSerializer(serializers.ModelSerializer):
         """
 
         if obj.shop_name_address_mapping.exists():
-            address = obj.shop_name_address_mapping.only('address_contact_number'). \
+            address = obj.shop_name_address_mapping.only('address_contact_number').\
                 values('address_contact_number').last()
             return address['address_contact_number']
         return None
