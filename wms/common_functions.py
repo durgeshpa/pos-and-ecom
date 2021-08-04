@@ -420,8 +420,7 @@ def get_visibility_changes(shop, product):
         if not product:
             return visibility_changes
     child_siblings = Product.objects.filter(
-        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
-        status='active'
+        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(), status=True
     )
     min_exp_date_data = {
         'id': '',
