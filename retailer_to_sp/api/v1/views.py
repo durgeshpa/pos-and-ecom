@@ -76,7 +76,7 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
     PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
     RetailerProductResponseSerializer
 from pos.common_validators import validate_user_type_for_pos_shop
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
@@ -397,7 +397,8 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue
         """
         search_type = self.request.GET.get('search_type', '2')
-        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.GET.get('app_type', '0')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type != '2':
             # Normal Search
             if search_type == '2':
@@ -512,7 +513,8 @@ class SearchProducts(APIView):
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
         filter_list = []
-        if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
+        if self.request.GET.get('app_type') != '2':
+        # if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
@@ -844,7 +846,8 @@ class CartCentral(GenericAPIView):
                 shop_id
                 app_type (retail-1 or basic-2)
         """
-        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_cart()
         elif app_type == '2':
@@ -864,7 +867,8 @@ class CartCentral(GenericAPIView):
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.data.get('cart_type', '1')
         if app_type == '1':
             return self.retail_add_to_cart()
         elif app_type == '2':
@@ -882,7 +886,8 @@ class CartCentral(GenericAPIView):
                 cart_id
                 qty
         """
-        app_type = request.META.get('HTTP_APP_TYPE', None)
+        # app_type = request.META.get('HTTP_APP_TYPE', None)
+        app_type = self.request.data.get('cart_type')
         if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
@@ -2275,7 +2280,8 @@ class OrderCentral(APIView):
             app_type
             order_id
         """
-        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_order()
         elif app_type == '2':
@@ -2287,7 +2293,8 @@ class OrderCentral(APIView):
         """
             allowed updates to order status
         """
-        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.data.get('cart_type', '1')
         if app_type == '1':
             return self.put_retail_order(kwargs['pk'])
         elif app_type == '2':
@@ -2370,7 +2377,8 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
-        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.data.get('cart_type', '1')
         if app_type == '1':
             return self.post_retail_order()
         elif app_type == '2':
@@ -2608,13 +2616,19 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
-        #check for discounted product availability
+        # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
+        # Check payment method
+        payment_method = self.request.data.get('payment_method')
+        if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
+            return {'error': 'Please provide a valid payment method'}
+        payment_type = dict()
+        payment_type['data'] = PaymentType.objects.get(type=payment_method)
         # Check Payment Type
-        payment_type = validate_payment_type(self.request.data.get('payment_type'))
-        if 'error' in payment_type:
-            return payment_type
+        # payment_type = validate_payment_type(self.request.data.get('payment_type'))
+        # if 'error' in payment_type:
+        #     return payment_type
         
         email = self.request.data.get('email')
         if email:
@@ -3159,7 +3173,8 @@ class OrderListCentral(GenericAPIView):
             app_type
             shop_id
         """
-        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_order_list()
         elif app_type == '2':
@@ -3277,7 +3292,8 @@ class OrderedItemCentralDashBoard(APIView):
             shop_id for retail(Buyer shop id)
 
         """
-        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('app_type')
         if app_type == '1':
             return self.get_retail_order_overview()
         elif app_type == '2':
