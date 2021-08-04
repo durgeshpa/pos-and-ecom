@@ -399,10 +399,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(
-            request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
-            Order, RetailerOrderReturn,
-            RoundAmount, RetailerReturnItems, Shop)
+        return create_order_data_excel(request, queryset)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     
@@ -736,15 +733,16 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Created At',
-                          'Vendor', 'Store Id', 'Store Name', 'Shop User',
+        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                          'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
                           'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
                           'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.created_at,
+                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.invoice_no, obj.invoice_date,
+                                 obj.invoice_amount, obj.order.ordered_cart.status, obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
