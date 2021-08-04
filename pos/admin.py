@@ -399,10 +399,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(
-            request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
-            Order, RetailerOrderReturn,
-            RoundAmount, RetailerReturnItems, Shop)
+        return create_order_data_excel(request, queryset)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     

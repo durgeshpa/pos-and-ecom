@@ -247,9 +247,9 @@ def DownloadRetailerCatalogue(request, *args):
                 sub_category = None
 
             brand = product[
-                'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+                'linked_product__parent_product__parent_brand__brand_parent__brand_name']
             sub_brand = product[
-                'linked_product__parent_product__parent_product_pro_category__category__category_name']
+                'linked_product__parent_product__parent_brand__brand_name']
             if not brand:
                 brand = sub_brand
                 sub_brand = None
@@ -313,9 +313,9 @@ def download_discounted_products(request, *args):
                 sub_category = None
 
             brand = product[
-                'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+                'linked_product__parent_product__parent_brand__brand_parent__brand_name']
             sub_brand = product[
-                'linked_product__parent_product__parent_product_pro_category__category__category_name']
+                'linked_product__parent_product__parent_brand__brand_name']
             if not brand:
                 brand = sub_brand
                 sub_brand = None
