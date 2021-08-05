@@ -2162,6 +2162,7 @@ def update_visibility(shop,product,visible):
                 inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last()).update(visible=visible)
 
+
 def update_visibility_bulk(shop_id):
     shop = Shop.objects.filter(pk=shop_id).last()
     products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(

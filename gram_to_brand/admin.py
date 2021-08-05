@@ -491,7 +491,6 @@ class VendorShopMappingAdmin(admin.ModelAdmin):
     list_display = ('vendor', 'shop')
 
 
-
 admin.site.register(PickList, PickListAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(OrderedProductReserved, OrderedProductReservedAdmin)
