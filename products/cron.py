@@ -149,6 +149,15 @@ def update_price_discounted_product():
 
             #Active Discounted Product Price
             dis_prod_price = DiscountedProductPrice.objects.filter(product = prod, approval_status=2, seller_shop = i.warehouse)
+
+            if remaining_life.days <= 2:
+                type_expired = InventoryType.objects.get(inventory_type='expired')
+                state_canceled = InventoryState.objects.get(inventory_state='canceled')
+                today = datetime.datetime.today().date()
+                tr_id = today.isoformat()
+                move_inventory(i.warehouse, prod, i.bin, i.batch_id, i.quantity,
+                                state_canceled, type_normal, type_expired, tr_id, 'expired')
+
             if remaining_life.days <= half_life:
                 if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
                     selling_price = half_life_selling_price
@@ -159,24 +168,15 @@ def update_price_discounted_product():
             if selling_price:
                 with transaction.atomic():
                     discounted_price =  ProductPrice.objects.create(
-                                            product=discounted_product,
-                                            mrp=discounted_product.product_mrp,
+                                            product=prod,
+                                            mrp=prod.product_mrp,
                                             selling_price=selling_price,
                                             seller_shop=i.warehouse,
-                                            start_date=datetime.today(),
+                                            start_date=datetime.datetime.today(),
                                             approval_status=ProductPrice.APPROVED)
                     PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
                                                         selling_price=selling_price)
-                    
-
             
-            if remaining_life.days <= 2:
-                type_expired = InventoryType.objects.get(inventory_type='expired')
-                state_canceled = InventoryState.objects.get(inventory_state='canceled')
-                today = datetime.datetime.today().date()
-                tr_id = today.isoformat()
-                move_inventory(i.warehouse, discounted_product, i.bin, i.batch_id, i.quantity,
-                                state_canceled, type_normal, type_expired, tr_id, 'expired')
 
 
 def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
