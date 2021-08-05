@@ -19,7 +19,7 @@ from .common_functions import RetailerProductCls, PosInventoryCls
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
-                     ProductChangeFields, DiscountedRetailerProduct)
+                     ProductChangeFields, DiscountedRetailerProduct, Document)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -399,10 +399,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(
-            request, queryset, RetailerOrderedProduct, RetailerOrderedProductMapping,
-            Order, RetailerOrderReturn,
-            RoundAmount, RetailerReturnItems, Shop)
+        return create_order_data_excel(request, queryset)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     
@@ -710,8 +707,8 @@ class PosGrnOrderProductMappingAdmin(admin.TabularInline):
 
 @admin.register(PosGRNOrder)
 class PosGrnOrderAdmin(admin.ModelAdmin):
-    list_display = ('grn_id', 'po_no', 'retailer_shop', 'added_by', 'last_modified_by',
-                    'created_at', 'modified_at')
+    list_display = ('grn_id', 'po_no', 'retailer_shop', 'invoice_no', 'invoice_date', 'invoice_amount', 'added_by',
+                    'last_modified_by', 'created_at', 'modified_at')
     fields = list_display
     list_per_page = 10
     inlines = [PosGrnOrderProductMappingAdmin]
@@ -736,15 +733,16 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Created At',
-                          'Vendor', 'Store Id', 'Store Name', 'Shop User',
+        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                          'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
                           'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
                           'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.created_at,
+                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.invoice_no, obj.invoice_date,
+                                 obj.invoice_amount, obj.order.ordered_cart.status, obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
