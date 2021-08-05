@@ -2048,11 +2048,11 @@ def iterate_data(product, product_list, expired_product_list, expiry_date):
 
 
 def test(r):
-    create_move_discounted_products()
+    create_update_discounted_products()
     return HttpResponse('done')
 
 
-def create_move_discounted_products():
+def create_update_discounted_products():
     warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
     type_normal = InventoryType.objects.get(inventory_type='normal')
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
