@@ -96,8 +96,8 @@ def update_destination_pack_cost(product_type, product_id):
         for mapping in product_mappings:
             pack_product = mapping.packing_sku
             destination_product = mapping.sku
-            pack_m_cost = (
-                                      float(pack_product.moving_average_buying_price) / float(pack_product.weight_value)) * float(mapping.packing_sku_weight_per_unit_sku)
+            pack_m_cost = (float(pack_product.moving_average_buying_price) / float(pack_product.weight_value)) * \
+                           float(mapping.packing_sku_weight_per_unit_sku)
             DestinationRepackagingCostMapping.objects.filter(destination=destination_product).update(
                 primary_pm_cost=round(Decimal(pack_m_cost), 2))
 

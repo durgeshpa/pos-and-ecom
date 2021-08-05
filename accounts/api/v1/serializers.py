@@ -59,10 +59,12 @@ class AppVersionSerializer(serializers.ModelSerializer):
         fields = ('app_version', 'update_recommended', 'force_update_required')
 
 
+
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ('name',)
+        fields = ('id', 'name',)
+
 
 
 class DeliveryAppVersionSerializer(serializers.ModelSerializer):
