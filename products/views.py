@@ -60,6 +60,7 @@ from products.models import (
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
 from global_config.views import get_config
+from .cron import update_price_discounted_product
 
 logger = logging.getLogger(__name__)
 
@@ -1895,14 +1896,10 @@ def FetchDiscountedProductdetails(request):
         expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
         manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
         product_life = expiry_date - manufacturing_date
-        print(product_life, datetime.datetime.today())
         remaining_life = expiry_date - datetime.date.today()
-        print(remaining_life)
         discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
-        print(discounted_life)
         product_price = original_prod.product_pro_price.filter(seller_shop=shop,
                                                    approval_status=ProductPrice.APPROVED).last()
-        print(product_price)
         base_price_slab = product_price.price_slabs.filter(end_value=0).last()
         base_price = base_price_slab.ptr
 
@@ -2722,3 +2719,7 @@ class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(name__istartswith=self.q)
 
         return qs
+
+def test(r):
+    update_price_discounted_product()
+    return HttpResponse('done')

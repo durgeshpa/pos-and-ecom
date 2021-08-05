@@ -233,6 +233,8 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
+
+
 class Product(models.Model):
     PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'),(1, 'DISCOUNTED', 'discounted'))
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -271,7 +273,7 @@ class Product(models.Model):
     )
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
     moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
+    product_type = models.PositiveSmallIntegerField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
     discounted_sku = models.OneToOneField('self', related_name='product_ref', on_delete=models.CASCADE, null=True, blank=True)
 
     def save(self, *args, **kwargs):
@@ -439,6 +441,10 @@ class Product(models.Model):
         return product_coupons
 
 
+class DiscountedProduct(Product):
+    class Meta:
+        proxy=True
+        
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")

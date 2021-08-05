@@ -404,6 +404,25 @@ def get_brand_in_shop_stock(shop_id, brand):
 
     return shop_stock
 
+
+def add_discounted_product_quantity(shop, inventory_type, sku_qty_dict):
+    """
+    Taken in the dictionary of product and their stock,
+    checks and add in that if any discounted product stock is available
+    """
+
+    product_ids = sku_qty_dict.keys()
+    discounted_products = Product.objects.filter(id__in=product_ids, discounted_sku__isnull=False)\
+                                         .values('id','discounted_sku__id')
+    discounted_product_dict = {p['discounted_sku__id']:p['id'] for p in discounted_products}
+    if len(discounted_product_dict) > 0:
+        stock = get_stock(shop, inventory_type, discounted_product_dict.keys())
+        for product_id, qty in stock.items():
+            sku_qty_dict[discounted_product_dict[product_id]] += qty
+    return sku_qty_dict
+
+
+
 def get_stock(shop, inventory_type, product_id_list=None):
     inventory_states = InventoryState.objects.filter(inventory_state__in=['reserved', 'ordered',
                                                                           'to_be_picked', 'total_available'])
@@ -428,6 +447,7 @@ def get_stock(shop, inventory_type, product_id_list=None):
             sku_qty_dict[item.sku.id] -= item.quantity
         elif inventory_state == 'to_be_picked':
             sku_qty_dict[item.sku.id] -= item.quantity
+    # sku_qty_dict = add_discounted_product_quantity(shop, inventory_type, sku_qty_dict)
     return sku_qty_dict
 
 
@@ -463,9 +483,9 @@ def get_visibility_changes(shop, product):
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
             continue
-        # if child.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
-        #     visibility_changes[child.id] = True
-        #     continue
+        if child.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
+            visibility_changes[child.id] = True
+            continue
         sum_qty_warehouse_entries = product_qty_dict[child.id]
         if sum_qty_warehouse_entries == 0 or int(sum_qty_warehouse_entries/child.product_inner_case_size)==0:
             visibility_changes[child.id] = False
@@ -503,36 +523,6 @@ def get_visibility_changes(shop, product):
         visibility_changes[min_exp_date_data['id']] = True
     return visibility_changes
 
-#
-# def get_warehouse_product_availability(sku_id, shop_id=False):
-#     # For getting stock of a sku for a particular warehouse when shop_id is given else stock of sku for all warehouses
-#     """
-#     :param shop_id:
-#     :param sku_id:
-#     :return:
-#     """
-#
-#     if shop_id:
-#         product_availability = WarehouseInventory.objects.filter(
-#             Q(sku__id=sku_id),
-#             Q(warehouse__id=shop_id),
-#             Q(quantity__gt=0),
-#             Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-#             Q(in_stock='t')
-#         ).aggregate(total=Sum('quantity')).get('total')
-#
-#         return product_availability
-#
-#     else:
-#         product_availability = WarehouseInventory.objects.filter(
-#             Q(sku__id=sku_id),
-#             Q(quantity__gt=0),
-#             Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-#             Q(in_stock='t')
-#         ).aggregate(total=Sum('quantity')).get('total')
-#
-#         return product_availability
-
 
 class OrderManagement(object):
 
@@ -558,47 +548,6 @@ class OrderManagement(object):
             if reserved is not None:
                 if reserved.warehouse_internal_inventory_release is None:
                     continue
-            # warehouse_reserve_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-            #                                                           sku=Product.objects.get(id=int(prod_id)),
-            #                                                           inventory_type=InventoryType.objects.filter(
-            #                                                               inventory_type='normal').last(),
-            #                                                           inventory_state=InventoryState.objects.filter(
-            #                                                               inventory_state='reserved').last())
-            # if warehouse_reserve_obj.exists():
-            #     w_obj = warehouse_reserve_obj.last()
-            #     w_obj.quantity = ordered_qty + w_obj.quantity
-            #     w_obj.save()
-            # else:
-            #     WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
-            #                                       sku=Product.objects.get(id=int(prod_id)),
-            #                                       inventory_type=InventoryType.objects.filter(
-            #                                           inventory_type='normal').last(),
-            #                                       inventory_state=InventoryState.objects.filter(
-            #                                           inventory_state='reserved').last(),
-            #                                       quantity=ordered_qty, in_stock='t')
-            # available_state = InventoryState.objects.filter(inventory_state='available').last()
-            # warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-            #                                                             sku=Product.objects.get(id=int(prod_id)),
-            #                                                             inventory_type=InventoryType.objects.filter(
-            #                                                                 inventory_type='normal').last(),
-            #                                                             inventory_state=available_state)
-            # if warehouse_available_obj.exists():
-            #     w_obj = warehouse_available_obj.last()
-            #     w_obj.quantity = w_obj.quantity - ordered_qty
-            #     w_obj.save()
-            # WarehouseInternalInventoryChange.objects.create(warehouse=shop,
-            #                                                 sku=product,
-            #                                                 transaction_type=transaction_type,
-            #                                                 transaction_id=transaction_id,
-            #                                                 initial_type=InventoryType.objects.filter(
-            #                                                     inventory_type='normal').last(),
-            #                                                 final_type=InventoryType.objects.filter(
-            #                                                     inventory_type='normal').last(),
-            #                                                 initial_stage=available_state,
-            #                                                 final_stage=InventoryState.objects.filter(
-            #                                                     inventory_state='reserved').last(),
-            #                                                 quantity=ordered_qty)
-
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, state_reserved, ordered_qty, transaction_type, transaction_id )
 
@@ -953,41 +902,6 @@ def cancel_order(instance):
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, state_ordered, -1*qty, transaction_type, transaction_id)
 
-
-
-# def cancel_order_for_warehouse(instance):
-#     """
-#
-#     :param instance: order instance
-#     :return:
-#     """
-#     # get the queryset object form warehouse internal inventory model
-#     ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
-#         transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
-#     # fetch all sku
-#     sku_id = [p.sku.id for p in ware_house_internal]
-#     # fetch all quantity
-#     quantity = [p.quantity for p in ware_house_internal]
-#     # iterate over sku and quantity
-#     for prod, qty in zip(sku_id, quantity):
-#         # get the queryset from warehouse inventory model
-#         wim = WarehouseInventory.objects.filter(sku__id=prod,
-#                                                 inventory_state__inventory_state='available',
-#                                                 inventory_type__inventory_type='normal')
-#         # initialize the transaction type, initial stage, final stage and inventory type
-#         transaction_type = 'canceled'
-#         initial_stage = 'ordered'
-#         final_stage = 'canceled'
-#         inventory_type = 'normal'
-#         # create the data in Warehouse internal inventory model
-#         WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
-#                                                         sku=wim[0].sku,
-#                                                         transaction_type=transaction_type,
-#                                                         transaction_id=ware_house_internal[0].transaction_id,
-#                                                         initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
-#                                                             final_stage=InventoryState.objects.get(inventory_state=final_stage),
-#                                                         inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
-#                                                         quantity=qty)
 
 def cancel_pickup(pickup_object):
     """
@@ -1545,6 +1459,7 @@ def create_batch_id(sku, expiry_date):
     :return:
     """
     try:
+        sku = sku.lstrip('D')
         try:
             batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
 
@@ -1599,38 +1514,6 @@ def set_expiry_date(batch_id):
     else:
         expiry_date = '30/' + batch_id[17:19] + '/' + batch_id[19:21]
     return expiry_date
-
-#
-# class WareHouseInternalInventoryChange(object):
-#     @classmethod
-#     def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
-#                                           initial_type, initial_stage, final_type, final_stage, quantity):
-#         """
-#
-#         :param warehouse:
-#         :param sku:
-#         :param transaction_type:
-#         :param transaction_id:
-#         :param initial_type:
-#         :param initial_stage:
-#         :param final_type:
-#         :param final_stage:
-#         :param quantity:
-#         :return:
-#         """
-#         try:
-#             # Create data in WareHouse Internal Inventory Model
-#             WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse.id,
-#                                                             sku=sku, transaction_type=transaction_type,
-#                                                             transaction_id=transaction_id,
-#                                                             initial_type=initial_type,
-#                                                             initial_stage=initial_stage,
-#                                                             final_type=final_type,
-#                                                             final_stage=final_stage,
-#                                                             quantity=quantity,
-#                                                             )
-#         except Exception as e:
-#             error_logger.error(e)
 
 
 def cancel_ordered(request, obj, initial_state, bin_id):
@@ -2239,3 +2122,20 @@ def get_inventory_in_stock(warehouse, parent_product):
     stock_dict = get_stock(warehouse, inventory_type_normal, child_product_ids)
     total_inventory = sum(stock_dict.values()) if stock_dict.values() else 0
     return total_inventory
+
+
+def get_earliest_expiry_date(product, shop, inventory_type, is_discounted):
+    bin_data = BinInventory.objects.filter(Q(warehouse=shop), Q(sku=product), Q(inventory_type=inventory_type),
+                                           quantity__gt=0
+                                           )
+    if is_discounted:
+        bin_data = bin_data.filter(sku__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED)
+    earliest_expiry_date = None
+    for data in bin_data:
+        exp_date_str = get_expiry_date(batch_id=data.batch_id)
+        exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
+        if not earliest_expiry_date:
+            earliest_expiry_date = exp_date
+        elif exp_date < earliest_expiry_date:
+            earliest_expiry_date = exp_date
+    return earliest_expiry_date

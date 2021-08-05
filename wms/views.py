@@ -732,7 +732,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     manufacturing_date = get_manufacturing_date(batch_id)
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
-                                                         batch_id, qty, qty, inv_type, manufacturing_date)
+                                                         batch_id, qty, qty, inv_type, 0, manufacturing_date)
                     transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
                                                                                         putaway_type=in_obj.in_type,
                                                                                         putaway_type_id=in_obj.id,
@@ -2066,7 +2066,8 @@ def create_move_discounted_products():
                                     .prefetch_related('sku__parent_product') \
                                     .prefetch_related(Prefetch('sku__ins',
                                                                  queryset=In.objects.all().order_by('-created_at'),
-                                                                 to_attr='latest_in'))[:10]
+                                                                 to_attr='latest_in'))
+
     for i in inventory:
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
         expiry_date = i.sku.latest_in[0].expiry_date
@@ -2105,6 +2106,9 @@ def create_discounted_product(product):
                                                                 weight_unit=product.weight_unit,
                                                                 repackaging_type=product.repackaging_type
                                                                 )
+    if created:
+        product.discounted_sku = discounted_product
+        product.save()
     return discounted_product
 
 

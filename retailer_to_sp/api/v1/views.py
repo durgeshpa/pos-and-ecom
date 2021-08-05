@@ -509,6 +509,7 @@ class SearchProducts(APIView):
         brand = self.request.GET.get('brands')
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
+        is_discounted = self.request.GET.get('is_discounted', None)
         filter_list = []
         if self.request.GET.get('app_type') != '2':
             filter_list = [
@@ -516,6 +517,8 @@ class SearchProducts(APIView):
                 {"term": {"visible": True}},
                 {"range": {"available": {"gt": 0}}}
             ]
+        if is_discounted:
+            filter_list.append({"term": {"is_discounted": is_discounted}},)
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
