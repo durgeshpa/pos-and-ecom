@@ -501,7 +501,7 @@ class UploadMasterData(object):
             for row in csv_file_data_list:
                 parent_product = ParentProduct.objects.create(
                     name=row['product_name'].strip(),
-                    parent_brand=Brand.objects.filter(brand_name=row['brand_name'].strip()).last(),
+                    parent_brand=Brand.objects.filter(id=int(row['brand_id'])).last(),
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
@@ -620,7 +620,7 @@ class UploadMasterData(object):
                 cat_obj = Category.objects.create(
                     category_name=row['name'],
                     category_slug=row['category_slug'],
-                    category_parent=Category.objects.filter(category_name=row['category_parent'].strip()).last(),
+                    category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last(),
                     category_desc=row['category_desc'],
                     category_sku_part=row['category_sku_part'],
                     status=True if str(row['status'].lower()) == 'active' else False,
@@ -644,7 +644,7 @@ class UploadMasterData(object):
                 brand_obj = Brand.objects.create(
                     brand_name=row['name'],
                     brand_slug=row['brand_slug'],
-                    brand_parent=Brand.objects.filter(brand_name=row['brand_parent'].strip()).last(),
+                    brand_parent=Brand.objects.filter(id=int(row['brand_parent_id'])).last(),
                     brand_description=row['brand_description'],
                     brand_code=row['brand_code'],
                     status=True if str(row['status'].lower()) == 'active' else False,
@@ -794,14 +794,14 @@ class DownloadMasterData(object):
     def create_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
-        columns = ["product_name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
-                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
-                   "max_inventory_in_days", "is_lead_time_applicable", "status"]
+        columns = ["product_name", "brand_id", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
+                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                   "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable", "status"]
         writer.writerow(columns)
-        data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
+        data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
                  "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
-                ["parent2", "Too Yumm", "Grocery & Staples", "123456", "18", "0", "100", "10", "5", "b2c", "no",
-                 " ", "", "no", "2", "yes", "active"]]
+                ["parent2", "2", "Too Yumm", "Health Care, Beverages", "123456", "18", "12", "100",
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -835,11 +835,12 @@ class DownloadMasterData(object):
     @classmethod
     def create_brand_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_brand_create_sample")
-        columns = ["name", "brand_slug", "brand_parent", "brand_description", "brand_code", "status"]
+        columns = ["name", "brand_slug", "brand_parent", "brand_parent_id", "brand_description",
+                   "brand_code", "status"]
         writer.writerow(columns)
 
-        data = [["NatureLand", "natureland", "Dermanest", "", "NAT", "active"],
-                ["Top", "top", "Dermanest", "", "NST", "deactivated"]]
+        data = [["NatureLand", "natureland", "Dermanest", "1", "ABC", "NAT", "active"],
+                ["Top", "top", "Dermanest", "1",  "ABC", "NST", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -852,10 +853,11 @@ class DownloadMasterData(object):
     @classmethod
     def create_category_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
-        columns = ["name", "category_slug", "category_desc", "category_parent", "category_sku_part", "status"]
+        columns = ["name", "category_slug", "category_desc", "category_parent", "parent_category_id",
+                   "category_sku_part", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "HMI", "active"],
-                ["Electronics", "electronics", "XYZ", "Processed Food", "KGF", "deactivated"]]
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "active"],
+                ["Electronics", "electronics", "XYZ", "Processed Food", "2",  "KGF", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
