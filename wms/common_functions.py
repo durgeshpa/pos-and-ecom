@@ -170,11 +170,9 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     @transaction.atomic
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-        print(1)
         bin_inv_obj = BinInventory.objects.select_for_update().\
                                            filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
                                                   inventory_type=inventory_type, in_stock=in_stock).last()
-        print(2)
         if bin_inv_obj:
             bin_quantity = bin_inv_obj.quantity
             final_quantity = bin_quantity + quantity
