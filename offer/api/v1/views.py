@@ -1,15 +1,4 @@
 import logging
-import datetime
-
-from offer.services import offer_page_search
-
-# Get an instance of a logger
-info_logger = logging.getLogger('file-info')
-error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
-
-
-import logging
 from datetime import datetime
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
