@@ -94,7 +94,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
     """
     shop = forms.ModelChoiceField(
         label='Select Shop',
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
         widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', ),
     )
     file = forms.FileField(label='Upload Products')
