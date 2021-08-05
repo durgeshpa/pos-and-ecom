@@ -1152,6 +1152,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
         try:
             product_vendor_map = ProductCls.create_product_vendor_mapping(self.initial_data['product'],
                                                                           self.initial_data['vendor'], **validated_data)
+            ProductCls.create_product_vendor_map_log(product_vendor_map, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -1167,6 +1168,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
             product_vendor_map = ProductCls.update_product_vendor_mapping(self.initial_data['product'],
                                                                           self.initial_data['vendor'],
                                                                           product_vendor_map_obj)
+            ProductCls.create_product_vendor_map_log(instance, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
