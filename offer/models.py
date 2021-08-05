@@ -1,20 +1,16 @@
 from django.db import models
 from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
-from mptt.models import TreeForeignKey
-from django.utils import timezone
+from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
-from categories.models import Category
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
 from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
 
 
-# Create your models here.
-
-
-class OfferBanner(models.Model):
+class OfferBanner(BaseTimestampUserStatusModel):
     BRAND = "brand"
     SUBBRAND = "subbrand"
     CATEGORY = "category"
@@ -44,10 +40,11 @@ class OfferBanner(models.Model):
     sub_brand = models.ForeignKey(Brand, related_name='offer_banner_subbrand', max_length=255, null=True,
                                   on_delete=models.CASCADE, blank=True)
     products = models.ManyToManyField(Product, blank=True)
-    status = models.BooleanField(('Status'), help_text=('Designates whether the banner is to be displayed or not.'),
-                                 default=True)
-    alt_text = models.CharField(max_length=20, blank=True, null=True)
-    text_below_image = models.CharField(max_length=20, blank=True, null=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='offer_banner_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return '{}'.format(self.image)
@@ -64,16 +61,26 @@ class OfferBanner(models.Model):
             raise ValidationError('Please select the SubCategory')
 
 
-class OfferPage(models.Model):
+class OfferPage(BaseTimestampUserStatusModel):
     name = models.CharField(max_length=255)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='offer_page_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.name
 
 
-class OfferBannerSlot(models.Model):
+class OfferBannerSlot(BaseTimestampUserStatusModel):
     page = models.ForeignKey(OfferPage, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=255, unique=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='offer_banner_slot_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return "%s->%s" % (self.page.name, self.name)
@@ -112,10 +119,29 @@ class OfferBannerData(SortableMixin):
         ordering = ['offer_banner_data_order']
 
 
-class TopSKU(models.Model):
+class TopSKU(BaseTimestampUserStatusModel):
     shop = models.ForeignKey(Shop, blank=True, on_delete=models.CASCADE, null=True)
     product = models.ForeignKey(Product, blank=True, null=True, on_delete=models.CASCADE)
     start_date = models.DateTimeField(blank=False, null=True)
     end_date = models.DateTimeField(blank=False, null=True)
-    status = models.BooleanField(('Status'), help_text=('Designates whether the product is to be displayed or not.'),
-                                 default=False)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='top_sku_updated_by',
+        on_delete=models.DO_NOTHING
+    )
+
+
+class OfferLog(models.Model):
+    action = models.CharField(max_length=50, null=True, blank=True)
+    offer_page = models.ForeignKey(OfferPage, related_name='offer_page_log', blank=True, null=True, on_delete=models.CASCADE)
+    top_sku = models.ForeignKey(TopSKU, related_name='top_sku_log', blank=True, null=True, on_delete=models.CASCADE)
+    offer_banner_slot = models.ForeignKey(OfferBannerSlot, related_name='offer_banner_slot_log', blank=True, null=True,
+                                          on_delete=models.CASCADE)
+    offer_banner = models.ForeignKey(OfferBanner, related_name='offer_banner_log', blank=True, null=True,
+                                     on_delete=models.CASCADE)
+    update_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='offers_updated_by',
+        on_delete=models.DO_NOTHING
+    )
