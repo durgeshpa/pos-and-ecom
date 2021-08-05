@@ -2,6 +2,7 @@ import logging
 import re
 from decimal import Decimal
 import json
+from retailer_to_sp.common_validators import validate_payment_type
 import requests
 from datetime import datetime, timedelta
 from operator import itemgetter
@@ -45,11 +46,11 @@ from categories import models as categorymodel
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList
                                   )
-from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare,
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems)
-from retailer_to_sp.common_function import check_date_range, capping_check
+                                   OrderReturn, ReturnItems, Return)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
                                      )
@@ -61,18 +62,21 @@ from common.data_wrapper_view import DataWrapperViewSet
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
-from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
+    PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap
-
+    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
+    RetailerProductResponseSerializer
+from pos.common_validators import validate_user_type_for_pos_shop
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
+from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
@@ -393,6 +397,7 @@ class SearchProducts(APIView):
         """
         search_type = self.request.GET.get('search_type', '2')
         app_type = self.request.GET.get('app_type', '0')
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type != '2':
             # Normal Search
             if search_type == '2':
@@ -508,6 +513,7 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword', None)
         filter_list = []
         if self.request.GET.get('app_type') != '2':
+        # if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
@@ -837,51 +843,54 @@ class CartCentral(GenericAPIView):
             Get Cart
             Inputs:
                 shop_id
-                cart_type (retail-1 or basic-2)
+                app_type (retail-1 or basic-2)
         """
-        cart_type = self.request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.GET.get('cart_type', '1')
+        if app_type == '1':
             return self.get_retail_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             if self.request.GET.get('cart_id'):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def post(self, request, *args, **kwargs):
         """
             Add To Cart
             Inputs
-                cart_type (retail-1 or basic-2)
+                app_type (retail-1 or basic-2)
                 cart_product (Product for 'retail', RetailerProduct for 'basic'
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.data.get('cart_type', '1')
+        if app_type == '1':
             return self.retail_add_to_cart()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
             Add/Update Item To Basic Cart
             Inputs
-                cart_type (2)
+                app_type (2)
                 product_id
                 shop_id
                 cart_id
                 qty
         """
-        cart_type = self.request.data.get('cart_type')
-        if cart_type == '2':
+        # app_type = request.META.get('HTTP_APP_TYPE', None)
+        app_type = self.request.data.get('cart_type')
+        if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
-            return api_response('Please provide a valid cart_type')
+            return api_response('Please provide a valid app_type')
 
     @check_pos_shop
     def delete(self, request, *args, **kwargs):
@@ -973,7 +982,12 @@ class CartCentral(GenericAPIView):
         cart_products = cart.rt_cart_list.all()
         if cart_products:
             for product_mapping in cart_products:
-                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
+                    and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
+                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
+                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
+                else:
+                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
     @check_pos_shop
@@ -1173,33 +1187,26 @@ class CartCentral(GenericAPIView):
             return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
 
     @check_pos_shop
+    @PosAddToCart.validate_request_body
     def basic_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
             For cart type 'basic'
         """
         with transaction.atomic():
-            # basic validations for inputs
-            cart_id = kwargs['pk'] if 'pk' in kwargs else None
-            shop = kwargs['shop']
-            initial_validation = self.post_basic_validate(shop, cart_id)
-            if 'error' in initial_validation:
-                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-                extra_params = {'error_code': e_code} if e_code else {}
-                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
-                                    extra_params)
-            product = initial_validation['product']
-            qty = initial_validation['quantity']
-            cart = initial_validation['cart']
-
+            product, new_product_info, qty, cart, shop = kwargs['product'], kwargs['new_product_info'], kwargs[
+                'quantity'], kwargs['cart'], kwargs['shop']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
+            # Create product if not existing
+            if product is None:
+                product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
             if int(qty) == 0:
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
-                selling_price = self.get_basic_cart_product_price(product)
+                selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1209,6 +1216,15 @@ class CartCentral(GenericAPIView):
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
+    def pos_cart_product_create(self, shop_id, product_info, cart_id):
+        product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
+                                                             product_info['sp'], product_info['linked_pid'],
+                                                             product_info['type'], product_info['name'],
+                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+        PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
+                                        self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
+        return product
 
     def post_retail_validate(self):
         """
@@ -1241,63 +1257,6 @@ class CartCentral(GenericAPIView):
             return {'error': "Product Is Not Eligible To Order"}
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
-
-    def post_basic_validate(self, shop, cart_id=None):
-        """
-            Add To Cart
-            Input validation for add to cart for cart type 'basic'
-        """
-        # Added Quantity check
-        qty = self.request.data.get('qty')
-        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
-            return {'error': "Qty Invalid!"}
-
-        if not self.request.data.get('product_id'):
-            name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'), \
-                            self.request.data.get('product_ean_code')
-            if not (name and sp and ean):
-                return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
-            linked_pid = self.request.data.get('linked_product_id') if self.request.data.get(
-                'linked_product_id') else None
-            mrp, linked = 0, 1
-            if linked_pid:
-                linked_product = Product.objects.filter(id=linked_pid).last()
-                if not linked_product:
-                    return {'error': f"GramFactory product not found for given {linked_pid}"}
-                mrp, linked = linked_product.product_mrp, 2
-            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
-            PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
-                                            self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
-        else:
-            try:
-                product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), shop=shop)
-            except ObjectDoesNotExist:
-                return {'error': "Product Not Found!"}
-        # Check if existing or new cart
-        cart = None
-        if cart_id:
-            cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
-            if not cart:
-                return {'error': "Cart Doesn't Exist!"}
-            elif cart.cart_status == Cart.ORDERED:
-                return {'error': "Order already placed on this cart!", 'error_code': error_code.CART_NOT_ACTIVE}
-            elif cart.cart_status == Cart.DELETED:
-                return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
-            elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
-                return {'error': "Active Cart Doesn't Exist!"}
-        # Check if selling price is less than equal to mrp if price change
-        price_change = self.request.data.get('price_change')
-        if price_change in [1, 2]:
-            selling_price = self.request.data.get('selling_price')
-            if not selling_price:
-                return {'error': "Please provide selling price to change price"}
-            if product.mrp and Decimal(selling_price) > product.mrp:
-                return {'error': "Selling Price should be equal to OR less than MRP"}
-        # activate product in cart
-        if product.status != 'active':
-            product.status = 'active'
-            product.save()
-        return {'product': product, 'quantity': qty, 'cart': cart}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -1456,7 +1415,7 @@ class CartCentral(GenericAPIView):
         return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
                                                 ' this product #%s' % product.id, 'data': serializer.data}
 
-    def get_basic_cart_product_price(self, product):
+    def get_basic_cart_product_price(self, product, cart_no):
         """
             Check if retail product price needs to be changed on checkout
             price_change - 1 (change for all), 2 (change for current cart only)
@@ -1467,7 +1426,10 @@ class CartCentral(GenericAPIView):
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
-                RetailerProductCls.update_price(product.id, selling_price)
+                RetailerProductCls.update_price(product.id, selling_price, 'active', self.request.user, 'cart', cart_no)
+        if not selling_price and product.offer_price and datetime.now() > product.offer_start_date and \
+            datetime.now() < product.offer_end_date:
+            selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
@@ -1500,6 +1462,9 @@ class CartCentral(GenericAPIView):
         # Get nearest cart offer over cart value
         data['next_offer'] = BasicCartOffers.get_cart_nearest_offer(cart, cart.rt_cart_list.all())
         return data
+
+    def serialize_product(self, product):
+        return RetailerProductResponseSerializer(product).data
 
 
 class UserView(APIView):
@@ -2311,28 +2276,30 @@ class OrderCentral(APIView):
         """
             Get Order Details
             Inputs
-            cart_type
+            app_type
             order_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('cart_type', '1')
+        if app_type == '1':
             return self.get_retail_order()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def put(self, request, *args, **kwargs):
         """
             allowed updates to order status
         """
-        cart_type = request.data.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.data.get('cart_type', '1')
+        if app_type == '1':
             return self.put_retail_order(kwargs['pk'])
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     @check_pos_shop
     def put_basic_order(self, request, *args, **kwargs):
@@ -2400,7 +2367,7 @@ class OrderCentral(APIView):
             Place Order
             Inputs
             cart_id
-            cart_type (retail-1 or basic-2)
+            app_type (retail-1 or basic-2)
                 retail
                     shop_id (Buyer shop id)
                     billing_address_id
@@ -2409,13 +2376,14 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
-        cart_type = self.request.data.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.data.get('cart_type', '1')
+        if app_type == '1':
             return self.post_retail_order()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.post_basic_order(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def get_retail_order(self):
         """
@@ -2538,7 +2506,8 @@ class OrderCentral(APIView):
             extra_params = {'error_code': e_code} if e_code else {}
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
         cart = initial_validation['cart']
-        payment_method = initial_validation['payment_method']
+        payment_type = initial_validation['payment_type']
+        transaction_id = self.request.data.get('transaction_id', None)
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -2546,7 +2515,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method)
+            self.auto_process_order(order, payment_type, transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2646,17 +2615,27 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        # check for discounted product availability
+        if not self.discounted_product_in_stock(cart_products):
+            return {'error': 'Some of the products are not in stock'}
         # Check payment method
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
             return {'error': 'Please provide a valid payment method'}
+        payment_type = dict()
+        payment_type['data'] = PaymentType.objects.get(type=payment_method)
+        # Check Payment Type
+        # payment_type = validate_payment_type(self.request.data.get('payment_type'))
+        # if 'error' in payment_type:
+        #     return payment_type
+        
         email = self.request.data.get('email')
         if email:
             try:
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_method': payment_method}
+        return {'cart': cart, 'payment_type': payment_type['data']}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -2898,7 +2877,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_method):
+    def auto_process_order(self, order, payment_type, transaction_id):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -2941,7 +2920,8 @@ class OrderCentral(APIView):
         # Create payment
         PosPayment.objects.create(
             order=order,
-            payment_mode=payment_method,
+            payment_type=payment_type,
+            transaction_id=transaction_id,
             paid_by=order.buyer,
             processed_by=self.request.user
         )
@@ -2974,6 +2954,16 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
+
+    def discounted_product_in_stock(self, cart_products):
+        if cart_products.filter(retailer_product__sku_type=4).exists():
+            discounted_cart_products = cart_products.filter(retailer_product__sku_type=4)
+            for cp in discounted_cart_products:
+                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id, PosInventoryState.AVAILABLE)
+                if inventory_available < cp.no_of_pieces:
+                    return False
+        return True
+
 
 
 # class CreateOrder(APIView):
@@ -3179,16 +3169,17 @@ class OrderListCentral(GenericAPIView):
         """
             Get Order List
             Inputs
-            cart_type
+            app_type
             shop_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        # app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('cart_type', '1')
+        if app_type == '1':
             return self.get_retail_order_list()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order_list(request, *args, **kwargs)
         else:
-            return api_response('Provide a valid cart_type')
+            return api_response('Provide a valid app_type')
 
     def get_retail_order_list(self):
         """
@@ -3300,10 +3291,11 @@ class OrderedItemCentralDashBoard(APIView):
             shop_id for retail(Buyer shop id)
 
         """
-        cart_type = request.GET.get('app_type')
-        if cart_type == '1':
+        # app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = request.GET.get('app_type')
+        if app_type == '1':
             return self.get_retail_order_overview()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order_overview(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
@@ -4053,13 +4045,12 @@ class OrderReturnComplete(APIView):
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
             order_return.save()
-            # whatsapp api call for refund notification
-            order_number = order.order_no
-            order_status = order.order_status
-            phone_number = order.buyer.phone_number
-            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, points_credit,
-                                        points_debit, net_points)
+            return_count = OrderReturn.objects.filter(order=order, status='completed').count()
+            credit_note_id = generate_credit_note_id(ordered_product.invoice_no, return_count)
+            credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
+            pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
+                return_qty, order.order_amount, refund_amount, points_credit, points_debit, net_points, credit_note_instance)
+            
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 
@@ -4524,7 +4515,7 @@ def pdf_generation_retailer(request, order_id):
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
-        discount = total - total_amount - redeem_value
+        discount = round(total - total_amount - redeem_value, 2)
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
@@ -4539,6 +4530,8 @@ def pdf_generation_retailer(request, order_id):
             nick_name, address_line1 = z.nick_name, z.address_line1
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
+
+        total = round(total, 2)
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -4561,6 +4554,106 @@ def pdf_generation_retailer(request, order_id):
             file_name = ordered_product.invoice.invoice_no
             # whatsapp api call for sending an invoice
             whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception(e)
+
+def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items, return_qty, \
+                                    total, total_amount, points_credit, points_debit, net_points, credit_note_instance):
+    """
+    :param request: request object
+    :param order_id: Order id
+    :return: pdf instance
+    """
+    file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
+    template_name = 'admin/credit_note/credit_note_retailer.html'
+
+    if credit_note_instance:
+        filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
+        barcode = barcodeGen(credit_note_instance.credit_note_id)
+        # Total Items
+        return_item_listing = []
+        # Total Returned Amount
+        total = 0
+
+        for item in return_items:
+            return_p = {
+                "id": item.id,
+                "product_short_description": item.ordered_product.retailer_product.product_short_description,
+                "mrp": item.ordered_product.retailer_product.mrp,
+                "qty": item.return_qty,
+                "rate": float(item.ordered_product.selling_price),
+                "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
+            }
+            total += return_p['product_sub_total']
+            return_item_listing.append(return_p)
+
+        return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
+        # redeem value
+        redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
+        # Total discount
+        discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
+        # Total payable amount in words
+        
+        
+        # Total payable amount
+        total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+        total_amount_int = round(total_amount)
+        # Total payable amount in words
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
+        rupees = amt[0]
+
+
+        # Shop Details
+        nick_name = '-'
+        address_line1 = '-'
+        city = '-'
+        state = '-'
+        pincode = '-'
+        address_contact_number = ''
+        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+            nick_name, address_line1 = z.nick_name, z.address_line1
+            city, state, pincode = z.city, z.state, z.pincode
+            address_contact_number = z.address_contact_number
+
+        data = {
+            "url": request.get_host(),
+            "scheme": request.is_secure()and"https"or"http",
+            "credit_note": credit_note_instance,
+            "shipment": ordered_product,
+            "order": ordered_product.order,
+            "total_amount": total_amount,
+            "discount": discount,
+            "reward_value": redeem_value,
+            'total': total,
+            "barcode": barcode,
+            "return_item_listing": return_item_listing,
+            "rupees": rupees,
+            "sum_qty": return_qty,
+            "nick_name": nick_name,
+            "address_line1": address_line1,
+            "city": city,
+            "state": state,
+            "pincode": pincode,
+            "address_contact_number": address_contact_number
+        }
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            # create_invoice_data(ordered_product)
+            credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+                                                     save=True)
+            order_number = order.order_no
+            order_status = order.order_status
+            phone_number = order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url = credit_note_instance.credit_note_pdf.url
+            file_name = ordered_product.invoice_no
+            shop_name = ordered_product.order.seller_shop.shop_name
+            whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit,
+                                        points_debit, net_points, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
 
@@ -5439,7 +5532,8 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        related_users = shop.related_users.filter(is_staff=False)
-        request_users = self.pagination_class().paginate_queryset(related_users, self.request)
+        # related_users = shop.related_users.filter(is_staff=False)
+        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop, is_staff=False)
+        request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['related_users'] = PosShopUserSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)

@@ -15,6 +15,8 @@ from django.contrib.auth.models import Group
 from shops.base64_to_file import to_file
 from products.common_validators import get_csv_file_data, check_headers
 from addresses.models import Address
+from django.contrib.auth import get_user_model
+from shops.models import PosShopUserMapping, Shop, USER_TYPE_CHOICES
 
 logger = logging.getLogger(__name__)
 
@@ -379,6 +381,37 @@ def validate_shop_owner_id(queryset, id):
     if not queryset.filter(shop_owner__id=id).exists():
         return {'error': 'please provide a valid shop_owner id'}
     return {'data': queryset.filter(shop_owner__id=id)}
+def validate_psu_id(queryset, id):
+    """ validation only ids that belong to a selected related model """
+    try:
+        return {'data': queryset.get(id=id)}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_psu_put(data):
+    """ validation only ids that belong to a selected related model """
+    try:
+        instance = PosShopUserMapping.objects.get(id=data['id'])
+        if 'shop' in data:
+            if not instance.shop.id == data['shop']:
+                return {'error': 'Invalid shop for mapped id.'}
+        if 'user' in data:
+            if not instance.user.id == data['user']:
+                return {'error': 'Invalid user for mapped id.'}
+        return {'data': instance}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_data_format_without_json(request):
+    """ Validate shop data  """
+    try:
+        data = request.data["data"]
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    return data
 
 
 def get_validate_user(user_id):
@@ -771,3 +804,30 @@ def get_executive_shops(executive):
     if shops:
         shop_ids = [sp['id'] for sp in shops]
     return shop_ids
+def get_validate_shop(shop_id):
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except Exception as e:
+        return {'error': '{} shop not found'.format(shop_id)}
+    return {'data': shop}
+
+
+def get_validate_user_type(user_type):
+    """validate shop user type"""
+    if not (any(user_type in i for i in USER_TYPE_CHOICES)):
+        return {'error': 'please provide a valid User Type'}
+    return {'data': user_type}
+
+def validate_mapping(data, shop):
+    if 'user' in data and data['user'] and \
+            'user_type' in data and data['user_type']:
+        return get_psu_mapping(data['user'], shop)
+    else:
+        return {'error': "Missing mandatory field/s 'user' and 'user_type'."} 
+
+
+def get_psu_mapping(user, shop):
+    if PosShopUserMapping.objects.filter(user=user, shop=shop).exists():
+        return {'error': 'Shop User mapping already exist with the provided shop and user.'}
+    else:
+        return {'data': "No mapping found"}

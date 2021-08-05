@@ -1,7 +1,7 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
+from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -286,6 +286,20 @@ class ShopUserMappingForm(forms.ModelForm):
     #         if shop_user_obj.exists() and shop_user_obj.last().employee != self.cleaned_data.get('employee'):
     #             raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
     #     return cleaned_data
+
+class PosShopUserMappingForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(pos_enabled=True).all(),
+        widget=autocomplete.ModelSelect2(url='admin:pos-shop-autocomplete',)
+    )
+    user = forms.ModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+
+    class Meta:
+        model = PosShopUserMapping
+        fields = ('shop', 'user', 'user_type','status',)
 
 class ShopUserMappingCsvViewForm(forms.Form):
     file = forms.FileField()

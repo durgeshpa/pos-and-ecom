@@ -402,16 +402,15 @@ CRONJOBS = [
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'pos.cron.deactivate_coupon_combo_offer'),
+    ('0 0 * * *', 'pos.cron.pos_archive_inventory_cron'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
     ('30 21 * * *', 'products.cron.packing_sku_inventory_alert'),
     ('30 21 * * *', 'retailer_incentive.cron.update_scheme_status_cron'),
-    ('*/10 * * * *', 'ars.cron.run_ars_cron'),
-    ('*/6 * * * *', 'ars.cron.generate_po_cron'),
-    ('0 8 * * *', 'ars.cron.daily_average_sales_cron'),
-    ('30 * * * *', 'ars.cron.daily_approved_po_mail'),
-
-
+    ('30 2 * * *', 'ars.cron.run_ars_cron'),
+    ('0 3 * * *', 'ars.cron.generate_po_cron'),
+    ('0 2 * * *', 'ars.cron.daily_average_sales_cron'),
+    ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

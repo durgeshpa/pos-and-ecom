@@ -1,0 +1,67 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Download Products | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/wms/" xmlns="http://www.w3.org/1999/html">Wms</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/wms/posinventorychange/">PosInventory Changes</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Download PosInventory Changes</a>{% endblock %}
+
+{% block content %}
+    <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <ul>
+               <li>Select Product SKU for downloading inventory change of specific product</li>
+               <li>Donot Select Product SKU for downloading inventory change of last 2 months</li>
+            </ul>
+         </div>
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     <h4 style="margin: 10px" onchange="ddlselect()">{{form.as_p}}</h4>
+                  </fieldset>
+                  <h3 style="margin-left: 20px"><a href="{% url 'admin:posinventorychange_products_download' %}" id="id_download" style="margin-top: 25px;">Download PosInventory Changes</a></h3>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+{% comment %} <script>
+   function alertfunc(){
+      var d = document.getElementById("id_shop");
+      var display_text = d.options[d.selectedIndex].value;
+      console.log(display_text)
+      if(display_text===""){
+         alert("Please 'Select a Shop' to Download the Products Catalogue")
+      }
+   }
+</script> {% endcomment %}
+<script type="text/javascript">
+   function ddlselect()
+   {
+      var c = document.getElementById("id_sku");
+      var prod_id = c.options[c.selectedIndex].value;
+      console.log(prod_id)
+
+      if(prod_id==="")
+      {
+         document.getElementById("id_download").href="#";
+      }
+      else
+      {
+         document.getElementById("id_download").href="{% url 'admin:posinventorychange_products_download'%}" + "?prod_sku=" + prod_id;
+      }
+   }
+</script>
+{% endblock %}

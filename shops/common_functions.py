@@ -15,6 +15,7 @@ from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, S
     ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
 
+
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
