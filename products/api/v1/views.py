@@ -12,7 +12,7 @@ from rest_framework.permissions import AllowAny
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ProductVendorMapping, Product as ChildProduct, Tax, Weight
 from categories.models import Category
-from brand.models import Brand
+from brand.models import Brand, Vendor
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -22,11 +22,11 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers
-
+from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
-    category_search, brand_search, parent_product_name_search
+    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -895,15 +895,70 @@ class ParentProductExportAsCSVView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class ChildProductListView(GenericAPIView):
+    """
+        Get Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.values('id', 'product_name', 'product_sku')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no child product found"
+        return get_response(msg, serializer.data, True)
+
+
+class VendorListView(GenericAPIView):
+    """
+        Get Vendor List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Vendor.objects.values('id', 'vendor_name', 'mobile')
+    serializer_class = VendorSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = vendor_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no vendor found"
+        return get_response(msg, serializer.data, True)
+
+
+class ProductStatusListView(GenericAPIView):
+    """
+        Get Product Status List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for Product Status """
+
+        info_logger.info("Product Status GET api called.")
+        """ GET Status Choice List """
+        fields = ['product_status', 'status', ]
+        data = [dict(zip(fields, d)) for d in ChildProduct.STATUS_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class ProductVendorMappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
+    permission_classes = (AllowAny,)
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product').order_by('-id')
     serializer_class = ProductVendorMappingSerializers
 
     def get(self, request):
         """ GET API for Product Vendor Mapping """
 
         info_logger.info("Product Vendor Mapping GET api called.")
+        pro_vendor_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Product Vendor Mapping for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -913,10 +968,11 @@ class ProductVendorMappingView(GenericAPIView):
         else:
             """ GET Product Vendor Mapping  List """
             self.queryset = self.search_filter_product_vendor_map()
+            pro_vendor_count = self.queryset.count()
             product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
+        msg = f"total count {pro_vendor_count}" if product_vendor_map else "no product vendor mapping found"
         serializer = self.serializer_class(product_vendor_map, many=True)
-        return get_response('product vendor list!', serializer.data, True)
+        return get_response(msg, serializer.data, True)
 
     def post(self, request):
         """ POST API for Product Vendor Mapping """
@@ -953,8 +1009,12 @@ class ProductVendorMappingView(GenericAPIView):
         product_id = self.request.GET.get('product_id')
         product_status = self.request.GET.get('product_status')
         status = self.request.GET.get('status')
+        search_text = self.request.GET.get('search_text')
+        # search using tax_name and tax_type based on criteria that matches
+        if search_text:
+            self.queryset = product_vendor_search(self.queryset, search_text.strip())
 
-        # filter using vendor_name, product_id, product_status & status exact match
+        # filter using vendor_id, product_id, product_status & status exact match
         if product_id is not None:
             self.queryset = self.queryset.filter(product_id=product_id)
         if vendor_id is not None:

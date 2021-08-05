@@ -26,7 +26,7 @@ from products.common_function import ParentProductCls, ProductCls
 class ProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name')
+        fields = ('id', 'product_sku', 'product_name',)
 
 
 class GetParentProductSerializers(serializers.ModelSerializer):
@@ -1105,8 +1105,14 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
+class ChildProductSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'status')
+
+
 class ProductVendorMappingSerializers(serializers.ModelSerializer):
-    product = ChildProductVendorSerializers(read_only=True)
+    product = ChildProductSerializers(read_only=True)
     vendor = VendorSerializers(read_only=True)
 
     def validate(self, data):
