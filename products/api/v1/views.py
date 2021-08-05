@@ -980,7 +980,7 @@ class ProductVendorMappingView(GenericAPIView):
         info_logger.info("Product Vendor Mapping POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)
             return get_response('product vendor mapping created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -999,7 +999,7 @@ class ProductVendorMappingView(GenericAPIView):
 
         serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             return get_response('product vendor mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 

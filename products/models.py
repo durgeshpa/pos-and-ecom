@@ -846,7 +846,7 @@ class ProductPriceCSV(models.Model):
         verbose_name_plural = _("Product Price CSVS")
 
 
-class ProductVendorMapping(BaseTimeModel):
+class ProductVendorMapping(BaseTimestampUserStatusModel):
     vendor = models.ForeignKey(Vendor, related_name='vendor_brand_mapping', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_vendor_mapping', on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)', null=True, blank=True) #(Per piece)
@@ -854,8 +854,12 @@ class ProductVendorMapping(BaseTimeModel):
     brand_to_gram_price_unit = models.CharField(max_length=100, default="Per Piece")
     product_mrp = models.FloatField(null=True, blank=True)
     case_size = models.PositiveIntegerField(default=0)
-    status = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='product_vendor_map_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def save_vendor(self, vendor):
         if vendor.vendor_products_brand is None:
@@ -1053,6 +1057,8 @@ class CentralLog(models.Model):
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
     weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)
     hsn = models.ForeignKey(ProductHSN, related_name='hsn_log', blank=True, null=True, on_delete=models.CASCADE)
+    product_vendor_map = models.ForeignKey(ProductVendorMapping, related_name='product_vendor_map_log',
+                                           blank=True, null=True, on_delete=models.CASCADE)
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
