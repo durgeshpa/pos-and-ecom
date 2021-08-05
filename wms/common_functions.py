@@ -157,7 +157,7 @@ class CommonBinInventoryFunctions(object):
     @transaction.atomic
     def update_bin_inventory_with_transaction_log(cls, warehouse, bin, sku, batch_id, initial_inventory_type,
                                                   final_inventory_time, quantity, in_stock, tr_type, tr_id):
-        cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, initial_inventory_type, final_inventory_time, quantity, in_stock)
+        cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity, in_stock)
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
@@ -169,11 +169,11 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     @transaction.atomic
-    def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, initial_inventory_type, inventory_type, quantity, in_stock):
+    def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
         print(1)
         bin_inv_obj = BinInventory.objects.select_for_update().\
                                            filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
-                                                  inventory_type=initial_inventory_type, in_stock=in_stock).last()
+                                                  inventory_type=inventory_type, in_stock=in_stock).last()
         print(2)
         if bin_inv_obj:
             bin_quantity = bin_inv_obj.quantity

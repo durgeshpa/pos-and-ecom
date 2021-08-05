@@ -11,6 +11,7 @@ import re
 import boto3
 from botocore.exceptions import ClientError
 from decouple import config
+from django.core.exceptions import ValidationError
 import openpyxl
 from openpyxl.styles import Font
 from pyexcel_xlsx import get_data as xlsx_get
@@ -35,7 +36,7 @@ from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
 from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin,\
-    WarehouseInternalInventoryChange, Out
+    WarehouseInternalInventoryChange, Out, In
 from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange, \
     InternalStockCorrectionChange, inventory_in_and_out_weight, get_manufacturing_date
@@ -1888,13 +1889,18 @@ def FetchDiscountedProductdetails(request):
             'product_mrp': def_product.product_mrp,
             }
         return JsonResponse(data)
-    print(product_id, ' ', seller_shop)
     shop = Shop.objects.filter(pk = seller_shop).last()
     selling_price = None
     if def_product and shop:
         original_prod = def_product.product_ref
-        expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
-        manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
+        bin_inventory = BinInventory.objects.filter(sku = def_product , warehouse = shop, 
+                                                    inventory_type__inventory_type='normal', quantity__gt=0).last()
+        if not bin_inventory:
+            raise ValidationError('Not Valid Discounted Product')
+        latest_in = In.objects.filter(sku = bin_inventory.sku.product_ref, batch_id = bin_inventory.batch_id).order_by('-modified_at')
+
+        expiry_date = latest_in[0].expiry_date
+        manufacturing_date = latest_in[0].manufacturing_date
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - datetime.date.today()
         discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
@@ -1915,7 +1921,6 @@ def FetchDiscountedProductdetails(request):
             'selling_price' : selling_price,
             # 'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
         }
-        print(data)
     return JsonResponse(data)
 
 
@@ -2719,7 +2724,3 @@ class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(name__istartswith=self.q)
 
         return qs
-
-def test(r):
-    update_price_discounted_product()
-    return HttpResponse('done')

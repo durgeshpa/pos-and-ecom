@@ -4,14 +4,14 @@ import logging
 import math
 from io import StringIO
 import csv
-from math import prod
 
 from django.core.mail import EmailMessage
 from django.db import transaction
+from django.db.models import Prefetch
 
 # app imports
 from .models import PriceSlab, Product, ProductCapping, DiscountedProductPrice, ProductPrice
-from wms.models import Bin, WarehouseInventory, BinInventory, InventoryType,InventoryState
+from wms.models import Bin, WarehouseInventory, BinInventory, InventoryType,InventoryState, In
 from wms.common_functions import CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.models import GlobalConfig
 from global_config.views import get_config
@@ -124,74 +124,80 @@ def update_price_discounted_product():
     Update price of discounted product on the basis of remaining life
     and Move to expired when life ends
     """
-    discounted_product = Product.objects.filter(product_type = 1)
-    for prod in discounted_product:
-        original_prod = prod.product_ref
-        expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
-        manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
+    inventory = BinInventory.objects.filter(sku__product_type = 1,
+                                                            inventory_type__inventory_type='normal', quantity__gt=0) \
+                                                            .prefetch_related('sku__parent_product') \
+                                                            .prefetch_related('sku__product_ref') \
+                                                            .prefetch_related(Prefetch('sku__product_ref__ins', queryset=In.objects.all().order_by('-created_at'), to_attr='latest_in'))
+    for dis_prod in inventory:
+        expiry_date = dis_prod.sku.product_ref.latest_in[0].expiry_date
+        manufacturing_date = dis_prod.sku.product_ref.latest_in[0].manufacturing_date
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - datetime.date.today()
-        discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+        discounted_life = math.floor(product_life.days * dis_prod.sku.parent_product.discounted_life_percent / 100)
         half_life = (discounted_life - 2) / 2
 
         type_normal = InventoryType.objects.get(inventory_type='normal')
 
-        inventory = BinInventory.objects.filter(sku=prod, inventory_type=type_normal, quantity__gt=0)
-
-        for i in inventory:
-            # Calculate Base Price
-            product_price = original_prod.product_pro_price.filter(seller_shop=i.warehouse,
+        # Calculate Base Price
+        product_price = dis_prod.sku.product_ref.product_pro_price.filter(seller_shop=dis_prod.warehouse,
                                                    approval_status=ProductPrice.APPROVED).last()
-            base_price_slab = product_price.price_slabs.filter(end_value=0).last()
-            base_price = base_price_slab.ptr
-            half_life_selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
-            selling_price = None
+        base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+        base_price = base_price_slab.ptr
+        half_life_selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
+        selling_price = None
 
-            #Active Discounted Product Price
-            dis_prod_price = DiscountedProductPrice.objects.filter(product = prod, approval_status=2, seller_shop = i.warehouse)
+        #Active Discounted Product Price
+        dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
 
-            if remaining_life.days <= 2:
-                type_expired = InventoryType.objects.get(inventory_type='expired')
-                state_canceled = InventoryState.objects.get(inventory_state='canceled')
-                today = datetime.datetime.today().date()
-                tr_id = today.isoformat()
-                move_inventory(i.warehouse, prod, i.bin, i.batch_id, i.quantity,
-                                state_canceled, type_normal, type_expired, tr_id, 'expired')
+        if remaining_life.days <= 2:
+            type_expired = InventoryType.objects.get(inventory_type='expired')
+            state_canceled = InventoryState.objects.get(inventory_state='canceled')
+            state_total_available = InventoryState.objects.get(inventory_state='total_available')
+            today = datetime.datetime.today().date()
+            tr_id = today.isoformat()
+            move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
+                            state_total_available, state_canceled, type_normal, type_expired, tr_id, 'expired')
 
-            elif remaining_life.days <= half_life:
-                if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
-                    selling_price = half_life_selling_price
-            else:
-                if not dis_prod_price.last():
-                    selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
+        elif remaining_life.days <= half_life:
+            if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
+                selling_price = half_life_selling_price
+        else:
+            if not dis_prod_price.last():
+                selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
 
-            if selling_price:
-                with transaction.atomic():
-                    discounted_price =  ProductPrice.objects.create(
-                                            product=prod,
-                                            mrp=prod.product_mrp,
-                                            selling_price=selling_price,
-                                            seller_shop=i.warehouse,
-                                            start_date=datetime.datetime.today(),
-                                            approval_status=ProductPrice.APPROVED)
-                    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+        if selling_price:
+            with transaction.atomic():
+                discounted_price =  ProductPrice.objects.create(
+                                        product=dis_prod.sku,
+                                        mrp=dis_prod.product_mrp,
+                                        selling_price=selling_price,
+                                        seller_shop=dis_prod.warehouse,
+                                        start_date=datetime.datetime.today(),
+                                        approval_status=ProductPrice.APPROVED)
+                PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
                                                         selling_price=selling_price)
             
 
 
 def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
-                   state_canceled, type_normal,type_expired, tr_id, tr_type_expired):
+                   state_total_available, state_canceled, type_normal,type_expired, tr_id, tr_type_expired):
 
     discounted_batch_id = batch_id
     with transaction.atomic():
+        CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product, batch_id,
+                                                                          type_normal, type_normal, -1 * quantity,
+                                                                          True, tr_type_expired, tr_id)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
+                                                                                        type_normal, state_total_available,
+                                                                                        -1 * quantity,
+                                                                                        tr_type_expired, tr_id)
         CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product,
                                                                             discounted_batch_id, type_normal,type_expired,
-                                                                            -1 * quantity, True, tr_type_expired,
+                                                                            quantity, True, tr_type_expired,
                                                                             tr_id)
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
                                                                                         type_expired, state_canceled,
                                                                                         quantity, tr_type_expired,
                                                                                         tr_id)
-
-
 
