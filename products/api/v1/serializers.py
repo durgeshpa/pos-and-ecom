@@ -593,69 +593,6 @@ class ProductCappingSerializers(serializers.ModelSerializer):
         return product_capping
 
 
-class ProductVendorMappingSerializers(serializers.ModelSerializer):
-    product = ChildProductVendorSerializers(read_only=True)
-    vendor = VendorSerializers(read_only=True)
-
-    def validate(self, data):
-        if data.get('product_price') is None and data.get('product_price_pack') is None:
-            raise serializers.ValidationError("please enter one Brand to Gram Price")
-
-        if data.get('case_size') is None:
-            raise serializers.ValidationError("please enter case_size")
-
-        if self.initial_data['vendor'] is None:
-            raise serializers.ValidationError("please select vendor")
-
-        if self.initial_data['product'] is None:
-            raise serializers.ValidationError("please select product")
-
-        if not (data.get('product_price') is None or data.get('product_price_pack') is None):
-            raise serializers.ValidationError("please enter only one Brand to Gram Price")
-
-        product_val = get_validate_product(self.initial_data['product'])
-        if 'error' in product_val:
-            raise serializers.ValidationError(product_val['error'])
-
-        vendor_val = get_validate_vendor(self.initial_data['vendor'])
-        if 'error' in vendor_val:
-            raise serializers.ValidationError(vendor_val['error'])
-
-        return data
-
-    class Meta:
-        model = ProductVendorMapping
-        fields = ('id', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'status', 'vendor',
-                  'product')
-
-    @transaction.atomic
-    def create(self, validated_data):
-        """ create vendor product mapping """
-        try:
-            product_vendor_map = ProductCls.create_product_vendor_mapping(self.initial_data['product'],
-                                                                          self.initial_data['vendor'], **validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-
-        return product_vendor_map
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        """update vendor product mapping """
-        try:
-            # call super to save modified instance along with the validated data
-            product_vendor_map_obj = super().update(instance, validated_data)
-            product_vendor_map = ProductCls.update_product_vendor_mapping(self.initial_data['product'],
-                                                                          self.initial_data['vendor'],
-                                                                          product_vendor_map_obj)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-
-        return product_vendor_map
-
-
 class ProductSourceSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
@@ -1166,3 +1103,66 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
+
+class ProductVendorMappingSerializers(serializers.ModelSerializer):
+    product = ChildProductVendorSerializers(read_only=True)
+    vendor = VendorSerializers(read_only=True)
+
+    def validate(self, data):
+        if data.get('product_price') is None and data.get('product_price_pack') is None:
+            raise serializers.ValidationError("please enter one Brand to Gram Price")
+
+        if data.get('case_size') is None:
+            raise serializers.ValidationError("please enter case_size")
+
+        if self.initial_data['vendor'] is None:
+            raise serializers.ValidationError("please select vendor")
+
+        if self.initial_data['product'] is None:
+            raise serializers.ValidationError("please select product")
+
+        if not (data.get('product_price') is None or data.get('product_price_pack') is None):
+            raise serializers.ValidationError("please enter only one Brand to Gram Price")
+
+        product_val = get_validate_product(self.initial_data['product'])
+        if 'error' in product_val:
+            raise serializers.ValidationError(product_val['error'])
+
+        vendor_val = get_validate_vendor(self.initial_data['vendor'])
+        if 'error' in vendor_val:
+            raise serializers.ValidationError(vendor_val['error'])
+
+        return data
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('id', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'status', 'vendor',
+                  'product')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create vendor product mapping """
+        try:
+            product_vendor_map = ProductCls.create_product_vendor_mapping(self.initial_data['product'],
+                                                                          self.initial_data['vendor'], **validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_vendor_map
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update vendor product mapping """
+        try:
+            # call super to save modified instance along with the validated data
+            product_vendor_map_obj = super().update(instance, validated_data)
+            product_vendor_map = ProductCls.update_product_vendor_mapping(self.initial_data['product'],
+                                                                          self.initial_data['vendor'],
+                                                                          product_vendor_map_obj)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_vendor_map

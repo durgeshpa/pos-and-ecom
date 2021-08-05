@@ -752,77 +752,6 @@ class ProductHSNView(GenericAPIView):
         return self.queryset
 
 
-class ProductVendorMappingView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
-    serializer_class = ProductVendorMappingSerializers
-
-    def get(self, request):
-        """ GET API for Product Vendor Mapping """
-
-        info_logger.info("Product Vendor Mapping GET api called.")
-        if request.GET.get('id'):
-            """ Get Product Vendor Mapping for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            product_vendor_map = id_validation['data']
-        else:
-            """ GET Product Vendor Mapping  List """
-            self.queryset = self.search_filter_product_vendor_map()
-            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(product_vendor_map, many=True)
-        return get_response('product vendor list!', serializer.data, True)
-
-    def post(self, request):
-        """ POST API for Product Vendor Mapping """
-
-        info_logger.info("Product Vendor Mapping POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('product vendor mapping created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def put(self, request):
-        """ PUT API for Product Vendor Mapping Updation """
-
-        info_logger.info("Product Vendor Mapping PUT api called.")
-        if not request.data.get('id'):
-            return get_response('please provide id to update product vendor mapping', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data.get('id')))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-        product_vendor_map_instance = id_instance['data'].last()
-
-        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('product vendor mapping updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def search_filter_product_vendor_map(self):
-
-        vendor_id = self.request.GET.get('vendor_id')
-        product_id = self.request.GET.get('product_id')
-        product_status = self.request.GET.get('product_status')
-        status = self.request.GET.get('status')
-
-        # filter using vendor_name, product_id, product_status & status exact match
-        if product_id is not None:
-            self.queryset = self.queryset.filter(product_id=product_id)
-        if vendor_id is not None:
-            self.queryset = self.queryset.filter(vendor_id=vendor_id)
-        if status is not None:
-            self.queryset = self.queryset.filter(status=status)
-        if product_status is not None:
-            self.queryset = self.queryset.filter(product__status=product_status)
-        return self.queryset
-
-
 class WeightView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = Weight.objects.prefetch_related('weight_log', 'weight_log__updated_by') \
@@ -964,3 +893,74 @@ class ParentProductExportAsCSVView(CreateAPIView):
             info_logger.info("Parent Product CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class ProductVendorMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
+    serializer_class = ProductVendorMappingSerializers
+
+    def get(self, request):
+        """ GET API for Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping GET api called.")
+        if request.GET.get('id'):
+            """ Get Product Vendor Mapping for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_vendor_map = id_validation['data']
+        else:
+            """ GET Product Vendor Mapping  List """
+            self.queryset = self.search_filter_product_vendor_map()
+            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(product_vendor_map, many=True)
+        return get_response('product vendor list!', serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product vendor mapping created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Product Vendor Mapping Updation """
+
+        info_logger.info("Product Vendor Mapping PUT api called.")
+        if not request.data.get('id'):
+            return get_response('please provide id to update product vendor mapping', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        product_vendor_map_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product vendor mapping updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_vendor_map(self):
+
+        vendor_id = self.request.GET.get('vendor_id')
+        product_id = self.request.GET.get('product_id')
+        product_status = self.request.GET.get('product_status')
+        status = self.request.GET.get('status')
+
+        # filter using vendor_name, product_id, product_status & status exact match
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if vendor_id is not None:
+            self.queryset = self.queryset.filter(vendor_id=vendor_id)
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(product__status=product_status)
+        return self.queryset
