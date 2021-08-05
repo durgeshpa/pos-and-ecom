@@ -158,7 +158,7 @@ def update_price_discounted_product():
                 move_inventory(i.warehouse, prod, i.bin, i.batch_id, i.quantity,
                                 state_canceled, type_normal, type_expired, tr_id, 'expired')
 
-            if remaining_life.days <= half_life:
+            elif remaining_life.days <= half_life:
                 if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
                     selling_price = half_life_selling_price
             else:
