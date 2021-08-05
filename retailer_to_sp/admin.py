@@ -1488,7 +1488,7 @@ class ShipmentAdmin(NestedModelAdmin):
         try:
             return obj.order.shipping_address.pincode
         except:
-            return obj.order.seller_shop.shipping_address.pincode
+            return obj.order.seller_shop.shop_name_address_mapping.last().pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
@@ -1496,7 +1496,7 @@ class ShipmentAdmin(NestedModelAdmin):
     def shipment_address(self, obj):
         address = obj.order.shipping_address
         if address is None:
-            address = obj.order.seller_shop.shipping_address
+            address = obj.order.seller_shop.shop_name_address_mapping.last()
         address_line = address.address_line1
         contact = address.address_contact_number
         shop_name = address.shop_name.shop_name
@@ -1506,7 +1506,7 @@ class ShipmentAdmin(NestedModelAdmin):
         try:
             city = obj.order.shipping_address.city
         except:
-            city = obj.order.seller_shop.shipping_address.city
+            city = obj.order.seller_shop.shop_name_address_mapping.last().city
         return str(city)
 
     def start_qc(self,obj):
