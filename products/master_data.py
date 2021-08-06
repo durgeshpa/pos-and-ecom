@@ -7,7 +7,7 @@ from django.db.models import Q
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    Repackaging, DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping
+    DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping
 
 from products.common_function import ParentProductCls, ProductCls
 from categories.common_function import CategoryCls
@@ -244,7 +244,8 @@ class UploadMasterData(object):
                             parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
-                            parent_product.update(product_hsn=ProductHSN.objects.filter(product_hsn_code=str(row['hsn'])).last())
+                            parent_product.update(
+                                product_hsn=ProductHSN.objects.filter(product_hsn_code=str(row['hsn'])).last())
 
                         if col == 'tax_1(gst)':
                             tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -270,23 +271,29 @@ class UploadMasterData(object):
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
 
                         if col == 'is_ptr_applicable':
-                            parent_product.update(is_ptr_applicable=True if str(row['is_ptr_applicable']).lower() == 'yes' else False)
+                            parent_product.update(
+                                is_ptr_applicable=True if str(row['is_ptr_applicable']).lower() == 'yes' else False)
 
                         if col == 'ptr_type':
-                            parent_product.update(ptr_type=None if not str(row['is_ptr_applicable']).lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                            parent_product.update(ptr_type=None if not str(
+                                row['is_ptr_applicable']).lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                             if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
 
                         if col == 'ptr_percent':
-                            parent_product.update(ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent'])
+                            parent_product.update(
+                                ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row[
+                                    'ptr_percent'])
 
                         if col == 'is_ars_applicable':
-                            parent_product.update(is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+                            parent_product.update(
+                                is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
 
                         if col == 'max_inventory_in_days':
                             parent_product.update(max_inventory=int(row['max_inventory_in_days']))
 
                         if col == 'is_lead_time_applicable':
-                            parent_product.update(is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
+                            parent_product.update(is_lead_time_applicable=True if row[
+                                                                                      'is_lead_time_applicable'].lower() == 'yes' else False)
 
                         parent_product.update(updated_by=user)
                         ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
@@ -294,7 +301,8 @@ class UploadMasterData(object):
                 except Exception as e:
                     parent_data.append(str(row_num) + ' ' + str(e))
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
+            info_logger.info(
+                "Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with 'Set Parent Data Functionality' + {str(e)}")
@@ -333,7 +341,8 @@ class UploadMasterData(object):
                         if col == 'sku_name':
                             child_pro.update(product_name=row['sku_name'])
                         if col == 'parent_id':
-                            child_pro.update(parent_product=ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).last())
+                            child_pro.update(parent_product=ParentProduct.objects.filter(
+                                parent_id=str(row['parent_id']).strip()).last())
                         if col == 'status':
                             child_pro.update(status=str(row['status'].lower()))
                         if col == 'mrp':
@@ -363,7 +372,8 @@ class UploadMasterData(object):
                             child_pro.update(product_special_cess=float(row['product_special_cess']))
 
                         if col == 'packing_sku_id':
-                            pack_pro.update(packing_sku=Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last())
+                            pack_pro.update(
+                                packing_sku=Product.objects.filter(product_sku=row['packing_sku_id'].strip()).last())
                         if col == 'packing_material_weight':
                             pack_pro.update(packing_sku_weight_per_unit_sku=float(row['packing_material_weight']))
 
@@ -511,7 +521,7 @@ class UploadMasterData(object):
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
-                    brand_case_size = int(row['brand_case_size']),
+                    brand_case_size=int(row['brand_case_size']),
                     status=True if str(row['status'].lower()) == 'active' else False,
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
                     created_by=user
@@ -574,7 +584,8 @@ class UploadMasterData(object):
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
                     repackaging_type=row['repackaging_type'], created_by=user,
                     status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
-                    product_special_cess=(None if str(row['product_special_cess']).strip() == '' else float(row['product_special_cess'])))
+                    product_special_cess=(
+                        None if str(row['product_special_cess']).strip() == '' else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
 
@@ -655,6 +666,10 @@ class UploadMasterData(object):
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with create Brand "
                               f" + {str(e)}")
+
+    @classmethod
+    def create_bulk_product_vendor_mapping(cls, csv_file_data_list, user):
+        pass
 
 
 class DownloadMasterData(object):
@@ -772,8 +787,9 @@ class DownloadMasterData(object):
         writer.writerow(columns)
 
         products = Product.objects.values('product_sku', 'product_name', 'parent_product__parent_id',
-                                          'parent_product__name', 'status')\
-            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data['category_id'].category_name))
+                                          'parent_product__name', 'status') \
+            .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=validated_data[
+            'category_id'].category_name))
 
         for product in products:
             row = []
@@ -795,7 +811,8 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge", "inner_case_size",
-                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent", "is_ars_applicable",
+                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                   "is_ars_applicable",
                    "max_inventory_in_days", "is_lead_time_applicable", "status"]
         writer.writerow(columns)
         data = [["parent1", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
@@ -821,8 +838,10 @@ class DownloadMasterData(object):
              'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
              "packing_material_weight"])
         data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ", "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ", "deactivated",
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
+                 "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
+                 "deactivated",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
         for row in data:
@@ -941,7 +960,8 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type',
+                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
+                   'is_ptr_applicable', 'ptr_type',
                    'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
         writer.writerow(columns)
 
@@ -1065,3 +1085,27 @@ class DownloadMasterData(object):
         return response
 
 
+def create_product_vendor_mapping_sample_file(validated_data):
+    response, writer = DownloadMasterData.response_workbook("create_product_vendor_mapping_sample")
+    columns = ['id', 'product_name', 'product_sku', 'mrp', 'brand_to_gram_price_unit', 'brand_to_gram_price',
+               'case_size']
+    writer.writerow(columns)
+
+    pro_vendor_map = ProductVendorMapping.objects.filter(vendor=validated_data['vendor_id'])
+    products_vendors = pro_vendor_map.only('product', 'vendor', 'brand_to_gram_price_unit', 'product_price',
+                                           'product_price_pack', 'case_size')
+    for product_vendor in products_vendors:
+        if product_vendor.status:
+            if product_vendor.brand_to_gram_price_unit == "Per Piece":
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                 product_vendor.product.product_sku, product_vendor.product_mrp,
+                                 product_vendor.brand_to_gram_price_unit, product_vendor.product_price,
+                                 product_vendor.case_size])
+            else:
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                 product_vendor.product.product_sku, product_vendor.product_mrp,
+                                 product_vendor.brand_to_gram_price_unit, product_vendor.product_price_pack,
+                                 product_vendor.case_size])
+    info_logger.info("Create Product Vendor Mapping Sample CSVExported successfully ")
+    response.seek(0)
+    return response

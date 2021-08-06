@@ -228,22 +228,6 @@ class TaxExportAsCSVView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ProductVendorMappingExportAsCSVView(CreateAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ProductVendorMappingExportAsCSVSerializers
-
-    def post(self, request):
-        """ POST API for Download Selected product vendor mapping CSV """
-
-        info_logger.info("product vendor mapping ExportAsCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("product vendor mapping CSVExported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
 class ParentProductView(GenericAPIView):
     """
         Get Parent Product
@@ -1062,6 +1046,22 @@ class ProductVendorMappingView(GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid product vendor mapping  id {id}', False)
         return get_response('product vendor mapping were deleted successfully!', True)
+
+
+class ProductVendorMappingExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductVendorMappingExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product vendor mapping CSV """
+
+        info_logger.info("product vendor mapping ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product vendor mapping CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
 
 
 class SlabProductPriceView(GenericAPIView):

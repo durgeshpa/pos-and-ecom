@@ -6,27 +6,26 @@ import re
 import collections
 
 from django.forms import BaseInlineFormSet
-from django.urls import reverse
 
 from dal import autocomplete, forward
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
-from django.db.models import Value, Case, When, F, Q
+
 from django.db import transaction
 from model_utils import Choices
 from django.db.models.functions import Length
 
-from tempus_dominus.widgets import DatePicker, DateTimePicker, TimePicker
+from tempus_dominus.widgets import DateTimePicker
 
 from addresses.models import City, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
 from global_config.views import get_config
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
-                             ProductCategory, ProductImage, ProductPrice,
-                             ProductVendorMapping, Size, Tax, Weight,
+                             ProductImage, ProductPrice,
+                             ProductVendorMapping, Size, Tax,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
@@ -34,7 +33,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
-from wms.models import InventoryType, WarehouseInventory, InventoryState, Bin, BinInventory
+from wms.models import InventoryType, WarehouseInventory, Bin, BinInventory
 from wms.common_functions import get_stock, create_batch_id
 from accounts.middlewares import get_current_user
 from global_config.models import GlobalConfig

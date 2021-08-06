@@ -9,7 +9,7 @@ from categories.models import Category
 from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
-    CategoryListSerializers
+    CategoryListSerializers, DownloadProductVendorMappingSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -219,4 +219,20 @@ class BrandMultiImageUploadView(GenericAPIView):
             serializer.save(updated_by=request.user)
             info_logger.info("BrandMultiImageUploadView upload successfully")
             return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class CreateProductVendorMappingSampleView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = DownloadProductVendorMappingSerializers
+
+    def post(self, request):
+        """ POST API for Download Sample CreateProductVendorMapping """
+
+        info_logger.info("CreateProductVendorMappingSample POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("CreateProductVendorMapping Downloaded successfully")
+            return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

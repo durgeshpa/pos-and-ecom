@@ -1,4 +1,5 @@
 import logging
+import re
 import codecs
 import csv
 
@@ -7,15 +8,16 @@ from django.utils.translation import gettext_lazy as _
 
 from rest_framework import serializers
 
-from products.models import Product, ProductCategory, ProductImage, ProductHSN, ParentProduct, ParentProductCategory, \
-    Tax, ParentProductImage, BulkUploadForProductAttributes, ParentProductTaxMapping, ProductSourceMapping, \
-    DestinationRepackagingCostMapping, ProductPackingMapping, ParentProductTaxMapping, BulkProductTaxUpdate
+from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
+    ProductVendorMapping
 from categories.models import Category
 from brand.models import Brand
 
-from products.common_validators import read_file
+from retailer_backend.validators import *
+from products.common_validators import read_file, get_validate_vendor
 from categories.common_validators import get_validate_category
 from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
+from products.master_data import create_product_vendor_mapping_sample_file
 from products.api.v1.serializers import UserSerializers
 
 
@@ -45,6 +47,7 @@ DATA_TYPE_CHOICES = (
         ('create_parent_product', 'Create Parent Product'),
         ('create_category', 'Create Category'),
         ('create_brand', 'Create Brand'),
+        ('create_product_vendor_mapping', 'Create Product Vendor Mapping')
     )
     ),
     ('update_data', (
@@ -394,3 +397,90 @@ class CategoryImageSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return instance
+
+
+class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('vendor_id', )
+
+    def validate(self, data):
+
+        if not 'vendor_id' in self.initial_data:
+            raise serializers.ValidationError(_('Please Select One vendor_id!'))
+
+        elif 'vendor_id' in self.initial_data and self.initial_data['vendor_id']:
+            vendor_val = get_validate_vendor(self.initial_data['vendor_id'])
+            if 'error' in vendor_val:
+                raise serializers.ValidationError(_(vendor_val["error"]))
+            data['vendor_id'] = vendor_val['vendor']
+
+        return data
+
+    def create(self, validated_data):
+        response = create_product_vendor_mapping_sample_file(validated_data)
+        return response
+
+
+class BulkProductVendorMapping(serializers.ModelSerializer):
+    """
+      Bulk Product Vendor Mapping
+    """
+    file = serializers.FileField(label='Add Bulk Product Vendor Mapping', required=True)
+
+    class Meta:
+        model = ProductVendorMapping
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        if not 'vendor_id' in self.initial_data:
+            raise serializers.ValidationError(_('Please Select One vendor!'))
+
+        elif 'vendor_id' in self.initial_data and self.initial_data['vendor_id']:
+            vendor_val = get_validate_vendor(self.initial_data['vendor_id'])
+            if 'error' in vendor_val:
+                raise serializers.ValidationError(_(vendor_val["error"]))
+            self.initial_data['vendor_val'] = vendor_val['vendor']
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        child_product = Product.objects.all()
+        for id, row in enumerate(reader):
+            if not row[0]:
+                raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
+                                                  " | Product ID cannot be empty")
+            try:
+                child_product.get(pk=int(row[0]))
+            except:
+                raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
+                                                  " | Product does not exist with this ID")
+
+            if not (row[4].title() == "Per Piece" or row[4].title() == "Per Pack"):
+                raise serializers.ValidationError( "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " +
+                                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID_STRING'] %
+                                                   ("Gram_to_brand_Price_Unit"))
+
+            if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
+                raise serializers.ValidationError(
+                    "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                        'INVALID_PRICE'])
+
+            if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                raise serializers.ValidationError(
+                    "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                        'EMPTY_OR_NOT_VALID'] % ("Case_size"))
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            create_product_vendor_mapping_sample_file(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
