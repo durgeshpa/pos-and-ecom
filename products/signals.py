@@ -13,7 +13,7 @@ from django.db import transaction
 from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
-    CommonWarehouseInventoryFunctions,update_visibility, get_visibility_changes
+    CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
@@ -377,10 +377,13 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 rep_obj.destination_batch_id = '{}{}'.format(rep_obj.destination_sku.product_sku,
                                                              rep_obj.expiry_date.strftime('%d%m%y'))
                 rep_obj.save()
+
+                manufacturing_date = get_manufacturing_date(rep_obj.destination_batch_id)
                 In.objects.create(warehouse=rep_obj.seller_shop, in_type='REPACKAGING', in_type_id=rep_obj.repackaging_no,
                                   sku=rep_obj.destination_sku, batch_id=rep_obj.destination_batch_id,
                                   inventory_type=type_normal,
-                                  quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date)
+                                  quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date,
+                                  manufacturing_date=manufacturing_date)
                 pu = Putaway.objects.create(warehouse=rep_obj.seller_shop,
                                             putaway_type='REPACKAGING',
                                             putaway_type_id=rep_obj.repackaging_no,
