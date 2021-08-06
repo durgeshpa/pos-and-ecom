@@ -661,7 +661,7 @@ class ProductCappingView(GenericAPIView):
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code').\
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code'). \
         order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
@@ -1024,3 +1024,25 @@ class ProductVendorMappingView(GenericAPIView):
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
         return self.queryset
+
+    def delete(self, request):
+        """ Delete Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping DELETE api called.")
+        if not request.data.get('product_vendor_map_ids'):
+            return get_response('please select product vendor mapping', False)
+        try:
+            for id in request.data.get('product_vendor_map_ids'):
+                product_vendor_map_id = self.queryset.get(id=int(id))
+                try:
+                    product_vendor_map_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'product_vendor_map_id': product_vendor_map_id}
+                    info_logger.info("product_vendor_mapping deleted info ", dict_data)
+                except Exception as er:
+                    return get_response(f'You can not delete product vendor mapping {product_vendor_map_id}, '
+                                        f'because this product vendor mapping is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product vendor mapping  id {id}', False)
+        return get_response('product vendor mapping were deleted successfully!', True)
