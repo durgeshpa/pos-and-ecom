@@ -156,9 +156,3 @@ class InOutLedgerForm(forms.Form):
         ),
     )
 
-    def __init__(self, user, *args, **kwargs):
-        super(InOutLedgerForm, self).__init__(*args, **kwargs)
-        if user:
-            queryset = Product.objects.all()
-            self.fields['sku'].queryset = queryset
-
