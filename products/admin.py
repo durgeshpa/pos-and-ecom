@@ -1767,15 +1767,6 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return ''
     product_gst.short_description = 'Product GST'
 
-    def is_ptr_applicable(self, obj):
-        return obj.parent_product.is_ptr_applicable
-
-    def ptr_type(self, obj):
-        return obj.parent_product.ptr_type_text
-
-    def ptr_percent(self, obj):
-        return obj.parent_product.ptr_percent
-
     def product_category(self, obj):
         try:
             if obj.parent_product.parent_product_pro_category.exists():
@@ -1786,6 +1777,11 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
             return ''
     product_category.short_description = 'Product Category'
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
