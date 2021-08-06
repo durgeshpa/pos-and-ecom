@@ -2,6 +2,7 @@ from django.conf.urls import include, url
 
 import views
 import wms
+from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, MergeBarcode
 from .filters import WareHouseComplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter
 
@@ -27,6 +28,7 @@ urlpatterns = [
     url(r'^audit_ordered_data/$', wms.views.audit_ordered_data, name='audit_ordered_data'),
     url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
     # url(r'^test/$', wms.views.test, name='test'),
+    url(r'^product-sku-autocomplete/$', ProductSkuAutocomplete.as_view(), name='product-sku-autocomplete',),
 
 
 ]

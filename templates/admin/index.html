@@ -78,6 +78,15 @@
                 {% endif %}
 
                 {% endif %}
+
+               {% if app.name == "Wms" %}
+                   {% if model.name == "Warehouse inventorys" %}
+                   <tr>
+                        <th scope="row"><a href="/admin/wms/in/in-out-ledger-form/">WMS In Out Ledger Report</a></th>
+                   </tr>
+                    {% endif %}
+                {% endif %}
+
                 {% if app.name == "B2C Franchise Management" %}
                    {% if user.is_superuser == False %}
                         {% if model.name == "Bins" %}
