@@ -2678,7 +2678,7 @@ class OrderCentral(APIView):
             For Basic Cart
         """
         try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'],
+            order = Order.objects.get(pk=self.request.GET.get('order_id'),
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
@@ -3513,10 +3513,10 @@ class OrderListCentral(GenericAPIView):
                            Q(buyer__phone_number__icontains=search_text))
         return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
 
-    @check_ecom_user_shop
+    @check_ecom_user
     def get_ecom_order_list(self, request, *args, **kwargs):
         # Search, Paginate, Return Orders
-        qs = Order.objects.filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM', buyer=self.request.user)
+        qs = Order.objects.filter(ordered_cart__cart_type='ECOM', buyer=self.request.user)
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
 
     def get_serialize_process_sp(self, order, parent_mapping):
