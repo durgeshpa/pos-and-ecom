@@ -124,6 +124,11 @@ def update_price_discounted_product():
     Update price of discounted product on the basis of remaining life
     and Move to expired when life ends
     """
+    type_normal = InventoryType.objects.get(inventory_type='normal')
+    type_expired = InventoryType.objects.get(inventory_type='expired')
+    state_total_available = InventoryState.objects.get(inventory_state='total_available')
+    today = datetime.datetime.today().date()
+    tr_id = today.isoformat()
     inventory = BinInventory.objects.filter(sku__product_type = 1,
                                                             inventory_type__inventory_type='normal', quantity__gt=0) \
                                                             .prefetch_related('sku__parent_product') \
@@ -137,7 +142,7 @@ def update_price_discounted_product():
         discounted_life = math.floor(product_life.days * dis_prod.sku.parent_product.discounted_life_percent / 100)
         half_life = (discounted_life - 2) / 2
 
-        type_normal = InventoryType.objects.get(inventory_type='normal')
+        
 
         # Calculate Base Price
         product_price = dis_prod.sku.product_ref.product_pro_price.filter(seller_shop=dis_prod.warehouse,
@@ -151,13 +156,8 @@ def update_price_discounted_product():
         dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
 
         if remaining_life.days <= 2:
-            type_expired = InventoryType.objects.get(inventory_type='expired')
-            state_canceled = InventoryState.objects.get(inventory_state='canceled')
-            state_total_available = InventoryState.objects.get(inventory_state='total_available')
-            today = datetime.datetime.today().date()
-            tr_id = today.isoformat()
             move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
-                            state_total_available, state_canceled, type_normal, type_expired, tr_id, 'expired')
+                            state_total_available, type_normal, type_expired, tr_id, 'expired')
 
         elif remaining_life.days <= half_life:
             if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
@@ -181,7 +181,7 @@ def update_price_discounted_product():
 
 
 def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
-                   state_total_available, state_canceled, type_normal,type_expired, tr_id, tr_type_expired):
+                   state_total_available, type_normal,type_expired, tr_id, tr_type_expired):
 
     discounted_batch_id = batch_id
     with transaction.atomic():
@@ -197,7 +197,7 @@ def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
                                                                             quantity, True, tr_type_expired,
                                                                             tr_id)
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
-                                                                                        type_expired, state_canceled,
+                                                                                        type_expired, state_total_available,
                                                                                         quantity, tr_type_expired,
                                                                                         tr_id)
 
