@@ -395,7 +395,8 @@ class CouponOfferCreation(GenericAPIView):
         shop = Shop.objects.filter(id=shop_id).last()
         retailer_primary_product = data['primary_product_id']
         try:
-            retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
+            retailer_primary_product_obj = RetailerProduct.objects.get(~Q(sku_type=4), id=retailer_primary_product,
+                                                                       shop=shop_id)
         except ObjectDoesNotExist:
             return api_response("Primary product not found")
         retailer_free_product = data['free_product_id']
@@ -975,7 +976,17 @@ class VendorListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = Vendor.objects.filter(retailer_shop=self.shop, status=True)
+        queryset = Vendor.objects.filter(retailer_shop=self.shop)
+
+        vendor_status = self.request.GET.get('status', None)
+        if vendor_status in [True, False]:
+            queryset = queryset.filter(status=vendor_status)
+
+        search_text = self.request.GET.get('search_text', None)
+        if search_text:
+            queryset = queryset.filter(Q(company_name__icontains=search_text) | Q(vendor_name__icontains=search_text)
+                                       | Q(contact_person_name__icontains=search_text)
+                                       | Q(phone_number__icontains=search_text))
         return queryset
 
     @check_pos_shop
@@ -1045,7 +1056,16 @@ class POListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at')
+        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at').prefetch_related(
+            'po_products')
+
+        search_text = self.request.GET.get('search_text', None)
+        if search_text:
+            queryset = queryset.filter(Q(vendor__company_name__icontains=search_text)
+                                       | Q(vendor__vendor_name__icontains=search_text)
+                                       | Q(vendor__contact_person_name__icontains=search_text)
+                                       | Q(vendor__phone_number__icontains=search_text)
+                                       | Q(po_no__icontains=search_text))
         return queryset
 
     @check_pos_shop
@@ -1074,7 +1094,7 @@ class GrnOrderView(GenericAPIView):
         try:
             data = json.loads(self.request.data["data"])
         except:
-            return {'error': "Invalid Data Format"}
+            return api_response("Invalid Data Format")
         data['invoice'] = request.FILES.get('invoice')
         serializer = PosGrnOrderCreateSerializer(data=data,
                                                  context={'user': self.request.user, 'shop': kwargs['shop']})
@@ -1091,7 +1111,7 @@ class GrnOrderView(GenericAPIView):
         try:
             data = json.loads(self.request.data["data"])
         except:
-            return {'error': "Invalid Data Format"}
+            return api_response("Invalid Data Format")
         data['invoice'] = request.FILES.get('invoice')
         data['grn_id'] = kwargs['pk']
         serializer = PosGrnOrderUpdateSerializer(data=data,

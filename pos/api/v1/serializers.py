@@ -4,7 +4,7 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Func, Value, CharField
 from django.db import transaction
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
@@ -206,8 +206,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Discounted price is required to create discounted product")
             elif 'discounted_stock' not in attrs:
                 raise serializers.ValidationError("Discounted stock is required to create discounted product")
-            if attrs['discounted_price'] >= sp:
+            elif attrs['discounted_price'] <= 0 :
+                raise serializers.ValidationError("Discounted Price should be greater than 0")
+            elif attrs['discounted_price'] >= sp:
                 raise serializers.ValidationError("Discounted Price should be less than selling price")
+            elif attrs['discounted_stock'] < 0:
+                raise serializers.ValidationError("Invalid discounted stock")
         return attrs
 
 
@@ -1540,7 +1544,7 @@ class VendorSerializer(serializers.ModelSerializer):
 class VendorListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ('id', 'vendor_name')
+        fields = ('id', 'vendor_name', 'contact_person_name', 'phone_number', 'status')
 
 
 class POProductSerializer(serializers.ModelSerializer):
@@ -1597,7 +1601,7 @@ class POSerializer(serializers.ModelSerializer):
             for product in cart_products:
                 PosCartProductMapping.objects.create(cart=cart, product_id=product['product_id'], qty=product['qty'],
                                                      price=product['price'])
-            mail_to_vendor_on_po_creation(cart)
+            mail_to_vendor_on_po_creation.delay(cart.id)
             return cart
 
     def update(self, cart_id, validated_data):
@@ -1619,31 +1623,50 @@ class POSerializer(serializers.ModelSerializer):
             cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
             cart.save()
             if self.context.get('send_mail', False):
-                mail_to_vendor_on_po_creation(cart)
+                mail_to_vendor_on_po_creation.delay(cart.id)
 
 
 class POProductGetSerializer(serializers.ModelSerializer):
+    mrp = serializers.SerializerMethodField()
     grned_qty = serializers.SerializerMethodField()
+    po_price_history = serializers.SerializerMethodField()
 
-    def get_grned_qty(self, obj):
+    @staticmethod
+    def get_po_price_history(obj):
+        product = obj.product
+        return PosCartProductMapping.objects.filter(cart__retailer_shop=product.shop, product=product).order_by(
+            '-created_at').annotate(date=Func(F('created_at'), Value('DD Mon YYYY'),
+                                              function='to_char', output_field=CharField()))[:3].values('price', 'date')
+
+    @staticmethod
+    def get_grned_qty(obj):
         already_grn = obj.product.pos_product_grn_order_product.filter(grn_order__order__ordered_cart=obj.cart). \
             aggregate(Sum('received_qty')).get('received_qty__sum')
         return already_grn if already_grn else 0
 
+    @staticmethod
+    def get_mrp(obj):
+        return obj.product.mrp
+
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'price', 'qty', 'grned_qty')
+        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history')
 
 
 class POGetSerializer(serializers.ModelSerializer):
     po_products = POProductGetSerializer(many=True)
     raised_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
+    total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_price(obj):
+        return obj.po_products.aggregate(Sum('price')).get('price__sum')
 
     class Meta:
         model = PosCart
-        fields = ('id', 'vendor_id', 'vendor_name', 'po_no', 'status', 'po_products', 'raised_by', 'last_modified_by',
-                  'created_at', 'modified_at')
+        fields = ('id', 'vendor_id', 'vendor_name', 'po_no', 'status', 'po_products', 'total_price', 'raised_by',
+                  'last_modified_by', 'created_at', 'modified_at')
 
 
 class POProductInfoSerializer(serializers.ModelSerializer):
@@ -1659,17 +1682,34 @@ class POProductInfoSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_po_price_history(obj):
         return PosCartProductMapping.objects.filter(cart__retailer_shop=obj.shop, product=obj).order_by(
-            '-created_at')[:3].values_list('price', flat=True)
+            '-created_at').annotate(date=Func(F('created_at'), Value('DD Mon YYYY'),
+                                              function='to_char', output_field=CharField()))[:3].values('price', 'date')
 
     class Meta:
         model = RetailerProduct
-        fields = ('selling_price', 'stock_qty', 'po_price_history')
+        fields = ('name', 'selling_price', 'stock_qty', 'po_price_history')
 
 
 class POListSerializer(serializers.ModelSerializer):
+    total_qty = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_qty(obj):
+        return obj.po_products.aggregate(Sum('qty')).get('qty__sum')
+
+    @staticmethod
+    def get_total_price(obj):
+        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+
+    @staticmethod
+    def get_date(obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
+
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'status')
+        fields = ('id', 'po_no', 'vendor_name', 'total_qty', 'total_price', 'status', 'date')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
@@ -1685,10 +1725,13 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
     products = PosGrnProductSerializer(many=True)
     invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
         allowed_extensions=['pdf'])])
+    invoice_no = serializers.CharField(required=True, max_length=100)
+    invoice_date = serializers.DateField(required=True)
+    invoice_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=True, min_value=0.01)
 
     class Meta:
         model = PosGRNOrder
-        fields = ('po_id', 'products', 'invoice')
+        fields = ('po_id', 'products', 'invoice', 'invoice_no', 'invoice_date', 'invoice_amount')
 
     def validate(self, attrs):
         shop = self.context.get('shop')
@@ -1699,11 +1742,15 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid PO Id")
         if po.status == PosCart.CANCELLED:
             raise serializers.ValidationError("This PO was cancelled")
-        if po.status == PosCart.DELIVERED:
-            raise serializers.ValidationError("PO completely delivered")
+        # if po.status == PosCart.DELIVERED:
+        #     raise serializers.ValidationError("PO completely delivered")
 
-        grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
-            grn_order__order=po.pos_po_order).values('product').annotate(received_qty_sum=Sum(F('received_qty')))}
+        # **** Limit GRN to 1
+        if PosGRNOrder.objects.filter(order=po.pos_po_order).exists():
+            raise serializers.ValidationError("GRN already created for this PO")
+
+        # grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
+        #     grn_order__order=po.pos_po_order).values('product').annotate(received_qty_sum=Sum(F('received_qty')))}
 
         # Validate products
         product_added = False
@@ -1712,12 +1759,17 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             po_product = po.po_products.filter(product_id=product['product_id']).last()
             if not po_product:
                 raise serializers.ValidationError("Product Id Invalid {}".format(product['product_id']))
-            product_added = True if int(product['received_qty']) > 0 else product_added
+            # product_added = True if int(product['received_qty']) > 0 else product_added
+            product_added = True
             product_obj = po_product.product
-            already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
-            if int(product['received_qty']) + already_grned_qty > po_product.qty:
+            # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
+            # if int(product['received_qty']) + already_grned_qty > po_product.qty:
+            #     raise serializers.ValidationError(
+            #         "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+            #             product_obj.name))
+            if int(product['received_qty']) > po_product.qty:
                 raise serializers.ValidationError(
-                    "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+                    "{}. Received quantity cannot be greater than PO quantity".format(
                         product_obj.name))
         if not product_added:
             raise serializers.ValidationError("Please provide grn info for atleast one product")
@@ -1727,7 +1779,10 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
             po = PosCart.objects.get(id=validated_data['po_id'])
-            grn_order = PosGRNOrder.objects.create(order=po.pos_po_order, added_by=user, last_modified_by=user)
+            grn_order = PosGRNOrder.objects.create(order=po.pos_po_order, added_by=user, last_modified_by=user,
+                                                   invoice_no=validated_data['invoice_no'],
+                                                   invoice_amount=validated_data['invoice_amount'],
+                                                   invoice_date=validated_data['invoice_date'])
             for product in products:
                 if product['received_qty'] > 0:
                     PosGRNOrderProductMapping.objects.create(grn_order=grn_order, product_id=product['product_id'],
@@ -1744,7 +1799,8 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             po.save()
             # Upload invoice
             if 'invoice' in validated_data and validated_data['invoice']:
-                Document.objects.create(grn_order=grn_order, document=validated_data['invoice'])
+                Document.objects.create(grn_order=grn_order, document=validated_data['invoice'],
+                                        document_number=validated_data['invoice_no'])
             return grn_order
 
 
@@ -1753,10 +1809,13 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
     products = PosGrnProductSerializer(many=True)
     invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
         allowed_extensions=['pdf'])])
+    invoice_no = serializers.CharField(required=True, max_length=100)
+    invoice_date = serializers.DateField(required=True)
+    invoice_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=True, min_value=0.01)
 
     class Meta:
         model = PosGRNOrder
-        fields = ('grn_id', 'products', 'invoice')
+        fields = ('grn_id', 'products', 'invoice', 'invoice_no', 'invoice_date', 'invoice_amount')
 
     def validate(self, attrs):
         shop = self.context.get('shop')
@@ -1769,9 +1828,9 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
         if grn_order.order.ordered_cart.status == PosCart.CANCELLED:
             raise serializers.ValidationError("The PO was cancelled")
 
-        grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
-            grn_order__order=grn_order.order).exclude(grn_order=grn_order).values('product').annotate(
-            received_qty_sum=Sum(F('received_qty')))}
+        # grn_products = {int(i['product']): i['received_qty_sum'] for i in PosGRNOrderProductMapping.objects.filter(
+        #     grn_order__order=grn_order.order).exclude(grn_order=grn_order).values('product').annotate(
+        #     received_qty_sum=Sum(F('received_qty')))}
 
         # Validate products
         product_added = False
@@ -1780,12 +1839,17 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             po_product = grn_order.order.ordered_cart.po_products.filter(product_id=product['product_id']).last()
             if not po_product:
                 raise serializers.ValidationError("Product Id Invalid {}".format(product['product_id']))
-            product_added = True if int(product['received_qty']) > 0 else product_added
+            product_added = True
+            # product_added = True if int(product['received_qty']) > 0 else product_added
             product_obj = po_product.product
-            already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
-            if int(product['received_qty']) + already_grned_qty > po_product.qty:
+            # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
+            # if int(product['received_qty']) + already_grned_qty > po_product.qty:
+            #     raise serializers.ValidationError(
+            #         "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+            #             product_obj.name))
+            if int(product['received_qty']) > po_product.qty:
                 raise serializers.ValidationError(
-                    "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
+                    "{}. Received quantity cannot be greater than PO quantity".format(
                         product_obj.name))
         if not product_added:
             raise serializers.ValidationError("Please provide grn info for atleast one product")
@@ -1796,6 +1860,9 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
             grn_order = PosGRNOrder.objects.get(id=grn_id)
             grn_order.last_modified_by = user
+            grn_order.invoice_no = validated_data['invoice_no']
+            grn_order.invoice_amount = validated_data['invoice_amount']
+            grn_order.invoice_date = validated_data['invoice_date']
             grn_order.save()
             for product in products:
                 mapping, _ = PosGRNOrderProductMapping.objects.get_or_create(grn_order=grn_order,
@@ -1819,8 +1886,10 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             PosCart.objects.filter(id=grn_order.order.ordered_cart.id).update(status=po_status)
             # Upload invoice
             if 'invoice' in validated_data and validated_data['invoice']:
-                Document.objects.filter(grn_order=grn_order).delete()
-                Document.objects.create(grn_order=grn_order, document=validated_data['invoice'])
+                doc, _ = Document.objects.get_or_create(grn_order=grn_order)
+                doc.document = validated_data['invoice']
+                doc.document_number = validated_data['invoice_no']
+                doc.save()
             return grn_order
 
 
@@ -1875,5 +1944,5 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosGRNOrder
-        fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'pos_grn_invoice', 'added_by', 'last_modified_by',
-                  'created_at', 'modified_at')
+        fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'invoice_no', 'invoice_amount', 'invoice_date',
+                  'pos_grn_invoice', 'added_by', 'last_modified_by', 'created_at', 'modified_at')

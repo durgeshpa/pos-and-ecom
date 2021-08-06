@@ -244,6 +244,9 @@ class PosOrder(models.Model):
 
 class PosGRNOrder(models.Model):
     grn_id = models.CharField(max_length=255, null=True, blank=True)
+    invoice_no = models.CharField(max_length=100, null=True)
+    invoice_date = models.DateField(null=True)
+    invoice_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
     order = models.ForeignKey(PosOrder, verbose_name='PO Number', on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, related_name='grn_order_added', null=True, blank=True, on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(User, related_name='grn_order_last_modified', null=True, blank=True,
@@ -279,6 +282,7 @@ class PosGRNOrderProductMapping(models.Model):
 class Document(models.Model):
     grn_order = models.OneToOneField(PosGRNOrder, null=True, blank=True, on_delete=models.CASCADE,
                                      related_name='pos_grn_invoice')
+    document_number = models.CharField(max_length=255, null=True, blank=True)
     document = models.FileField(null=True, blank=True, upload_to='pos_grn_invoice')
 
 
