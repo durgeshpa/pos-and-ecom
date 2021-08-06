@@ -950,22 +950,21 @@ class VendorView(GenericAPIView):
         serializer = self.serializer_class(data=data)
         if serializer.is_valid():
             serializer.save()
-            return api_response('', serializer.data, status.HTTP_200_OK, True)
+            return api_response('Vendor created successfully!', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
-        vendor_obj = Vendor.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).last()
-        vendor_status = request.data.get('status', None)
-        if vendor_status and vendor_status not in [True, False]:
-            return api_response("Please provide a valid status choice")
-        if vendor_obj:
-            vendor_obj.status = vendor_status if vendor_status is not None else vendor_obj.status
-            vendor_obj.save()
-            return api_response('', self.serializer_class(vendor_obj).data, status.HTTP_200_OK, True)
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('Vendor updated Successfully!', None, status.HTTP_200_OK, True)
         else:
-            return api_response("Vendor not found")
+            return api_response(serializer_error(serializer))
 
 
 class VendorListView(ListAPIView):
@@ -1017,7 +1016,7 @@ class POView(GenericAPIView):
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save()
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1025,11 +1024,11 @@ class POView(GenericAPIView):
     def put(self, request, *args, **kwargs):
         data = request.data
         data['id'] = kwargs['pk']
-        serializer = self.serializer_class(data=request.data,
+        serializer = self.serializer_class(data=data,
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.update(kwargs['pk'], serializer.data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1102,7 +1101,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.create(s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1120,7 +1119,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.update(kwargs['pk'], s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 

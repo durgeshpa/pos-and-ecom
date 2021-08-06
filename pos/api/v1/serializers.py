@@ -1529,16 +1529,35 @@ class AddressCheckoutSerializer(serializers.ModelSerializer):
 
 
 class VendorSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = Vendor
         fields = ('id', 'company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
                   'email', 'address', 'pincode', 'gst_number', 'retailer_shop', 'status')
 
     def validate(self, attrs):
+
         city = Pincode.objects.filter(pincode=attrs['pincode']).last()
         if not city:
             raise serializers.ValidationError("Invalid Pincode")
+
+        shop = self.context.get('shop')
+        if 'id' in attrs:
+            if not Vendor.objects.filter(retailer_shop=shop, id=attrs['id']).exists():
+                raise serializers.ValidationError("Invalid vendor id")
         return attrs
+
+    def update(self, vendor_id, validated_data):
+        vendor_obj = Vendor.objects.filter(id=vendor_id).last()
+        vendor_obj.company_name, vendor_obj.vendor_name = validated_data['company_name'], validated_data['vendor_name']
+        vendor_obj.contact_person_name = validated_data['contact_person_name']
+        vendor_obj.phone_number = validated_data['phone_number']
+        vendor_obj.alternate_phone_number = validated_data['alternate_phone_number']
+        vendor_obj.email, vendor_obj.address = validated_data['email'], validated_data['address']
+        vendor_obj.pincode, vendor_obj.gst_number = validated_data['pincode'], validated_data['gst_number']
+        vendor_obj.status = validated_data['status']
+        vendor_obj.save()
 
 
 class VendorListSerializer(serializers.ModelSerializer):
