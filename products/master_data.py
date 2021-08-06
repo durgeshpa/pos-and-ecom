@@ -2,7 +2,9 @@ import logging
 import io
 import datetime
 import csv
+import codecs
 from django.db.models import Q
+
 
 from brand.models import Brand
 from categories.models import Category
@@ -667,10 +669,6 @@ class UploadMasterData(object):
             error_logger.info(f"Something went wrong, while working with create Brand "
                               f" + {str(e)}")
 
-    @classmethod
-    def create_bulk_product_vendor_mapping(cls, csv_file_data_list, user):
-        pass
-
 
 class DownloadMasterData(object):
     """
@@ -1109,3 +1107,32 @@ def create_product_vendor_mapping_sample_file(validated_data):
     info_logger.info("Create Product Vendor Mapping Sample CSVExported successfully ")
     response.seek(0)
     return response
+
+
+def create_bulk_product_vendor_mapping(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            if row[4].title() == "Per Piece":
+                product_vendor = ProductVendorMapping.objects.create(
+                    vendor=validated_data['vendor_id'],
+                    product=Product.objects.get(id=int(row[0])),
+                    product_mrp=Product.objects.get(id=int(row[0])).product_mrp,
+                    brand_to_gram_price_unit=row[3].title(),
+                    product_price=row[4],
+                    case_size=row[5],
+                )
+            else:
+                product_vendor = ProductVendorMapping.objects.create(
+                    vendor=validated_data['vendor_id'],
+                    product=Product.objects.get(id=int(row[0])),
+                    product_mrp=Product.objects.get(id=int(row[0])).product_mrp,
+                    brand_to_gram_price_unit=row[3].title(),
+                    product_price_pack=row[4],
+                    case_size=row[5],
+                )
+            product_vendor.save()
+    except Exception as e:
+        error_logger.info(f"Something went wrong, while working with create Product Vendor Mapping "
+                          f" + {str(e)}")

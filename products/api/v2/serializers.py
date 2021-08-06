@@ -17,9 +17,8 @@ from retailer_backend.validators import *
 from products.common_validators import read_file, get_validate_vendor
 from categories.common_validators import get_validate_category
 from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
-from products.master_data import create_product_vendor_mapping_sample_file
+from products.master_data import create_product_vendor_mapping_sample_file, create_bulk_product_vendor_mapping
 from products.api.v1.serializers import UserSerializers
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,6 @@ error_logger = logging.getLogger('file-error')
 
 
 class CategoryListSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = Category
 
@@ -49,14 +47,14 @@ DATA_TYPE_CHOICES = (
         ('create_brand', 'Create Brand'),
         ('create_product_vendor_mapping', 'Create Product Vendor Mapping')
     )
-    ),
+     ),
     ('update_data', (
         ('child_product_update', 'Update Child Product'),
         ('parent_product_update', 'Update Parent Product'),
         ('category_update', 'Update Category'),
         ('brand_update', 'Update Brand'),
     )
-    ),
+     ),
     ('upload_bulk_images', (
         ('child_product_image_update', 'Update Child Product Images'),
         ('parent_product_image_update', 'Update Parent Product Images'),
@@ -91,7 +89,7 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
         if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == \
-                "child_parent_product_update" or data['upload_type'] == "parent_product_update"\
+                "child_parent_product_update" or data['upload_type'] == "parent_product_update" \
                 or data['upload_type'] == "child_product_update":
 
             if not 'category_id' in self.initial_data:
@@ -150,7 +148,8 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == "parent_product_update" \
-                or data['upload_type'] == "child_parent_product_update" or data['upload_type'] == "child_product_update":
+                or data['upload_type'] == "child_parent_product_update" or data[
+            'upload_type'] == "child_product_update":
 
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
@@ -400,10 +399,9 @@ class CategoryImageSerializers(serializers.ModelSerializer):
 
 
 class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor_id', )
+        fields = ('vendor_id',)
 
     def validate(self, data):
 
@@ -423,7 +421,7 @@ class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
         return response
 
 
-class BulkProductVendorMapping(serializers.ModelSerializer):
+class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
     """
       Bulk Product Vendor Mapping
     """
@@ -431,6 +429,7 @@ class BulkProductVendorMapping(serializers.ModelSerializer):
 
     class Meta:
         model = ProductVendorMapping
+        fields = ('file',)
 
     def validate(self, data):
         if not data['file'].name[-4:] in '.csv':
@@ -440,12 +439,12 @@ class BulkProductVendorMapping(serializers.ModelSerializer):
             raise serializers.ValidationError(_('Please Select One vendor!'))
 
         elif 'vendor_id' in self.initial_data and self.initial_data['vendor_id']:
-            vendor_val = get_validate_vendor(self.initial_data['vendor_id'])
+            vendor_val = get_validate_vendor(int(self.initial_data['vendor_id']))
             if 'error' in vendor_val:
                 raise serializers.ValidationError(_(vendor_val["error"]))
-            self.initial_data['vendor_val'] = vendor_val['vendor']
+            data['vendor_id'] = vendor_val['vendor']
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         child_product = Product.objects.all()
         for id, row in enumerate(reader):
@@ -458,29 +457,49 @@ class BulkProductVendorMapping(serializers.ModelSerializer):
                 raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
                                                   " | Product does not exist with this ID")
 
-            if not (row[4].title() == "Per Piece" or row[4].title() == "Per Pack"):
-                raise serializers.ValidationError( "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " +
-                                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID_STRING'] %
-                                                   ("Gram_to_brand_Price_Unit"))
+            if not (row[3].title() == "Per Piece" or row[3].title() == "Per Pack"):
+                raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " +
+                                                  VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID_STRING'] %
+                                                  ("Gram_to_brand_Price_Unit"))
 
-            if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
+            if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
                 raise serializers.ValidationError(
                     "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                         'INVALID_PRICE'])
 
-            if not row[6] or not re.match("^[\d\,]*$", row[6]):
+            # if row[4] < product.product_mrp:
+            #     raise serializers.ValidationError(
+            #         "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
+            #         "brand_to_gram_price should be less than product mrp")
+
+            if not row[5] or not re.match("^[\d\,]*$", row[5]):
                 raise serializers.ValidationError(
                     "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                        'EMPTY_OR_NOT_VALID'] % ("Case_size"))
+                        'EMPTY_OR_NOT_VALID'] % "Case_size")
 
         return data
 
     @transaction.atomic
     def create(self, validated_data):
         try:
-            create_product_vendor_mapping_sample_file(validated_data)
+            create_bulk_product_vendor_mapping(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return validated_data
+        attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
+        if attribute_id:
+            validated_data['file'].name = 'create_product_vendor_mapping' + '-' + str(attribute_id['id'] + 1) + '.csv '
+        else:
+            validated_data['file'].name = 'create_product_vendor_mapping' + '-' + str(1) + '.csv'
+        product_attribute = BulkUploadForProductAttributes.objects.create(file=validated_data['file'],
+                                                                          updated_by=validated_data['updated_by'],
+                                                                          upload_type='create_product_vendor_mapping')
+
+        return product_attribute
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        representation['updated_at'] = instance.updated_at.strftime("%b %d %Y %I:%M%p")
+        return representation
