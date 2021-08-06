@@ -1,5 +1,7 @@
 import logging
 
+from dal import autocomplete
+from django.db.models import Q
 from django.http import HttpResponse
 from rest_framework import authentication
 from rest_framework import generics
@@ -53,3 +55,11 @@ class InOutLedgerCSV(generics.GenericAPIView):
             info_logger.info("InOutLedgerCSV Exported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class ProductSkuAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Product.objects.all()
+        if self.q:
+            qs = qs.filter(Q(product_sku__icontains=self.q) | Q(product_name__icontains=self.q))
+        return qs
