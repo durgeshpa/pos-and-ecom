@@ -565,7 +565,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_display = [
         'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
         'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent'
+        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -627,7 +627,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         field_names = [
             'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
             'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent'
+            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
         ]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)

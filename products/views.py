@@ -1420,7 +1420,7 @@ def set_parent_data_sample_excel_file(request, *args):
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-               'is_lead_time_applicable']
+               'is_lead_time_applicable', 'discounted_life_percent']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1451,7 +1451,8 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'parent_product__ptr_percent',
                                                            'parent_product__is_ars_applicable',
                                                            'parent_product__max_inventory',
-                                                           'parent_product__is_lead_time_applicable').filter(
+                                                           'parent_product__is_lead_time_applicable',
+                                                           'parent_product__discounted_life_percent').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1504,6 +1505,7 @@ def set_parent_data_sample_excel_file(request, *args):
         row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
         row.append(product['parent_product__max_inventory'])
         row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
+        row.append(product['parent_product__discounted_life_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
