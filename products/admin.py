@@ -565,7 +565,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_display = [
         'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
         'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent'
+        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -627,7 +627,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         field_names = [
             'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
             'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent'
+            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
         ]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1767,15 +1767,6 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return ''
     product_gst.short_description = 'Product GST'
 
-    def is_ptr_applicable(self, obj):
-        return obj.parent_product.is_ptr_applicable
-
-    def ptr_type(self, obj):
-        return obj.parent_product.ptr_type_text
-
-    def ptr_percent(self, obj):
-        return obj.parent_product.ptr_percent
-
     def product_category(self, obj):
         try:
             if obj.parent_product.parent_product_pro_category.exists():
@@ -1786,6 +1777,11 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
             return ''
     product_category.short_description = 'Product Category'
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
