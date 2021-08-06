@@ -36,7 +36,8 @@ from common.data_wrapper_view import DataWrapperViewSet
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
-from ecom.utils import check_ecom_user_shop
+from ecom.utils import check_ecom_user_shop, check_ecom_user
+from ecom.api.v1.serializers import EcomOrderListSerializer
 
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
@@ -2517,11 +2518,13 @@ class OrderCentral(APIView):
             cart_type
             order_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_order()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
@@ -2650,6 +2653,19 @@ class OrderCentral(APIView):
         """
         try:
             order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("Order Not Found!")
+        return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+
+    @check_ecom_user
+    def get_ecom_order(self, request, *args, **kwargs):
+        """
+            Get Order
+            For Basic Cart
+        """
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'],
+                                      buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
         return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
@@ -3404,11 +3420,13 @@ class OrderListCentral(GenericAPIView):
             cart_type
             shop_id
         """
-        cart_type = request.GET.get('cart_type', '1')
-        if cart_type == '1':
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == '1':
             return self.get_retail_order_list()
-        elif cart_type == '2':
+        elif app_type == '2':
             return self.get_basic_order_list(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_order_list(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
@@ -3469,7 +3487,7 @@ class OrderListCentral(GenericAPIView):
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'])
+        qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
@@ -3478,6 +3496,12 @@ class OrderListCentral(GenericAPIView):
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
         return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
+
+    @check_ecom_user_shop
+    def get_ecom_order_list(self, request, *args, **kwargs):
+        # Search, Paginate, Return Orders
+        qs = Order.objects.filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM', buyer=self.request.user)
+        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -3509,6 +3533,11 @@ class OrderListCentral(GenericAPIView):
         order = order.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return BasicOrderListSerializer(objects, many=True).data
+
+    def get_serialize_process_ecom(self, order):
+        order = order.order_by('-created_at')
+        objects = self.pagination_class().paginate_queryset(order, self.request)
+        return EcomOrderListSerializer(objects, many=True).data
 
 
 class OrderedItemCentralDashBoard(APIView):

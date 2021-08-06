@@ -52,7 +52,7 @@ class Address(models.Model):
 
 
 class EcomOrderAddress(models.Model):
-    order_id = models.ForeignKey(Order, on_delete=models.DO_NOTHING)
+    order_id = models.OneToOneField(Order, on_delete=models.DO_NOTHING, related_name='ecom_address_order')
     address = models.CharField(max_length=255, validators=[AddressNameValidator])
     contact_name = models.CharField(max_length=255, null=True, blank=True)
     contact_number = models.CharField(validators=[MobileNumberValidator], max_length=10, blank=True)
