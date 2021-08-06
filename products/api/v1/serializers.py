@@ -17,7 +17,8 @@ from accounts.models import User
 
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
-    get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, product_gst, \
+    get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
+    product_gst, \
     product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
     get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name, validate_tax_name
 from products.common_function import ParentProductCls, ProductCls
@@ -155,7 +156,7 @@ class ChildProductVendorSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('id', 'product_name', 'product_sku', 'repackaging_type',  'status', 'product_pro_image',
+        fields = ('id', 'product_name', 'product_sku', 'repackaging_type', 'status', 'product_pro_image',
                   'product_vendor_mapping')
 
 
@@ -263,7 +264,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
                   'is_lead_time_applicable', 'product_images', 'parent_product_pro_image', 'product_parent_product',
-                  'parent_product_log', )
+                  'parent_product_log',)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -356,7 +357,8 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         meta = ParentProduct._meta
         field_names = [
             'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
-            'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
+            'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable',
+            'ptr_type',
             'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory',
         ]
 
@@ -740,7 +742,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         if child_product.repackaging_type == 'destination':
             self.create_source_packing_material_destination_product(child_product,
-                                                                            destination_product_repack)
+                                                                    destination_product_repack)
 
         return child_product
 
@@ -874,7 +876,7 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
     def validate(self, data):
         hsn_id = self.instance.id if self.instance else None
         if 'product_hsn_code' in self.initial_data and data['product_hsn_code']:
-            if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True)\
+            if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True) \
                     .exclude(id=hsn_id).exists():
                 raise serializers.ValidationError("hsn code already exists.")
 
@@ -920,7 +922,8 @@ class TaxCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(tax_obj['error'])
         if 'tax_type' in self.initial_data and 'tax_percentage' in self.initial_data:
             if data['tax_type'] and data['tax_percentage'] and \
-                    Tax.objects.filter(tax_type=data['tax_type'], tax_percentage=data['tax_percentage']).exclude(id=tax_id).exists():
+                    Tax.objects.filter(tax_type=data['tax_type'], tax_percentage=data['tax_percentage']).exclude(
+                        id=tax_id).exists():
                 raise serializers.ValidationError("tax with this tax type & tax percentage already exists .")
 
         return data
@@ -1121,7 +1124,8 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 
         if data.get('case_size') is None:
             raise serializers.ValidationError("please enter case_size")
-
+        if data.get('case_size') <= 0:
+            raise serializers.ValidationError(" 'case_size' Ensure this value is greater than 0")
         if self.initial_data['vendor'] is None:
             raise serializers.ValidationError("please select vendor")
 
@@ -1145,6 +1149,114 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
         model = ProductVendorMapping
         fields = ('id', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'status', 'is_default',
                   'vendor', 'product')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create vendor product mapping """
+        try:
+            product_vendor_map = ProductCls.create_product_vendor_mapping(self.initial_data['product'],
+                                                                          self.initial_data['vendor'], **validated_data)
+            ProductCls.create_product_vendor_map_log(product_vendor_map, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_vendor_map
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update vendor product mapping """
+        try:
+            # call super to save modified instance along with the validated data
+            product_vendor_map_obj = super().update(instance, validated_data)
+            product_vendor_map = ProductCls.update_product_vendor_mapping(self.initial_data['product'],
+                                                                          self.initial_data['vendor'],
+                                                                          product_vendor_map_obj)
+            ProductCls.create_product_vendor_map_log(instance, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_vendor_map
+
+
+class ProductVendorMappingExportAsCSVSerializers(serializers.ModelSerializer):
+    product_vendor_mapping_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('product_vendor_mapping_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('product_vendor_mapping_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one product vendor mapping id must be selected '))
+
+        for pv_id in data.get('product_vendor_mapping_id_list'):
+            try:
+                ProductVendorMapping.objects.get(id=pv_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'product vendor mapping not found for id {pv_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = ProductVendorMapping._meta
+        exclude_fields = ['id', 'product_price_pack', 'brand_to_gram_price_unit', 'updated_at', 'created_by',
+                          'updated_by', 'is_default']
+        #  list_display = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', 'created_at', 'status')
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = ProductVendorMapping.objects.filter(id__in=validated_data['product_vendor_mapping_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+
+class ProductPriceSerializers(serializers.ModelSerializer):
+    product = ChildProductSerializers(read_only=True)
+    seller_shop = VendorSerializers(read_only=True)
+    buyer_shop = VendorSerializers(read_only=True)
+    city = VendorSerializers(read_only=True)
+    pincode = VendorSerializers(read_only=True)
+
+    def validate(self, data):
+        if data.get('product_price') is None and data.get('product_price_pack') is None:
+            raise serializers.ValidationError("please enter one Brand to Gram Price")
+
+        if data.get('case_size') is None:
+            raise serializers.ValidationError("please enter case_size")
+
+        if self.initial_data['vendor'] is None:
+            raise serializers.ValidationError("please select vendor")
+
+        if self.initial_data['product'] is None:
+            raise serializers.ValidationError("please select product")
+
+        if not (data.get('product_price') is None or data.get('product_price_pack') is None):
+            raise serializers.ValidationError("please enter only one Brand to Gram Price")
+
+        product_val = get_validate_product(self.initial_data['product'])
+        if 'error' in product_val:
+            raise serializers.ValidationError(product_val['error'])
+
+        vendor_val = get_validate_vendor(self.initial_data['vendor'])
+        if 'error' in vendor_val:
+            raise serializers.ValidationError(vendor_val['error'])
+
+        return data
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('id', 'mrp', 'selling_price', 'seller_shop', 'buyer_shop', 'city', 'pincode',
+                  'price_to_retailer', 'product', 'start_date', 'end_date', 'approval_status', 'status')
 
     @transaction.atomic
     def create(self, validated_data):

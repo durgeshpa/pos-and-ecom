@@ -278,9 +278,8 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'is_default')
 
-    list_display = (
-    'vendor', 'product', 'product_price', 'product_price_pack', 'mrp', 'case_size', 'created_at', 'status',
-    'product_status')
+    list_display = ('vendor', 'product', 'product_price', 'product_price_pack', 'mrp', 'case_size', 'created_at',
+                    'status', 'product_status')
     list_filter = [VendorFilter, ProductFilter, 'product__status', 'status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit', ]

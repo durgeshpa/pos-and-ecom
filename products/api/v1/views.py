@@ -10,7 +10,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice
 from categories.models import Category
 from brand.models import Brand, Vendor
 
@@ -21,7 +21,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
-    ProductHSNCrudSerializers, HSNExportAsCSVSerializers
+    ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, ProductVendorMappingExportAsCSVSerializers
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -224,6 +224,22 @@ class TaxExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("Tax CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ProductVendorMappingExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductVendorMappingExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product vendor mapping CSV """
+
+        info_logger.info("product vendor mapping ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product vendor mapping CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
 
@@ -1046,3 +1062,103 @@ class ProductVendorMappingView(GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid product vendor mapping  id {id}', False)
         return get_response('product vendor mapping were deleted successfully!', True)
+
+
+class SlabProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ).order_by('-id')
+    serializer_class = ProductPriceSerializers
+
+    def get(self, request):
+        """ GET API for Product Price """
+
+        info_logger.info("Product Price GET api called.")
+        pro_vendor_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Product Price for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_vendor_map = id_validation['data']
+        else:
+            """ GET Product Price  List """
+            self.queryset = self.search_filter_product_vendor_map()
+            pro_vendor_count = self.queryset.count()
+            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {pro_vendor_count}" if product_vendor_map else "no product price found"
+        serializer = self.serializer_class(product_vendor_map, many=True)
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Product Price """
+
+        info_logger.info("Product Price POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('product price created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Product Price Updation """
+
+        info_logger.info("Product Price PUT api called.")
+        if not request.data.get('id'):
+            return get_response('please provide id to update product price', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        product_vendor_map_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('product price updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_vendor_map(self):
+
+        vendor_id = self.request.GET.get('vendor_id')
+        product_id = self.request.GET.get('product_id')
+        product_status = self.request.GET.get('product_status')
+        status = self.request.GET.get('status')
+        search_text = self.request.GET.get('search_text')
+        # search using tax_name and tax_type based on criteria that matches
+        if search_text:
+            self.queryset = product_vendor_search(self.queryset, search_text.strip())
+
+        # filter using vendor_id, product_id, product_status & status exact match
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if vendor_id is not None:
+            self.queryset = self.queryset.filter(vendor_id=vendor_id)
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(product__status=product_status)
+        return self.queryset
+
+    def delete(self, request):
+        """ Delete Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping DELETE api called.")
+        if not request.data.get('product_price_ids'):
+            return get_response('please select product price', False)
+        try:
+            for id in request.data.get('product_price_ids'):
+                product_price_id = self.queryset.get(id=int(id))
+                try:
+                    product_price_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'product_price_id': product_price_id}
+                    info_logger.info("product price deleted info ", dict_data)
+                except Exception as er:
+                    return get_response(f'You can not delete product price {product_price_id}, '
+                                        f'because this product price is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product price id {id}', False)
+        return get_response('product price were deleted successfully!', True)
