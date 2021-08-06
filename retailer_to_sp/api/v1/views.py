@@ -2,7 +2,6 @@ import logging
 import re
 from decimal import Decimal
 import json
-from retailer_to_sp.common_validators import validate_payment_type
 import requests
 from datetime import datetime, timedelta
 from operator import itemgetter
@@ -60,7 +59,9 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from pos.offers import BasicCartOffers
 from pos.common_validators import validate_user_type_for_pos_shop
 
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, PaymentType
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
+from retailer_backend.settings import AWS_MEDIA_URL
+
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
@@ -72,7 +73,8 @@ from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping 
                                      Order as GramMappedOrder)
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems)
+                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
+                                   CreditNote)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
@@ -443,6 +445,7 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue
         """
         search_type = self.request.GET.get('search_type', '2')
+        # app_type = self.request.GET.get('app_type', '0')
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type != '2':
             # Normal Search
@@ -558,13 +561,17 @@ class SearchProducts(APIView):
         brand = self.request.GET.get('brands')
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
+        is_discounted = self.request.GET.get('is_discounted', None)
         filter_list = []
+        # if self.request.GET.get('app_type') != '2':
         if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
                 {"range": {"available": {"gt": 0}}}
             ]
+        if is_discounted:
+            filter_list.append({"term": {"is_discounted": is_discounted}},)
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
@@ -892,6 +899,7 @@ class CartCentral(GenericAPIView):
                 app_type (retail-1 or basic-2)
         """
         app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_cart()
         elif app_type == '2':
@@ -914,6 +922,7 @@ class CartCentral(GenericAPIView):
                 qty (Quantity of product to be added)
         """
         app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.data.get('cart_type', '1')
         if app_type == '1':
             return self.retail_add_to_cart()
         elif app_type == '2':
@@ -934,6 +943,7 @@ class CartCentral(GenericAPIView):
                 qty
         """
         app_type = request.META.get('HTTP_APP_TYPE', None)
+        # app_type = self.request.data.get('cart_type')
         if app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
         else:
@@ -2519,7 +2529,8 @@ class OrderCentral(APIView):
             app_type
             order_id
         """
-        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_order()
         elif app_type == '2':
@@ -2534,6 +2545,7 @@ class OrderCentral(APIView):
             allowed updates to order status
         """
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.data.get('cart_type', '1')
         if app_type == '1':
             return self.put_retail_order(kwargs['pk'])
         elif app_type == '2':
@@ -2617,6 +2629,7 @@ class OrderCentral(APIView):
                     shop_id (Seller shop id)
         """
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = self.request.data.get('cart_type', '1')
         if app_type == '1':
             return self.post_retail_order()
         elif app_type == '2':
@@ -2872,12 +2885,11 @@ class OrderCentral(APIView):
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
-        # Check payment method
-        payment_method = self.request.data.get('payment_method')
-        if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
-            return {'error': 'Please provide a valid payment method'}
-        payment_type = dict()
-        payment_type['data'] = PaymentType.objects.get(type=payment_method)
+        # Check Payment Type
+        try:
+            payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
+        except:
+            return {'error': "Invalid Payment Type"}
 
         email = self.request.data.get('email')
         if email:
@@ -2885,7 +2897,7 @@ class OrderCentral(APIView):
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_type': payment_type['data']}
+        return {'cart': cart, 'payment_type': payment_type}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -3423,7 +3435,8 @@ class OrderListCentral(GenericAPIView):
             app_type
             shop_id
         """
-        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.GET.get('cart_type', '1')
         if app_type == '1':
             return self.get_retail_order_list()
         elif app_type == '2':
@@ -3556,6 +3569,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         """
         app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # app_type = request.GET.get('app_type')
         if app_type == '1':
             return self.get_retail_order_overview()
         elif app_type == '2':
