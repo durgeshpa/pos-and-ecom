@@ -151,7 +151,7 @@ class ParentProduct(models.Model):
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
     is_lead_time_applicable = models.BooleanField(default=False)
-    discounted_life_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
+    discounted_life_percent = models.DecimalField(max_digits=4, decimal_places=2, default=0,
                                                   validators=[PercentageValidator])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

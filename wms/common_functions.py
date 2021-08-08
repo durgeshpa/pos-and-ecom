@@ -5,6 +5,8 @@ import logging
 import datetime
 from celery.task import task
 from decouple import config
+from rest_framework import status
+from rest_framework.response import Response
 
 # django imports
 from django import forms
@@ -2137,3 +2139,35 @@ def get_earliest_expiry_date(product, shop, inventory_type, is_discounted):
         elif exp_date < earliest_expiry_date:
             earliest_expiry_date = exp_date
     return earliest_expiry_date
+
+
+def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
+    """
+        General Response For API
+    """
+    if success:
+        result = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            result = {"is_success": True,
+                      "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            result = {"is_success": False, "message": msg, "response_data": []}
+
+    return Response(result, status=status_code)
+
+
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    return errors[0]

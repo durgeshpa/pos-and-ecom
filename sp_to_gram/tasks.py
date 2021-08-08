@@ -1,20 +1,10 @@
-import sys
-import os
-import datetime
-import json
-import itertools
+
 from celery.task import task
-from celery.contrib import rdb
-import requests
-import json
-from django.db.models import F,Sum, Q
-from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch import Elasticsearch
 
 from shops.models import Shop
-from sp_to_gram import models
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
-from wms.common_functions import get_visibility_changes
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 

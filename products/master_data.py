@@ -135,7 +135,8 @@ class UploadMasterData(object):
                         fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                   'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
                                   'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type',
-                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable']
+                                  'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
+                                  'discounted_life_percent']
                         available_fields = []
                         for col in fields:
                             if col in row.keys():
@@ -216,6 +217,9 @@ class UploadMasterData(object):
                             if col == 'is_lead_time_applicable':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
                                     (is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
+                            if col == 'discounted_life_percent':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
+                                    (discounted_life_percent=row['discounted_life_percent'])
                     except Exception as e:
                         parent_data.append(str(row_num) + ' ' + str(e))
                 else:

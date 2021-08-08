@@ -3,6 +3,8 @@ from PIL import Image
 import PIL
 import datetime
 from decimal import Decimal
+from itertools import chain
+
 
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -12,9 +14,10 @@ from django.conf import settings
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from shops.models import ParentRetailerMapping
 from shops.models import Shop
+from wms.models import In, Out
 from django.db.models import Sum
 import csv
-from .forms import SalesReportForm
+from .forms import InOutLedgerForm, SalesReportForm
 from django.views import View
 from products.models import Product, ProductPrice
 from .models import RetailerReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
@@ -801,3 +804,50 @@ class ResizeImage(APIView):
 #
 #
 #     })
+
+class InOutLedgerReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_in_out_ledger_report(self, product_id, start_date, end_date):
+        sku_id = Product.objects.filter(id=product_id).last().product_sku
+        ins = In.objects.filter(sku=sku_id, created_at__gte=start_date, created_at__lte=end_date)
+        outs = Out.objects.filter(sku=sku_id, created_at__gte=start_date, created_at__lte=end_date)
+        data = sorted(chain(ins, outs), key=lambda instance: instance.created_at)
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        sku_id = self.request.GET.get('sku')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/in-out-ledger.html',
+                {'form': InOutLedgerForm(user=None, initial=self.request.GET)}
+            )
+        data = self.get_in_out_ledger_report(sku_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="ledger-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'IN TYPE', 'OUT TYPE', 'TRANSACTION ID', 'QUANTITY'])
+        for obj in data:
+            if obj.__class__.__name__ == 'In':
+                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, obj.in_type, None, obj.in_type_id, obj.quantity])
+            elif obj.__class__.__name__ == 'Out':
+                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, obj.out_type, obj.out_type_id, obj.quantity])
+            else:
+                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None, obj.quantity])
+        return response
+
+
+class InOutLedgerFormView(View):
+    def get(self, request):
+        form = InOutLedgerForm(user=request.user)
+        return render(
+            self.request,
+            'admin/services/in-out-ledger.html',
+            {'form': form}
+        )
