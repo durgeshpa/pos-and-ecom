@@ -4,7 +4,7 @@ from django.contrib import admin
 from .views import (ProductCategoryAutocomplete, FetchDefaultChildDdetails,
                     ParentProductAutocomplete, FetchProductDdetails,
                     ProductAutocomplete, FetchAllParentCategories, FetchAllParentCategoriesWithID,
-                    FetchAllProductBrands, SourceProductAutocomplete, PackingProductAutocomplete, DiscountedProductAutocomplete, FetchDiscountedProductdetails,)
+                    FetchAllProductBrands, SourceProductAutocomplete, PackingProductAutocomplete, DiscountedProductAutocomplete, FetchDiscountedProductdetails)
 
 urlpatterns = [
     url(r'^category-autocomplete/$', ProductCategoryAutocomplete.as_view(), name='category-autocomplete',),

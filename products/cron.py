@@ -124,6 +124,7 @@ def update_price_discounted_product():
     Update price of discounted product on the basis of remaining life
     and Move to expired when life ends
     """
+    cron_logger.info('cron update price of discounted product | started')
     type_normal = InventoryType.objects.get(inventory_type='normal')
     type_expired = InventoryType.objects.get(inventory_type='expired')
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
@@ -132,51 +133,57 @@ def update_price_discounted_product():
     inventory = BinInventory.objects.filter(sku__product_type = 1,
                                                             inventory_type__inventory_type='normal', quantity__gt=0) \
                                                             .prefetch_related('sku__parent_product') \
-                                                            .prefetch_related('sku__product_ref') \
-                                                            .prefetch_related(Prefetch('sku__product_ref__ins', queryset=In.objects.all().order_by('-created_at'), to_attr='latest_in'))
+                                                            .prefetch_related('sku__product_ref') 
     for dis_prod in inventory:
-        expiry_date = dis_prod.sku.product_ref.latest_in[0].expiry_date
-        manufacturing_date = dis_prod.sku.product_ref.latest_in[0].manufacturing_date
-        product_life = expiry_date - manufacturing_date
-        remaining_life = expiry_date - datetime.date.today()
-        discounted_life = math.floor(product_life.days * dis_prod.sku.parent_product.discounted_life_percent / 100)
-        half_life = (discounted_life - 2) / 2
+        try:
+            latest_in = In.objects.filter(batch_id = dis_prod.batch_id)
+            expiry_date = latest_in[0].expiry_date
+            manufacturing_date = latest_in[0].manufacturing_date
+            product_life = expiry_date - manufacturing_date
+            remaining_life = expiry_date - datetime.date.today()
+            discounted_life = math.floor(product_life.days * dis_prod.sku.parent_product.discounted_life_percent / 100)
+            half_life = (discounted_life - 2) / 2
 
-        
+            # Calculate Base Price
+            product_price = dis_prod.sku.product_ref.product_pro_price.filter(seller_shop=dis_prod.warehouse,
+                                                    approval_status=ProductPrice.APPROVED).last()
+            base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+            base_price = base_price_slab.ptr
+            half_life_selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
+            selling_price = None
 
-        # Calculate Base Price
-        product_price = dis_prod.sku.product_ref.product_pro_price.filter(seller_shop=dis_prod.warehouse,
-                                                   approval_status=ProductPrice.APPROVED).last()
-        base_price_slab = product_price.price_slabs.filter(end_value=0).last()
-        base_price = base_price_slab.ptr
-        half_life_selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
-        selling_price = None
+            #Active Discounted Product Price
+            dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
 
-        #Active Discounted Product Price
-        dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
+            if remaining_life.days <= 2:
+                move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
+                                state_total_available, type_normal, type_expired, tr_id, 'expired')
+                cron_logger.info(f'moved discounted product {dis_prod.sku} succcessfully to expired if remaining life is less than 2.')
 
-        if remaining_life.days <= 2:
-            move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
-                            state_total_available, type_normal, type_expired, tr_id, 'expired')
+            elif remaining_life.days <= half_life:
+                if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price and not dis_prod_price.last().is_manual_price_update:
+                    selling_price = half_life_selling_price
+                    cron_logger.info(f'update selling price of discounted product {dis_prod.sku} succcessfully if remaining life is less than or equal to half life and not updated.')
+            else:
+                if not dis_prod_price.last():
+                    selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
+                    cron_logger.info(f'update selling price of discounted product {dis_prod.sku} succcessfully if price doesnot exist.')
 
-        elif remaining_life.days <= half_life:
-            if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price:
-                selling_price = half_life_selling_price
-        else:
-            if not dis_prod_price.last():
-                selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
+            if selling_price:
+                with transaction.atomic():
+                    discounted_price =  ProductPrice.objects.create(
+                                            product=dis_prod.sku,
+                                            mrp=dis_prod.product_mrp,
+                                            selling_price=selling_price,
+                                            seller_shop=dis_prod.warehouse,
+                                            start_date=datetime.datetime.today(),
+                                            approval_status=ProductPrice.APPROVED)
+                    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+                                                            selling_price=selling_price)
+                    cron_logger.info(f'Successfully created discounted price for {dis_prod.sku}')
 
-        if selling_price:
-            with transaction.atomic():
-                discounted_price =  ProductPrice.objects.create(
-                                        product=dis_prod.sku,
-                                        mrp=dis_prod.product_mrp,
-                                        selling_price=selling_price,
-                                        seller_shop=dis_prod.warehouse,
-                                        start_date=datetime.datetime.today(),
-                                        approval_status=ProductPrice.APPROVED)
-                PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
-                                                        selling_price=selling_price)
+        except Exception:
+            cron_logger.error(f'update discounted product price | exception for sku {dis_prod.sku}')
             
 
 
