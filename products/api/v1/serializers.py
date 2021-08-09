@@ -8,9 +8,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
-    ProductHSN, ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, \
-    ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, Weight, CentralLog
+    ProductTaxMapping, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, \
+    ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, Weight, CentralLog, PriceSlab
 from categories.models import Category
+from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
 from shops.models import Shop
 from accounts.models import User
@@ -18,10 +19,17 @@ from accounts.models import User
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
-    product_gst, \
-    product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
+    product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
     get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name, validate_tax_name
 from products.common_function import ParentProductCls, ProductCls
+
+
+class ChoiceField(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'value': self._choices[obj]}
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -1220,43 +1228,74 @@ class ProductVendorMappingExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
+class CitySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = City
+        fields = ('id', 'city_name',)
+
+
+class PinCodeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Pincode
+        fields = ('id', 'pincode',)
+
+
+class ShopsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['service_partner'] = {
+            'id': representation['id'],
+            'shop': representation['__str__']
+        }
+        return representation['service_partner']
+
+
+class ProductsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',)
+
+
+class PriceSlabSerializersData(serializers.ModelSerializer):
+
+    class Meta:
+        model = PriceSlab
+        fields = ('id', 'start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
+                  'offer_price_end_date', 'ptr',)
+
+
 class ProductPriceSerializers(serializers.ModelSerializer):
-    product = ChildProductSerializers(read_only=True)
-    seller_shop = VendorSerializers(read_only=True)
-    buyer_shop = VendorSerializers(read_only=True)
-    city = VendorSerializers(read_only=True)
-    pincode = VendorSerializers(read_only=True)
+    price_slabs = PriceSlabSerializersData(read_only=True, many=True),
+    product = ProductsSerializers(read_only=True)
+    seller_shop = ShopsSerializer(read_only=True)
+    buyer_shop = ShopsSerializer(read_only=True)
+    city = CitySerializer(read_only=True)
+    pincode = PinCodeSerializer(read_only=True)
+    approval_status = ChoiceField(choices=ProductPrice.APPROVAL_CHOICES, required=True)
 
     def validate(self, data):
-        if data.get('product_price') is None and data.get('product_price_pack') is None:
-            raise serializers.ValidationError("please enter one Brand to Gram Price")
-
-        if data.get('case_size') is None:
-            raise serializers.ValidationError("please enter case_size")
-
-        if self.initial_data['vendor'] is None:
-            raise serializers.ValidationError("please select vendor")
 
         if self.initial_data['product'] is None:
             raise serializers.ValidationError("please select product")
 
-        if not (data.get('product_price') is None or data.get('product_price_pack') is None):
-            raise serializers.ValidationError("please enter only one Brand to Gram Price")
-
         product_val = get_validate_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
-
-        vendor_val = get_validate_vendor(self.initial_data['vendor'])
-        if 'error' in vendor_val:
-            raise serializers.ValidationError(vendor_val['error'])
+        data['mrp'] = product_val['product'].product_mrp
 
         return data
 
     class Meta:
-        model = ProductVendorMapping
-        fields = ('id', 'mrp', 'selling_price', 'seller_shop', 'buyer_shop', 'city', 'pincode',
-                  'price_to_retailer', 'product', 'start_date', 'end_date', 'approval_status', 'status')
+        model = ProductPrice
+        fields = ('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',
+                  'price_slabs', )
 
     @transaction.atomic
     def create(self, validated_data):

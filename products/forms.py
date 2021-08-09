@@ -2216,7 +2216,8 @@ class PriceSlabForm(forms.ModelForm):
 
     class Meta:
         model = PriceSlab
-        fields = ('start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date')
+        fields = ('start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
+                  'offer_price_end_date')
 
     def __init__(self, *args, **kwargs):
         super(PriceSlabForm, self).__init__(*args, **kwargs)

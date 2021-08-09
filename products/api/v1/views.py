@@ -13,15 +13,18 @@ from products.models import ParentProduct as ParentProducts, ProductHSN, Product
     ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice
 from categories.models import Category
 from brand.models import Brand, Vendor
-
+from shops.models import Shop
+from shops.services import shop_search, search_city, search_pincode
 from retailer_backend.utils import SmallOffsetPagination
+from addresses.models import Pincode, City
 
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
-    ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, ProductVendorMappingExportAsCSVSerializers
+    ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
+    ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -895,7 +898,7 @@ class ParentProductExportAsCSVView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ChildProductListView(GenericAPIView):
+class ActiveChildProductListView(GenericAPIView):
     """
         Get Child List
     """
@@ -928,6 +931,108 @@ class VendorListView(GenericAPIView):
         vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(vendor, many=True)
         msg = "" if vendor else "no vendor found"
+        return get_response(msg, serializer.data, True)
+
+
+class ChildProductListView(GenericAPIView):
+    """
+        Get Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination'])\
+        .values('id', 'product_name', 'product_sku')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no child product found"
+        return get_response(msg, serializer.data, True)
+
+
+class SellerShopListView(GenericAPIView):
+    """
+        Get SellerShop List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type', 'shop_type__shop_sub_type', ) \
+        .filter(shop_type__shop_type__in=['sp', ]) \
+        .only('id', 'shop_name', 'status', 'shop_type__shop_type', 'shop_type__shop_sub_type__retailer_type_name',
+              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number',)
+    serializer_class = ShopsSerializer
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no seller shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class BuyerShopListView(GenericAPIView):
+    """
+        Get BuyerShop List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+    serializer_class = ShopsSerializer
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no buyer shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class CityListView(GenericAPIView):
+    """
+        Get City List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = City.objects.only('id', 'city_name')
+    serializer_class = CitySerializer
+
+    def get(self, request):
+        """ GET API for City """
+        info_logger.info("City GET api called.")
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_city(self.queryset, search_text)
+        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(city_data, many=True)
+        msg = "" if city_data else "no city found"
+        return get_response(msg, serializer.data, True)
+
+
+class PincodeListView(GenericAPIView):
+    """
+        Get Pincode List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Pincode.objects.only('id', 'pincode')
+    serializer_class = PinCodeSerializer
+
+    def get(self, request):
+        """ GET API for PinCode """
+        info_logger.info("PinCode GET api called.")
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_pincode(self.queryset, search_text)
+        pin_code_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pin_code_data, many=True)
+        msg = "" if pin_code_data else "no pincode found"
         return get_response(msg, serializer.data, True)
 
 
@@ -1067,7 +1172,8 @@ class ProductVendorMappingExportAsCSVView(CreateAPIView):
 class SlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ).order_by('-id')
+    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city',
+                                                   'pincode', ).prefetch_related('price_slabs').order_by('-id')
     serializer_class = ProductPriceSerializers
 
     def get(self, request):

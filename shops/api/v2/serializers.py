@@ -167,8 +167,7 @@ class ShopDocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopDocument
-        fields = ('id', 'shop_document_type',
-                  'shop_document_number', 'shop_document_photo',)
+        fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo',)
 
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):

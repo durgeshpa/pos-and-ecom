@@ -1562,7 +1562,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details', 'slab2_details'
+                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details',
+                    'slab2_details'
                     ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']

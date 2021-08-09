@@ -508,10 +508,8 @@ class ProductPrice(models.Model):
     )
     product = models.ForeignKey(Product, related_name='product_pro_price',
                                 on_delete=models.CASCADE)
-    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
-                              blank=True)
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2,
-                                        null=True, blank=False)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
                                     null=True, blank=True,
                                     on_delete=models.CASCADE)

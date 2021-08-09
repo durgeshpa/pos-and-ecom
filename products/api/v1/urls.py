@@ -4,7 +4,8 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
     ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
     WeightView, WeightExportAsCSVView, ProductHSNView, HSNExportAsCSVView, ChildProductListView, VendorListView, \
-    ProductStatusListView, ProductVendorMappingExportAsCSVView
+    ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
+    BuyerShopListView, CityListView, PincodeListView, SlabProductPriceView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -30,9 +31,16 @@ urlpatterns = [
     url(r'^export-csv-weight/', WeightExportAsCSVView.as_view(), name='export-csv-weight'),
     url(r'^export-csv-hsn/', HSNExportAsCSVView.as_view(), name='export-csv-hsn'),
     url(r'^hsn/', ProductHSNView.as_view(), name='hsn'),
-    url(r'^child-product-list/', ChildProductListView.as_view(), name='child-product-list'),
+    url(r'^child-product-list/', ActiveChildProductListView.as_view(), name='child-product-list'),
     url(r'^vendor-list/', VendorListView.as_view(), name='vendor-list'),
     url(r'^status-list/', ProductStatusListView.as_view(), name='status-list'),
     url(r'^export-csv-product-vendor-mapping/', ProductVendorMappingExportAsCSVView.as_view(),
         name='export-csv-product-vendor-mapping'),
+    url(r'^all-child-product-list/', ChildProductListView.as_view(), name='all-child-product-list'),
+    url(r'^seller-shop-list/', SellerShopListView.as_view(), name='seller-shop-list'),
+    url(r'^buyer-shop-list/', BuyerShopListView.as_view(), name='buyer-shop-list'),
+    url(r'^pincode-list/', PincodeListView.as_view(), name='pincode-list'),
+    url(r'^city-list/', CityListView.as_view(), name='city-list'),
+    url(r'^slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
+
 ]
