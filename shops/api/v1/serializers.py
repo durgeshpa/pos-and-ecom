@@ -3,6 +3,8 @@ import datetime
 from rest_framework import serializers
 from datetime import datetime, timedelta
 
+from django.core.validators import RegexValidator
+
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
     ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
     FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES
@@ -657,59 +659,50 @@ class ShopBasicSerializer(serializers.ModelSerializer):
         fields = ('id', 'shop')
 
 
-class PosShopUserMappingCrudSerializers(serializers.ModelSerializer):
-    shop = ShopBasicSerializer(read_only=True)
-    user = UserSerializer(read_only=True)
-    user_type = ChoiceField(choices=USER_TYPE_CHOICES, required=True)
+class PosShopUserMappingCreateSerializer(serializers.ModelSerializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_number = serializers.CharField(validators=[phone_regex], max_length=10, required=True)
+    user_type = ChoiceField(choices=USER_TYPE_CHOICES)
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('id', 'shop', 'user', 'user_type', 'status', )
-    
-    def validate(self, data):
-        if 'user' in self.initial_data and self.initial_data['user']:
-            user = get_validate_user(
-                self.initial_data['user'])
-            if 'error' in user:
-                raise serializers.ValidationError((user["error"]))
-            data['user'] = user['data']
-        
-        if 'shop' in self.initial_data and self.initial_data['shop']:
-            shop = get_validate_shop(
-                self.initial_data['shop'])
-            if 'error' in shop:
-                raise serializers.ValidationError((shop["error"]))
-            data['shop'] = shop['data']
-        
-        if 'user_type' in self.initial_data and self.initial_data['user_type']:
-            user_type = get_validate_user_type(
-                self.initial_data['user_type'])
-            if 'error' in user_type:
-                raise serializers.ValidationError((user_type["error"]))
-            data['user_type'] = user_type['data']
+        fields = ('phone_number', 'user_type')
 
-        return data
-    
+    def validate(self, attrs):
+        try:
+            user = User.objects.get(phone_number=attrs['phone_number'])
+        except:
+            raise serializers.ValidationError("User with given phone number not found")
+        if PosShopUserMapping.objects.filter(shop=self.context.get('shop'), user=user).exists():
+            raise serializers.ValidationError("User with given phone number already mapped to this shop")
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
-        """Create New POS Shop User Mapping"""
-        try:
-            psu_instance = PosShopUserMapping.objects.create(**validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(
-                e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        
-        return psu_instance
+        user = User.objects.get(phone_number=validated_data['phone_number'])
+        return PosShopUserMapping.objects.create(shop=self.context.get('shop'), user=user,
+                                                 user_type=validated_data['user_type'],
+                                                 created_by=self.context.get('created_by'))
+
+
+class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
+    user_type = serializers.ChoiceField(choices=['cashier', 'manager'], required=False)
+    status = serializers.BooleanField(required=False)
+
+    class Meta:
+        model = PosShopUserMapping
+        fields = ('id', 'user_type', 'status')
+
+    def validate(self, attrs):
+        if not PosShopUserMapping.objects.filter(id=attrs['id'], shop=self.context.get('shop')).exists():
+            raise serializers.ValidationError("Invalid mapping ID")
+        return attrs
 
     @transaction.atomic
-    def update(self, instance, validated_data):
-        """ This method is used to update an instance of the POS Shop User Mapping's attribute. """
-        try:
-            # call super to save modified instance along with the validated data
-            psu_instance = super().update(instance, validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(
-                e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        return psu_instance
+    def update(self, instance_id, validated_data):
+        mapping = PosShopUserMapping.objects.get(id=instance_id)
+        mapping.user_type = validated_data['user_type'] if 'user_type' in validated_data else mapping.user_type
+        mapping.status = validated_data['status'] if 'status' in validated_data else mapping.status
+        mapping.save()
+
