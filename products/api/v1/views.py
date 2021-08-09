@@ -1006,6 +1006,9 @@ class CityListView(GenericAPIView):
     def get(self, request):
         """ GET API for City """
         info_logger.info("City GET api called.")
+        shop_id = self.request.GET.get('shop_id', None)
+        if shop_id:
+            self.queryset = self.queryset.filter(city_address__shop_name__id=shop_id).distinct('id')
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = search_city(self.queryset, search_text)
@@ -1027,6 +1030,9 @@ class PincodeListView(GenericAPIView):
     def get(self, request):
         """ GET API for PinCode """
         info_logger.info("PinCode GET api called.")
+        shop_id = self.request.GET.get('shop_id', None)
+        if shop_id:
+            self.queryset = self.queryset.filter(pincode_address__shop_name__id=shop_id).distinct('pincode')
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = search_pincode(self.queryset, search_text)
