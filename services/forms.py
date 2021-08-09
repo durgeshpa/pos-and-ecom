@@ -141,6 +141,10 @@ class InOutLedgerForm(forms.Form):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-sku-autocomplete', ),
     )
+    warehouse = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='warehouse-autocomplete', ),
+    )
     start_date = forms.DateTimeField(
     widget=DateTimePicker(
         options={

@@ -808,17 +808,24 @@ class ResizeImage(APIView):
 class InOutLedgerReport(APIView):
     permission_classes = (AllowAny,)
 
-    def get_in_out_ledger_report(self, product_id, start_date, end_date):
+    def get_in_out_ledger_report(self, product_id, warehouse_id, start_date, end_date):
         sku_id = Product.objects.filter(id=product_id).last().product_sku
-        ins = In.objects.filter(sku=sku_id, created_at__gte=start_date, created_at__lte=end_date)
-        outs = Out.objects.filter(sku=sku_id, created_at__gte=start_date, created_at__lte=end_date)
+        ins = In.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                created_at__lte=end_date)
+        outs = Out.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                  created_at__lte=end_date)
         data = sorted(chain(ins, outs), key=lambda instance: instance.created_at)
-        return data
+
+        # Sum of qty
+        ins_qty = ins.aggregate(Sum('quantity'))['quantity__sum']
+        outs_qty = outs.aggregate(Sum('quantity'))['quantity__sum']
+        return data, ins_qty if ins_qty else 0, outs_qty if outs_qty else 0
 
     def get(self, *args, **kwargs):
         from django.http import HttpResponse
         from django.contrib import messages
         sku_id = self.request.GET.get('sku')
+        warehouse_id = self.request.GET.get('warehouse')
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
         if end_date and end_date < start_date:
@@ -828,10 +835,13 @@ class InOutLedgerReport(APIView):
                 'admin/services/in-out-ledger.html',
                 {'form': InOutLedgerForm(initial=self.request.GET)}
             )
-        data = self.get_in_out_ledger_report(sku_id, start_date, end_date)
+        data, ins_qty, outs_qty = self.get_in_out_ledger_report(sku_id, warehouse_id, start_date, end_date)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="ledger-report.csv"'
         writer = csv.writer(response)
+        writer.writerow(['TOTAL IN QUANTITY', ins_qty])
+        writer.writerow(['TOTAL OUT QUANTITY', outs_qty])
+        writer.writerow([])
         writer.writerow(['TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'IN TYPE', 'OUT TYPE', 'TRANSACTION ID', 'QUANTITY'])
         for obj in data:
             if obj.__class__.__name__ == 'In':
