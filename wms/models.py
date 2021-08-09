@@ -240,7 +240,7 @@ class Out(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     out_type = models.CharField(max_length=50, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='outs')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()

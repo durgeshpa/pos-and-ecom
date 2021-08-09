@@ -2061,7 +2061,7 @@ def create_update_discounted_products():
                                             sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
                                     .prefetch_related('sku__parent_product') \
                                     .prefetch_related(Prefetch('sku__ins',
-                                                                 queryset=In.objects.all().order_by('-created_at'),
+                                                                 queryset=In.objects.filter(in_type='GRN').order_by('-created_at'),
                                                                  to_attr='latest_in'))
 
     for i in inventory:
@@ -2122,7 +2122,7 @@ def move_inventory(warehouse, discounted_product, original_product, bin, batch_i
 
     discounted_batch_id = batch_id
     available_stock = get_stock(warehouse, type_normal, [original_product.id])
-    available_qty = available_stock.get(original_product.id)
+    available_qty = available_stock.get(original_product.id, 0)
 
     if available_qty <= 0:
         raise Exception('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
