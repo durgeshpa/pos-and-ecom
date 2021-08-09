@@ -540,6 +540,7 @@ class ProductPrice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    is_manual_price_update = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)
@@ -648,6 +649,11 @@ class ProductPrice(models.Model):
     #     return self.product.product_mrp
 
 class SlabProductPrice(ProductPrice):
+
+    class Meta:
+        proxy = True
+
+class DiscountedProductPrice(ProductPrice):
 
     class Meta:
         proxy = True

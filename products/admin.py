@@ -3,6 +3,7 @@ from io import StringIO
 
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
+from django.contrib.admin.options import StackedInline
 from django_filters import BooleanFilter
 from nested_admin.nested import NestedTabularInline
 from rangefilter.filter import DateTimeRangeFilter
@@ -26,7 +27,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm, DiscountedProductPriceSlabCreationForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -59,7 +60,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete)
+                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload, 
+                    get_discounted_product_price_sample_csv)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -1535,6 +1537,21 @@ class PriceSlabAdmin(TabularInline):
     class Media:
         pass
 
+class DiscountedPriceSlabAdmin(StackedInline):
+    """
+    This class is used to create Price Slabs from admin panel
+    """
+    model = PriceSlab
+    can_delete = False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        return self.readonly_fields + ('selling_price',)
+    class Media:
+        pass
+
+
 class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
     """
@@ -1716,12 +1733,129 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
 
+class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
+
+    """
+    This class is used to create Slabbed Product Price of Discounted Product from admin panel
+    """
+    form = ProductPriceSlabForm
+    list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop', 
+                    'city', 'pincode', 'approval_status', 'is_manual_price_update', 'selling_price'
+                    ]
+    autocomplete_fields = ['product']
+    fieldsets = (
+        ('Basic', {
+            'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
+            'classes': ('required',)
+        }),
+        ('Discounted Selling Price',{
+                                'fields': ('selling_price',),
+                                'classes':('selling_price',)
+                            })
+    )
+
+    class Media:
+         js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            'admin/js/child_product_form.js',
+            'admin/js/discountedprice-slab-form.js'
+        )
+
+    def save_model(self, request, obj, form, change):
+        super(DiscountedProductSlabPriceAdmin, self).save_model(request, obj, form, change)
+        PriceSlab.objects.create(product_price=obj, start_value=1, end_value=0,
+                             selling_price=obj.selling_price)
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super(DiscountedProductSlabPriceAdmin, self).get_fieldsets(request, obj)
+        if obj is None:
+            fieldsets = (
+                            ('Basic', {
+                                'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
+                                'classes': ('required',)})
+                            ,
+                            ('Update Price Manually',{
+                                'fields': ('is_manual_price_update',),
+                                'classes': ('manual_price',)
+                            }),
+                            ('Selling Price',{
+                                'fields': ('selling_price',),
+                                'classes':('selling_price',)
+                            })
+            )
+        return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        if not request.user.is_superuser:
+            return self.readonly_fields + (
+                'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'selling_price')
+        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'selling_price')
+
+
+    def reference_product(self, obj):
+        if obj.product.product_ref:
+            return obj.product.product_ref
+        return ''
+
+    def product_mrp(self, obj):
+        if obj.product.product_mrp:
+            return obj.product.product_mrp
+        return ''
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        if not obj:
+            kwargs['form'] = DiscountedProductPriceSlabCreationForm
+        else:
+            kwargs['form'] = ProductPriceSlabForm
+        return super().get_form(request, obj, **kwargs)
+
+
+    def get_queryset(self, request):
+        qs = super(DiscountedProductSlabPriceAdmin, self).get_queryset(request)
+        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False, product__product_type = 1).values_list('pk', flat=True))
+        if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+        ).distinct()
+
+    def get_urls(self):
+        """
+        returns the added action urls for Slab Product Pricing
+        """
+        from django.conf.urls import url
+        urls = super(DiscountedProductSlabPriceAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^discounted_product_price_sample_csv/$',
+                       self.admin_site.admin_view(get_discounted_product_price_sample_csv),
+                       name="discounted_product_price_sample_csv"
+                   ),
+                   url(
+                       r'^discounted_product_price_csv_upload/$',
+                       self.admin_site.admin_view(discounted_product_price_csv_upload),
+                       name="discounted_product_price_csv_upload"
+                   ),
+
+               ] + urls
+        return urls
+    change_list_template = 'admin/products/discountedproduct-slab-price-change-list.html'
+
 class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
+    form = DiscountedProductForm
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
         'product_mrp',   'products_image',  'status'
     ]
+    readonly_fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
+                       'product_ean_code', 'product_mrp', 'status')
 
     list_filter = [ProductSearch, ChildParentIDFilter]
 
@@ -1805,3 +1939,4 @@ admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttribut
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
+admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
