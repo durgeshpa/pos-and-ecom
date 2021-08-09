@@ -826,7 +826,7 @@ class InOutLedgerReport(APIView):
             return render(
                 self.request,
                 'admin/services/in-out-ledger.html',
-                {'form': InOutLedgerForm(user=None, initial=self.request.GET)}
+                {'form': InOutLedgerForm(initial=self.request.GET)}
             )
         data = self.get_in_out_ledger_report(sku_id, start_date, end_date)
         response = HttpResponse(content_type='text/csv')
@@ -845,7 +845,7 @@ class InOutLedgerReport(APIView):
 
 class InOutLedgerFormView(View):
     def get(self, request):
-        form = InOutLedgerForm(user=request.user)
+        form = InOutLedgerForm()
         return render(
             self.request,
             'admin/services/in-out-ledger.html',
