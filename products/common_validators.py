@@ -192,6 +192,17 @@ def get_validate_seller_shop(seller_shop):
     return {'seller_shop': seller_shop}
 
 
+def get_validate_buyer_shop(seller_shop):
+    """ validate buyer_shop id that belong to a Shop model also
+        checking shop_type 'r' or 'f' should be selected """
+    try:
+        seller_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type__in=['r', 'f'])
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid buyer shop id'}
+    return {'buyer_shop': buyer_shop}
+
+
 def check_active_capping(seller_shop, product):
     """ check capping is active for the selected sku and warehouse """
     if ProductCapping.objects.filter(seller_shop=seller_shop,

@@ -20,10 +20,11 @@ from accounts.models import User
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
-    product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_parent_product_image_ids, \
-    get_validate_child_product_image_ids, validate_parent_product_name, validate_child_product_name, validate_tax_name
+    product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop,\
+    get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
+    validate_child_product_name, validate_tax_name
 from products.common_function import ParentProductCls, ProductCls
-
+from shops.common_validators import validate_city_id, validate_pin_code
 
 class ChoiceField(serializers.ChoiceField):
 
@@ -1230,21 +1231,18 @@ class ProductVendorMappingExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class CitySerializer(serializers.ModelSerializer):
-
     class Meta:
         model = City
         fields = ('id', 'city_name',)
 
 
 class PinCodeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Pincode
         fields = ('id', 'pincode',)
 
 
 class ShopsSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Shop
         fields = ('id', '__str__')
@@ -1265,7 +1263,6 @@ class ProductsSerializers(serializers.ModelSerializer):
 
 
 class PriceSlabSerializersData(serializers.ModelSerializer):
-
     class Meta:
         model = PriceSlab
         fields = ('id', 'start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
@@ -1286,17 +1283,42 @@ class ProductPriceSerializers(serializers.ModelSerializer):
 
         if self.initial_data['product'] is None:
             raise serializers.ValidationError("please select product")
-
         product_val = get_validate_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
+        data['product'] = product_val['product']
 
         if product_val['product'] and product_val['product'].product_mrp:
             data['mrp'] = product_val['product'].product_mrp
 
+        if self.initial_data['seller_shop'] is None:
+            raise serializers.ValidationError("please select seller shop")
+        seller_shop_val = get_validate_seller_shop(self.initial_data['seller_shop'])
+        if 'error' in seller_shop_val:
+            raise serializers.ValidationError(seller_shop_val['error'])
+        data['seller_shop'] = seller_shop_val['seller_shop']
+
+        if self.initial_data['buyer_shop']:
+            buyer_shop_val = get_validate_buyer_shop(self.initial_data['buyer_shop'])
+            if 'error' in buyer_shop_val:
+                raise serializers.ValidationError(seller_shop_val['error'])
+            data['buyer_shop'] = buyer_shop_val['buyer_shop']
+
+        if self.initial_data['city']:
+            city_val = validate_city_id(self.initial_data['buyer_shop'])
+            if 'error' in city_val:
+                raise serializers.ValidationError(seller_shop_val['error'])
+            data['buyer_shop'] = city_val['data']
+
+        if self.initial_data['pincode']:
+            pincode_val = validate_pin_code(self.initial_data['pincode'])
+            if 'error' in pincode_val:
+                raise serializers.ValidationError(pincode_val['error'])
+            data['pincode'] = pincode_val['data']
+
         if 'slab_price_applicable' in self.initial_data and self.initial_data['slab_price_applicable'] is False:
             if data.get('selling_price') is None or data.get('selling_price') == 0 or \
-                    data.get('selling_price') > data['mrp']*data['product'].product_inner_case_size:
+                    data.get('selling_price') > data['mrp'] * data['product'].product_inner_case_size:
                 raise serializers.ValidationError('Invalid Selling Price')
             elif data.get('offer_price') is not None:
                 if data.get('selling_price') <= data.get('offer_price'):
