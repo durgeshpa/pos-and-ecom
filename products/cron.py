@@ -130,7 +130,7 @@ def update_price_discounted_product():
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
     today = datetime.datetime.today().date()
     tr_id = today.isoformat()
-    inventory = BinInventory.objects.filter(sku__product_type = 1,
+    inventory = BinInventory.objects.filter(sku__product_type = Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
                                                             inventory_type__inventory_type='normal', quantity__gt=0) \
                                                             .prefetch_related('sku__parent_product') \
                                                             .prefetch_related('sku__product_ref') 
@@ -154,8 +154,9 @@ def update_price_discounted_product():
 
             #Active Discounted Product Price
             dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
+            expired_life_days = get_config('EXPIRED_LIFE_DAYS')
 
-            if remaining_life.days <= 2:
+            if remaining_life.days <= expired_life_days:
                 move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
                                 state_total_available, type_normal, type_expired, tr_id, 'expired')
                 cron_logger.info(f'moved discounted product {dis_prod.sku} succcessfully to expired if remaining life is less than 2.')
