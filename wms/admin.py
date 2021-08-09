@@ -22,6 +22,7 @@ from products.models import ProductVendorMapping
 from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
+from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
@@ -357,6 +358,24 @@ class InAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(InAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^in-out-ledger-report/$',
+               self.admin_site.admin_view(InOutLedgerReport.as_view()),
+               name="in-out-ledger-report"
+           ),
+           url(
+               r'^in-out-ledger-form/$',
+               self.admin_site.admin_view(InOutLedgerFormView.as_view()),
+               name="in-out-ledger-form"
+           )
+        ] + urls
+        return urls
 
 
 class PutAwayAdmin(admin.ModelAdmin):
