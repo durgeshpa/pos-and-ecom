@@ -28,6 +28,8 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from brand.models import Brand
 
 from categories import models as categorymodel
@@ -48,7 +50,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
-                                    RetailerProductResponseSerializer)
+                                    RetailerProductResponseSerializer, PosShopUserMappingListSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart)
@@ -57,6 +59,7 @@ from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from pos.offers import BasicCartOffers
+
 from pos.common_validators import validate_user_type_for_pos_shop
 
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
@@ -77,7 +80,6 @@ from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProdu
                                    CreditNote)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 
@@ -5844,11 +5846,12 @@ class PosUserShopsList(APIView):
     def get(self, request, *args, **kwargs):
         user = request.user
         search_text = request.GET.get('search_text')
-        shops_qs = filter_pos_shop(user)
+        user_mappings = PosShopUserMapping.objects.filter(user=user, status=True, shop__shop_type__shop_type='f',
+                                                          shop__status=True, shop__pos_enabled=True,
+                                                          shop__approval_status=2)
         if search_text:
-            shops_qs = shops_qs.filter(shop_name__icontains=search_text)
-        shops = shops_qs.distinct('id')
-        request_shops = self.pagination_class().paginate_queryset(shops, self.request)
+            user_mappings = user_mappings.filter(shop__shop_name__icontains=search_text)
+        request_shops = self.pagination_class().paginate_queryset(user_mappings, self.request)
         data = PosShopSerializer(request_shops, many=True).data
         if data:
             return api_response("Shops Mapped", data, status.HTTP_200_OK, True)
@@ -5866,8 +5869,7 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        # related_users = shop.related_users.filter(is_staff=False)
-        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop, is_staff=False)
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
-        data['related_users'] = PosShopUserSerializer(request_users, many=True).data
+        data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
