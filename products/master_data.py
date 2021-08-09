@@ -1107,27 +1107,38 @@ class DownloadMasterData(object):
         return response
 
 
-def create_product_vendor_mapping_sample_file(validated_data):
+def create_product_vendor_mapping_sample_file(validated_data, req_type):
     response, writer = DownloadMasterData.response_workbook("create_product_vendor_mapping_sample")
-    columns = ['id', 'product_name', 'product_sku', 'mrp', 'brand_to_gram_price_unit', 'brand_to_gram_price',
-               'case_size']
+    columns = ['id', 'product_name', 'product_sku', 'brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size']
     writer.writerow(columns)
 
     pro_vendor_map = ProductVendorMapping.objects.filter(vendor=validated_data['vendor_id'])
     products_vendors = pro_vendor_map.only('product', 'vendor', 'brand_to_gram_price_unit', 'product_price',
                                            'product_price_pack', 'case_size')
-    for product_vendor in products_vendors:
-        if product_vendor.status:
-            if product_vendor.brand_to_gram_price_unit == "Per Piece":
-                writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
-                                 product_vendor.product.product_sku, product_vendor.product_mrp,
-                                 product_vendor.brand_to_gram_price_unit, product_vendor.product_price,
-                                 product_vendor.case_size])
-            else:
-                writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
-                                 product_vendor.product.product_sku, product_vendor.product_mrp,
-                                 product_vendor.brand_to_gram_price_unit, product_vendor.product_price_pack,
-                                 product_vendor.case_size])
+    if req_type == 0:
+        for product_vendor in products_vendors:
+            if product_vendor.status:
+                if product_vendor.brand_to_gram_price_unit == "Per Piece":
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                     product_vendor.product.product_sku, product_vendor.brand_to_gram_price_unit,
+                                     product_vendor.product_price, product_vendor.case_size])
+                else:
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                     product_vendor.product.product_sku, product_vendor.brand_to_gram_price_unit,
+                                     product_vendor.product_price_pack, product_vendor.case_size])
+    else:
+        if products_vendors:
+            product_id = pro_vendor_map.values('product')
+            products = Product.objects.filter(status="active").exclude(id__in=product_id).only('id', 'product_name',
+                                                                                               'product_sku')
+            for product in products:
+                writer.writerow([product.id, product.product_name, product.product_sku, '', '',
+                                 product.product_case_size])
+        else:
+            products = Product.objects.filter(status="active").only('id', 'product_name', 'product_sku', 'product_mrp')
+            for product in products:
+                writer.writerow([product.id, product.product_name, product.product_sku, '', '',
+                                 product.product_case_size])
     info_logger.info("Create Product Vendor Mapping Sample CSVExported successfully ")
     response.seek(0)
     return response
