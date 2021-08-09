@@ -21,7 +21,7 @@ from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
-from shops.models import Shop
+from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
@@ -1093,14 +1093,19 @@ class CouponListSerializer(serializers.ModelSerializer):
 
 class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shop_id(obj):
-        return obj.id
+        return obj.shop.id
+
+    @staticmethod
+    def get_shop_name(obj):
+        return obj.shop.shop_name
 
     class Meta:
-        model = Shop
-        fields = ('shop_id', 'shop_name')
+        model = PosShopUserMapping
+        fields = ('shop_id', 'shop_name', 'user_type')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
@@ -1931,3 +1936,25 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
         model = PosGRNOrder
         fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'invoice_no', 'invoice_amount', 'invoice_date',
                   'pos_grn_invoice', 'added_by', 'last_modified_by', 'created_at', 'modified_at')
+
+
+class PosShopUserMappingListSerializer(serializers.ModelSerializer):
+    phone_number = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+
+    def get_phone_number(self, obj):
+        return obj.user.phone_number
+
+    def get_email(self, obj):
+        return obj.user.email
+
+    def get_name(self, obj):
+        first_name, last_name, name = obj.user.first_name, obj.user.last_name, '-'
+        if first_name:
+            name = first_name + ' ' + last_name if last_name else first_name
+        return name
+
+    class Meta:
+        model = PosShopUserMapping
+        fields = ('id', 'phone_number', 'name', 'email', 'user_type', 'status')
