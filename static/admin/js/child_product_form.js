@@ -71,3 +71,60 @@ function getProductDetails() {
         cache: false
     });
 }
+
+// function getDiscountedProductDetails() {
+//     if (!$) {
+//         $ = django.jQuery;
+//     }
+//     val = document.getElementById("id_product").value;
+//     ajax_url = "/product/fetch-discountedproduct-details/";
+//     $.ajax({
+//         url: ajax_url,
+//         type : 'GET',
+//         data: { 'product': val },
+//         contentType: "application/json; charset=utf-8",
+//         success: function (data) {
+//             if(data.found === true){
+//                 document.getElementById('id_mrp').value = data.product_mrp;
+//             }
+//             return true;
+//         },
+//         error: function (data) {
+//             console.log("ERROR");
+//             console.error(data);
+//             return true;
+//         },
+//         cache: false
+//     });
+// }
+
+function getSellingPriceDetails() {
+    if (!$) {
+        $ = django.jQuery;
+    }
+    prod = document.getElementById("id_product").value;
+    shop = document.getElementById("id_seller_shop").value;
+    ajax_url = "/product/fetch-discountedproduct-details/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        data: {'product': prod , 'seller_shop': shop ,},
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            if(data.found === 1){
+                document.getElementById('id_mrp').value = data.product_mrp;
+            }
+            if(data.found === 2){
+                document.getElementById('id_mrp').value = data.product_mrp;
+                document.getElementById('id_selling_price').value = data.selling_price;
+            }
+            return true;
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+}

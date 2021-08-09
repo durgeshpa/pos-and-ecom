@@ -8,6 +8,7 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
 from products.models import Product
+from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer
 from ...common_validators import validate_ledger_request
@@ -62,4 +63,14 @@ class ProductSkuAutocomplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.all()
         if self.q:
             qs = qs.filter(Q(product_sku__icontains=self.q) | Q(product_name__icontains=self.q))
+        return qs
+
+
+class WarehouseAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        if self.q:
+            qs = qs.filter(Q(shop_name__icontains=self.q))
+            # qs = qs.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q) |
+            #                Q(shop_owner__first_name__icontains=self.q) | Q(shop_owner__last_name__icontains=self.q))
         return qs
