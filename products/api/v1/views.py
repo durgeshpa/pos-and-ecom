@@ -900,7 +900,7 @@ class ChildProductListView(GenericAPIView):
         Get Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.values('id', 'product_name', 'product_sku')
+    queryset = ChildProduct.objects.filter(status="active").values('id', 'product_name', 'product_sku')
     serializer_class = ProductSerializers
 
     def get(self, request):
@@ -1049,22 +1049,6 @@ class ProductVendorMappingView(GenericAPIView):
 
 
 class ProductVendorMappingExportAsCSVView(CreateAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = ProductVendorMappingExportAsCSVSerializers
-
-    def post(self, request):
-        """ POST API for Download Selected product vendor mapping CSV """
-
-        info_logger.info("product vendor mapping ExportAsCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("product vendor mapping CSVExported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
-
-
-class ProductExportForVendorMappingAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = ProductVendorMappingExportAsCSVSerializers
 
