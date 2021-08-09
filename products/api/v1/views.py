@@ -1059,6 +1059,23 @@ class ProductStatusListView(GenericAPIView):
         return get_response(msg, data, True)
 
 
+class ProductPriceStatusListView(GenericAPIView):
+    """
+        Get ProductPrice Status List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for ProductPrice Status """
+
+        info_logger.info("ProductPrice Status GET api called.")
+        """ GET Status Choice List """
+        fields = ['approval_status', 'approval_status_value']
+        data = [dict(zip(fields, d)) for d in ProductPrice.APPROVAL_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class ProductVendorMappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)

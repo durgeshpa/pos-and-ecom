@@ -1,4 +1,5 @@
 import csv
+import datetime
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
@@ -1279,6 +1280,7 @@ class ProductPriceSerializers(serializers.ModelSerializer):
     city = CitySerializer(read_only=True)
     pincode = PinCodeSerializer(read_only=True)
     approval_status = ChoiceField(choices=ProductPrice.APPROVAL_CHOICES, required=True)
+    slab_price_applicable = serializers.BooleanField(required=False, write_only=True)
 
     def validate(self, data):
 
@@ -1288,14 +1290,30 @@ class ProductPriceSerializers(serializers.ModelSerializer):
         product_val = get_validate_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
-        data['mrp'] = product_val['product'].product_mrp
+
+        if product_val['product'] and product_val['product'].product_mrp:
+            data['mrp'] = product_val['product'].product_mrp
+
+        if 'slab_price_applicable' in self.initial_data and self.initial_data['slab_price_applicable'] is False:
+            if data.get('selling_price') is None or data.get('selling_price') == 0 or \
+                    data.get('selling_price') > data['mrp']*data['product'].product_inner_case_size:
+                raise serializers.ValidationError('Invalid Selling Price')
+            elif data.get('offer_price') is not None:
+                if data.get('selling_price') <= data.get('offer_price'):
+                    raise serializers.ValidationError('Invalid Offer Price')
+                elif data.get('offer_price_start_date') is None or data.get(
+                        'offer_price_start_date') < datetime.datetime.today().date():
+                    raise serializers.ValidationError('Offer Price Start Date is invalid')
+                elif data.get('offer_price_end_date') is None \
+                        or data.get('offer_price_end_date') < data.get('offer_price_start_date'):
+                    raise serializers.ValidationError('Offer Price End Date is invalid')
 
         return data
 
     class Meta:
         model = ProductPrice
         fields = ('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',
-                  'price_slabs', )
+                  'price_slabs', 'slab_price_applicable')
 
     @transaction.atomic
     def create(self, validated_data):
