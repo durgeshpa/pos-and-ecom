@@ -1272,7 +1272,7 @@ class PriceSlabSerializersData(serializers.ModelSerializer):
 
 
 class ProductPriceSerializers(serializers.ModelSerializer):
-    price_slabs = PriceSlabSerializersData(read_only=True, many=True),
+    price_slabs = PriceSlabSerializersData(read_only=True, many=True)
     product = ProductsSerializers(read_only=True)
     seller_shop = ShopsSerializer(read_only=True)
     buyer_shop = ShopsSerializer(read_only=True)
