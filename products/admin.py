@@ -26,7 +26,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -1717,11 +1717,14 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
 
 class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
+    form = DiscountedProductForm
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
         'product_mrp',   'products_image',  'status'
     ]
+    readonly_fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
+                       'product_ean_code', 'product_mrp', 'status')
 
     list_filter = [ProductSearch, ChildParentIDFilter]
 

@@ -549,6 +549,13 @@ class ProductForm(forms.ModelForm):
         return self.cleaned_data
 
 
+class DiscountedProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
+                  'product_ean_code', 'product_mrp', 'status')
+
+
 class ProductSourceMappingForm(forms.ModelForm):
     source_sku = forms.ModelChoiceField(
         queryset=Product.objects.filter(repackaging_type='source'),
