@@ -357,15 +357,15 @@ def read_file(csv_file, upload_master_data, category):
                                 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess',
                                 'status']
     if upload_master_data == "create_brand":
-        required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_description', 'brand_code', 'status']
+        required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description', 'brand_code', 'status']
     if upload_master_data == "create_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',
-                                'status']
+                                'status', 'parent_category_id']
     if upload_master_data == "create_parent_product":
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                                 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
-                                'brand_case_size', ]
+                                'brand_case_size', 'brand_id']
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
@@ -718,6 +718,11 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_name' in row.keys() and row['brand_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_name' can't be empty")
 
+            if 'brand_id' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'brand_id' is a mandatory field")
+            if 'brand_id' in row.keys() and row['brand_id'] == '':
+                raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
+
             if 'category_name' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'category_name' is a mandatory field")
             if 'category_name' in row.keys() and row['category_name'] == '':
@@ -940,13 +945,13 @@ def validate_row(uploaded_data_list, header_list, category):
             row_num += 1
 
             if 'brand_parent' in header_list and 'brand_parent' in row.keys() and row['brand_parent'] != '':
-                if not brand.filter(brand_name=row['brand_parent'].strip()).exists():
+                if not brand.filter(brand_name__iexact=row['brand_parent'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_parent']} | "
                                           f"'brand_parent' doesn't exist in the system ")
             if 'brand_id' in header_list and 'brand_id' in row.keys() and row['brand_id'] != '':
                 if not brand.filter(id=row['brand_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_id']} | "
-                                          f"'Brand_ID' doesn't exist in the system ")
+                                          f"'brand_id' doesn't exist in the system ")
             if 'brand_parent_id' in header_list and 'brand_parent_id' in row.keys() and row['brand_parent_id'] != '':
                 if not brand.filter(id=row['brand_parent_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_parent_id']} | "
@@ -958,13 +963,6 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | {row['brand_id']} | "
                                           f"'Brand and Brand Parent cannot be same'")
 
-            if 'brand_id' in header_list and 'brand_id' in row.keys() and row['brand_id'] != '' and \
-                    'brand_parent_id' in header_list and 'brand_parent_id' in row.keys() and row[
-                'brand_parent_id'] != '':
-                if row['brand_id'] == row['brand_parent_id']:
-                    raise ValidationError(f"Row {row_num} | {row['brand_id']} | "
-                                          f"'Brand and Parent Brand cannot be same'")
-
             if 'category_id' in header_list and 'category_id' in row.keys() and row['category_id'] != '' and \
                     'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row[
                 'parent_category_id'] != '':
@@ -973,15 +971,16 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'Category and Parent Category cannot be same'")
 
             if 'brand_name' in header_list and 'brand_name' in row.keys() and row['brand_name'] != '':
-                if not brand.filter(brand_name=row['brand_name'].strip()).exists():
+                if not brand.filter(brand_name__iexact=row['brand_name'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['brand_name']} | "
                                           f"'Brand_Name' doesn't exist in the system ")
+
             if 'sub_brand_id' in header_list and 'sub_brand_id' in row.keys() and row['sub_brand_id'] != '':
                 if not brand.filter(id=row['sub_brand_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sub_brand_id']} | "
                                           f"'Sub_Brand_ID' doesn't exist in the system ")
             if 'sub_brand_name' in header_list and 'sub_brand_id' in row.keys() and row['sub_brand_name'] != '':
-                if not brand.filter(brand_name=row['sub_brand_name']).exists():
+                if not brand.filter(brand_name__iexact=row['sub_brand_name']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sub_brand_name']} | "
                                           f"'Sub_Brand_Name' doesn't exist in the system ")
             if 'brand_code' in header_list and 'brand_code' in row.keys() and row['brand_code'] != '':
@@ -995,7 +994,7 @@ def validate_row(uploaded_data_list, header_list, category):
                                           f"'category_sku_part' only allow three characters in upper case for SKU  ")
 
             if 'category_parent' in header_list and 'category_parent' in row.keys() and row['category_parent'] != '':
-                if not categories.filter(category_name=row['category_parent'].strip()).exists():
+                if not categories.filter(category_name__iexact=row['category_parent'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_parent']} | "
                                           f"'category_parent' doesn't exist in the system ")
             if 'category_id' in header_list and 'category_id' in row.keys() and row['category_id'] != '':
