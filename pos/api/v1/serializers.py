@@ -1389,6 +1389,9 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
             'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
+        payment_obj = obj.rt_payment_retailer_order.all().last()
+        order_summary['payment_type'] = payment_obj.payment_type.type
+        order_summary['transaction_id'] = payment_obj.transaction_id
         return order_summary
 
     @staticmethod
