@@ -3,6 +3,7 @@ import json
 from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
+from datetime import datetime
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -232,6 +233,7 @@ class PosInventoryCls(object):
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
         return inventory_object.quantity if inventory_object else 0
 
+
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
     if extra_params:
@@ -306,6 +308,41 @@ def update_customer_pos_cart(ph_no, shop_id, changed_by, email=None, name=None, 
     if is_mlm:
         ReferralCode.register_user_for_mlm(customer, changed_by, used_referral_code)
     return customer
+
+
+class PosCartCls(object):
+
+    @classmethod
+    def refresh_prices(cls, cart_products):
+        for cart_product in cart_products:
+            product = cart_product.retailer_product
+            if product.offer_price and product.offer_start_date and product.offer_end_date and \
+                    product.offer_start_date < datetime.now() < product.offer_end_date:
+                cart_product.selling_price = cart_product.retailer_product.offer_price
+            else:
+                cart_product.selling_price = cart_product.retailer_product.selling_price
+            cart_product.save()
+        return cart_products
+
+    @classmethod
+    def out_of_stock_items(cls, cart_products, remove_unavailable=0):
+        out_of_stock_items = []
+
+        for cart_product in cart_products:
+            product = cart_product.retailer_product
+            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+            if available_inventory < cart_product.qty:
+                if remove_unavailable:
+                    CartProductMapping.objects.filter(id=cart_product.id).delete()
+                else:
+                    out_of_stock_items += [{
+                        "name": product.name,
+                        "qty": cart_product.qty,
+                        "available_qty": available_inventory,
+                        "mrp": product.mrp,
+                        "selling_price": cart_product.selling_price,
+                    }]
+        return out_of_stock_items
 
 
 class RewardCls(object):
@@ -688,6 +725,11 @@ class PosAddToCart(object):
                                                       shop=kwargs['shop'])
             except ObjectDoesNotExist:
                 return api_response("Product Not Found!")
+
+            # Inventory check
+            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+            if available_inventory < qty:
+                return api_response("You cannot add more than {} quantities of {}".format(available_inventory, product.name))
 
             # Return with objects
             kwargs['product'] = product
