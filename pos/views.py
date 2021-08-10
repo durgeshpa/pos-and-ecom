@@ -87,12 +87,14 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                    row.get('selling_price'), product.id,
                                                                    2, row.get('description'),
                                                                    row.get('product_ean_code'),
+                                                                   request.user, 'product', None,
                                                                    row.get('status'))
             else:
                 # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                 RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                            row.get('selling_price'), None,
                                                            1, row.get('description'), row.get('product_ean_code'),
+                                                           request.user, 'product', None,
                                                            row.get('status'))
 
         else:
