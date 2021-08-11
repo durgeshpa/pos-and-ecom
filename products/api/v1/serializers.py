@@ -22,9 +22,10 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop,\
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
-    validate_child_product_name, validate_tax_name
+    validate_child_product_name, validate_tax_name, get_validate_slab_price
 from products.common_function import ParentProductCls, ProductCls
 from shops.common_validators import validate_city_id, validate_pin_code
+
 
 class ChoiceField(serializers.ChoiceField):
 
@@ -1277,7 +1278,7 @@ class ProductPriceSerializers(serializers.ModelSerializer):
     city = CitySerializer(read_only=True)
     pincode = PinCodeSerializer(read_only=True)
     approval_status = ChoiceField(choices=ProductPrice.APPROVAL_CHOICES, required=True)
-    slab_price_applicable = serializers.BooleanField(required=False, write_only=True)
+    slab_price_applicable = serializers.BooleanField(required=False, read_only=True)
 
     def validate(self, data):
 
@@ -1305,10 +1306,10 @@ class ProductPriceSerializers(serializers.ModelSerializer):
             data['buyer_shop'] = buyer_shop_val['buyer_shop']
 
         if self.initial_data['city']:
-            city_val = validate_city_id(self.initial_data['buyer_shop'])
+            city_val = validate_city_id(self.initial_data['city'])
             if 'error' in city_val:
                 raise serializers.ValidationError(seller_shop_val['error'])
-            data['buyer_shop'] = city_val['data']
+            data['city'] = city_val['data']
 
         if self.initial_data['pincode']:
             pincode_val = validate_pin_code(self.initial_data['pincode'])
@@ -1316,19 +1317,11 @@ class ProductPriceSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(pincode_val['error'])
             data['pincode'] = pincode_val['data']
 
-        if 'slab_price_applicable' in self.initial_data and self.initial_data['slab_price_applicable'] is False:
-            if data.get('selling_price') is None or data.get('selling_price') == 0 or \
-                    data.get('selling_price') > data['mrp'] * data['product'].product_inner_case_size:
-                raise serializers.ValidationError('Invalid Selling Price')
-            elif data.get('offer_price') is not None:
-                if data.get('selling_price') <= data.get('offer_price'):
-                    raise serializers.ValidationError('Invalid Offer Price')
-                elif data.get('offer_price_start_date') is None or data.get(
-                        'offer_price_start_date') < datetime.datetime.today().date():
-                    raise serializers.ValidationError('Offer Price Start Date is invalid')
-                elif data.get('offer_price_end_date') is None \
-                        or data.get('offer_price_end_date') < data.get('offer_price_start_date'):
-                    raise serializers.ValidationError('Offer Price End Date is invalid')
+        if not 'price_slabs' in self.initial_data or not self.initial_data['price_slabs']:
+            raise serializers.ValidationError(_('price_slabs is required'))
+        get_validate_slab_price(self.initial_data['price_slabs'],
+                                self.initial_data['slab_price_applicable'], data)
+        data['price_slabs'] = self.initial_data['price_slabs']
 
         return data
 
@@ -1339,29 +1332,17 @@ class ProductPriceSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        """ create vendor product mapping """
+        """ create product price mapping """
+        price_slabs = validated_data.pop('price_slabs', None)
         try:
-            product_vendor_map = ProductCls.create_product_vendor_mapping(self.initial_data['product'],
-                                                                          self.initial_data['vendor'], **validated_data)
-            ProductCls.create_product_vendor_map_log(product_vendor_map, "created")
+            product_price = ProductPrice.objects.create(**validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+        self.create_price_slabs(product_price, price_slabs)
 
-        return product_vendor_map
+        return product_price
 
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        """update vendor product mapping """
-        try:
-            # call super to save modified instance along with the validated data
-            product_vendor_map_obj = super().update(instance, validated_data)
-            product_vendor_map = ProductCls.update_product_vendor_mapping(self.initial_data['product'],
-                                                                          self.initial_data['vendor'],
-                                                                          product_vendor_map_obj)
-            ProductCls.create_product_vendor_map_log(instance, "updated")
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-
-        return product_vendor_map
+    def create_price_slabs(self, product_price, price_slabs):
+        for price_slab in price_slabs:
+            PriceSlab.objects.create(product_price=product_price, **price_slab)

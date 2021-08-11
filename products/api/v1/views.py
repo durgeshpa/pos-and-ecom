@@ -1225,7 +1225,7 @@ class SlabProductPriceView(GenericAPIView):
         info_logger.info("Product Price POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
+            serializer.save()
             return get_response('product price created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 

@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+import datetime
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -196,7 +197,7 @@ def get_validate_buyer_shop(seller_shop):
     """ validate buyer_shop id that belong to a Shop model also
         checking shop_type 'r' or 'f' should be selected """
     try:
-        seller_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type__in=['r', 'f'])
+        buyer_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type__in=['r', 'f'])
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid buyer shop id'}
@@ -368,7 +369,8 @@ def read_file(csv_file, upload_master_data, category):
                                 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess',
                                 'status']
     if upload_master_data == "create_brand":
-        required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description', 'brand_code', 'status']
+        required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description',
+                                'brand_code', 'status']
     if upload_master_data == "create_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',
                                 'status', 'parent_category_id']
@@ -1280,3 +1282,55 @@ def validate_row(uploaded_data_list, header_list, category):
     except KeyError as e:
         raise ValidationError(f"Row {row_num} | KeyError : {e} | Something went wrong while "
                               f"checking excel data from dictionary")
+
+
+def get_validate_slab_price(price_slabs, slab_price_applicable, data):
+    """ validate ids that belong to a Category model also
+    checking category shouldn't repeat else through error """
+
+    fields = ["selling_price", "offer_price", "offer_price_start_date", "offer_price_end_date"]
+    slab_price_applicable_fields = ["start_value", "end_value"] + fields
+    if slab_price_applicable:
+        if not len(price_slabs) == 2:
+            raise ValidationError('Only 2 price_slabs allowed.')
+        for val in slab_price_applicable_fields:
+            if val not in price_slabs[0] or val not in price_slabs[1]:
+                raise ValidationError(val + " | key missing.")
+    else:
+        if not len(price_slabs) == 1:
+            raise ValidationError('Only 1 price_slabs allowed.')
+        for val in fields:
+            if val not in price_slabs[0]:
+                raise ValidationError(val + " | key missing.")
+
+    last_slab_end_value = 0
+    last_slab_selling_price = 0
+    last_slab_offer_price = 0
+    for cnt, price_slab in enumerate(price_slabs):
+        if slab_price_applicable:
+            if price_slab['start_value'] is None or price_slab['start_value'] < 0:
+                raise ValidationError("Slab Start Value is Invalid")
+            if price_slab['end_value'] is None or price_slab['end_value'] < 0:
+                raise ValidationError("Slab End Value is Invalid")
+            if cnt != 0 and price_slab['start_value'] <= last_slab_end_value:
+                raise ValidationError("Quantity should be greater than earlier slabs quantity")
+            if cnt != 0 and price_slab['selling_price'] and \
+                    (price_slab['selling_price'] >= last_slab_selling_price or \
+                     (last_slab_offer_price and price_slab['selling_price'] >= last_slab_offer_price)):
+                raise ValidationError("Selling price should be less than earlier slabs selling price/offer price.")
+            last_slab_end_value = price_slab['end_value']
+
+        if price_slab['selling_price'] is None or price_slab['selling_price'] == 0 \
+                or price_slab['selling_price'] > data['mrp']*data['product'].product_inner_case_size:
+            raise ValidationError('Invalid Selling Price')
+        if price_slab['offer_price'] is not None:
+            if price_slab['selling_price'] <= price_slab['offer_price']:
+                raise ValidationError('Invalid Offer Price')
+            elif price_slab['offer_price_start_date'] is None or \
+                    price_slab['offer_price_start_date'] < datetime.datetime.today().date():
+                raise ValidationError('Offer Price Start Date is invalid')
+            elif price_slab['offer_price_end_date'] is None or \
+                    price_slab['offer_price_end_date'] < price_slab['offer_price_start_date']:
+                raise ValidationError('Offer Price End Date is invalid')
+        last_slab_selling_price = price_slab['selling_price']
+        last_slab_offer_price = price_slab['offer_price']
