@@ -1515,6 +1515,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
 class VendorSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
+    alternate_phone_number = serializers.CharField(required=False, default=None)
 
     class Meta:
         model = Vendor
@@ -1531,6 +1532,10 @@ class VendorSerializer(serializers.ModelSerializer):
         if 'id' in attrs:
             if not Vendor.objects.filter(retailer_shop=shop, id=attrs['id']).exists():
                 raise serializers.ValidationError("Invalid vendor id")
+
+        if attrs['alternate_phone_number'] and not re.match(r'^[6-9]\d{9}$', attrs['alternate_phone_number']):
+            raise serializers.ValidationError("Please provide a valid alternate phone number")
+
         return attrs
 
     def update(self, vendor_id, validated_data):
@@ -1727,7 +1732,7 @@ class PosGrnProductSerializer(serializers.ModelSerializer):
 class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
     po_id = serializers.IntegerField()
     products = PosGrnProductSerializer(many=True)
-    invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
+    invoice = serializers.FileField(required=True, validators=[FileExtensionValidator(
         allowed_extensions=['pdf'])])
     invoice_no = serializers.CharField(required=True, max_length=100)
     invoice_date = serializers.DateField(required=True)
