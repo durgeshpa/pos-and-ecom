@@ -418,7 +418,7 @@ def get_stock(shop, inventory_type, product_id_list=None):
 
 
 def get_visibility_changes(shop, product):
-    visibility_changes = {}
+    visibility_changes = {product: False}
     if isinstance(product, int):
         product = Product.objects.filter(id=product).last()
         if not product:
