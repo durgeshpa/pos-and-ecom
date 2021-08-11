@@ -2138,7 +2138,7 @@ def get_earliest_expiry_date(product, shop, inventory_type, is_discounted):
             earliest_expiry_date = exp_date
         elif exp_date < earliest_expiry_date:
             earliest_expiry_date = exp_date
-    return earliest_expiry_date
+    return earliest_expiry_date.strftime('%d-%m-%Y') if earliest_expiry_date is not None else None
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

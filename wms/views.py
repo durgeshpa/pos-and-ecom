@@ -50,7 +50,7 @@ from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBin
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice, Repackaging, ProductCategory, PriceSlab, ProductImage
+from products.models import Product, ProductPrice, Repackaging, ProductCategory, PriceSlab, ProductImage, ParentProduct
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -2047,7 +2047,7 @@ def iterate_data(product, product_list, expired_product_list, expiry_date):
     return product_temp
 
 
-def create_update_discounted_products():
+def create_update_discounted_products(parent_product=None):
     warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
     type_normal = InventoryType.objects.get(inventory_type='normal')
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
@@ -2063,7 +2063,8 @@ def create_update_discounted_products():
                                     .prefetch_related(Prefetch('sku__ins',
                                                                  queryset=In.objects.filter(in_type='GRN').order_by('-created_at'),
                                                                  to_attr='latest_in'))
-
+    if parent_product:
+        inventory = inventory.filter(sku__parent_product=parent_product)
     for i in inventory:
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
         if len(i.sku.latest_in) == 0 :
@@ -2177,6 +2178,11 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
                              selling_price=selling_price)
     return discounted_price
 
+
+@receiver(post_save, sender=ParentProduct)
+def create_discounted_product(sender, instance=None, created=False, **kwargs):
+    if instance.discounted_life_percent > 0:
+        create_update_discounted_products(instance)
 
 
 
