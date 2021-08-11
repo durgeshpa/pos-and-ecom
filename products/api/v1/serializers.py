@@ -24,7 +24,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
     validate_child_product_name, validate_tax_name, get_validate_slab_price
 from products.common_function import ParentProductCls, ProductCls
-from shops.common_validators import validate_city_id, validate_pin_code
+from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
 
 class ChoiceField(serializers.ChoiceField):
@@ -1308,13 +1308,13 @@ class ProductPriceSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError("address is missing for selected buyer shop")
 
         if self.initial_data['city']:
-            city_val = validate_city_id(self.initial_data['city'])
+            city_val = get_validate_city_id(self.initial_data['city'])
             if 'error' in city_val:
-                raise serializers.ValidationError(seller_shop_val['error'])
+                raise serializers.ValidationError(city_val['error'])
             data['city'] = city_val['data']
 
         if self.initial_data['pincode']:
-            pincode_val = validate_pin_code(self.initial_data['pincode'])
+            pincode_val = get_validate_pin_code(self.initial_data['pincode'])
             if 'error' in pincode_val:
                 raise serializers.ValidationError(pincode_val['error'])
             data['pincode'] = pincode_val['data']
