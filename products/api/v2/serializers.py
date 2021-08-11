@@ -536,3 +536,4 @@ class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         response = create_product_vendor_mapping_sample_file(validated_data, validated_data["download_type"])
         return response
+

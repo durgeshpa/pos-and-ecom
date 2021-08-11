@@ -1267,7 +1267,7 @@ class PriceSlabSerializersData(serializers.ModelSerializer):
     class Meta:
         model = PriceSlab
         fields = ('id', 'start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
-                  'offer_price_end_date', 'ptr',)
+                  'offer_price_end_date', )
 
 
 class ProductPriceSerializers(serializers.ModelSerializer):

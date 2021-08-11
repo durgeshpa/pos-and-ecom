@@ -1,4 +1,5 @@
 import logging
+import csv
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -256,15 +257,21 @@ class CreateProductVendorMappingView(GenericAPIView):
 
 class SlabProductPriceSampleCSV(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = DownloadProductVendorMappingSerializers
 
-    def post(self, request):
-        """ POST API for Download Selected product vendor mapping CSV """
+    def get(self, request):
+        """ Get API for Download sample product slab price CSV """
 
-        info_logger.info("product slab price ExportAsCSV POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            info_logger.info("product slab price CSVExported successfully ")
-            return HttpResponse(response, content_type='text/csv')
-        return get_response(serializer_error(serializer), False)
+        info_logger.info("product slab price ExportAsCSV GET api called.")
+        filename = "slab_product_price_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                         "Offer Price 1", "Offer Price 1 Start Date(dd-mm-yy)", "Offer Price 1 End Date(dd-mm-yy)",
+                         "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date(dd-mm-yy)",
+                         "Offer Price 2 End Date(dd-mm-yy)"])
+        writer.writerow(["BDCHNKDOV00000001", "Dove CREAM BAR 100G shop", "600",
+                         "GFDN SERVICES PVT LTD (NOIDA) - 9319404555 - Rakesh Kumar - Service Partner", "47", "9", "46",
+                         "45.5", "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-21", "30-04-21"])
+        info_logger.info("product slab price CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')

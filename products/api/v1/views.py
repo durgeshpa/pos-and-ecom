@@ -1195,8 +1195,11 @@ class ProductVendorMappingExportAsCSVView(CreateAPIView):
 class SlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+
     queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', )\
-        .prefetch_related('price_slabs').order_by('-id')
+        .prefetch_related('price_slabs', 'product__parent_product', 'seller_shop__shop_type', 'buyer_shop__shop_type',
+                          'buyer_shop__shop_owner', 'seller_shop__shop_owner').\
+        only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',).order_by('-id')
     serializer_class = ProductPriceSerializers
 
     def get(self, request):
@@ -1247,7 +1250,8 @@ class SlabProductPriceView(GenericAPIView):
         if product_id is not None:
             self.queryset = self.queryset.filter(product_id=product_id)
         if category_id is not None:
-            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_category__category_id=category_id)
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_category__category_id=
+                                                 category_id)
         if product_sku is not None:
             self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
         if seller_shop_id is not None:
