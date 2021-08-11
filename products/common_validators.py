@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-import datetime
+from datetime import datetime
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -1323,14 +1323,20 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
         if price_slab['selling_price'] is None or price_slab['selling_price'] == 0 \
                 or price_slab['selling_price'] > data['mrp']*data['product'].product_inner_case_size:
             raise ValidationError('Invalid Selling Price')
+
         if price_slab['offer_price'] is not None:
             if price_slab['selling_price'] <= price_slab['offer_price']:
                 raise ValidationError('Invalid Offer Price')
-            elif price_slab['offer_price_start_date'] is None or \
-                    price_slab['offer_price_start_date'] < datetime.datetime.today().date():
+            elif price_slab['offer_price_start_date'] is None:
+                raise ValidationError('Offer Price Start Date is required')
+            elif price_slab['offer_price_end_date'] is None:
+                raise ValidationError('Offer Price End Date is required')
+
+            elif datetime.strptime(price_slab['offer_price_start_date'], "%Y-%m-%d").date() < datetime.today().date():
                 raise ValidationError('Offer Price Start Date is invalid')
-            elif price_slab['offer_price_end_date'] is None or \
-                    price_slab['offer_price_end_date'] < price_slab['offer_price_start_date']:
+            elif datetime.strptime(price_slab['offer_price_start_date'], "%Y-%m-%d").date() < \
+                    datetime.strptime(price_slab['offer_price_end_date'], "%Y-%m-%d").date():
                 raise ValidationError('Offer Price End Date is invalid')
+
         last_slab_selling_price = price_slab['selling_price']
         last_slab_offer_price = price_slab['offer_price']

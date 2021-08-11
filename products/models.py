@@ -549,11 +549,12 @@ class ProductPrice(models.Model):
 
     def update_city_pincode(self):
         if self.buyer_shop and not (self.city or self.pincode):
-            address_data = self.buyer_shop.shop_name_address_mapping\
-                .values('pincode_link', 'city')\
-                .filter(address_type='shipping').last()
-            self.city_id = address_data.get('city')
-            self.pincode_id = address_data.get('pincode_link')
+            if self.buyer_shop.shop_name_address_mapping:
+                address_data = self.buyer_shop.shop_name_address_mapping\
+                    .values('pincode_link', 'city')\
+                    .filter(address_type='shipping').last()
+                self.city_id = address_data.get('city')
+                self.pincode_id = address_data.get('pincode_link')
         if self.pincode and not (self.city and self.buyer_shop):
             self.city_id = self.pincode.city_id
 

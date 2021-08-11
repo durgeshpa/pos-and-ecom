@@ -1339,7 +1339,8 @@ class ProductPriceSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        self.create_price_slabs(product_price, price_slabs)
+        if price_slabs:
+            self.create_price_slabs(product_price, price_slabs)
 
         return product_price
 
