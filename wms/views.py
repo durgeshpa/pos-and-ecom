@@ -2180,7 +2180,7 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
 
 
 @receiver(post_save, sender=ParentProduct)
-def create_discounted_product(sender, instance=None, created=False, **kwargs):
+def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
     if instance.discounted_life_percent > 0:
         create_update_discounted_products(instance)
 

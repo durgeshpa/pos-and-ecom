@@ -340,9 +340,9 @@ class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'inventory_type',
-                    'quantity_display', 'weight_in_kg', 'expiry_date')
+                    'quantity_display', 'weight_in_kg', 'manufacturing_date', 'expiry_date')
     readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'inventory_type',
-                       'quantity', 'expiry_date')
+                       'quantity', 'manufacturing_date', 'expiry_date')
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type',
                    ('expiry_date', DateRangeFilter)]
