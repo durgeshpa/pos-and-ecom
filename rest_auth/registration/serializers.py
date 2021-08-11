@@ -374,7 +374,7 @@ class EcomRegisterSerializer(serializers.Serializer):
             self.set_password_form.save()
             user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
             user.first_name = self.validated_data.get('first_name', '')
-            user.is_ecom_user = True
-            user.save()
+        user.is_ecom_user = True
+        user.save()
         ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
         return user
