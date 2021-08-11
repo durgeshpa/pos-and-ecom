@@ -1229,25 +1229,6 @@ class SlabProductPriceView(GenericAPIView):
             return get_response('product price created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def put(self, request):
-        """ PUT API for Product Price Updation """
-
-        info_logger.info("Product Price PUT api called.")
-        if not request.data.get('id'):
-            return get_response('please provide id to update product price', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data.get('id')))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-        product_slab_price_inc = id_instance['data'].last()
-
-        serializer = self.serializer_class(instance=product_slab_price_inc, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('product price updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
     def search_filter_product_price(self):
 
         seller_shop_id = self.request.GET.get('seller_shop_id')
