@@ -5537,3 +5537,37 @@ class PosShopUsersList(APIView):
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
+
+
+class OrderCommunication(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+
+        com_type, pk, shop = kwargs['type'], kwargs['pk'], kwargs['shop']
+
+        if com_type == 'invoice':
+            try:
+                order = Order.objects.get(pk=pk, seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
+            except:
+                return api_response("Could not find order to send invoice for")
+
+            # Logic...
+
+            return api_response("Invoice sent successfully!", None, status.HTTP_200_OK, True)
+
+        elif com_type == 'credit-note':
+            try:
+                order = OrderReturn.objects.get(pk=pk, order__seller_shop=kwargs['shop'],
+                                                order__ordered_cart__cart_type='BASIC')
+            except:
+                return api_response("Could not find return to send credit note for")
+
+            # Logic...
+
+            return api_response("Credit note sent successfully!", None, status.HTTP_200_OK, True)
+
+        else:
+            return api_response("Invalid communication type")
