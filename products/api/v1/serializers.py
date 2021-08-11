@@ -1302,7 +1302,7 @@ class ProductPriceSerializers(serializers.ModelSerializer):
         if self.initial_data['buyer_shop']:
             buyer_shop_val = get_validate_buyer_shop(self.initial_data['buyer_shop'])
             if 'error' in buyer_shop_val:
-                raise serializers.ValidationError(seller_shop_val['error'])
+                raise serializers.ValidationError(buyer_shop_val['error'])
             data['buyer_shop'] = buyer_shop_val['buyer_shop']
 
         if self.initial_data['city']:
