@@ -645,8 +645,8 @@ class SlabProductPrice(ProductPrice):
 
 class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
-    start_value = models.PositiveIntegerField(default=0)
-    end_value = models.PositiveIntegerField(default=0)
+    start_value = models.PositiveIntegerField()
+    end_value = models.PositiveIntegerField()
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False, validators=[PriceValidator],
                                         verbose_name='Selling Price(Per piece)')
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[PriceValidator],
