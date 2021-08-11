@@ -71,7 +71,7 @@ class CardAppSerializer(serializers.ModelSerializer):
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
     image = Base64ImageField(
-        max_length=None, use_url=True,required=False
+        max_length=None, use_url=True,required=False, allow_null = True
     )
 
     class Meta:
@@ -99,7 +99,7 @@ class CardDataSerializer(serializers.ModelSerializer):
 
     items = CardItemSerializer(many=True, required=False)
     image = Base64ImageField(
-        max_length=None, use_url=True,required=False
+        max_length=None, use_url=True,required=False, allow_null = True
     )
     class Meta:
         model = CardData
@@ -110,7 +110,6 @@ class CardDataSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         card_version = CardVersion.objects.all().filter(card_data=instance).first()
         data['card_id'] = card_version.card.id
-      
         return data
 
     
