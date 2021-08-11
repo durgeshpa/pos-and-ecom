@@ -791,6 +791,10 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/products/product_change_list.html'
     change_form_template = 'admin/products/product_change_form.html'
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).filter(product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+        return qs
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductAdmin, self).get_urls()
@@ -1673,7 +1677,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
     def get_queryset(self, request):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
-        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False).values_list('pk', flat=True))
+        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
+                       product__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).values_list('pk', flat=True),)
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1822,7 +1827,8 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(DiscountedProductSlabPriceAdmin, self).get_queryset(request)
-        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False, product__product_type = 1).values_list('pk', flat=True))
+        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
+                                        product__product_type = Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).values_list('pk', flat=True))
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1867,8 +1873,9 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     search_fields = ['product_name', 'id']
 
     actions = ['export_as_csv']
+
     def get_queryset(self, request):
-        qs = super().get_queryset(request).filter(product_type=1)
+        qs = super().get_queryset(request).filter(product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED)
         return qs
     
     def product_images(self,obj):
