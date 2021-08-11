@@ -1252,7 +1252,7 @@ class SlabProductPriceView(GenericAPIView):
 
         seller_shop_id = self.request.GET.get('seller_shop_id')
         product_id = self.request.GET.get('product_id')
-        product_status = self.request.GET.get('product_status')
+        product_sku = self.request.GET.get('product_sku')
         approval_status = self.request.GET.get('approval_status')
         mrp = self.request.GET.get('mrp')
         search_text = self.request.GET.get('search_text')
@@ -1264,20 +1264,20 @@ class SlabProductPriceView(GenericAPIView):
         # filter using seller_shop_id, product_id, product_status, mrp & status exact match
         if product_id is not None:
             self.queryset = self.queryset.filter(product_id=product_id)
+        if product_sku is not None:
+            self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
         if seller_shop_id is not None:
             self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
         if approval_status is not None:
             self.queryset = self.queryset.filter(approval_status=int(approval_status))
-        if product_status is not None:
-            self.queryset = self.queryset.filter(product__status=product_status)
         if mrp is not None:
             self.queryset = self.queryset.filter(mrp__icontains=mrp)
         return self.queryset
 
     def delete(self, request):
-        """ Delete Product Vendor Mapping """
+        """ Delete Product Price """
 
-        info_logger.info("Product Vendor Mapping DELETE api called.")
+        info_logger.info("Product Price DELETE api called.")
         if not request.data.get('product_price_ids'):
             return get_response('please select product price', False)
         try:
