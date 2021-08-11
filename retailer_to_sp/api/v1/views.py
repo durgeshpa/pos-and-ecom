@@ -53,7 +53,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
-                                  serializer_error, check_pos_shop, PosAddToCart)
+                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls)
 
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -1033,7 +1033,7 @@ class CartCentral(GenericAPIView):
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
         # Refresh cart prices
-        self.refresh_cart_prices(cart)
+        PosCartCls.refresh_prices(cart.rt_cart_list.all())
         # Refresh - add/remove/update combo, get nearest cart offer over cart value
         next_offer = BasicCartOffers.refresh_offers_cart(cart)
         return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
@@ -1048,13 +1048,15 @@ class CartCentral(GenericAPIView):
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
                                     cart_status='active')
         except ObjectDoesNotExist:
-            return api_response("Cart Not Found!")
+            return api_response("No items added in cart yet")
 
         # Auto apply highest applicable discount
         auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
+            if self.request.GET.get("remove_unavailable"):
+                PosCartCls.out_of_stock_items(cart.rt_cart_list.all(), self.request.GET.get("remove_unavailable"))
             # Refresh cart prices
-            self.refresh_cart_prices(cart)
+            PosCartCls.refresh_prices(cart.rt_cart_list.all())
             # Refresh - add/remove/update combo, get nearest cart offer over cart value
             next_offer = BasicCartOffers.refresh_offers_cart(cart)
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
@@ -1070,19 +1072,6 @@ class CartCentral(GenericAPIView):
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
-
-    @staticmethod
-    def refresh_cart_prices(cart):
-        cart_products = cart.rt_cart_list.all()
-        if cart_products:
-            for product_mapping in cart_products:
-                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date \
-                        and product_mapping.retailer_product.offer_end_date and product_mapping.retailer_product.offer_start_date < \
-                        datetime.now() and product_mapping.retailer_product.offer_end_date > datetime.now():
-                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
-                else:
-                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
-                product_mapping.save()
 
     @check_pos_shop
     def get_basic_cart_list(self, request, *args, **kwargs):
@@ -1783,7 +1772,7 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
                                     cart_status='active')
         except ObjectDoesNotExist:
-            return api_response("Cart Not Found!")
+            return api_response("No items added in cart yet")
         if not self.request.data.get('coupon_id'):
             return api_response("Invalid request")
         with transaction.atomic():
@@ -1843,7 +1832,7 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
                                     cart_status='active')
         except ObjectDoesNotExist:
-            return api_response("Cart Not Found!")
+            return api_response("No items added in cart yet")
 
         with transaction.atomic():
             redeem_points = self.request.GET.get('redeem_points')
@@ -1903,7 +1892,7 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
                                     cart_status='active')
         except ObjectDoesNotExist:
-            return api_response("Cart Not Found!")
+            return api_response("No items added in cart yet")
         # Refresh redeem reward
         RewardCls.checkout_redeem_points(cart, cart.redeem_points)
         cart_products = cart.rt_cart_list.all()
@@ -2636,6 +2625,8 @@ class OrderCentral(APIView):
             return self.post_retail_order()
         elif app_type == '2':
             return self.post_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.post_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -2785,6 +2776,37 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payment_type, transaction_id)
+            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                status.HTTP_200_OK, True)
+
+    @check_pos_shop
+    def post_ecom_order(self, request, *args, **kwargs):
+        """
+            Place Order
+            For ecom cart
+        """
+        shop = kwargs['shop']
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Please add items to proceed to order")
+
+        # check inventory
+        cart_products = cart.rt_cart_list.all()
+        cart_products = PosCartCls.refresh_prices(cart_products)
+        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products, self.request.data.get("remove_unavailable"))
+        if out_of_stock_items:
+            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+        with transaction.atomic():
+            # Update Cart To Ordered
+            self.update_cart_ecom(cart)
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            order = self.create_basic_order(cart, shop)
+            payment_type = PaymentType.objects.get(type='cash')
+            self.auto_process_order(order, payment_type, 'ecom')
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2969,6 +2991,16 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
+    def update_cart_ecom(self, cart):
+        """
+            Place order
+            Update cart to ordered
+            For ecom cart
+        """
+        cart.cart_status = 'ordered'
+        cart.last_modified_by = self.request.user
+        cart.save()
+
     def create_retail_order_sp(self, cart, parent_mapping, billing_address, shipping_address):
         """
             Place Order
@@ -3141,7 +3173,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_type, transaction_id):
+    def auto_process_order(self, order, payment_type, app_type='pos', transaction_id=''):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -3152,7 +3184,7 @@ class OrderCentral(APIView):
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
                                              order.order_no)
         # Loyalty points credit
-        shops_str = GlobalConfig.objects.get(key='pos_loyalty_shop_ids').value
+        shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         shops_str = str(shops_str) if shops_str else ''
         if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
             if ReferralCode.is_marketing_user(order.buyer):
@@ -4277,28 +4309,12 @@ class CartStockCheckView(APIView):
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
+
+
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
-        out_of_stock_items = []
-
-        for cart_product in cart_products:
-            # Refresh prices
-            product = cart_product.retailer_product
-            if product.offer_price and product.offer_start_date and product.offer_end_date and \
-                    product.offer_start_date < datetime.now() < product.offer_end_date:
-                cart_product.selling_price = cart_product.retailer_product.offer_price
-            else:
-                cart_product.selling_price = cart_product.retailer_product.selling_price
-            cart_product.save()
-            # Check out of stock items
-            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
-            if available_inventory < cart_product.qty:
-                out_of_stock_items += [{
-                    "name": product.name,
-                    "qty": cart_product.qty,
-                    "mrp": product.mrp,
-                    "selling_price": cart_product.selling_price,
-                }]
+        cart_products = PosCartCls.refresh_prices(cart_products)
+        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
         # Return error for out of stock items else return payment methods
         if out_of_stock_items:
@@ -4335,7 +4351,12 @@ class OrderReturnComplete(APIView):
         # Check refund method
         refund_method = self.request.data.get('refund_method')
         if not refund_method or refund_method not in dict(PAYMENT_MODE_POS):
-            return api_response('Please provide a valid refund method')
+            # Check Payment Type
+            try:
+                payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
+                refund_method = payment_type.type
+            except:
+                return api_response('Please provide a valid refund method / payment_type')
 
         with transaction.atomic():
             # check partial or fully refunded order
