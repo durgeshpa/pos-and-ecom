@@ -549,12 +549,13 @@ class ProductPrice(models.Model):
 
     def update_city_pincode(self):
         if self.buyer_shop and not (self.city or self.pincode):
-            if self.buyer_shop.shop_name_address_mapping.last():
+            if self.buyer_shop.shop_name_address_mapping.exists():
                 address_data = self.buyer_shop.shop_name_address_mapping\
                     .values('pincode_link', 'city')\
                     .filter(address_type='shipping').last()
                 self.city_id = address_data.get('city')
                 self.pincode_id = address_data.get('pincode_link')
+
         if self.pincode and not (self.city and self.buyer_shop):
             self.city_id = self.pincode.city_id
 
@@ -644,8 +645,8 @@ class SlabProductPrice(ProductPrice):
 
 class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
-    start_value = models.PositiveIntegerField()
-    end_value = models.PositiveIntegerField()
+    start_value = models.PositiveIntegerField(default=0)
+    end_value = models.PositiveIntegerField(default=0)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False, validators=[PriceValidator],
                                         verbose_name='Selling Price(Per piece)')
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[PriceValidator],

@@ -1304,6 +1304,8 @@ class ProductPriceSerializers(serializers.ModelSerializer):
             if 'error' in buyer_shop_val:
                 raise serializers.ValidationError(buyer_shop_val['error'])
             data['buyer_shop'] = buyer_shop_val['buyer_shop']
+            if not data['buyer_shop'].shop_name_address_mapping.exists():
+                raise serializers.ValidationError("address is missing for selected buyer shop")
 
         if self.initial_data['city']:
             city_val = validate_city_id(self.initial_data['city'])
@@ -1346,4 +1348,8 @@ class ProductPriceSerializers(serializers.ModelSerializer):
 
     def create_price_slabs(self, product_price, price_slabs):
         for price_slab in price_slabs:
+            if 'start_value' not in price_slab:
+                price_slab['start_value'] = 0
+            if 'end_value' not in price_slab:
+                price_slab['end_value'] = 0
             PriceSlab.objects.create(product_price=product_price, **price_slab)
