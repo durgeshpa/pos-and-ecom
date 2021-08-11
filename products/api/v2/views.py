@@ -252,3 +252,19 @@ class CreateProductVendorMappingView(GenericAPIView):
             info_logger.info("BulkProductVendorMappingView upload successfully")
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class SlabProductPriceSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = DownloadProductVendorMappingSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product vendor mapping CSV """
+
+        info_logger.info("product slab price ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product slab price CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

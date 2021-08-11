@@ -1306,12 +1306,14 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
     last_slab_end_value = 0
     last_slab_selling_price = 0
     last_slab_offer_price = 0
+
     for cnt, price_slab in enumerate(price_slabs):
         if slab_price_applicable:
             if price_slab['start_value'] is None or price_slab['start_value'] < 0:
                 raise ValidationError("Slab Start Value is Invalid")
             if price_slab['end_value'] is None or price_slab['end_value'] < 0:
                 raise ValidationError("Slab End Value is Invalid")
+
             if cnt != 0 and price_slab['start_value'] <= last_slab_end_value:
                 raise ValidationError("Quantity should be greater than earlier slabs quantity")
             if cnt != 0 and price_slab['selling_price'] and \

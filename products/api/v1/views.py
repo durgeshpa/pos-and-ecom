@@ -29,7 +29,7 @@ from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
-    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search
+    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search, product_price_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -1195,8 +1195,8 @@ class ProductVendorMappingExportAsCSVView(CreateAPIView):
 class SlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city',
-                                                   'pincode', ).prefetch_related('price_slabs').order_by('-id')
+    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', )\
+        .prefetch_related('price_slabs').order_by('-id')
     serializer_class = ProductPriceSerializers
 
     def get(self, request):
@@ -1209,14 +1209,14 @@ class SlabProductPriceView(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            product_vendor_map = id_validation['data']
+            product_slab_price = id_validation['data']
         else:
             """ GET Product Price  List """
-            self.queryset = self.search_filter_product_vendor_map()
+            self.queryset = self.search_filter_product_price()
             pro_vendor_count = self.queryset.count()
-            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        msg = f"total count {pro_vendor_count}" if product_vendor_map else "no product price found"
-        serializer = self.serializer_class(product_vendor_map, many=True)
+            product_slab_price = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {pro_vendor_count}" if product_slab_price else "no product price found"
+        serializer = self.serializer_class(product_slab_price, many=True)
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -1240,34 +1240,38 @@ class SlabProductPriceView(GenericAPIView):
         id_instance = validate_id(self.queryset, int(request.data.get('id')))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        product_vendor_map_instance = id_instance['data'].last()
+        product_slab_price_inc = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=product_slab_price_inc, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save(updated_by=request.user)
+            serializer.save()
             return get_response('product price updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def search_filter_product_vendor_map(self):
+    def search_filter_product_price(self):
 
-        vendor_id = self.request.GET.get('vendor_id')
+        seller_shop_id = self.request.GET.get('seller_shop_id')
         product_id = self.request.GET.get('product_id')
         product_status = self.request.GET.get('product_status')
         status = self.request.GET.get('status')
+        mrp = self.request.GET.get('mrp')
         search_text = self.request.GET.get('search_text')
-        # search using tax_name and tax_type based on criteria that matches
-        if search_text:
-            self.queryset = product_vendor_search(self.queryset, search_text.strip())
 
-        # filter using vendor_id, product_id, product_status & status exact match
+        # search using product name and product sku based on criteria that matches
+        if search_text:
+            self.queryset = product_price_search(self.queryset, search_text.strip())
+
+        # filter using seller_shop_id, product_id, product_status, mrp & status exact match
         if product_id is not None:
             self.queryset = self.queryset.filter(product_id=product_id)
-        if vendor_id is not None:
-            self.queryset = self.queryset.filter(vendor_id=vendor_id)
+        if seller_shop_id is not None:
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
         if status is not None:
             self.queryset = self.queryset.filter(status=status)
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
+        if mrp is not None:
+            self.queryset = self.queryset.filter(mrp__icontains=mrp)
         return self.queryset
 
     def delete(self, request):

@@ -508,3 +508,31 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
         representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
         representation['updated_at'] = instance.updated_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
+
+class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('vendor_id', )
+
+    def validate(self, data):
+
+        if not 'vendor_id' in self.initial_data:
+            raise serializers.ValidationError(_('Please Select One vendor id!'))
+
+        elif 'vendor_id' in self.initial_data and self.initial_data['vendor_id']:
+            vendor_val = get_validate_vendor(self.initial_data['vendor_id'])
+            if 'error' in vendor_val:
+                raise serializers.ValidationError(_(vendor_val["error"]))
+            data['vendor_id'] = vendor_val['vendor']
+
+        if 'download_type' in self.initial_data:
+            data['download_type'] = self.initial_data['download_type']
+        else:
+            raise serializers.ValidationError(_('Please Select a download type!'))
+
+        return data
+
+    def create(self, validated_data):
+        response = create_product_vendor_mapping_sample_file(validated_data, validated_data["download_type"])
+        return response
