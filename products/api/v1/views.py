@@ -1253,7 +1253,7 @@ class SlabProductPriceView(GenericAPIView):
         seller_shop_id = self.request.GET.get('seller_shop_id')
         product_id = self.request.GET.get('product_id')
         product_status = self.request.GET.get('product_status')
-        status = self.request.GET.get('status')
+        approval_status = self.request.GET.get('approval_status')
         mrp = self.request.GET.get('mrp')
         search_text = self.request.GET.get('search_text')
 
@@ -1266,8 +1266,8 @@ class SlabProductPriceView(GenericAPIView):
             self.queryset = self.queryset.filter(product_id=product_id)
         if seller_shop_id is not None:
             self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
-        if status is not None:
-            self.queryset = self.queryset.filter(status=status)
+        if approval_status is not None:
+            self.queryset = self.queryset.filter(approval_status=int(approval_status))
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
         if mrp is not None:
