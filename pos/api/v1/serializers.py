@@ -43,9 +43,10 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator], max_length=100)
     mrp = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
     selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    add_offer_price = serializers.BooleanField(default=False)
     offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01)
-    offer_start_date = serializers.DateTimeField(required=False, default=None)
-    offer_end_date = serializers.DateTimeField(required=False, default=None)
+    offer_start_date = serializers.DateField(required=False, default=None)
+    offer_end_date = serializers.DateField(required=False, default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=100)
@@ -63,27 +64,36 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
             'linked_product_id'], attrs['product_ean_code']
-        offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
 
-        if ((offer_sd is None and offer_ed is not None) or \
-                (offer_sd is not None and offer_ed is None)):
-            raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-        elif offer_sd is not None and offer_ed is not None:
-            if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                raise serializers.ValidationError('Inavlid Offer Start and End date.')
-
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+            raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
+        
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-
-        if offer_price and offer_price > sp:
-            raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
 
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
-            raise serializers.ValidationError("Product already exists in catalog.")
-        
+        if attrs['add_offer_price']:
+            offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
+
+            if offer_price is None:
+                raise serializers.ValidationError('Please provide offer price')
+
+            if offer_price and offer_price > sp:
+                raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+
+            if offer_sd is None:
+                raise serializers.ValidationError('Please provide offer start date')
+            if offer_ed is None:
+                raise serializers.ValidationError('Please provide offer end date')
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError('Offer end date should be greater than or equal to offer start date')
+            if offer_sd < datetime.date.today():
+                raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
+        else:
+            attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
+
         return attrs
 
 
@@ -127,8 +137,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                              min_value=0.01)
     offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01)
-    offer_start_date = serializers.DateTimeField(required=False, default=None)
-    offer_end_date = serializers.DateTimeField(required=False, default=None)
+    offer_start_date = serializers.DateField(required=False, default=None)
+    offer_end_date = serializers.DateField(required=False, default=None)
+    add_offer_price = serializers.BooleanField(default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
     stock_qty = serializers.IntegerField(required=False, default=0)
@@ -139,7 +150,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
-
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -152,16 +162,15 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        offer_price = attrs['offer_price'] if attrs['offer_price'] else product.offer_price
-        offer_sd = attrs['offer_start_date'] if attrs['offer_start_date'] else product.offer_start_date
-        offer_ed = attrs['offer_end_date'] if attrs['offer_end_date'] else product.offer_end_date
+        if RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
-        if ((offer_sd is None and offer_ed is not None) or \
-                (offer_sd is not None and offer_ed is None)):
-            raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-        elif offer_sd is not None and offer_ed is not None:
-            if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                raise serializers.ValidationError('Inavlid Offer Start and End date.')
+        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'product_ean_code' in attrs and attrs['product_ean_code']:
+            if not attrs['product_ean_code'].isdigit():
+                raise serializers.ValidationError("Product Ean Code should be a number")
 
         image_count = 0
         if 'images' in attrs and attrs['images']:
@@ -171,34 +180,25 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if image_count > 3:
             raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
 
-        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
-            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-        
-        if 'offer_price' in attrs and attrs['offer_price'] and 'offer_start_date' in attrs and attrs['offer_start_date']\
-            and 'offer_end_date' in attrs and attrs['offer_end_date']:
-            offer_price = attrs['offer_price']
-            offer_sd = attrs['offer_start_date']
-            offer_ed = attrs['offer_end_date']
+        if attrs['add_offer_price']:
+            offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
 
-            if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
+            if offer_price is None:
+                raise serializers.ValidationError('Please provide offer price')
+
+            if offer_price and offer_price > sp:
                 raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
 
-            if ((offer_sd is None and offer_ed is not None) or \
-                (offer_sd is not None and offer_ed is None)) :
-                raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-            elif offer_sd is not None and offer_ed is not None:
-                if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                    raise serializers.ValidationError('Inavlid Offer Start and End date.')
-        elif ('offer_price' in attrs and attrs['offer_price']) or ('offer_start_date' in attrs and attrs['offer_start_date'])\
-            or ('offer_end_date' in attrs and attrs['offer_end_date']):
-            raise serializers.ValidationError("Keys 'offer_price', 'offer_start_date', 'offer_end_date' are combined mandatory.")
-
-        if 'product_ean_code' in attrs and attrs['product_ean_code']:
-            if not attrs['product_ean_code'].isdigit():
-                raise serializers.ValidationError("Product Ean Code should be a number")
-
-        if RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
-            raise serializers.ValidationError("Product already exists in catalog.")
+            if offer_sd is None:
+                raise serializers.ValidationError('Please provide offer start date')
+            if offer_ed is None:
+                raise serializers.ValidationError('Please provide offer end date')
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError('Offer end date should be greater than or equal to offer start date')
+            if offer_sd < datetime.date.today():
+                raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
+        else:
+            attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
 
         is_discounted = attrs['is_discounted']
         if is_discounted:
@@ -1417,6 +1417,9 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
             'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
+        payment_obj = obj.rt_payment_retailer_order.all().last()
+        order_summary['payment_type'] = payment_obj.payment_type.type
+        order_summary['transaction_id'] = payment_obj.transaction_id
         return order_summary
 
     @staticmethod
@@ -1535,6 +1538,7 @@ class AddressCheckoutSerializer(serializers.ModelSerializer):
 
 class VendorSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
+    alternate_phone_number = serializers.CharField(required=False, default=None)
 
     class Meta:
         model = Vendor
@@ -1551,6 +1555,10 @@ class VendorSerializer(serializers.ModelSerializer):
         if 'id' in attrs:
             if not Vendor.objects.filter(retailer_shop=shop, id=attrs['id']).exists():
                 raise serializers.ValidationError("Invalid vendor id")
+
+        if attrs['alternate_phone_number'] and not re.match(r'^[6-9]\d{9}$', attrs['alternate_phone_number']):
+            raise serializers.ValidationError("Please provide a valid alternate phone number")
+
         return attrs
 
     def update(self, vendor_id, validated_data):
@@ -1747,7 +1755,7 @@ class PosGrnProductSerializer(serializers.ModelSerializer):
 class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
     po_id = serializers.IntegerField()
     products = PosGrnProductSerializer(many=True)
-    invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
+    invoice = serializers.FileField(required=True, validators=[FileExtensionValidator(
         allowed_extensions=['pdf'])])
     invoice_no = serializers.CharField(required=True, max_length=100)
     invoice_date = serializers.DateField(required=True)
