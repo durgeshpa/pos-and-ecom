@@ -1394,7 +1394,7 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
+        fields = ('id', 'return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
 
 
 class BasicOrderDetailSerializer(serializers.ModelSerializer):
