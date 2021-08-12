@@ -57,6 +57,7 @@ def dhms_from_seconds(seconds):
     days, hours = divmod(hours, 24)
     return (days, hours, minutes, seconds)
 
+
 def isDateValid(date, pattern="%Y-%m-%d"):
     """
     Validates if given string is of date format provided

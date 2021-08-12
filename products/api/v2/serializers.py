@@ -555,7 +555,7 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
             if len(row) == 0:
