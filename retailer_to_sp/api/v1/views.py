@@ -4001,7 +4001,7 @@ class OrderReturnComplete(APIView):
             payment_type = PaymentType.objects.get(id=self.request.data.get('refund_method'))
             refund_method = payment_type.type
         except:
-            return {'error': "Invalid Refund Method"}
+            return api_response("Invalid Refund Method")
 
         with transaction.atomic():
             # check partial or fully refunded order
