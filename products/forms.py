@@ -2717,7 +2717,7 @@ class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
         queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'], product_type=1),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
-            url='discounted-product-autocomplete',
+            url='discounted-product-price-autocomplete',
             attrs={"onChange": 'getSellingPriceDetails()'},
             forward=(forward.Const(0, 'price-slab'), )
         )
