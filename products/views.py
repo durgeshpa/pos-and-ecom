@@ -1878,8 +1878,9 @@ def FetchProductDdetails(request):
 def FetchDiscountedProductdetails(request):
     product_id = request.GET.get('product')
     seller_shop = request.GET.get('seller_shop')
+    print(product_id, seller_shop)
     data = {
-        'found': 0
+        'found': 0,
     }
     if not product_id:
         return JsonResponse(data)
@@ -1889,18 +1890,23 @@ def FetchDiscountedProductdetails(request):
             data = {
             'found': 1,
             'product_mrp': def_product.product_mrp,
+            'manual_update': def_product.is_manual_price_update
             }
         return JsonResponse(data)
     shop = Shop.objects.filter(pk = seller_shop).last()
     selling_price = None
     if def_product and shop:
         original_prod = def_product.product_ref
-        bin_inventory = BinInventory.objects.filter(sku = def_product , warehouse = shop, 
+        bin_inventory = BinInventory.objects.filter(sku = def_product ,
                                                     inventory_type__inventory_type='normal', quantity__gt=0).last()
+        print(bin_inventory)
         if not bin_inventory:
-            raise ValidationError('Not Valid Discounted Product')
+            data = {
+                'error':True,
+                'message': "This discounted product has no inventory. Select another product"
+            }
+            return JsonResponse(data)
         latest_in = In.objects.filter(sku = bin_inventory.sku.product_ref, batch_id = bin_inventory.batch_id).order_by('-modified_at')
-
         expiry_date = latest_in[0].expiry_date
         manufacturing_date = latest_in[0].manufacturing_date
         product_life = expiry_date - manufacturing_date
@@ -1908,6 +1914,12 @@ def FetchDiscountedProductdetails(request):
         discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
         product_price = original_prod.product_pro_price.filter(seller_shop=shop,
                                                    approval_status=ProductPrice.APPROVED).last()
+        if not product_price:
+            data = {
+                'error':True,
+                'message': "No product price for this shop"
+            }
+            return JsonResponse(data)
         base_price_slab = product_price.price_slabs.filter(end_value=0).last()
         base_price = base_price_slab.ptr
 
@@ -1921,8 +1933,10 @@ def FetchDiscountedProductdetails(request):
             'found': 2,
             'product_mrp': def_product.product_mrp,
             'selling_price' : selling_price,
+            'manual_update': def_product.is_manual_price_update
             # 'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
         }
+    print(data)
     return JsonResponse(data)
 
 
@@ -2373,9 +2387,8 @@ def get_discounted_product_price_sample_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "is manual price update", "selling price"])
-    writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)",
-                    "1", "123.00"])
+    writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "selling price"])
+    writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)", "123.00"])
     return response
 
 def slab_product_price_csv_upload(request):
@@ -2468,10 +2481,13 @@ def discounted_product_price_csv_upload(request):
                         seller_shop_id = int(row[2])
                         seller_shop = Shop.objects.filter(pk = seller_shop_id).last()
 
-                        if not int(row[4]):
+                        if not product.is_manual_price_update:
                             original_prod = product.product_ref
-                            expiry_date = original_prod.ins.all().order_by('-modified_at')[0].expiry_date
-                            manufacturing_date = original_prod.ins.all().order_by('-modified_at')[0].manufacturing_date
+                            bin_inventory = BinInventory.objects.filter(sku = product ,
+                                                    inventory_type__inventory_type='normal', quantity__gt=0).last()
+                            latest_in = In.objects.filter(sku = bin_inventory.sku.product_ref, batch_id = bin_inventory.batch_id).order_by('-modified_at')
+                            expiry_date = latest_in[0].expiry_date
+                            manufacturing_date = latest_in[0].manufacturing_date
                             product_life = expiry_date - manufacturing_date
                             remaining_life = expiry_date - datetime.date.today()
                             discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
@@ -2488,11 +2504,11 @@ def discounted_product_price_csv_upload(request):
                                 selling_price = round(base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
                         
                         else:
-                            selling_price = float(row[5])
+                            selling_price = float(row[4])
 
                         #Create Product Price
                         product_price = DiscountedProductPrice(product=product, mrp=product.product_mrp,
-                                                        seller_shop_id=seller_shop_id, is_manual_price_update = row[4], selling_price = selling_price,
+                                                        seller_shop_id=seller_shop_id, selling_price = selling_price,
                                                         start_date=datetime.datetime.today(), approval_status=ProductPrice.APPROVED)
                         product_price.save()
 

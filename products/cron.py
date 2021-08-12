@@ -162,7 +162,7 @@ def update_price_discounted_product():
                 cron_logger.info(f'moved discounted product {dis_prod.sku} succcessfully to expired if remaining life is less than 2.')
 
             elif remaining_life.days <= half_life:
-                if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price and not dis_prod_price.last().is_manual_price_update:
+                if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price and not dis_prod.sku.is_manual_price_update:
                     selling_price = half_life_selling_price
                     cron_logger.info(f'update selling price of discounted product {dis_prod.sku} succcessfully if remaining life is less than or equal to half life and not updated.')
             else:

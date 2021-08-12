@@ -275,7 +275,8 @@ class Product(models.Model):
     moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     product_type = models.PositiveSmallIntegerField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
     discounted_sku = models.OneToOneField('self', related_name='product_ref', on_delete=models.CASCADE, null=True, blank=True)
-
+    is_manual_price_update = models.BooleanField(default=False)
+    
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
         super(Product, self).save(*args, **kwargs)
@@ -540,7 +541,7 @@ class ProductPrice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
-    is_manual_price_update = models.BooleanField(default=False)
+
 
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)

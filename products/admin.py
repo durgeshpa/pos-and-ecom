@@ -1750,7 +1750,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
     """
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop', 
-                    'city', 'pincode', 'approval_status', 'is_manual_price_update', 'selling_price'
+                    'city', 'pincode', 'approval_status', 'selling_price'
                     ]
     autocomplete_fields = ['product']
     fieldsets = (
@@ -1767,8 +1767,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
     class Media:
          js = (
             '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
-            'admin/js/child_product_form.js',
-            'admin/js/discountedprice-slab-form.js'
+            'admin/js/child_product_form.js'
         )
 
     def save_model(self, request, obj, form, change):
@@ -1782,11 +1781,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
             fieldsets = (
                             ('Basic', {
                                 'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
-                                'classes': ('required',)})
-                            ,
-                            ('Update Price Manually',{
-                                'fields': ('is_manual_price_update',),
-                                'classes': ('manual_price',)
+                                'classes': ('required',)
                             }),
                             ('Selling Price',{
                                 'fields': ('selling_price',),
@@ -1863,7 +1858,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp',   'products_image',  'status'
+        'product_mrp',   'products_image',  'status', 'is_manual_price_update',
     ]
     readonly_fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
                        'product_ean_code', 'product_mrp', 'status')

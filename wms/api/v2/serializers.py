@@ -9,7 +9,7 @@ from rest_framework import serializers
 
 from products.models import Product
 from shops.models import Shop
-from wms.models import In, Out
+from wms.models import In, Out, InventoryType
 
 
 class InSerializer(serializers.ModelSerializer):
@@ -86,17 +86,36 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
         field_names = ['TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'IN TYPE', 'OUT TYPE', 'TRANSACTION ID',
                        'QUANTITY']
 
+        inventory_types_qs = InventoryType.objects.values('id', 'inventory_type').order_by('id')
+        inventory_types = list(x['inventory_type'].upper() for x in inventory_types_qs)
+
         data = sorted(chain(ins, outs), key=lambda instance: instance.created_at)
 
         # Sum of qty
-        ins_qty = ins.aggregate(Sum('quantity'))['quantity__sum']
-        outs_qty = outs.aggregate(Sum('quantity'))['quantity__sum']
+        ins_type_wise_qty = ins.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+        out_type_wise_qty = outs.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+
+        in_type_ids = {x['inventory_type']: x['total_qty'] for x in ins_type_wise_qty}
+        out_type_ids = {x['inventory_type']: x['total_qty'] for x in out_type_wise_qty}
+
+        ins_count_list = ['TOTAL IN QUANTITY']
+        outs_count_list = ['TOTAL OUT QUANTITY']
+        for i in range(len(inventory_types_qs)):
+            if i+1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i+1])
+            else:
+                ins_count_list.append('0')
+            if i+1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i+1])
+            else:
+                outs_count_list.append('0')
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(['TOTAL IN QUANTITY', ins_qty if ins_qty else 0])
-        writer.writerow(['TOTAL OUT QUANTITY', outs_qty if outs_qty else 0])
+        writer.writerow([''] + inventory_types)
+        writer.writerow(ins_count_list)
+        writer.writerow(outs_count_list)
         writer.writerow([])
         writer.writerow(field_names)
         for obj in data:

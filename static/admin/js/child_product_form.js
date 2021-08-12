@@ -111,12 +111,21 @@ function getSellingPriceDetails() {
         data: {'product': prod , 'seller_shop': shop ,},
         contentType: "application/json; charset=utf-8",
         success: function (data) {
-            if(data.found === 1){
-                document.getElementById('id_mrp').value = data.product_mrp;
+            if(data.error === true){
+                alert(data.message);
             }
-            if(data.found === 2){
-                document.getElementById('id_mrp').value = data.product_mrp;
-                document.getElementById('id_selling_price').value = data.selling_price;
+            else{
+                if(data.found === 1 || data.found === 2){
+                    if(data.manual_update === false)
+                        document.getElementById('id_selling_price').readOnly = true;
+                }
+                if(data.found === 1){
+                    document.getElementById('id_mrp').value = data.product_mrp;
+                }
+                if(data.found === 2){
+                    document.getElementById('id_mrp').value = data.product_mrp;
+                    document.getElementById('id_selling_price').value = data.selling_price;
+                }
             }
             return true;
         },
