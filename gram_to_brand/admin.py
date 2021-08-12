@@ -97,10 +97,6 @@ class CartAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
 
         def po_edit_link(obj):
-            if request.user.is_superuser:
-                return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
-            if request.user.has_perm('gram_to_brand.can_create_po'):
-                return format_html("%s" % obj.po_no)
             return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
 
         po_edit_link.short_description = 'Po No'
