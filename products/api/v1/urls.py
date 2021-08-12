@@ -42,6 +42,8 @@ urlpatterns = [
     url(r'^pincode-list/', PincodeListView.as_view(), name='pincode-list'),
     url(r'^city-list/', CityListView.as_view(), name='city-list'),
     url(r'^slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
+    url(r'^slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
+    url(r'^active-slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
     url(r'^product-price-status-list/', ProductPriceStatusListView.as_view(), name='product-price-status-list'),
 
 ]
