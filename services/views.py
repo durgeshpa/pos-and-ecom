@@ -859,17 +859,18 @@ class InOutLedgerReport(APIView):
         writer.writerow(ins_qtylst)
         writer.writerow(outs_qtylst)
         writer.writerow([])
-        writer.writerow(['TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'IN TYPE', 'OUT TYPE', 'TRANSACTION ID',
-                         'QUANTITY'])
+        writer.writerow(['TRANSACTION TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'MOVEMENT TYPE',
+                         'TRANSACTION TYPE', 'TRANSACTION ID', 'QUANTITY'])
         for obj in data:
+            created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
             if obj.__class__.__name__ == 'In':
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, obj.in_type, None,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "IN", obj.in_type,
                                  obj.in_type_id, obj.quantity])
             elif obj.__class__.__name__ == 'Out':
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, obj.out_type,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "OUT", obj.out_type,
                                  obj.out_type_id, obj.quantity])
             else:
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
                                  obj.quantity])
         return response
 
