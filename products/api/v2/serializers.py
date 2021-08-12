@@ -675,8 +675,9 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-        return product_price
+        if product_price:
+            raise serializers.ValidationError(_(product_price))
+        return validated_data
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

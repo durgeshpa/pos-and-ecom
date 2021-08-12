@@ -14,7 +14,7 @@ from products.common_function import ParentProductCls, ProductCls
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
     DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
     SlabProductPrice, PriceSlab
-from products.views import get_selling_price
+from products.utils import get_selling_price
 from retailer_backend.utils import getStrToDate
 
 logger = logging.getLogger(__name__)
@@ -1177,10 +1177,10 @@ def create_bulk_product_vendor_mapping(validated_data):
 
 def create_bulk_product_slab_price(validated_data):
     reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
-    first_row = next(reader)
+    next(reader)
     try:
         for row_id, row in enumerate(reader):
-            product = Product.objects.filter(product_sku=row[0]).last()
+            product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
             seller_shop_id = int(row[2])
 
             # Create ProductPrice
@@ -1188,13 +1188,10 @@ def create_bulk_product_slab_price(validated_data):
             product_price.save()
 
             # Get selling price applicable for first price slab
-            is_ptr_applicable = product.parent_product.is_ptr_applicable
-            if is_ptr_applicable:
+            if product.parent_product.is_ptr_applicable:
                 selling_price = get_selling_price(product)
             else:
                 selling_price = float(row[6])
-
-            # Create Price Slabs
 
             # Create Price Slab 1
             price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
@@ -1216,8 +1213,10 @@ def create_bulk_product_slab_price(validated_data):
                 price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
                 price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
             price_slab_2.save()
-
+        #
+        # return validated_data
     except Exception as e:
-        print(e)
-        msg = 'Unable to create price for row {}'.format(row_id + 1)
+        msg = "Unable to create price for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg
 

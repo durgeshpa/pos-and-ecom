@@ -1,7 +1,9 @@
 from django.conf.urls import url
 from .views import BulkCreateUpdateAttributesView, BulkDownloadProductAttributes, ParentProductMultiImageUploadView, \
     ChildProductMultiImageUploadView, BulkChoiceView, BrandMultiImageUploadView, CategoryMultiImageUploadView, \
-    CategoryListView, CreateProductVendorMappingSampleView, CreateProductVendorMappingView, SlabProductPriceSampleCSV
+    CategoryListView, CreateProductVendorMappingSampleView, CreateProductVendorMappingView, SlabProductPriceSampleCSV, \
+    CreateBulkSlabProductPriceView
+
 urlpatterns = [
     url(r'^upload_type/bulk-choice/', BulkChoiceView.as_view(),
         name='upload_type/bulk-choice'),
@@ -25,4 +27,6 @@ urlpatterns = [
         name='upload/product-vendor-mapping'),
     url(r'^download/product-slab-price-sample/', SlabProductPriceSampleCSV.as_view(),
         name='download/product-slab-price-sample'),
+    url(r'^upload/bulk-product-slab-price/', CreateProductVendorMappingView.as_view(),
+        name='upload/bulk-product-slab-price'),
 ]
