@@ -317,7 +317,7 @@ class PosCartCls(object):
         for cart_product in cart_products:
             product = cart_product.retailer_product
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
-                    product.offer_start_date < datetime.now() < product.offer_end_date:
+                    product.offer_start_date <= datetime.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
@@ -358,12 +358,14 @@ class RewardCls(object):
         return points, value_factor
 
     @classmethod
-    def checkout_redeem_points(cls, cart, redeem_points):
+    def checkout_redeem_points(cls, cart, redeem_points, use_all=None):
         value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+                if use_all is not None:
+                    redeem_points = points if int(use_all) else 0
                 redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0

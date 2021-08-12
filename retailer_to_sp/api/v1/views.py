@@ -30,6 +30,33 @@ from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
 
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+from wms.views import shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer
+                          )
+from products.models import ProductPrice, ProductOption, Product
+from sp_to_gram.models import OrderedProductReserved
+from categories import models as categorymodel
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList
+                                  )
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, Return)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder
+                                     )
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+
 from brand.models import Brand
 
 from categories import models as categorymodel
@@ -59,6 +86,11 @@ from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from pos.offers import BasicCartOffers
+
+from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
+    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
+    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
+    RetailerProductResponseSerializer, PosShopUserMappingListSerializer
 
 from pos.common_validators import validate_user_type_for_pos_shop
 
@@ -1052,8 +1084,6 @@ class CartCentral(GenericAPIView):
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
 
-        # Auto apply highest applicable discount
-        auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
             if self.request.GET.get("remove_unavailable"):
                 PosCartCls.out_of_stock_items(cart.rt_cart_list.all(), self.request.GET.get("remove_unavailable"))
@@ -1062,12 +1092,9 @@ class CartCentral(GenericAPIView):
             # Refresh - add/remove/update combo, get nearest cart offer over cart value
             next_offer = BasicCartOffers.refresh_offers_cart(cart)
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
-            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
-            # Redeem reward points on order
-            redeem_points = self.request.GET.get('redeem_points')
-            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             cart_data.update(checkout.serialize(cart, offers))
@@ -1778,7 +1805,7 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             if 'error' in offers:
@@ -1836,15 +1863,10 @@ class CartCheckout(APIView):
             return api_response("No items added in cart yet")
 
         with transaction.atomic():
-            redeem_points = self.request.GET.get('redeem_points')
-            # Auto apply highest applicable discount
-            auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
-            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
-            # Redeem reward points on order
-            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
@@ -1871,8 +1893,7 @@ class CartCheckout(APIView):
                                     cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -1894,8 +1915,7 @@ class CartCheckout(APIView):
                                     cart_status='active')
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
-        # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
