@@ -1597,8 +1597,9 @@ class POSerializer(serializers.ModelSerializer):
             products_updatable, products_given = [], attrs['products']
             for product in products_given:
                 mapping = PosCartProductMapping.objects.filter(cart=cart, product=product['product_id']).last()
-                if not mapping or not mapping.is_grn_done:
-                    products_updatable += [product]
+                if mapping and mapping.is_grn_done:
+                    raise serializers.ValidationError("Cannot edit products whose grn is done.")
+                products_updatable += [product]
             attrs['products'] = products_updatable
         return attrs
 
