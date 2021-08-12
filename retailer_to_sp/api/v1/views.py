@@ -3995,15 +3995,13 @@ class OrderReturnComplete(APIView):
             order_return = OrderReturn.objects.get(order=order, status='created')
         except ObjectDoesNotExist:
             return api_response("Order Return Does Not Exist / Already Closed")
-        # Check refund method
-        refund_method = self.request.data.get('refund_method')
-        if not refund_method or refund_method not in dict(PAYMENT_MODE_POS):
-            # Check Payment Type
-            try:
-                payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
-                refund_method = payment_type.type
-            except:
-                return api_response('Please provide a valid refund method / payment_type')
+
+        # Check Payment Type
+        try:
+            payment_type = PaymentType.objects.get(id=self.request.data.get('refund_method'))
+            refund_method = payment_type.type
+        except:
+            return {'error': "Invalid Refund Method"}
 
         with transaction.atomic():
             # check partial or fully refunded order
