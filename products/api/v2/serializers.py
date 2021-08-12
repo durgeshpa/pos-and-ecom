@@ -403,7 +403,7 @@ class CategoryImageSerializers(serializers.ModelSerializer):
 class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor_id', )
+        fields = ('vendor_id',)
 
     def validate(self, data):
 
@@ -515,7 +515,7 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
 class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor_id', )
+        fields = ('vendor_id',)
 
     def validate(self, data):
 
@@ -565,12 +565,13 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
             if not str(row[0]).strip() or not Product.objects.filter(product_sku=str(row[0]).strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
 
-            if not str(row[2]).strip() or not Shop.objects.filter(id=int(row[2]), shop_type__shop_type__in=['sp']).exists():
+            if not str(row[2]).strip() or not Shop.objects.filter(id=int(row[2]), shop_type__shop_type__in=['sp']). \
+                    exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop ID'"))
 
             if str(row[5]).strip():
                 try:
-                    slab_1_qty = float(row[5])
+                    slab_1_qty = int(row[5])
                 except:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
             else:
@@ -592,6 +593,13 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
             else:
                 raise ValidationError(_(f"Row {row_id + 1} | Empty 'Offer Price 1'"))
 
+            if not str(row[8]).strip() or not str(row[9]).strip() or offer_price_1 and \
+                    (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
+                     or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
+                     or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
+                     or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
+
             product = Product.objects.get(product_sku=str(row[0]).strip())
             is_ptr_applicable = product.parent_product.is_ptr_applicable
             selling_price_per_saleable_unit = selling_price
@@ -604,45 +612,57 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
                     selling_price = product.product_mrp * (1 - (ptr_percent / 100))
                 selling_price_per_saleable_unit = float(round(selling_price, 2))
 
-            if selling_price_per_saleable_unit != float(row[6]):
-                raise ValidationError(
-                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
+            if selling_price_per_saleable_unit != selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {selling_price}"))
 
             if product.product_mrp and selling_price > float(product.product_mrp):
-                raise ValidationError(
-                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {selling_price} > MRP {product.product_mrp}"))
 
             if offer_price_1 >= selling_price:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
-            elif offer_price_1 and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
-                             or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
-                             or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
-                             or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
 
-            if int(row[5]) > 0:
-                if not row[10] or int(row[10]) != int(row[5]) + 1:
+            if slab_1_qty > 0:
+                if str(row[10]).strip():
+                    try:
+                        slab_2_qty = int(row[10])
+                    except:
+                        raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
+                else:
+                    raise ValidationError(_(f"Row {row_id + 1} | Empty 'Slab 2 Quantity'"))
+
+                if str(row[11]).strip():
+                    try:
+                        slab_2_selling_price = float(row[11])
+                    except:
+                        raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
+                else:
+                    raise ValidationError(_(f"Row {row_id + 1} | Empty 'Slab 2 Selling Price'"))
+
+                if str(row[12]).strip():
+                    try:
+                        slab_2_offer_price = float(row[12])
+                    except:
+                        raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
+                else:
+                    raise ValidationError(_(f"Row {row_id + 1} | Empty 'Slab 2 Offer Price'"))
+
+                if slab_2_qty != slab_1_qty + 1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-                elif not row[11] or float(row[11]) <= 0:
+                if slab_2_selling_price <= 0:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
-                elif float(row[11]) >= float(row[6]):
+                if slab_2_selling_price >= selling_price:
                     raise ValidationError(
-                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
-                elif (row[7] and float(row[11]) >= float(row[7])):
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {slab_2_selling_price} >= Slab1 SP {selling_price}"))
+                if slab_2_selling_price >= offer_price_1:
                     raise ValidationError(
-                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
-                elif row[12] and float(row[12]) >= float(row[11]):
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {slab_2_selling_price} >= Slab 1 Offer Price {offer_price_1}"))
+                if slab_2_offer_price >= slab_2_selling_price:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
-                elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
-                                  or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
-                                  or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
-                                  or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
+                if (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
+                        or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
+                        or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
+                        or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
-
-
-
-
-
         return data
 
     @transaction.atomic
