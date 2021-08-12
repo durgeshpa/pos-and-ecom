@@ -25,7 +25,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
-    DisapproveSelectedProductPriceSerializers
+    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -1189,6 +1189,22 @@ class ProductVendorMappingExportAsCSVView(CreateAPIView):
         if serializer.is_valid():
             response = serializer.save()
             info_logger.info("product vendor mapping CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ProductSlabPriceExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductSlabPriceExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product slab price CSV """
+
+        info_logger.info("product slab price ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product slab price CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
 

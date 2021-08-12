@@ -1,5 +1,5 @@
 import csv
-import datetime
+import logging
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
@@ -20,11 +20,13 @@ from accounts.models import User
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_categories, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
-    product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop,\
+    product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
     validate_child_product_name, validate_tax_name, get_validate_slab_price
 from products.common_function import ParentProductCls, ProductCls
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
+
+info_logger = logging.getLogger('file-info')
 
 
 class ChoiceField(serializers.ChoiceField):
@@ -38,7 +40,7 @@ class ChoiceField(serializers.ChoiceField):
 class ProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'product_mrp', )
+        fields = ('id', 'product_sku', 'product_name', 'product_mrp',)
 
 
 class GetParentProductSerializers(serializers.ModelSerializer):
@@ -1267,7 +1269,7 @@ class PriceSlabSerializersData(serializers.ModelSerializer):
     class Meta:
         model = PriceSlab
         fields = ('id', 'start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
-                  'offer_price_end_date', )
+                  'offer_price_end_date',)
 
 
 class ProductPriceSerializers(serializers.ModelSerializer):
@@ -1397,3 +1399,60 @@ class DisapproveSelectedProductPriceSerializers(serializers.ModelSerializer):
         return validated_data
 
 
+class ProductSlabPriceExportAsCSVSerializers(serializers.ModelSerializer):
+    product_price_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product_price_list',)
+
+    def validate(self, data):
+
+        if len(data.get('product_price_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one product slab price id must be selected '))
+
+        for psp_id in data.get('product_price_list'):
+            try:
+                ProductPrice.objects.get(id=psp_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'product slab price not found for id {psp_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = ProductPrice._meta
+
+        field_names = ["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "is_ptr_applicable", "ptr_type",
+                       "ptr_percent", "Slab 1 Qty", "Selling Price 1", "Offer Price 1", "Offer Price 1 Start Date",
+                       "Offer Price 1 End Date", "Slab 2 Qty", "Selling Price 2", "Offer Price 2",
+                       "Offer Price 2 Start Date", "Offer Price 2 End Date"]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+
+        queryset = ProductPrice.objects.filter(id__in=validated_data['product_price_list'])
+        for obj in queryset:
+            obj = ProductPrice.objects.get(id=obj.id)
+            try:
+                row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
+                       obj.mrp, obj.product.is_ptr_applicable, obj.product.ptr_type, obj.product.ptr_percent]
+                first_slab = True
+                for slab in obj.price_slabs.all().order_by('start_value'):
+                    if first_slab:
+                        row.append(slab.end_value)
+                    else:
+                        row.append(slab.start_value)
+                    row.append(slab.selling_price)
+                    row.append(slab.offer_price)
+                    row.append(slab.offer_price_start_date)
+                    row.append(slab.offer_price_end_date)
+                    first_slab = False
+                writer.writerow(row)
+
+            except Exception as exc:
+                info_logger.error(exc)
+        return response
