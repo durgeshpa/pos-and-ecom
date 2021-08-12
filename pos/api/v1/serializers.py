@@ -1700,6 +1700,7 @@ class POProductInfoSerializer(serializers.ModelSerializer):
 
 
 class POListSerializer(serializers.ModelSerializer):
+    grn_id = serializers.SerializerMethodField()
     total_qty = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
@@ -1716,9 +1717,14 @@ class POListSerializer(serializers.ModelSerializer):
     def get_date(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
+    @staticmethod
+    def get_grn_id(obj):
+        grn = PosGRNOrder.objects.filter(order=obj.pos_po_order).last()
+        return grn.id if grn else None
+
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'total_qty', 'total_price', 'status', 'date')
+        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_qty', 'total_price', 'status', 'date')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
