@@ -317,7 +317,7 @@ class PosCartCls(object):
         for cart_product in cart_products:
             product = cart_product.retailer_product
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
-                    product.offer_start_date < datetime.now() < product.offer_end_date:
+                    product.offer_start_date <= datetime.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
