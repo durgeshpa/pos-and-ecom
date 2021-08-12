@@ -155,7 +155,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
                     tempcategory=None
                     for category1 in category_list:
-                        if not tempcategory or category1.modified_at > tempcategory.modified_at:
+                        if not tempcategory or category1.updated_at > tempcategory.updated_at:
                             tempcategory = category1
 
                     category = tempcategory.category
