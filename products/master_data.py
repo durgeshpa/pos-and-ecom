@@ -1,19 +1,21 @@
-import logging
-import io
-import datetime
-import csv
 import codecs
+import csv
+import datetime
+import io
+import logging
+
 from django.db.models import Q
 
-
-from brand.models import Brand
-from categories.models import Category
-from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping
-
-from products.common_function import ParentProductCls, ProductCls
-from categories.common_function import CategoryCls
 from brand.common_function import BrandCls
+from brand.models import Brand
+from categories.common_function import CategoryCls
+from categories.models import Category
+from products.common_function import ParentProductCls, ProductCls
+from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
+    DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
+    SlabProductPrice, PriceSlab
+from products.views import get_selling_price
+from retailer_backend.utils import getStrToDate
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -1171,4 +1173,51 @@ def create_bulk_product_vendor_mapping(validated_data):
     except Exception as e:
         error_logger.info(f"Something went wrong, while working with create Product Vendor Mapping "
                           f" + {str(e)}")
+
+
+def create_bulk_product_slab_price(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    first_row = next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            product = Product.objects.filter(product_sku=row[0]).last()
+            seller_shop_id = int(row[2])
+
+            # Create ProductPrice
+            product_price = SlabProductPrice(product=product, mrp=product.product_mrp, seller_shop_id=seller_shop_id)
+            product_price.save()
+
+            # Get selling price applicable for first price slab
+            is_ptr_applicable = product.parent_product.is_ptr_applicable
+            if is_ptr_applicable:
+                selling_price = get_selling_price(product)
+            else:
+                selling_price = float(row[6])
+
+            # Create Price Slabs
+
+            # Create Price Slab 1
+            price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
+                                     selling_price=selling_price)
+            if row[7]:
+                price_slab_1.offer_price = float(row[7])
+                price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
+                price_slab_1.offer_price_end_date = getStrToDate(row[9], '%d-%m-%y').strftime('%Y-%m-%d')
+            price_slab_1.save()
+
+            # If slab 1 quantity is Zero then slab is not to be created
+            if int(row[5]) == 0:
+                continue
+            # Create Price Slab 2
+            price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
+                                     selling_price=float(row[11]))
+            if row[12]:
+                price_slab_2.offer_price = float(row[12])
+                price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
+                price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
+            price_slab_2.save()
+
+    except Exception as e:
+        print(e)
+        msg = 'Unable to create price for row {}'.format(row_id + 1)
 

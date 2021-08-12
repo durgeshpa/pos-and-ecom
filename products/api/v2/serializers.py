@@ -15,7 +15,8 @@ from categories.models import Category
 from products.api.v1.serializers import UserSerializers
 from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
 from products.common_validators import read_file, get_validate_vendor
-from products.master_data import create_product_vendor_mapping_sample_file, create_bulk_product_vendor_mapping
+from products.master_data import create_product_vendor_mapping_sample_file, create_bulk_product_vendor_mapping, \
+    create_bulk_product_slab_price
 from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
     ProductVendorMapping, ProductPrice
 from shops.models import Shop
@@ -593,12 +594,12 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
                 if offer_price_1 >= selling_price_slab_1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
 
-            if not str(row[8]).strip() or not str(row[9]).strip() or \
-                    not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y") \
-                    or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date() \
-                    or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date() \
-                    or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y"):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
+                if not str(row[8]).strip() or not str(row[9]).strip() or \
+                        not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y") \
+                        or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date() \
+                        or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date() \
+                        or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y"):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
 
             product = Product.objects.get(product_sku=str(row[0]).strip())
             selling_price_per_saleable_unit = selling_price_slab_1
@@ -670,7 +671,7 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         try:
-            product_price = create_bulk_product_vendor_mapping(validated_data)
+            product_price = create_bulk_product_slab_price(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
