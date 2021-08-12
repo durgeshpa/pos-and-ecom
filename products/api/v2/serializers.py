@@ -677,4 +677,4 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         if product_price:
             raise serializers.ValidationError(_(product_price))
-        return validated_data
+        return "Slab Product Prices uploaded successfully !"
