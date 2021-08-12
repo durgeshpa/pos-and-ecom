@@ -681,6 +681,6 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
-        representation['updated_at'] = instance.updated_at.strftime("%b %d %Y %I:%M%p")
+        representation['created_at'] = instance['created_at'].strftime("%b %d %Y %I:%M%p")
+        representation['updated_at'] = instance['updated_at'].strftime("%b %d %Y %I:%M%p")
         return representation
