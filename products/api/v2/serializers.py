@@ -1,24 +1,26 @@
-import logging
-import re
 import codecs
 import csv
+import logging
+import re
+import datetime
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-
 from rest_framework import serializers
 
-from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
-    ProductVendorMapping
-from categories.models import Category
 from brand.models import Brand
-
-from retailer_backend.validators import *
-from products.common_validators import read_file, get_validate_vendor
 from categories.common_validators import get_validate_category
-from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
-from products.master_data import create_product_vendor_mapping_sample_file, create_bulk_product_vendor_mapping
+from categories.models import Category
 from products.api.v1.serializers import UserSerializers
+from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
+from products.common_validators import read_file, get_validate_vendor
+from products.master_data import create_product_vendor_mapping_sample_file, create_bulk_product_vendor_mapping
+from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
+    ProductVendorMapping, ProductPrice
+from shops.models import Shop
+from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
+from retailer_backend.validators import *
 
 logger = logging.getLogger(__name__)
 
@@ -537,3 +539,124 @@ class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
         response = create_product_vendor_mapping_sample_file(validated_data, validated_data["download_type"])
         return response
 
+
+class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
+    """
+      Bulk Product Price Creation
+    """
+    file = serializers.FileField(label='Upload Slab Product Prices')
+
+    class Meta:
+        model = ProductPrice
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if isBlankRow(row, len(first_row)):
+                continue
+
+            if not str(row[0]).strip() or not Product.objects.filter(product_sku=str(row[0]).strip()).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+
+            if not str(row[2]).strip() or not Shop.objects.filter(id=int(row[2]), shop_type__shop_type__in=['sp']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop ID'"))
+
+            if str(row[5]).strip():
+                try:
+                    slab_1_qty = float(row[5])
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
+            else:
+                raise ValidationError(_(f"Row {row_id + 1} | Empty 'Slab 1 Quantity'"))
+
+            if str(row[6]).strip():
+                try:
+                    selling_price = float(row[6])
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling price'"))
+            else:
+                raise ValidationError(_(f"Row {row_id + 1} | Empty 'Slab 1 Selling price'"))
+
+            if str(row[7]).strip():
+                try:
+                    offer_price_1 = float(row[7])
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Offer Price 1'"))
+            else:
+                raise ValidationError(_(f"Row {row_id + 1} | Empty 'Offer Price 1'"))
+
+            product = Product.objects.get(product_sku=str(row[0]).strip())
+            is_ptr_applicable = product.parent_product.is_ptr_applicable
+            selling_price_per_saleable_unit = selling_price
+            if is_ptr_applicable:
+                ptr_percent = product.parent_product.ptr_percent
+                ptr_type = product.parent_product.ptr_type
+                if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+                    selling_price = product.product_mrp / (1 + (ptr_percent / 100))
+                elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+                    selling_price = product.product_mrp * (1 - (ptr_percent / 100))
+                selling_price_per_saleable_unit = float(round(selling_price, 2))
+
+            if selling_price_per_saleable_unit != float(row[6]):
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
+
+            if product.product_mrp and selling_price > float(product.product_mrp):
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
+
+            if offer_price_1 >= selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
+            elif offer_price_1 and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
+                             or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
+                             or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
+                             or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
+
+            if int(row[5]) > 0:
+                if not row[10] or int(row[10]) != int(row[5]) + 1:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
+                elif not row[11] or float(row[11]) <= 0:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
+                elif float(row[11]) >= float(row[6]):
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
+                elif (row[7] and float(row[11]) >= float(row[7])):
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
+                elif row[12] and float(row[12]) >= float(row[11]):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
+                elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
+                                  or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
+                                  or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
+                                  or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+
+
+
+
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            product_price = create_bulk_product_vendor_mapping(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_price
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        representation['updated_at'] = instance.updated_at.strftime("%b %d %Y %I:%M%p")
+        return representation

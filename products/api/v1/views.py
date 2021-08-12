@@ -903,7 +903,7 @@ class ActiveChildProductListView(GenericAPIView):
         Get Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.filter(status="active").values('id', 'product_name', 'product_sku')
+    queryset = ChildProduct.objects.filter(status="active").values('id', 'product_name', 'product_sku', 'product_mrp')
     serializer_class = ProductSerializers
 
     def get(self, request):
@@ -940,7 +940,7 @@ class ChildProductListView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination'])\
-        .values('id', 'product_name', 'product_sku')
+        .values('id', 'product_name', 'product_sku', 'product_mrp')
     serializer_class = ProductSerializers
 
     def get(self, request):

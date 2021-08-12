@@ -275,3 +275,19 @@ class SlabProductPriceSampleCSV(GenericAPIView):
                          "45.5", "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-21", "30-04-21"])
         info_logger.info("product slab price CSVExported successfully ")
         return HttpResponse(response, content_type='text/csv')
+
+
+class CreateBulkSlabProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkProductVendorMappingSerializers
+
+    def post(self, request):
+        """ POST API for Create Bulk Slab Product Price"""
+
+        info_logger.info("BulkSlabProductPriceView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("BulkSlabProductPriceView upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)

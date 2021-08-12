@@ -38,7 +38,7 @@ class ChoiceField(serializers.ChoiceField):
 class ProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name',)
+        fields = ('id', 'product_sku', 'product_name', 'product_mrp', )
 
 
 class GetParentProductSerializers(serializers.ModelSerializer):
