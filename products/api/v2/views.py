@@ -250,7 +250,7 @@ class CreateProductVendorMappingView(GenericAPIView):
         info_logger.info("BulkProductVendorMappingView POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             info_logger.info("BulkProductVendorMappingView upload successfully")
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -290,5 +290,5 @@ class CreateBulkSlabProductPriceView(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             info_logger.info("BulkSlabProductPriceView upload successfully")
-            return get_response('', serializer.data)
+            return get_response("Slab Product Prices uploaded successfully !", True)
         return get_response(serializer_error(serializer), False)

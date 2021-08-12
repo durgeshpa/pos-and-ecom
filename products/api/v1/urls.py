@@ -45,6 +45,8 @@ urlpatterns = [
     url(r'^slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
     url(r'^disapprove-selected-product-price/', DisapproveSelectedProductPriceView.as_view(),
         name='disapprove-selected-product-price'),
+    url(r'^slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
+    url(r'^active-slab-product-price/', SlabProductPriceView.as_view(), name='slab-product-price'),
     url(r'^product-price-status-list/', ProductPriceStatusListView.as_view(), name='product-price-status-list'),
 
 ]

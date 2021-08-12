@@ -1326,6 +1326,18 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
                 or price_slab['selling_price'] > data['mrp']*data['product'].product_inner_case_size:
             raise ValidationError('Invalid Selling Price')
 
+        if cnt == 0 and data['product'].parent_product.is_ptr_applicable:
+            ptr_percent = data['product'].parent_product.ptr_percent
+            ptr_type = data['product'].parent_product.ptr_type
+            if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+                sups = data['product'].product_mrp / (1 + (ptr_percent / 100))
+            elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+                sups = data['product'].product_mrp * (1 - (ptr_percent / 100))
+            if price_slab['selling_price'] != float(round(sups, 2)):
+                raise ValidationError("Invalid 'Selling Price' as the product is PTR applicable.")
+            if data['product'].product_mrp and price_slab['selling_price'] > float(data['product'].product_mrp):
+                raise ValidationError("Invalid 'Selling Price' as the MRP is lesser than SP")
+
         if price_slab['offer_price'] is not None:
             if price_slab['selling_price'] <= price_slab['offer_price']:
                 raise ValidationError('Invalid Offer Price')
