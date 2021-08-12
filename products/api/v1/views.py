@@ -24,7 +24,8 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
-    ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer
+    ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
+    DisapproveSelectedProductPriceSerializers
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -1190,6 +1191,23 @@ class ProductVendorMappingExportAsCSVView(CreateAPIView):
             info_logger.info("product vendor mapping CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class DisapproveSelectedProductPriceView(UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    product_price_list = ProductPrice.objects.values('id', )
+    serializer_class = DisapproveSelectedProductPriceSerializers
+
+    def put(self, request):
+        """ PUT API to Disapproved Selected Slap Product Price """
+
+        info_logger.info("Product Price Disapproved PUT api called.")
+        serializer = self.serializer_class(instance=self.product_price_list.filter(
+            id__in=request.data['product_price_id_list']), data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Product price disapproved successfully!', True)
+        return get_response(serializer_error(serializer), None)
 
 
 class SlabProductPriceView(GenericAPIView):

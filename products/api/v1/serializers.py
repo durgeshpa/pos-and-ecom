@@ -1353,3 +1353,47 @@ class ProductPriceSerializers(serializers.ModelSerializer):
             if 'end_value' not in price_slab:
                 price_slab['end_value'] = 0
             PriceSlab.objects.create(product_price=product_price, **price_slab)
+
+
+class DisapproveSelectedProductPriceSerializers(serializers.ModelSerializer):
+    approval_status = serializers.BooleanField(required=True)
+    product_price_id_list = serializers.ListField(child=serializers.IntegerField(min_value=1))
+
+    class Meta:
+        model = ProductPrice
+        fields = ('approval_status', 'product_price_id_list',)
+
+    def validate(self, data):
+
+        if data.get('approval_status') is None:
+            raise serializers.ValidationError('approval_status field is required')
+
+        if not int(data.get('approval_status')) == 0:
+            raise serializers.ValidationError('invalid approval_status')
+
+        if 'product_price_id_list' not in data or not data['product_price_id_list']:
+            raise serializers.ValidationError(_('atleast one product price id must be selected '))
+
+        for p_id in data.get('product_price_id_list'):
+            try:
+                ProductPrice.objects.get(id=p_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'product price not found for id {p_id}')
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+
+        try:
+            product_prices = ProductPrice.objects.filter(
+                id__in=validated_data['product_price_id_list'])
+            product_prices.update(approval_status=int(validated_data['approval_status']), modified_at=timezone.now())
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
+
+
