@@ -28,6 +28,33 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+from wms.views import shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer
+                          )
+from products.models import ProductPrice, ProductOption, Product
+from sp_to_gram.models import OrderedProductReserved
+from categories import models as categorymodel
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList
+                                  )
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, Return)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder
+                                     )
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+
 from brand.models import Brand
 
 from categories import models as categorymodel
@@ -57,6 +84,12 @@ from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from pos.offers import BasicCartOffers
+
+from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
+    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
+    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
+    RetailerProductResponseSerializer, PosShopUserMappingListSerializer
+
 from pos.common_validators import validate_user_type_for_pos_shop
 
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
@@ -394,7 +427,8 @@ class SearchProducts(APIView):
         # Raw Output
         if output_type == '1':
             body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty"]}
+                                            "description", "linked_product_id", "stock_qty", 'offer_price',
+                                            'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -404,7 +438,8 @@ class SearchProducts(APIView):
         # Processed Output
         else:
             body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty"]}
+                                            "description", "linked_product_id", "stock_qty", 'offer_price',
+                                            'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 product_ids = []
@@ -4334,10 +4369,13 @@ class OrderReturnComplete(APIView):
             order_return = OrderReturn.objects.get(order=order, status='created')
         except ObjectDoesNotExist:
             return api_response("Order Return Does Not Exist / Already Closed")
-        # Check refund method
-        refund_method = self.request.data.get('refund_method')
-        if not refund_method or refund_method not in dict(PAYMENT_MODE_POS):
-            return api_response('Please provide a valid refund method')
+
+        # Check Payment Type
+        try:
+            payment_type = PaymentType.objects.get(id=self.request.data.get('refund_method'))
+            refund_method = payment_type.type
+        except:
+            return api_response("Invalid Refund Method")
 
         with transaction.atomic():
             # check partial or fully refunded order
@@ -4384,8 +4422,8 @@ class OrderReturnComplete(APIView):
             return_count = OrderReturn.objects.filter(order=order, status='completed').count()
             credit_note_id = generate_credit_note_id(ordered_product.invoice_no, return_count)
             credit_note_instance = CreditNote.objects.create(credit_note_id=credit_note_id, order_return=order_return)
-            pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products, \
-                return_qty, order.order_amount, refund_amount, points_credit, points_debit, net_points, credit_note_instance)
+            pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products,
+                                           credit_note_instance)
             
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
@@ -4801,7 +4839,7 @@ def pdf_generation(request, ordered_product):
             logger.exception(e)
 
 
-def pdf_generation_retailer(request, order_id):
+def pdf_generation_retailer(request, order_id, delay=True):
     """
     :param request: request object
     :param order_id: Order id
@@ -4816,7 +4854,17 @@ def pdf_generation_retailer(request, order_id):
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
-            pass
+            try:
+                phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
+                media_url, file_name = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no
+                if delay:
+                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                else:
+                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+            except Exception as e:
+                logger.exception("Retailer Invoice send error order {}".format(order.order_no))
+                logger.exception(e)
+
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
@@ -4889,27 +4937,49 @@ def pdf_generation_retailer(request, order_id):
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
             # whatsapp api call for sending an invoice
-            whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+            else:
+                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
+            logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
             logger.exception(e)
 
-def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items, return_qty, \
-                                    total, total_amount, points_credit, points_debit, net_points, credit_note_instance):
-    """
-    :param request: request object
-    :param order_id: Order id
-    :return: pdf instance
-    """
+
+def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items,
+                                   credit_note_instance, delay=True):
+
     file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
     template_name = 'admin/credit_note/credit_note_retailer.html'
 
-    if credit_note_instance:
+    try:
+        # Don't create pdf if already created
+        if credit_note_instance.credit_note_pdf.url:
+            try:
+                order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
+                refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+                media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+                if delay:
+                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                                file_name)
+                else:
+                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                 file_name)
+            except Exception as e:
+                logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
+                                                                                             order_return.id))
+                logger.exception(e)
+
+    except Exception as e:
+        logger.exception(e)
+
         filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
         barcode = barcodeGen(credit_note_instance.credit_note_id)
         # Total Items
         return_item_listing = []
         # Total Returned Amount
         total = 0
+        return_qty = 0
 
         for item in return_items:
             return_p = {
@@ -4920,6 +4990,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 "rate": float(item.ordered_product.selling_price),
                 "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
             }
+            return_qty += item.return_qty
             total += return_p['product_sub_total']
             return_item_listing.append(return_p)
 
@@ -4987,10 +5058,13 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
             media_url = credit_note_instance.credit_note_pdf.url
             file_name = ordered_product.invoice_no
-            shop_name = ordered_product.order.seller_shop.shop_name
-            whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit,
-                                        points_debit, net_points, shop_name, media_url, file_name)
+            if delay:
+                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url, file_name)
+            else:
+                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name)
         except Exception as e:
+            logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
+                                                                                                  order_return.id))
             logger.exception(e)
 
 
@@ -5821,22 +5895,24 @@ class RefreshEsRetailer(APIView):
         """
             Refresh retailer Products Es
         """
-        shop_id = self.request.GET.get('shop_id')
-        try:
-            shop = Shop.objects.get(id=shop_id, shop_type__shop_type='f')
-        except ObjectDoesNotExist:
-            return api_response("Shop Not Found")
-        from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-        index = "{}-{}".format(es_prefix, 'rp-{}'.format(shop_id))
-        es.indices.delete(index=index, ignore=[400, 404])
-        info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
-        all_products = RetailerProduct.objects.filter(shop=shop)
-        try:
-            update_es(all_products, shop_id)
-        except Exception as e:
-            info_logger.info("error in retailer shop index creation")
-            info_logger.info(e)
-        info_logger.info('RefreshEsRetailer | shop {}, Ended'.format(shop_id))
+        shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=True)
+        input_shop_id = self.request.GET.get('shop_id')
+        if input_shop_id:
+            shops = shops.filter(id=input_shop_id)
+
+        if not shops.exists():
+            return api_response("No shops found")
+
+        for shop in shops:
+            shop_id = shop.id
+            info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
+            all_products = RetailerProduct.objects.filter(shop=shop)
+            try:
+                update_es(all_products, shop_id)
+            except Exception as e:
+                info_logger.info("error in retailer shop refresh es {}".format(shop_id))
+                info_logger.info(e)
+            info_logger.info('RefreshEsRetailer | shop {}, Ended'.format(shop_id))
         return api_response("Shop data updated on ES", None, status.HTTP_200_OK, True)
 
 
@@ -5848,11 +5924,12 @@ class PosUserShopsList(APIView):
     def get(self, request, *args, **kwargs):
         user = request.user
         search_text = request.GET.get('search_text')
-        shops_qs = filter_pos_shop(user)
+        user_mappings = PosShopUserMapping.objects.filter(user=user, status=True, shop__shop_type__shop_type='f',
+                                                          shop__status=True, shop__pos_enabled=True,
+                                                          shop__approval_status=2)
         if search_text:
-            shops_qs = shops_qs.filter(shop_name__icontains=search_text)
-        shops = shops_qs.distinct('id')
-        request_shops = self.pagination_class().paginate_queryset(shops, self.request)
+            user_mappings = user_mappings.filter(shop__shop_name__icontains=search_text)
+        request_shops = self.pagination_class().paginate_queryset(user_mappings, self.request)
         data = PosShopSerializer(request_shops, many=True).data
         if data:
             return api_response("Shops Mapped", data, status.HTTP_200_OK, True)
@@ -5870,8 +5947,65 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        # related_users = shop.related_users.filter(is_staff=False)
-        pos_shop_users = User.objects.filter(pos_shop_user__shop=shop, is_staff=False)
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
-        data['related_users'] = PosShopUserSerializer(request_users, many=True).data
+        data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
+
+
+class OrderCommunication(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+
+        com_type, pk, shop = kwargs['type'], kwargs['pk'], kwargs['shop']
+
+        if com_type == 'invoice':
+            return self.resend_invoice(pk, shop)
+        elif com_type == 'credit-note':
+            return self.resend_credit_note(pk, shop)
+        else:
+            return api_response("Invalid communication type")
+
+    def resend_invoice(self, pk, shop):
+        """
+            Resend invoice for pos order
+        """
+        try:
+            order = Order.objects.get(pk=pk, seller_shop=shop, ordered_cart__cart_type='BASIC')
+        except ObjectDoesNotExist:
+            return api_response("Could not find order to send invoice for")
+
+        if pdf_generation_retailer(self.request, order.id, False):
+            return api_response("Invoice sent successfully!", None, status.HTTP_200_OK, True)
+        else:
+            return api_response("Invoice could not be sent. Please try again later", None,
+                                status.HTTP_500_INTERNAL_SERVER_ERROR, False)
+
+    def resend_credit_note(self, pk, shop):
+        """
+            Resend credit note for pos order return
+        """
+        try:
+            order_return = OrderReturn.objects.get(pk=pk, order__seller_shop=shop,
+                                                   order__ordered_cart__cart_type='BASIC')
+        except ObjectDoesNotExist:
+            return api_response("Could not find return to send credit note for")
+
+        try:
+            credit_note = CreditNote.objects.get(order_return=order_return)
+        except ObjectDoesNotExist:
+            return api_response("Could not find credit note")
+
+        order = order_return.order
+        ordered_product = OrderedProduct.objects.get(order=order)
+        returned_products = ReturnItems.objects.filter(return_id=order_return)
+
+        if pdf_generation_return_retailer(self.request, order, ordered_product, order_return, returned_products,
+                                          credit_note, False):
+            return api_response("Credit note sent successfully!", None, status.HTTP_200_OK, True)
+        else:
+            return api_response("Credit note could not be sent. Please try again later", None,
+                                status.HTTP_500_INTERNAL_SERVER_ERROR, False)

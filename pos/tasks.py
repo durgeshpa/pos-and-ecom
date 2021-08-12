@@ -93,7 +93,10 @@ def update_es(products, shop_id):
             'description': product.description if product.description else "",
             'linked_product_id': product.linked_product.id if product.linked_product else '',
             'stock_qty': stock_qty,
-            'discounted_product_available': discounted_product_available
+            'discounted_product_available': discounted_product_available,
+            'offer_price': product.offer_price,
+            'offer_start_date': product.offer_start_date,
+            'offer_end_date': product.offer_end_date
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 

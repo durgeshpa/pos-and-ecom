@@ -8,7 +8,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView
+                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication
                     )
 
 router = routers.DefaultRouter()
@@ -34,6 +34,7 @@ urlpatterns = [
     # ORDER
     url('^order/$', OrderCentral.as_view()),
     url(r'^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
+    url(r'^order-communication/(?P<type>[-\w]+)/(?P<pk>\d+)/$', OrderCommunication.as_view()),
     url('^order-list/$', OrderListCentral.as_view(), name='order_list'),
     url('^order-dashboard/$', OrderedItemCentralDashBoard.as_view()),
     # RETURNS
