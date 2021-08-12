@@ -83,8 +83,8 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
                                   created_at__lte=validated_data['end_date'], warehouse=validated_data['warehouse'])
 
         meta = Product._meta
-        field_names = ['TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'IN TYPE', 'OUT TYPE', 'TRANSACTION ID',
-                       'QUANTITY']
+        field_names = ['TRANSACTION TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'MOVEMENT TYPE',
+                       'TRANSACTION TYPE', 'TRANSACTION ID', 'QUANTITY']
 
         inventory_types_qs = InventoryType.objects.values('id', 'inventory_type').order_by('id')
         inventory_types = list(x['inventory_type'].upper() for x in inventory_types_qs)
@@ -119,16 +119,16 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
         writer.writerow([])
         writer.writerow(field_names)
         for obj in data:
+            created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
             if obj.__class__.__name__ == 'In':
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, obj.in_type, None,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "IN", obj.in_type,
                                  obj.in_type_id, obj.quantity])
             elif obj.__class__.__name__ == 'Out':
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, obj.out_type,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "OUT", obj.out_type,
                                  obj.out_type_id, obj.quantity])
             else:
-                writer.writerow([obj.created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
                                  obj.quantity])
-
         return response
 
 
