@@ -1,9 +1,8 @@
-from django.contrib.auth.models import User
 from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ParentProductCategory
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand
@@ -22,8 +21,6 @@ from categories.models import Category
 from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
-
-from .tasks import approve_product_price
 
 
 @receiver(post_save, sender=ProductPrice)
@@ -105,7 +102,6 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
 
 
-
 @receiver(post_save, sender=ParentProduct)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     logger.info("Updating ES of child products of parent {}".format(instance))
@@ -117,7 +113,6 @@ def update_parent_product_elasticsearch(sender, instance=None, created=False, **
             product_images = [
                 {
                     "image_name": p_i.image_name,
-                    "image_alt": p_i.image_alt_text,
                     "image_url": p_i.image.url
                 }
                 for p_i in instance.parent_product_pro_image.all()
@@ -478,7 +473,7 @@ def update_parent_brand_elasticsearch(sender, instance=None, created=False, **kw
     shops = str(shops_str).split(',') if shops_str else None
     update_product_on_brand_update(instance, shops)
 
-    child_brands = instance.brnd_parent.all()
+    child_brands = instance.brand_child.all()
     for child_brand in child_brands:
         child_brand.save()
 

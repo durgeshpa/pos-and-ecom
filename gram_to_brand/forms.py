@@ -28,7 +28,7 @@ class OrderForm(forms.ModelForm):
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
-        queryset=Brand.objects.filter(active_status='active'),
+        queryset=Brand.objects.filter(status=True),
         widget=autocomplete.ModelSelect2(url='brand-autocomplete', )
     )
     supplier_state = forms.ModelChoiceField(
@@ -58,7 +58,7 @@ class POGenerationForm(forms.ModelForm):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             '/static/admin/js/po_generation_form.js',
         )
 
@@ -141,7 +141,7 @@ class POGenerationForm(forms.ModelForm):
 
 class POGenerationAccountForm(forms.ModelForm):
     brand = forms.ModelChoiceField(disabled=True,
-        queryset=Brand.objects.filter(active_status='active'),
+        queryset=Brand.objects.filter(status=True),
         widget=autocomplete.ModelSelect2(url='brand-autocomplete', )
     )
     supplier_state = forms.ModelChoiceField(disabled=True,
@@ -296,7 +296,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             'admin/js/po_generation_form.js'
         )
 

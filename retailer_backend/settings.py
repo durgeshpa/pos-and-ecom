@@ -139,7 +139,8 @@ INSTALLED_APPS = [
     'whc',
     'redash_report',
     'retailer_incentive',
-    'ars'
+    'ars',
+    'cms'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -296,7 +297,6 @@ REST_FRAMEWORK = {
 #         'rest_framework.permissions.AllowAny',
 #     ),
 # }
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/

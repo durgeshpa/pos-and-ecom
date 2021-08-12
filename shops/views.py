@@ -605,9 +605,6 @@ class ShopUserMappingCsvSample(View):
         return response
 
 
-from django.views.generic import View
-
-
 class BeatUserMappingCsvSample(View):
     """
     This class is used to download the sample beat csv file for individual executive

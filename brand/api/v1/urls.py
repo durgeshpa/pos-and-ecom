@@ -1,15 +1,14 @@
-from django.conf.urls import include, url
-from brand.api.v1 import views
-from .views import (GetSlotBrandListView, GetSubBrandsListView)
+from django.conf.urls import url
+from .views import (GetSlotBrandListView, GetSubBrandsListView, BrandView, BrandVendorMappingView,
+                    BrandExportAsCSVView, BrandListView)
 
 urlpatterns = [
-    # URLs that do not require a session or valid token
-    #url(r'^get-all-brand/$', GetAllBrandListView.as_view(), name='get_all_brand'),
+
     url(r'^get-brand/(?P<slot_position_name>[-\w]+)/$', GetSlotBrandListView.as_view(), name='get_slot_brand'),
     url(r'^get-subbrands/(?P<brand>[-\w]+)/$', GetSubBrandsListView.as_view(), name='get_subbrands'),
-    #url(r'^get-slot-brand/(?P<slot_position_name>[-\w]+)/$', GetSlotBrandListView.as_view(), name='get_slot_brand'),
-    #url(r'^get-slot-banner/(?P<pk>\d+)/$', GetSlotBannerListView1.as_view(), name='get_slot_banner'),
-    #url(r'^get-slot-banner/(?P<pk>\d+)/$', GetSlotIdBannerListView.as_view({'get': 'list'}), name='get_slot_banner'),
-    #url(r'^get-all-slots/$', views.all_slot_list_view, name='get_all_slots'),
-    #url(r'^get-all-slots/(?P<pk>\d+)/$', views.slot_detail_view, name='get_slots_detail'),
+    url(r'^brand/$', BrandView.as_view(), name='brand'),
+    url(r'^brand-list/$', BrandListView.as_view(), name='brand-list'),
+    url(r'^brand-vendor-map/$', BrandVendorMappingView.as_view(), name='brand-vendor-map'),
+    url(r'^export-csv-brand/$', BrandExportAsCSVView.as_view(), name='export-csv-brand'),
+
 ]
