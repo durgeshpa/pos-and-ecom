@@ -129,7 +129,7 @@ INSTALLED_APPS = [
     'mathfilters',
     'wms',
     'audit',
-    # 'django_extensions',
+    'django_extensions',
     'franchise.apps.FranchiseConfig',
     'django_tables2',
     'tablib',
