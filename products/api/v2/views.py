@@ -10,7 +10,8 @@ from categories.models import Category
 from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
-    CategoryListSerializers, DownloadProductVendorMappingSerializers, BulkProductVendorMappingSerializers
+    CategoryListSerializers, DownloadProductVendorMappingSerializers, BulkProductVendorMappingSerializers, \
+    BulkSlabProductPriceSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -279,7 +280,7 @@ class SlabProductPriceSampleCSV(GenericAPIView):
 
 class CreateBulkSlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    serializer_class = BulkProductVendorMappingSerializers
+    serializer_class = BulkSlabProductPriceSerializers
 
     def post(self, request):
         """ POST API for Create Bulk Slab Product Price"""

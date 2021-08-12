@@ -541,7 +541,7 @@ class DownloadProductVendorMappingSerializers(serializers.ModelSerializer):
         return response
 
 
-class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
+class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
     """
       Bulk Product Price Creation
     """
