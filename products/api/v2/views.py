@@ -290,5 +290,5 @@ class CreateBulkSlabProductPriceView(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             info_logger.info("BulkSlabProductPriceView upload successfully")
-            return get_response('', serializer.data)
+            return get_response('', "Slab Product Prices uploaded successfully !")
         return get_response(serializer_error(serializer), False)
