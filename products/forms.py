@@ -554,9 +554,9 @@ class DiscountedProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
-                  'product_ean_code', 'product_mrp', 'status')
+                  'product_ean_code', 'product_mrp', 'status', 'is_manual_price_update')
 
-
+    
 class ProductSourceMappingForm(forms.ModelForm):
     source_sku = forms.ModelChoiceField(
         queryset=Product.objects.filter(repackaging_type='source'),
@@ -2380,8 +2380,8 @@ class UploadDiscountedProductPriceForm(forms.Form):
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
             seller_shop = Shop.objects.filter(pk = int(row[2])).last()
-            manual_price_update = int(row[4])
-            selling_price = float(row[5])
+            manual_price_update = product.is_manual_price_update
+            selling_price = float(row[4])
             if not manual_price_update:
                 original_product = product.product_ref
                 product_price = original_product.product_pro_price.all()
@@ -2723,7 +2723,6 @@ class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
         )
     )
     mrp = forms.DecimalField(required=False)
-    is_manual_price_update = forms.BooleanField(required = False)
     selling_price = forms.DecimalField(min_value=0, decimal_places=2, required=False)
 
     class Meta:
