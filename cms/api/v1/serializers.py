@@ -47,8 +47,11 @@ class Base64ImageField(serializers.ImageField):
             file_extension = self.get_file_extension(file_name, decoded_file)
 
             complete_file_name = "%s.%s" % (file_name, file_extension, )
-
+        
             data = ContentFile(decoded_file, name=complete_file_name)
+
+        if self.isCorrupted(data):
+            self.fail('invalid_image')
 
         return super(Base64ImageField, self).to_internal_value(data)
 
@@ -59,6 +62,17 @@ class Base64ImageField(serializers.ImageField):
         extension = "jpg" if extension == "jpeg" else extension
 
         return extension
+
+    def isCorrupted(self, fileimage):
+        from PIL import Image
+        try:
+            with Image.open(fileimage) as img:
+                img.verify() # verify that it is, in fact an image
+            return False
+        except Exception as e:
+            print(e)
+            return True
+    
 
 class CardAppSerializer(serializers.ModelSerializer):
     """Serializer for Application"""
@@ -73,11 +87,19 @@ class CardItemSerializer(serializers.ModelSerializer):
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
+    
+
+    def to_internal_value(self, data):
+        image = data.get('image', None)
+        if image == '':
+            data.pop('image')
+        return super(CardItemSerializer, self).to_internal_value(data)
 
     class Meta:
         model = CardItem
         # fields = "__all__"
         exclude = ('card_data',)
+
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
@@ -105,13 +127,18 @@ class CardDataSerializer(serializers.ModelSerializer):
         model = CardData
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        image = data.get('image', None)
+        if image == '':
+            data.pop('image')
+        return super(CardItemSerializer, self).to_internal_value(data)
+
     def to_representation(self, instance):
         """ Add card_id to data """
         data = super().to_representation(instance)
         card_version = CardVersion.objects.all().filter(card_data=instance).first()
         data['card_id'] = card_version.card.id
         return data
-
     
     def create(self, validated_data):
         request = self.context.get("request")
