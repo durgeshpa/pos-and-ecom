@@ -33,8 +33,7 @@ class OfferBannerSerializer(serializers.ModelSerializer):
         model = OfferBanner
         fields = (
             'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
-            'status',
-            'offer_banner_start_date', 'offer_banner_end_date', 'alt_text', 'text_below_image')
+            'status', 'offer_banner_start_date', 'offer_banner_end_date', )
 
     def product_category(self, obj):
         if obj.category_id is None:
@@ -237,11 +236,11 @@ class TopSKUSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(seller_shop_val['error'])
             data['shop'] = seller_shop_val['seller_shop']
 
-        if self.initial_data['end_date'] < self.initial_data['start_date']:
+        if self.initial_data['end_date'] <= self.initial_data['start_date']:
             raise serializers.ValidationError("End date should be greater than start date.")
 
         return data
-    
+
     @transaction.atomic
     def create(self, validated_data):
         """create a new TopSKU """
