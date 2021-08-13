@@ -4,6 +4,10 @@
 
 {% block title %}{{ title }} | {{ site_title|default:_('Gramfactory') }}{% endblock %}
 
+{% block extrastyle %}
+     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/header_sticky.css' %}"/>
+{% endblock %}
+
 {% block branding %}
 <h1 id="site-name">
     <a href="{% url 'admin:index' %}">

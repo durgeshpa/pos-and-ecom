@@ -422,6 +422,8 @@ def get_visibility_changes(shop, product):
         product = Product.objects.filter(id=product).last()
         if not product:
             return visibility_changes
+
+    visibility_changes[product.id] = False
     child_siblings = Product.objects.filter(
         parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(), status='active'
     )
