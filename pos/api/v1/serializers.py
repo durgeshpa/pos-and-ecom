@@ -52,6 +52,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
+    online_order = serializers.BooleanField(default = True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -63,6 +65,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
             'linked_product_id'], attrs['product_ean_code']
         offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
+        print(1)
+        online_price = attrs.get('online_price', None)
         
         if ((offer_sd is None and offer_ed is not None) or \
             (offer_sd is not None and offer_ed is None)) :
@@ -73,6 +77,9 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+        
+        if online_price is not None and online_price > mrp:
+            raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
         
         if offer_price and offer_price > sp:
             raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
@@ -138,6 +145,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
+    online_order = serializers.BooleanField(default = True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
+
 
 
     def validate(self, attrs):
@@ -161,6 +171,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'online_price' in attrs and attrs['online_price'] > mrp:
+            raise serializers.ValidationError("Online Price should be less than or equal to mrp")
         
         if 'offer_price' in attrs and attrs['offer_price'] and 'offer_start_date' in attrs and attrs['offer_start_date']\
             and 'offer_end_date' in attrs and attrs['offer_end_date']:
