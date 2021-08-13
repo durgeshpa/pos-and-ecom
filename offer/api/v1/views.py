@@ -430,47 +430,47 @@ class TopSKUView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product')\
-        .prefetch_related('top_sku_log', 'top_sku_log__updated_by').\
+        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner').\
         only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date').order_by('-id')
     serializer_class = TopSKUSerializers
 
     def get(self, request):
-        """ GET API for Offer Page """
+        """ GET API for TopSKU """
 
-        info_logger.info("Offer PageGET api called.")
+        info_logger.info("TopSKU api called.")
         offer_page_total_count = self.queryset.count()
         if request.GET.get('id'):
-            """ Get Offer Page for specific ID """
+            """ Get TopSKU for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             offer_page = id_validation['data']
         else:
-            """ GET Offer Page List """
+            """ GET TopSKU List """
             self.queryset = self.offer_page_search()
             offer_page_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
-        msg = f"total count {offer_page_total_count}" if offer_page else "no offer page found"
+        msg = f"total count {offer_page_total_count}" if offer_page else "no top sku found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
-        """ POST API for Offer Page Creation """
+        """ POST API for TopSKU Creation """
 
-        info_logger.info("Offer Page POST api called.")
+        info_logger.info("TopSKU POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            info_logger.info("Offer Page Created Successfully.")
-            return get_response('offer page created successfully!', serializer.data)
+            info_logger.info("TopSKUe Created Successfully.")
+            return get_response('top sku created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-        """ PUT API for Offer Page Updation """
+        """ PUT API for TopSKU Updation """
 
-        info_logger.info("Offer Page PUT api called.")
+        info_logger.info("TopSKU PUT api called.")
         if 'id' not in request.data:
-            return get_response('please provide id to update offer page', False)
+            return get_response('please provide id to update top sku', False)
 
         # validations for input id
         id_instance = validate_id(self.queryset, int(request.data['id']))
@@ -481,30 +481,30 @@ class TopSKUView(GenericAPIView):
         serializer = self.serializer_class(instance=offer_page_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("Offer Page Updated Successfully.")
-            return get_response('offer page updated!', serializer.data)
+            info_logger.info("Top SKU Updated Successfully.")
+            return get_response('top sku updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
-        """ Delete Offer Page """
+        """ Delete Top SKU """
 
-        info_logger.info("Offer Page DELETE api called.")
-        if not request.data.get('offer_page_ids'):
-            return get_response('please select atleast one offer page', False)
+        info_logger.info("Top SKU DELETE api called.")
+        if not request.data.get('top_sku_ids'):
+            return get_response('please select atleast one top sku', False)
         try:
-            for off_id in request.data.get('offer_page_ids'):
-                offer_page_id = self.queryset.get(id=int(off_id))
+            for off_id in request.data.get('top_sku_ids'):
+                top_sku_id = self.queryset.get(id=int(off_id))
                 try:
-                    offer_page_id.delete()
-                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'offer_page': offer_page_id}
-                    info_logger.info("offer_page deleted info ", dict_data)
+                    top_sku_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'top_sku_id': top_sku_id}
+                    info_logger.info("top_sku deleted info ", dict_data)
                 except:
-                    return get_response(f'You can not delete offer page {offer_page_id.name}, '
+                    return get_response(f'You can not delete top sku {top_sku_id.name}, '
                                         f'because this offer page is mapped with offer', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
             return get_response(f'please provide a valid offer page {off_id}', False)
-        return get_response('offer page were deleted successfully!', True)
+        return get_response('top sku were deleted successfully!', True)
 
     def offer_page_search(self):
         search_text = self.request.GET.get('search_text')
