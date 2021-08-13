@@ -33,7 +33,7 @@ class OfferBannerSerializer(serializers.ModelSerializer):
         model = OfferBanner
         fields = (
             'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
-            'status', 'offer_banner_start_date', 'offer_banner_end_date', )
+            'status', 'offer_banner_start_date', 'offer_banner_end_date',)
 
     def product_category(self, obj):
         if obj.category_id is None:
@@ -115,7 +115,8 @@ class OfferPageSerializers(serializers.ModelSerializer):
     def validate(self, data):
         offer_page_id = self.instance.id if self.instance else None
         if 'name' in self.initial_data and self.initial_data['name']:
-            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
+                    id=offer_page_id).exists():
                 raise serializers.ValidationError(f"offer page with name {self.initial_data['name']} already exists.")
         return data
 
@@ -150,7 +151,6 @@ class OfferPageSerializers(serializers.ModelSerializer):
 
 
 class OfferPageListSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = OfferPage
         fields = ('id', 'name',)
@@ -167,7 +167,8 @@ class OfferBannerSlotSerializers(serializers.ModelSerializer):
     def validate(self, data):
         offer_page_id = self.instance.id if self.instance else None
         if 'name' in self.initial_data and self.initial_data['name']:
-            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
+                    id=offer_page_id).exists():
                 raise serializers.ValidationError(f"offer banner slot with name {self.initial_data['name']} "
                                                   f"already exists.")
 
@@ -270,4 +271,74 @@ class TopSKUSerializers(serializers.ModelSerializer):
     #         representation['start_date'] = instance.start_date.strftime("%b %d %Y %I:%M%p")
     #     if instance.end_date:
     #         representation['end_date'] = instance.end_date.strftime("%b %d %Y %I:%M%p")
+    #     return representation
+
+
+class OfferBannerListSlotSerializers(serializers.ModelSerializer):
+    # page = OfferPageListSerializers(read_only=True)
+
+    class Meta:
+        model = OfferBannerSlot
+        fields = ('id', '__str__',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return {
+            "id": representation['id'],
+            "offerbannerslot": representation['__str__']
+            }
+
+
+class OfferBannerPositionSerializers(serializers.ModelSerializer):
+    page = OfferPageListSerializers(read_only=True)
+    shop = ServicePartnerShopsSerializer(read_only=True)
+    offerbannerslot = OfferBannerListSlotSerializers(read_only=True)
+
+    class Meta:
+        model = OfferBannerPosition
+        fields = ('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot')
+
+    def validate(self, data):
+        offer_page_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name']:
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
+                    id=offer_page_id).exists():
+                raise serializers.ValidationError(f"offer banner slot with name {self.initial_data['name']} "
+                                                  f"already exists.")
+
+        if not 'page' in self.initial_data or not self.initial_data['page']:
+            raise serializers.ValidationError('page is required')
+
+        page_val = get_validate_page(self.initial_data['page'])
+        if 'error' in page_val:
+            raise serializers.ValidationError(f'{page_val["error"]}')
+        data['page'] = page_val['page']
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new offer banner position """
+        try:
+            offer_banner_slot = OfferBannerSlot.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return offer_banner_slot
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update offer banner position"""
+        try:
+            instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
+
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     if representation['name']:
+    #         representation['name'] = representation['name'].title()
     #     return representation

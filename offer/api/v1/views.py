@@ -7,8 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from .serializers import OfferBannerDataSerializer, OfferPageListSerializers, TopSKUSerializer, OfferPageSerializers, \
-    OfferBannerSlotSerializers, TopSKUSerializers
-from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
+    OfferBannerSlotSerializers, TopSKUSerializers, OfferBannerListSlotSerializers, OfferBannerPositionSerializers
+from offer.models import OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
 
 from shops.models import Shop, ParentRetailerMapping
 
@@ -19,7 +19,7 @@ from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
-from offer.services import offer_banner_offer_page_slot_search
+from offer.services import offer_banner_offer_page_slot_search, offer_banner_position_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -387,7 +387,7 @@ class OfferBannerSlotView(GenericAPIView):
 
         info_logger.info("Offer Banner Slot DELETE api called.")
         if not request.data.get('offer_banner_slot_ids'):
-            return get_response('please select offer page', False)
+            return get_response('please select offer banner slot', False)
         try:
             for id in request.data.get('offer_banner_slot_ids'):
                 offer_banner_slot_id = self.queryset.get(id=int(id))
@@ -527,5 +527,135 @@ class TopSKUView(GenericAPIView):
             self.queryset = self.queryset.filter(end_date__date__gte=end_date_range_from)
         if end_date_range_to:
             self.queryset = self.queryset.filter(end_date__date__lte=end_date_range_to)
+
+        return self.queryset
+
+
+class OfferBannerSlotListView(GenericAPIView):
+    """
+        Get OfferBannerSlot List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OfferBannerSlot.objects.select_related('page', ).only('id', 'name', 'page',).order_by('-id')
+    serializer_class = OfferBannerListSlotSerializers
+
+    def get(self, request):
+        """ GET API for Offer Banner Slot """
+
+        info_logger.info("Offer Banner Slot GET List api called.")
+        """ GET Offer Banner Slot List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = offer_banner_offer_page_slot_search(self.queryset, search_text)
+        offer_banner_slot = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(offer_banner_slot, many=True)
+        msg = " " if offer_banner_slot else "no offer banner slot found"
+        return get_response(msg, serializer.data, True)
+
+
+class OfferBannerPositionView(GenericAPIView):
+    """
+        Get OfferBannerPosition
+        Add OfferBannerPosition
+        Search OfferBannerPosition
+        List OfferBannerPosition
+        Update OfferBannerPosition
+        Delete OfferBannerPosition
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OfferBannerPosition.objects.select_related('shop', 'offerbannerslot', 'offerbannerslot__page',
+                                                          'page', 'shop__shop_type', 'shop__shop_owner')\
+        .only('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot').order_by('-id')
+    serializer_class = OfferBannerPositionSerializers
+
+    def get(self, request):
+        """ GET API for Offer Banner Position """
+
+        info_logger.info("Offer Banner Position GET api called.")
+        offer_banner_position_total_count = self.queryset.count()
+
+        if request.GET.get('id'):
+            """ Get Offer Banner Position for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            offer_banner_slot = id_validation['data']
+        else:
+            """ GET Offer Banner Position List """
+            self.queryset = self.offer_banner_position_search_filter()
+            offer_banner_position_total_count = self.queryset.count()
+            offer_banner_slot = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(offer_banner_slot, many=True)
+        msg = f"total count {offer_banner_position_total_count}" if offer_banner_slot else \
+            "no offer banner position found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Offer Banner Slot Creation """
+
+        info_logger.info("Offer Banner Slot POST api called.")
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Offer Banner Position Created Successfully.")
+            return get_response('offer banner position created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Offer Banner Position Updation """
+
+        info_logger.info("Offer Banner Position PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update offer banner position', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        offer_banner_slot = id_instance['data'].last()
+        serializer = self.serializer_class(instance=offer_banner_slot, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Offer Banner Position Updated Successfully.")
+            return get_response('offer banner position updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Offer Banner Position """
+
+        info_logger.info("Offer Banner Position DELETE api called.")
+        if not request.data.get('offer_banner_slot_ids'):
+            return get_response('please select offer page', False)
+        try:
+            for id in request.data.get('offer_banner_slot_ids'):
+                offer_banner_slot_id = self.queryset.get(id=int(id))
+                try:
+                    offer_banner_slot_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'offer_banner_slot': offer_banner_slot_id}
+                    info_logger.info("offer_banner_slot deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete offer banner position {offer_banner_slot_id.name}, '
+                                        f'because this offer banner position is mapped with offer', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid offer banner position {id}', False)
+        return get_response('offer banner position were deleted successfully!', True)
+
+    def offer_banner_position_search_filter(self):
+
+        search_text = self.request.GET.get('search_text')
+        page = self.request.GET.get('page')
+        # search using name based on criteria that matches
+        if search_text:
+            self.queryset = offer_banner_position_search(self.queryset, search_text)
+        # filter based on page
+        if page is not None:
+            self.queryset = self.queryset.filter(page_id=page)
 
         return self.queryset
