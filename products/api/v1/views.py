@@ -1328,14 +1328,10 @@ class ProductListView(GenericAPIView):
     serializer_class = ImageProductSerializers
 
     def get(self, request):
-        if request.GET.get('id'):
-            """ Get product for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            pack_mat_product = id_validation['data']
-        else:
-            pack_mat_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(pack_mat_product, many=True)
-        msg = "" if pack_mat_product else "no product found"
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(child_product, many=True)
+        msg = "" if child_product else "no product found"
         return get_response(msg, serializer.data, True)

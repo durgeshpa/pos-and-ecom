@@ -10,7 +10,6 @@ from .serializers import OfferBannerDataSerializer, OfferPageListSerializers, To
     OfferBannerSlotSerializers, TopSKUSerializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
 
-
 from shops.models import Shop, ParentRetailerMapping
 
 from rest_framework import authentication
@@ -209,8 +208,9 @@ class OfferPageView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = OfferPage.objects.select_related('updated_by', 'created_by')\
-        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by', 'created_by').order_by('-id')
+    queryset = OfferPage.objects.select_related('updated_by', 'created_by') \
+        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by',
+                                                                               'created_by').order_by('-id')
     serializer_class = OfferPageSerializers
 
     def get(self, request):
@@ -324,7 +324,7 @@ class OfferBannerSlotView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = OfferBannerSlot.objects.select_related('updated_by', 'created_by', 'page') \
-        .prefetch_related('offer_banner_slot_log', 'offer_banner_slot_log__updated_by')\
+        .prefetch_related('offer_banner_slot_log', 'offer_banner_slot_log__updated_by') \
         .only('id', 'name', 'page', 'updated_by', 'created_by').order_by('-id')
     serializer_class = OfferBannerSlotSerializers
 
@@ -429,8 +429,8 @@ class TopSKUView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product')\
-        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner').\
+    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product') \
+        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner'). \
         only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date').order_by('-id')
     serializer_class = TopSKUSerializers
 
@@ -447,7 +447,7 @@ class TopSKUView(GenericAPIView):
             offer_page = id_validation['data']
         else:
             """ GET TopSKU List """
-            self.queryset = self.offer_page_search()
+            self.queryset = self.top_sku_filter()
             offer_page_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
@@ -506,9 +506,26 @@ class TopSKUView(GenericAPIView):
             return get_response(f'please provide a valid offer page {off_id}', False)
         return get_response('top sku were deleted successfully!', True)
 
-    def offer_page_search(self):
-        search_text = self.request.GET.get('search_text')
-        # search using name based on criteria that matches
-        if search_text:
-            self.queryset = offer_banner_offer_page_slot_search(self.queryset, search_text)
+    def top_sku_filter(self):
+        seller_shop_id = self.request.GET.get('seller_shop_id')
+        product_id = self.request.GET.get('product_id')
+        start_date_range_from = self.request.GET.get('start_date_range_from')
+        start_date_range_to = self.request.GET.get('start_date_range_to')
+        end_date_range_from = self.request.GET.get('end_date_range_from')
+        end_date_range_to = self.request.GET.get('end_date_range_to')
+
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if seller_shop_id is not None:
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
+
+        if start_date_range_from:
+            self.queryset = self.queryset.filter(start_date__date__gte=start_date_range_from)
+        if start_date_range_to:
+            self.queryset = self.queryset.filter(start_date__date__lte=start_date_range_to)
+        if end_date_range_from:
+            self.queryset = self.queryset.filter(end_date__date__gte=end_date_range_from)
+        if end_date_range_to:
+            self.queryset = self.queryset.filter(end_date__date__lte=end_date_range_to)
+
         return self.queryset

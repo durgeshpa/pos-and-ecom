@@ -62,3 +62,16 @@ class OfferCls(object):
         info_logger.info("top sku update info ", dict_data)
 
         return top_sku_log
+
+    @classmethod
+    def create_top_sku_log(cls, log_obj, action):
+        """
+            Create TOP SKU Log
+        """
+        action, create_updated_by = created_updated_by(log_obj, action)
+        top_sku_log = OfferLog.objects.create(top_sku=log_obj, updated_by=create_updated_by, action=action)
+        dict_data = {'updated_by': top_sku_log.updated_by, 'updated_at': top_sku_log.update_at,
+                     'top_sku': log_obj, }
+        info_logger.info("top sku update info ", dict_data)
+
+        return top_sku_log

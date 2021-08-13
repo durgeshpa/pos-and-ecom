@@ -221,18 +221,15 @@ class TopSKUSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log')
 
     def validate(self, data):
-        offer_page_id = self.instance.id if self.instance else None
-        if 'name' in self.initial_data and self.initial_data['name']:
-            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
-                raise serializers.ValidationError(f"offer page with name {self.initial_data['name']} already exists.")
+
         return data
 
     @transaction.atomic
     def create(self, validated_data):
-        """create a new offer page"""
+        """create a new TopSKU """
         try:
-            off_page = OfferPage.objects.create(**validated_data)
-            OfferCls.create_offer_page_log(off_page, "created")
+            off_page = TopSKU.objects.create(**validated_data)
+            OfferCls.create_top_sku_log(off_page, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -241,17 +238,19 @@ class TopSKUSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """update Offer Page"""
+        """update TopSKU"""
         try:
             instance = super().update(instance, validated_data)
-            OfferCls.create_offer_page_log(instance, "updated")
+            OfferCls.create_top_sku_log(instance, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return instance
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     if representation['name']:
-    #         representation['name'] = representation['name'].title()
-    #     return representation
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.start_date:
+            representation['start_date'] = instance.start_date.strftime("%b %d %Y %I:%M%p")
+        if instance.end_date:
+            representation['end_date'] = instance.end_date.strftime("%b %d %Y %I:%M%p")
+        return representation
