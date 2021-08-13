@@ -417,11 +417,13 @@ def get_stock(shop, inventory_type, product_id_list=None):
 
 
 def get_visibility_changes(shop, product):
-    visibility_changes = {product: False}
+    visibility_changes = {}
     if isinstance(product, int):
         product = Product.objects.filter(id=product).last()
         if not product:
             return visibility_changes
+
+    visibility_changes[product.id] = False
     child_siblings = Product.objects.filter(
         parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(), status='active'
     )
