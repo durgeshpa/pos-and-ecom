@@ -61,7 +61,6 @@ def update_product_status_on_inventory_update(sender, instance=None, created=Fal
         instance.product.save()
 
 
-
 @receiver(post_save, sender=PosCart)
 def generate_po_no(sender, instance=None, created=False, update_fields=None, **kwargs):
     """

@@ -428,9 +428,9 @@ class SearchProducts(APIView):
                 cart_products = cart.rt_cart_list.all()
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty", 'offer_price',
-                                            'offer_start_date', 'offer_end_date']}
+            # body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+            #                                 "description", "linked_product_id", "stock_qty", 'offer_price',
+            #                                 'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -439,9 +439,9 @@ class SearchProducts(APIView):
                 error_logger.error(e)
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty", 'offer_price',
-                                            'offer_start_date', 'offer_end_date']}
+            # body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+            #                                 "description", "linked_product_id", "stock_qty", 'offer_price',
+            #                                 'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 product_ids = []

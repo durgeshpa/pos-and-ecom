@@ -77,6 +77,7 @@ def update_es(products, shop_id):
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
         stock_qty = pos_inv.quantity if pos_inv else 0
         discounted_product_available = True if RetailerProductCls.is_discounted_product_exists(product) else False
+        is_discounted = True if product.sku_type == 4 else False
         params = {
             'id': product.id,
             'name': product.name,
@@ -94,6 +95,7 @@ def update_es(products, shop_id):
             'linked_product_id': product.linked_product.id if product.linked_product else '',
             'stock_qty': stock_qty,
             'discounted_product_available': discounted_product_available,
+            'is_discounted': is_discounted,
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date
