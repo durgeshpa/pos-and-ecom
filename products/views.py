@@ -2034,7 +2034,8 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
 
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = Product.objects.all()
+        qs = Product.objects.filter(product_type = Product.PRODUCT_TYPE_CHOICE.NORMAL)
+
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
                            Q(product_gf_code__icontains=self.q) |

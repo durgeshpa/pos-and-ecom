@@ -2174,10 +2174,10 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
         required=False
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'], product_type = Product.PRODUCT_TYPE_CHOICE.NORMAL),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
-            url='product-autocomplete',
+            url='products-product-autocomplete',
             attrs={"onChange": 'getProductDetails()'},
             forward=(forward.Const(1, 'price-slab'), )
         )
