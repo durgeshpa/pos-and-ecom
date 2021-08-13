@@ -5,7 +5,7 @@ from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, Offe
 from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
-from offer.common_validators import get_validate_page
+from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data
 from products.api.v1.serializers import UserSerializers, ProductSerializers
 from shops.api.v2.serializers import ServicePartnerShopsSerializer
 from products.common_validators import get_validate_product, get_validate_seller_shop
@@ -286,27 +286,57 @@ class OfferBannerListSlotSerializers(serializers.ModelSerializer):
         return {
             "id": representation['id'],
             "offerbannerslot": representation['__str__']
-            }
+        }
+
+
+class OfferBannerListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OfferBanner
+        fields = ('id', 'name', '__str__')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return {
+            "id": representation['id'],
+            "name": representation['name'],
+            "value": representation['__str__']
+        }
+
+
+class OfferBannerDataListSerializer(serializers.ModelSerializer):
+    offer_banner_data = OfferBannerListSerializer()
+
+    class Meta:
+        model = OfferBannerData
+        fields = ('__str__', 'offer_banner_data')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return {
+            "offerbannerdata": representation['__str__'],
+            "offer_banner_data": representation['offer_banner_data']
+        }
 
 
 class OfferBannerPositionSerializers(serializers.ModelSerializer):
     page = OfferPageListSerializers(read_only=True)
     shop = ServicePartnerShopsSerializer(read_only=True)
     offerbannerslot = OfferBannerListSlotSerializers(read_only=True)
+    offer_ban_data = OfferBannerDataListSerializer(many=True, read_only=True)
 
     class Meta:
         model = OfferBannerPosition
-        fields = ('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot')
+        fields = ('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot', 'offer_ban_data')
 
     def validate(self, data):
-        offer_page_id = self.instance.id if self.instance else None
-        if 'name' in self.initial_data and self.initial_data['name']:
-            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
-                    id=offer_page_id).exists():
-                raise serializers.ValidationError(f"offer banner slot with name {self.initial_data['name']} "
-                                                  f"already exists.")
+        if self.initial_data['shop']:
+            seller_shop_val = get_validate_seller_shop(self.initial_data['shop'])
+            if 'error' in seller_shop_val:
+                raise serializers.ValidationError(seller_shop_val['error'])
+            data['shop'] = seller_shop_val['seller_shop']
 
-        if not 'page' in self.initial_data or not self.initial_data['page']:
+        if 'page' not in self.initial_data or not self.initial_data['page']:
             raise serializers.ValidationError('page is required')
 
         page_val = get_validate_page(self.initial_data['page'])
@@ -314,31 +344,64 @@ class OfferBannerPositionSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(f'{page_val["error"]}')
         data['page'] = page_val['page']
 
+        if 'offerbannerslot' not in self.initial_data or not self.initial_data['offerbannerslot']:
+            raise serializers.ValidationError('offerbannerslot is required')
+
+        offerbannerslot_val = get_validate_offerbannerslot(self.initial_data['offerbannerslot'])
+        if 'error' in offerbannerslot_val:
+            raise serializers.ValidationError(f'{offerbannerslot_val["error"]}')
+        data['offerbannerslot'] = offerbannerslot_val['off_banner_slot']
+
+        if 'offer_ban_data' in self.initial_data and self.initial_data['offer_ban_data']:
+            validated_offer_ban_data = get_validated_offer_ban_data(self.initial_data['offer_ban_data'])
+            if 'error' in validated_offer_ban_data:
+                raise serializers.ValidationError(f'{validated_offer_ban_data["error"]}')
+
+            data['offer_ban_data'] = self.initial_data['offer_ban_data']
+
         return data
 
     @transaction.atomic
     def create(self, validated_data):
+        offer_ban_data = validated_data.pop('offer_ban_data', None)
         """create a new offer banner position """
         try:
-            offer_banner_slot = OfferBannerSlot.objects.create(**validated_data)
+            offer_banner_slot = OfferBannerPosition.objects.create(**validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        if offer_ban_data:
+            self.create_offer_banner_data(offer_banner_slot, offer_ban_data)
 
         return offer_banner_slot
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        offer_ban_data = validated_data.pop('offer_ban_data', None)
         """update offer banner position"""
         try:
             instance = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        if offer_ban_data:
+            self.create_offer_banner_data(instance, offer_ban_data)
+
         return instance
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     if representation['name']:
-    #         representation['name'] = representation['name'].title()
-    #     return representation
+    # crete offer banner
+    def create_offer_banner_data(self, offer_banner_slot,  offer_ban_data):
+        offer_slot = OfferBannerData.objects.filter(slot=offer_banner_slot)
+        if offer_slot.exists():
+            offer_slot.delete()
+
+        for data in offer_ban_data:
+            OfferBannerData.objects.create(slot=offer_banner_slot,
+                                           offer_banner_data_id=data['offer_banner_data'])
+
+
+
+
+

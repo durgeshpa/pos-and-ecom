@@ -1,6 +1,6 @@
 import logging
-
-from offer.models import OfferPage
+import re
+from offer.models import OfferPage, OfferBannerSlot, OfferBanner
 
 
 # Get an instance of a logger
@@ -15,3 +15,28 @@ def get_validate_page(page):
         logger.error(e)
         return {'error': 'please provide a valid offer page id'}
     return {'page': off_page_obj}
+
+
+def get_validate_offerbannerslot(page):
+    """ validate id that belong to a OfferBannerSlot model if not through error """
+    try:
+        off_banner_slot_obj = OfferBannerSlot.objects.get(id=page)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid offer banner slot id'}
+    return {'off_banner_slot': off_banner_slot_obj}
+
+
+def get_validated_offer_ban_data(offer_ban_data):
+    for val in offer_ban_data:
+        if 'offer_banner_data' not in val:
+            return {'error': "'offer_banner_data' is required"}
+        if not OfferBanner.objects.filter(id=val['offer_banner_data']).exists():
+            return {'error': f"'offer_banner_data'{val['offer_banner_data']} is invalid"}
+        # if 'offer_banner_data_order' not in val:
+        #     return {'error': "'offer_banner_data_order' is required"}
+        # if not val['offer_banner_data_order'] or not re.match("^[\d\,]*$", str(val['offer_banner_data_order'])):
+        #     return {'error': f"'offer_banner_data_order'{val['offer_banner_data_order']} is invalid"}
+
+    return {'data': offer_ban_data}
+
