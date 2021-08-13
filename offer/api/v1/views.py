@@ -6,7 +6,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .serializers import OfferBannerDataSerializer, OfferPageListSerializers, TopSKUSerializer, OfferPageSerializers, OfferBannerSlotSerializers
+from .serializers import OfferBannerDataSerializer, OfferPageListSerializers, TopSKUSerializer, OfferPageSerializers, \
+    OfferBannerSlotSerializers, TopSKUSerializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU
 
 
@@ -428,9 +429,10 @@ class TopSKUView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = TopSKU.objects.select_related('updated_by', 'created_by')\
-        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by', 'created_by').order_by('-id')
-    serializer_class = OfferPageSerializers
+    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product')\
+        .prefetch_related('top_sku_log', 'top_sku_log__updated_by').\
+        only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date').order_by('-id')
+    serializer_class = TopSKUSerializers
 
     def get(self, request):
         """ GET API for Offer Page """

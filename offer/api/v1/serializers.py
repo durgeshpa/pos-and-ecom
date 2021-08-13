@@ -6,7 +6,8 @@ from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
 from offer.common_validators import get_validate_page
-from products.api.v1.serializers import UserSerializers
+from products.api.v1.serializers import UserSerializers, ProductSerializers
+from shops.api.v2.serializers import ServicePartnerShopsSerializer
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -208,3 +209,49 @@ class OfferBannerSlotSerializers(serializers.ModelSerializer):
         if representation['name']:
             representation['name'] = representation['name'].title()
         return representation
+
+
+class TopSKUSerializers(serializers.ModelSerializer):
+    shop = ServicePartnerShopsSerializer(read_only=True)
+    product = ProductSerializers(read_only=True)
+    top_sku_log = OfferLogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = TopSKU
+        fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log')
+
+    def validate(self, data):
+        offer_page_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name']:
+            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(id=offer_page_id).exists():
+                raise serializers.ValidationError(f"offer page with name {self.initial_data['name']} already exists.")
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new offer page"""
+        try:
+            off_page = OfferPage.objects.create(**validated_data)
+            OfferCls.create_offer_page_log(off_page, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return off_page
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update Offer Page"""
+        try:
+            instance = super().update(instance, validated_data)
+            OfferCls.create_offer_page_log(instance, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
+
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     if representation['name']:
+    #         representation['name'] = representation['name'].title()
+    #     return representation
