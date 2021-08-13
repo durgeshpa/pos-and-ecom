@@ -290,7 +290,6 @@ class OfferBannerListSlotSerializers(serializers.ModelSerializer):
 
 
 class OfferBannerListSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = OfferBanner
         fields = ('id', 'name', '__str__')
@@ -327,7 +326,8 @@ class OfferBannerPositionSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = OfferBannerPosition
-        fields = ('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot', 'offer_ban_data')
+        fields = ('id', 'shop', 'page', 'offer_banner_position_order', 'offerbannerslot', 'offer_ban_data',
+                  '__str__')
 
     def validate(self, data):
         if self.initial_data['shop']:
@@ -392,7 +392,7 @@ class OfferBannerPositionSerializers(serializers.ModelSerializer):
         return instance
 
     # crete offer banner
-    def create_offer_banner_data(self, offer_banner_slot,  offer_ban_data):
+    def create_offer_banner_data(self, offer_banner_slot, offer_ban_data):
         offer_slot = OfferBannerData.objects.filter(slot=offer_banner_slot)
         if offer_slot.exists():
             offer_slot.delete()
@@ -401,7 +401,9 @@ class OfferBannerPositionSerializers(serializers.ModelSerializer):
             OfferBannerData.objects.create(slot=offer_banner_slot,
                                            offer_banner_data_id=data['offer_banner_data'])
 
-
-
-
-
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        obj = representation.copy()
+        obj.pop('__str__')
+        obj['offer_banner_position'] = representation['__str__']
+        return obj
