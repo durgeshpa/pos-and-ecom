@@ -1919,6 +1919,17 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(DiscountedProductsAdmin, self).get_urls()
+        urls += [
+            url(
+                r'^parent-product-list-filter-autocomplete/$',
+                self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
+                name='parent-product-list-filter-autocomplete',
+            ),]
+        return urls
+
 
 admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 admin.site.register(ProductImage, ProductImageMainAdmin)
