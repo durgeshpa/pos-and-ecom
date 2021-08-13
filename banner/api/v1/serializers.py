@@ -21,7 +21,7 @@ class BannerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Banner
         fields = ('name', 'image', 'banner_type', 'category', 'brand', 'products', 'status', 'banner_start_date',
-                  'banner_end_date',)
+                  'banner_end_date', 'alt_text', 'text_below_image')
 
 
 class BannerPositionSerializer(serializers.ModelSerializer):
