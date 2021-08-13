@@ -431,7 +431,7 @@ class TopSKUView(GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product') \
         .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner'). \
-        only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date').order_by('-id')
+        only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date', 'status').order_by('-id')
     serializer_class = TopSKUSerializers
 
     def get(self, request):
@@ -477,8 +477,8 @@ class TopSKUView(GenericAPIView):
         if 'error' in id_instance:
             return get_response(id_instance['error'])
 
-        offer_page_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=offer_page_instance, data=request.data)
+        top_sku_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=top_sku_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Top SKU Updated Successfully.")
@@ -500,10 +500,10 @@ class TopSKUView(GenericAPIView):
                     info_logger.info("top_sku deleted info ", dict_data)
                 except:
                     return get_response(f'You can not delete top sku {top_sku_id.name}, '
-                                        f'because this offer page is mapped with offer', False)
+                                        f'because this top sku  is mapped with offer', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid offer page {off_id}', False)
+            return get_response(f'please provide a valid top sku {off_id}', False)
         return get_response('top sku were deleted successfully!', True)
 
     def top_sku_filter(self):

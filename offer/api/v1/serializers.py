@@ -8,6 +8,7 @@ from offer.common_function import OfferCls
 from offer.common_validators import get_validate_page
 from products.api.v1.serializers import UserSerializers, ProductSerializers
 from shops.api.v2.serializers import ServicePartnerShopsSerializer
+from products.common_validators import get_validate_product, get_validate_seller_shop
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -215,15 +216,32 @@ class TopSKUSerializers(serializers.ModelSerializer):
     shop = ServicePartnerShopsSerializer(read_only=True)
     product = ProductSerializers(read_only=True)
     top_sku_log = OfferLogSerializers(many=True, read_only=True)
+    start_date = serializers.DateTimeField(required=True)
+    end_date = serializers.DateTimeField(required=True)
 
     class Meta:
         model = TopSKU
-        fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log')
+        fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log', 'status')
 
     def validate(self, data):
+        if self.initial_data['product'] is None:
+            raise serializers.ValidationError("please select product")
+        product_val = get_validate_product(self.initial_data['product'])
+        if 'error' in product_val:
+            raise serializers.ValidationError(product_val['error'])
+        data['product'] = product_val['product']
+
+        if self.initial_data['shop']:
+            seller_shop_val = get_validate_seller_shop(self.initial_data['shop'])
+            if 'error' in seller_shop_val:
+                raise serializers.ValidationError(seller_shop_val['error'])
+            data['shop'] = seller_shop_val['seller_shop']
+
+        if self.initial_data['end_date'] < self.initial_data['start_date']:
+            raise serializers.ValidationError("End date should be greater than start date.")
 
         return data
-
+    
     @transaction.atomic
     def create(self, validated_data):
         """create a new TopSKU """
@@ -247,10 +265,10 @@ class TopSKUSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return instance
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        if instance.start_date:
-            representation['start_date'] = instance.start_date.strftime("%b %d %Y %I:%M%p")
-        if instance.end_date:
-            representation['end_date'] = instance.end_date.strftime("%b %d %Y %I:%M%p")
-        return representation
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     if instance.start_date:
+    #         representation['start_date'] = instance.start_date.strftime("%b %d %Y %I:%M%p")
+    #     if instance.end_date:
+    #         representation['end_date'] = instance.end_date.strftime("%b %d %Y %I:%M%p")
+    #     return representation
