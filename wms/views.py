@@ -32,6 +32,7 @@ from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 
 from global_config.views import get_config
+from products.utils import deactivate_product
 from retailer_backend.common_function import bulk_create
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
@@ -2185,4 +2186,11 @@ def create_discounted_product_on_parent_update(sender, instance=None, created=Fa
         create_update_discounted_products(instance)
 
 
+@receiver(post_save, sender=WarehouseInventory)
+def deactivate_discounted_product(sender, instance=None, created=False, **kwargs):
+    if instance.sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED \
+        and instance.inventory_type.inventory_type == 'normal' \
+        and instance.inventory_state.inventory_state == 'total_available' \
+        and instance.quantity <= 0:
+        deactivate_product(instance.sku)
 
