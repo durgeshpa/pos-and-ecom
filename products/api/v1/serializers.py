@@ -1272,6 +1272,13 @@ class PriceSlabSerializersData(serializers.ModelSerializer):
                   'offer_price_end_date',)
 
 
+class ImageProductSerializers(serializers.ModelSerializer):
+    product_pro_image = ProductImageSerializers(many=True, read_only=True)
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_mrp', 'product_pro_image')
+
+
 class ProductPriceSerializers(serializers.ModelSerializer):
     price_slabs = PriceSlabSerializersData(read_only=True, many=True)
     product = ProductsSerializers(read_only=True)

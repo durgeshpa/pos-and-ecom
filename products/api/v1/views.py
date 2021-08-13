@@ -25,12 +25,13 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
-    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers
+    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
-    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search, product_price_search
+    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search, \
+    product_price_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -940,7 +941,7 @@ class ChildProductListView(GenericAPIView):
         Get Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination'])\
+    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination']) \
         .values('id', 'product_name', 'product_sku', 'product_mrp')
     serializer_class = ProductSerializers
 
@@ -963,7 +964,7 @@ class SellerShopListView(GenericAPIView):
     queryset = Shop.objects.select_related('shop_owner', 'shop_type', 'shop_type__shop_sub_type', ) \
         .filter(shop_type__shop_type__in=['sp', ]) \
         .only('id', 'shop_name', 'status', 'shop_type__shop_type', 'shop_type__shop_sub_type__retailer_type_name',
-              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number',)
+              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number', )
     serializer_class = ShopsSerializer
 
     def get(self, request):
@@ -1230,10 +1231,11 @@ class SlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
-    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', )\
+    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ) \
         .prefetch_related('price_slabs', 'product__parent_product', 'seller_shop__shop_type', 'buyer_shop__shop_type',
-                          'buyer_shop__shop_owner', 'seller_shop__shop_owner').\
-        only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',).order_by('-id')
+                          'buyer_shop__shop_owner', 'seller_shop__shop_owner'). \
+        only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', ).order_by(
+        '-id')
     serializer_class = ProductPriceSerializers
 
     def get(self, request):
@@ -1317,3 +1319,23 @@ class SlabProductPriceView(GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid product price id {id}', False)
         return get_response('product price were deleted successfully!', True)
+
+
+class ProductListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.prefetch_related('product_pro_image', ).order_by('-id')
+
+    serializer_class = ImageProductSerializers
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            pack_mat_product = id_validation['data']
+        else:
+            pack_mat_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pack_mat_product, many=True)
+        msg = "" if pack_mat_product else "no product found"
+        return get_response(msg, serializer.data, True)
