@@ -69,7 +69,7 @@ class POGenerationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)
-        #self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
+        self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
     def clean_cart_product_mapping_csv(self):
         """
