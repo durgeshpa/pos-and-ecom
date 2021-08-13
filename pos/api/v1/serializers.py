@@ -16,7 +16,7 @@ from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
@@ -201,6 +201,10 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         is_discounted = attrs['is_discounted']
         if is_discounted:
+            # creating from discounted product
+            if product.sku_type == 4:
+                raise serializers.ValidationError("This product is already discounted. Further discounted product"
+                                                  " cannot be created.")
             if 'discounted_price' not in attrs:
                 raise serializers.ValidationError("Discounted price is required to create discounted product")
             elif 'discounted_stock' not in attrs:
