@@ -1121,14 +1121,14 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
-class ChildProductSerializers(serializers.ModelSerializer):
+class ChildProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'status')
 
 
 class ProductVendorMappingSerializers(serializers.ModelSerializer):
-    product = ChildProductSerializers(read_only=True)
+    product = ChildProductSerializer(read_only=True)
     vendor = VendorSerializers(read_only=True)
 
     def validate(self, data):

@@ -416,3 +416,97 @@ class OfferBannerSlotView(GenericAPIView):
 
         return self.queryset
 
+
+class TopSKUView(GenericAPIView):
+    """
+        Get TopSKU
+        Add TopSKU
+        Search TopSKU
+        List TopSKU
+        Update TopSKU
+        Delete TopSKU
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = TopSKU.objects.select_related('updated_by', 'created_by')\
+        .prefetch_related('offer_page_log', 'offer_page_log__updated_by').only('id', 'name', 'updated_by', 'created_by').order_by('-id')
+    serializer_class = OfferPageSerializers
+
+    def get(self, request):
+        """ GET API for Offer Page """
+
+        info_logger.info("Offer PageGET api called.")
+        offer_page_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Offer Page for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            offer_page = id_validation['data']
+        else:
+            """ GET Offer Page List """
+            self.queryset = self.offer_page_search()
+            offer_page_total_count = self.queryset.count()
+            offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(offer_page, many=True)
+        msg = f"total count {offer_page_total_count}" if offer_page else "no offer page found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Offer Page Creation """
+
+        info_logger.info("Offer Page POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Offer Page Created Successfully.")
+            return get_response('offer page created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Offer Page Updation """
+
+        info_logger.info("Offer Page PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update offer page', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        offer_page_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=offer_page_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Offer Page Updated Successfully.")
+            return get_response('offer page updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Offer Page """
+
+        info_logger.info("Offer Page DELETE api called.")
+        if not request.data.get('offer_page_ids'):
+            return get_response('please select atleast one offer page', False)
+        try:
+            for off_id in request.data.get('offer_page_ids'):
+                offer_page_id = self.queryset.get(id=int(off_id))
+                try:
+                    offer_page_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(), 'offer_page': offer_page_id}
+                    info_logger.info("offer_page deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete offer page {offer_page_id.name}, '
+                                        f'because this offer page is mapped with offer', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid offer page {off_id}', False)
+        return get_response('offer page were deleted successfully!', True)
+
+    def offer_page_search(self):
+        search_text = self.request.GET.get('search_text')
+        # search using name based on criteria that matches
+        if search_text:
+            self.queryset = offer_banner_offer_page_slot_search(self.queryset, search_text)
+        return self.queryset
