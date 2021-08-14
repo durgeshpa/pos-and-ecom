@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from celery.task import task
 from elasticsearch import Elasticsearch
 import datetime
@@ -141,44 +142,50 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
 @task()
 def mail_to_vendor_on_po_creation(cart_id):
     instance = PosCart.objects.get(id=cart_id)
-    recipient_list = [instance.vendor.email]
-    vendor_name = instance.vendor.vendor_name
-    po_no = instance.po_no
-    subject = "Purchase Order {} | {}".format(po_no, instance.retailer_shop.shop_name)
-    body = 'Dear {}, \n \n Find attached PO from {}, PepperTap POS. \n \n Note: Take Prior appointment before delivery ' \
-           'and bring PO copy along with Original Invoice. \n \n Thanks, \n {}'.format(
+    try:
+        recipient_list = [instance.vendor.email]
+        vendor_name = instance.vendor.vendor_name
+        po_no = instance.po_no
+        subject = "Purchase Order {} | {}".format(po_no, instance.retailer_shop.shop_name)
+        body = 'Dear {}, \n \n Find attached PO from {}, PepperTap POS. \n \n Note: Take Prior appointment before delivery ' \
+               'and bring PO copy along with Original Invoice. \n \n Thanks, \n {}'.format(
             vendor_name, instance.retailer_shop.shop_name, instance.retailer_shop.shop_name)
 
-    filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
-    template_name = 'admin/purchase_order/retailer_purchase_order.html'
-    cmd_option = {
-        'encoding': 'utf8',
-        'margin-top': 3
-    }
-    data = generate_pdf_data(instance)
-    response = PDFTemplateResponse(
-        request=None, template=template_name,
-        filename=filename, context=data,
-        show_content_in_browser=False, cmd_options=cmd_option
-    )
-    email = EmailMessage()
-    email.subject = subject
-    email.body = body
-    sender = GlobalConfig.objects.get(key='sender')
-    email.from_email = sender.value
-    email.to = recipient_list
-    email.attach(filename, response.rendered_content, 'application/pdf')
-    email.send()
+        filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
+        template_name = 'admin/purchase_order/retailer_purchase_order.html'
+        cmd_option = {
+            'encoding': 'utf8',
+            'margin-top': 3
+        }
+        data = generate_pdf_data(instance)
+        response = PDFTemplateResponse(
+            request=None, template=template_name,
+            filename=filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+        email = EmailMessage()
+        email.subject = subject
+        email.body = body
+        sender = GlobalConfig.objects.get(key='sender')
+        email.from_email = sender.value
+        email.to = recipient_list
+        email.attach(filename, response.rendered_content, 'application/pdf')
+        email.send()
 
-    # send sms
-    body = 'Dear {}, \n \n PO number {} has been generated from {}, PepperTap POS and sent to you over mail. \n \n N' \
-           'ote: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n T' \
-           'hanks, \n {}'.format(vendor_name, instance.po_no, instance.retailer_shop.shop_name,
-                                 instance.retailer_shop.shop_name)
+        # send sms
+        body = 'Dear {}, \n \n PO number {} has been generated from {}, PepperTap POS and sent to you over mail. \n \n N' \
+               'ote: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n T' \
+               'hanks, \n {}'.format(vendor_name, instance.po_no, instance.retailer_shop.shop_name,
+                                     instance.retailer_shop.shop_name)
 
-    message = SendSms(phone=instance.vendor.phone_number,
-                      body=body)
-    message.send()
+        message = SendSms(phone=instance.vendor.phone_number,
+                          body=body)
+        message.send()
+
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        error_logger.error("Retailer PO mail, sms not sent - Po number {}, {}, line no {}".format(instance.po_no, e,
+                                                                                                  exc_tb.tb_lineno))
 
 
 def generate_pdf_data(instance):
