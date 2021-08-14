@@ -4621,7 +4621,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
         # redeem value
         redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
-        redeem_value = round(redeem_value / order.ordered_cart.redeem_factor, 2)
+        if redeem_value > 0:
+            redeem_value = round(redeem_value / order.ordered_cart.redeem_factor, 2)
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words
