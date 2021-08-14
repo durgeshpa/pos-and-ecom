@@ -1637,7 +1637,7 @@ class POSerializer(serializers.ModelSerializer):
             po_status = cart.status
             if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
                 po_status = PosCart.PARTIAL_DELIVERED
-            cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
+            cart.last_modified_by, cart.status = user, po_status
             cart.save()
             if validated_data['send_mail']:
                 mail_to_vendor_on_po_creation.delay(cart.id)
