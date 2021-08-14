@@ -17,6 +17,7 @@ from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
 from pos.common_functions import RewardCls, RetailerProductCls
+from marketing.sms import SendSms
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -168,6 +169,16 @@ def mail_to_vendor_on_po_creation(cart_id):
     email.to = recipient_list
     email.attach(filename, response.rendered_content, 'application/pdf')
     email.send()
+
+    # send sms
+    body = 'Dear {}, \n \n PO number {} has been generated from {}, PepperTap POS and sent to you over mail. \n \n N' \
+           'ote: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n T' \
+           'hanks, \n {}'.format(vendor_name, instance.po_no, instance.retailer_shop.shop_name,
+                                 instance.retailer_shop.shop_name)
+
+    message = SendSms(phone=instance.vendor.phone_number,
+                      body=body)
+    message.send()
 
 
 def generate_pdf_data(instance):

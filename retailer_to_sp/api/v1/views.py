@@ -1426,9 +1426,9 @@ class CartCentral(GenericAPIView):
         selling_price = None
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
-            if price_change == 1 and selling_price:
+            if price_change == 1:
                 RetailerProductCls.update_price(product.id, selling_price, 'active', self.request.user, 'cart', cart_no)
-        if not selling_price and product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
+        elif product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
@@ -4621,6 +4621,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
         # redeem value
         redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
+        redeem_value = round(redeem_value / order.ordered_cart.redeem_factor, 2)
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words

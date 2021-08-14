@@ -980,8 +980,8 @@ class VendorListView(ListAPIView):
         queryset = Vendor.objects.filter(retailer_shop=self.shop).order_by('-modified_at')
 
         vendor_status = self.request.GET.get('status', None)
-        if vendor_status in [True, False]:
-            queryset = queryset.filter(status=vendor_status)
+        if vendor_status in ['1', '0']:
+            queryset = queryset.filter(status=int(vendor_status))
 
         search_text = self.request.GET.get('search_text', None)
         if search_text:
