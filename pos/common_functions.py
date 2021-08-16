@@ -4,12 +4,14 @@ from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
 
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
 from django.urls import reverse
 from django.db.models import Sum
 from django.core.exceptions import ObjectDoesNotExist
 
+from addresses.models import Address
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
@@ -22,7 +24,7 @@ from products.models import Product
 
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, PosCart, PosCartProductMapping, Vendor
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -664,3 +666,30 @@ class PosAddToCart(object):
             return view_func(self, request, *args, **kwargs)
 
         return _wrapped_view_func
+
+
+def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
+    bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
+    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
+    if created:
+        vendor.vendor_name, vendor.address, vendor.pincode = 'PepperTap', bill_add.address_line1, bill_add.pincode
+        vendor.city, vendor.state = bill_add.city, bill_add.state
+        vendor.save()
+    with transaction.atomic():
+        cart, created = PosCart.objects.get_or_create(vendor=vendor, retailer_shop=buyer_shop, gf_order_no=order_no)
+        cart.last_modified_by = user
+        if created:
+            cart.raised_by = user
+        cart.save()
+        product_ids = []
+        for product in products:
+            retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop).last()
+            product_ids += [retailer_product.id]
+            mapping, _ = PosCartProductMapping.objects.get_or_create(cart=cart, product=retailer_product)
+            if not mapping.is_grn_done:
+                mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(
+                    product.qty)
+                mapping.qty = product.qty
+                mapping.save()
+        PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
+    return created, cart.po_no
