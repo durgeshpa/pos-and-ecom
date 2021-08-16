@@ -27,7 +27,7 @@ class OfferBanner(BaseTimestampUserStatusModel):
     )
 
     name = models.CharField(max_length=20,)
-    image = models.FileField(null=True, blank=True)
+    image = models.FileField(upload_to='offer_banner_image', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     offer_banner_start_date = models.DateTimeField(blank=True, null=True)
