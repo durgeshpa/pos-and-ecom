@@ -2057,7 +2057,6 @@ def create_update_discounted_products(parent_product=None):
     today = datetime.today().date()
     tr_id = today.isoformat()
     inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
-                                            # sku__parent_product__parent_id='PPROBRI0396',
                                             inventory_type=type_normal, quantity__gt=0,
                                             sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
                                     .prefetch_related('sku__parent_product') \
@@ -2075,6 +2074,11 @@ def create_update_discounted_products(parent_product=None):
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - today
         discounted_life = floor(product_life.days * discounted_life_percent / 100)
+
+        info_logger.info('LB|Discounted product created| SKU {},  expiry_date {}, manufacturing_date {},'
+                         ' product_life {}, remaining life {}, discounted_life {}'
+                         .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
+                                 discounted_life))
         if discounted_life >= remaining_life.days:
             try:
                 with transaction.atomic():
