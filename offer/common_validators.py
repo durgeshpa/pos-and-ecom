@@ -1,6 +1,14 @@
-import logging
-import re
 import json
+import logging
+
+import sys
+import requests
+from io import BytesIO
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.validators import URLValidator
+
+
 from offer.models import OfferPage, OfferBannerSlot, OfferBanner
 
 # Get an instance of a logger
@@ -47,6 +55,23 @@ def validate_data_format(request):
         data = json.loads(request.data["data"])
     except Exception as e:
         return {'error': "Invalid Data Format", }
+
+    if 'image' in data and data['image']:
+        try:
+            validate = URLValidator()
+            validate(data['image'])
+        except ValidationError:
+            return {"error": "Invalid Image Url / Urls"}
+
+        try:
+            response = requests.get(data['image'])
+            image = BytesIO(response.content)
+            image = InMemoryUploadedFile(image, 'ImageField', data['image'].split('/')[-1], 'image/jpeg',
+                                         sys.getsizeof(image),
+                                         None)
+            data['image'] = image
+        except:
+            pass
 
     if request.FILES.getlist('image'):
         data['image'] = request.FILES.getlist('image')

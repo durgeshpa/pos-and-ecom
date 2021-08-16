@@ -439,10 +439,32 @@ class OfferBannerSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_(category_val["error"]))
             data['category'] = category_val['category']
 
-        parent_pro_id = self.instance.id if self.instance else None
-        if 'name' in self.initial_data and self.initial_data['name'] is not None:
-            pro_obj = validate_parent_product_name(self.initial_data['name'], parent_pro_id)
-            if pro_obj is not None and 'error' in pro_obj:
-                raise serializers.ValidationError(pro_obj['error'])
-
         return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            offer_banner = OfferBanner.objects.create(**validated_data)
+            OfferCls.create_offer_banner_log(offer_banner, "created")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return offer_banner
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            offer_banner = super().update(instance, validated_data)
+            OfferCls.create_offer_banner_log(offer_banner, "updated")
+        except Exception as e:
+            error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return offer_banner
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
