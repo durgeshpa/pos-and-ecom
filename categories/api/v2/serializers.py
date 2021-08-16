@@ -14,7 +14,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'category_desc', 'status')
+        fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
+                  'status',)
 
 
 class CategoryPosSerializer(serializers.ModelSerializer):
@@ -44,4 +45,5 @@ class AllCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'cat_parent', 'category_desc')
+        fields = ('id', 'category_name', 'cat_parent', 'category_desc', 'category_slug',
+                  'category_sku_part', 'category_image', 'status',)
