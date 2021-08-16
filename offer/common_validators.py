@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
 
+from products.models import Product
 
 from offer.models import OfferPage, OfferBannerSlot, OfferBanner
 
@@ -77,3 +78,21 @@ def validate_data_format(request):
         data['image'] = request.FILES['image']
 
     return data
+
+
+def get_validate_products(parents_list):
+    """ validate ids that belong to a Product model also
+    checking product shouldn't repeat else through error """
+    product_list = []
+    pro_obj = []
+    for pro_data in parents_list:
+        try:
+            product = Product.objects.get(id=pro_data)
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} product not found'.format(pro_data)}
+        pro_obj.append(product)
+        if product in product_list:
+            return {'error': '{} do not repeat same product '.format(product)}
+        product_list.append(product)
+    return {'products': pro_obj}

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
@@ -6,7 +8,8 @@ from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, Offe
 from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
-from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data
+from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data,\
+    get_validate_products
 from products.api.v1.serializers import UserSerializers, BrandSerializers, CategorySerializers, ProductSerializers
 from shops.api.v2.serializers import ServicePartnerShopsSerializer
 from products.common_validators import get_validate_product, get_validate_seller_shop, get_validate_parent_brand, \
@@ -436,6 +439,8 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError('Please select the SubBrand')
         if self.initial_data['offer_banner_type'] == 'subcategory' and self.initial_data['sub_category'] is None:
             raise serializers.ValidationError('Please select the SubCategory')
+        if self.initial_data['offer_banner_type'] == 'products' and self.initial_data['products'] is None:
+            raise serializers.ValidationError('Please select at least one Product')
 
         if 'brand' in self.initial_data and self.initial_data['brand']:
             parent_brand_val = get_validate_parent_brand(self.initial_data['brand'])
@@ -460,6 +465,24 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             if 'error' in sub_category_val:
                 raise serializers.ValidationError(_(sub_category_val["error"]))
             data['sub_category'] = sub_category_val['category']
+
+        if 'products' in self.initial_data and self.initial_data['products']:
+            products_val = get_validate_products(self.initial_data['products'])
+            if 'error' in products_val:
+                raise serializers.ValidationError(_(products_val["error"]))
+            data['products'] = products_val["products"]
+
+        if 'offer_banner_start_date' in self.initial_data and self.initial_data['offer_banner_start_date'] and \
+                datetime.strptime(self.initial_data['offer_banner_start_date'],
+                                  '%Y-%m-%dT%H:%M:%S').date() < datetime.today().date():
+            raise serializers.ValidationError("offer banner start date should be greater than today.")
+
+        if 'offer_banner_start_date' in self.initial_data and 'offer_banner_end_date' in self.initial_data and \
+                self.initial_data['offer_banner_start_date'] and self.initial_data['offer_banner_end_date']:
+            if datetime.strptime(self.initial_data['offer_banner_start_date'], '%Y-%m-%dT%H:%M:%S').date() >= \
+                    datetime.strptime(self.initial_data['offer_banner_end_date'], '%Y-%m-%dT%H:%M:%S').date():
+                raise serializers.ValidationError("banner end date should be greater than"
+                                                  " banner start date.")
 
         return data
 

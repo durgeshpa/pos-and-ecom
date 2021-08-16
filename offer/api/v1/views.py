@@ -686,6 +686,23 @@ class OfferBannerListView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class OfferBannerTypeView(GenericAPIView):
+    """
+        Get Offer Banner Type List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for BANNER_TYPE """
+
+        info_logger.info("BANNER TYPE GET api called.")
+        """ GET BANNER TYPE Choice List """
+        fields = ['benner_type',]
+        data = [dict(zip(fields, d)) for d in OfferBanner.BANNER_TYPE]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class OfferBannerView(GenericAPIView):
     """
         Get OfferBanner List
@@ -751,7 +768,7 @@ class OfferBannerView(GenericAPIView):
 
         serializer = self.serializer_class(instance=offer_banner_slot, data=modified_data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             info_logger.info("Offer Banner Updated Successfully.")
             return get_response('offer banner updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
