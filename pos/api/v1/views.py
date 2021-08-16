@@ -124,6 +124,7 @@ class PosProductView(GenericAPIView):
             name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
                 'mrp'], data['selling_price'], data['description'], data['stock_qty']
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
+            add_offer_price = data['add_offer_price']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
@@ -132,9 +133,10 @@ class PosProductView(GenericAPIView):
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
-                product.offer_price = offer_price if offer_price else product.offer_price
-                product.offer_start_date = offer_sd if offer_sd else product.offer_start_date
-                product.offer_end_date = offer_ed if offer_ed else product.offer_end_date
+                if add_offer_price is not None:
+                    product.offer_price = offer_price
+                    product.offer_start_date = offer_sd
+                    product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
                 # Update images
@@ -950,22 +952,21 @@ class VendorView(GenericAPIView):
         serializer = self.serializer_class(data=data)
         if serializer.is_valid():
             serializer.save()
-            return api_response('', serializer.data, status.HTTP_200_OK, True)
+            return api_response('Vendor created successfully!', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
-        vendor_obj = Vendor.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).last()
-        vendor_status = request.data.get('status', None)
-        if vendor_status and vendor_status not in [True, False]:
-            return api_response("Please provide a valid status choice")
-        if vendor_obj:
-            vendor_obj.status = vendor_status if vendor_status is not None else vendor_obj.status
-            vendor_obj.save()
-            return api_response('', self.serializer_class(vendor_obj).data, status.HTTP_200_OK, True)
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('Vendor updated Successfully!', None, status.HTTP_200_OK, True)
         else:
-            return api_response("Vendor not found")
+            return api_response(serializer_error(serializer))
 
 
 class VendorListView(ListAPIView):
@@ -976,11 +977,11 @@ class VendorListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = Vendor.objects.filter(retailer_shop=self.shop)
+        queryset = Vendor.objects.filter(retailer_shop=self.shop).order_by('-modified_at')
 
         vendor_status = self.request.GET.get('status', None)
-        if vendor_status in [True, False]:
-            queryset = queryset.filter(status=vendor_status)
+        if vendor_status in ['1', '0']:
+            queryset = queryset.filter(status=int(vendor_status))
 
         search_text = self.request.GET.get('search_text', None)
         if search_text:
@@ -1017,7 +1018,7 @@ class POView(GenericAPIView):
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save()
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1025,11 +1026,11 @@ class POView(GenericAPIView):
     def put(self, request, *args, **kwargs):
         data = request.data
         data['id'] = kwargs['pk']
-        serializer = self.serializer_class(data=request.data,
+        serializer = self.serializer_class(data=data,
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.update(kwargs['pk'], serializer.data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1056,7 +1057,7 @@ class POListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at').prefetch_related(
+        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-modified_at').prefetch_related(
             'po_products')
 
         search_text = self.request.GET.get('search_text', None)
@@ -1102,7 +1103,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.create(s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1120,7 +1121,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.update(kwargs['pk'], s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1133,7 +1134,7 @@ class GrnOrderListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-created_at')
+        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-modified_at')
         return queryset
 
     @check_pos_shop
