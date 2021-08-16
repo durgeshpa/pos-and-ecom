@@ -90,7 +90,7 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.filter(active_status='active')
+        qs = Brand.objects.filter(status=True)
         if self.q:
             qs = qs.filter(brand_name__icontains=self.q)
         return qs

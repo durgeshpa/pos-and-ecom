@@ -43,6 +43,7 @@ urlpatterns = [
     url(r'^shops/', include('shops.urls')),
     url(r'^category/', include('categories.urls')),
     url(r'^product/', include('products.urls')),
+    url(r'^brand/', include('brand.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
     url(r'^offerbannerapi/', include('offer.urls')),
@@ -77,6 +78,7 @@ urlpatterns = [
     url(r'^retailer-incentive/', include('retailer_incentive.urls')),
     url(r'^ars/', include('ars.urls')),
     url(r'^ecom/', include('ecom.urls')),
+    url(r'^cms/', include('cms.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

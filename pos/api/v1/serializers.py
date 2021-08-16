@@ -4,7 +4,7 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F, Func, Value, CharField
+from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField
 from django.db import transaction
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
@@ -1542,7 +1542,7 @@ class AddressCheckoutSerializer(serializers.ModelSerializer):
 
 class VendorSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
-    alternate_phone_number = serializers.CharField(required=False, default=None)
+    alternate_phone_number = serializers.CharField(required=False, default=None, allow_null=True)
 
     class Meta:
         model = Vendor
@@ -1595,10 +1595,11 @@ class POSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     vendor_id = serializers.IntegerField()
     products = POProductSerializer(many=True)
+    send_mail = serializers.BooleanField(required=False, default=0)
 
     class Meta:
         model = PosCart
-        fields = ('id', 'vendor_id', 'products')
+        fields = ('id', 'vendor_id', 'products', 'send_mail')
 
     def validate(self, attrs):
         # Validate vendor id
@@ -1624,7 +1625,9 @@ class POSerializer(serializers.ModelSerializer):
             products_updatable, products_given = [], attrs['products']
             for product in products_given:
                 mapping = PosCartProductMapping.objects.filter(cart=cart, product=product['product_id']).last()
-                if mapping and mapping.is_grn_done:
+                if mapping and mapping.is_grn_done and (
+                        round(float(product['price']), 2) != round(float(mapping.price), 2) or int(
+                        product['qty']) != int(mapping.qty)):
                     raise serializers.ValidationError("Cannot edit products whose grn is done.")
                 products_updatable += [product]
             attrs['products'] = products_updatable
@@ -1657,9 +1660,9 @@ class POSerializer(serializers.ModelSerializer):
             po_status = cart.status
             if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
                 po_status = PosCart.PARTIAL_DELIVERED
-            cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
+            cart.last_modified_by, cart.status = user, po_status
             cart.save()
-            if self.context.get('send_mail', False):
+            if validated_data['send_mail']:
                 mail_to_vendor_on_po_creation.delay(cart.id)
 
 
@@ -1687,7 +1690,8 @@ class POProductGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history')
+        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history',
+                  'is_grn_done')
 
 
 class POGetSerializer(serializers.ModelSerializer):
@@ -1698,7 +1702,8 @@ class POGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     class Meta:
         model = PosCart
@@ -1739,7 +1744,8 @@ class POListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     @staticmethod
     def get_date(obj):
@@ -1937,9 +1943,27 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
 
 
 class GrnListSerializer(serializers.ModelSerializer):
+    grn_total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_grn_total_price(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        total_price = None
+        if po_products:
+            total_price = 0
+            for po_pr in po_products:
+                if po_pr.product.id in grn_products:
+                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+            total_price = round(total_price, 2)
+        return total_price
+
     class Meta:
         model = PosGRNOrder
-        fields = ('id', 'po_no', 'vendor_name', 'po_status')
+        fields = ('id', 'po_no', 'vendor_name', 'po_status', 'grn_total_price')
 
 
 class GrnOrderProductGetSerializer(serializers.ModelSerializer):
@@ -1969,6 +1993,30 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
     pos_grn_invoice = GrnInvoiceSerializer()
     added_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
+    po_total_price = serializers.SerializerMethodField()
+    current_grn_total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_current_grn_total_price(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        total_price = None
+        if po_products:
+            total_price = 0
+            for po_pr in po_products:
+                if po_pr.product.id in grn_products:
+                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+            total_price = round(total_price, 2)
+        return total_price
+
+    @staticmethod
+    def get_po_total_price(obj):
+        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
+                                                                          output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     @staticmethod
     def get_products(obj):
@@ -1988,7 +2036,8 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosGRNOrder
         fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'invoice_no', 'invoice_amount', 'invoice_date',
-                  'pos_grn_invoice', 'added_by', 'last_modified_by', 'created_at', 'modified_at')
+                  'pos_grn_invoice', 'po_total_price', 'current_grn_total_price', 'added_by', 'last_modified_by',
+                  'created_at', 'modified_at')
 
 
 class PosShopUserMappingListSerializer(serializers.ModelSerializer):

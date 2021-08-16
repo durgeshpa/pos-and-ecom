@@ -450,9 +450,16 @@ class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
-    list_display = ('shop', 'manager', 'employee', 'employee_group', 'created_at', 'status')
-    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    list_display = ('shop', 'get_manager', 'employee', 'employee_group', 'created_at', 'status')
+    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'employee_group', 'status', ('created_at', DateTimeRangeFilter), ]
     search_fields = ('shop__shop_name', 'employee_group__permissions__codename', 'employee__phone_number')
+
+    def get_manager(self, obj):
+        if obj.manager:
+            return str(obj.manager) + " - " + str(obj.manager.employee_group)
+        return obj.manager
+    get_manager.short_description = 'Manager'
+    get_manager.admin_order_field = 'manager__employee_group'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -602,8 +609,12 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         return qs
 
 
+class ShopTypeAdmin(admin.ModelAdmin):
+    fields = ('shop_type', 'shop_sub_type', 'shop_min_amount', 'status')
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
-admin.site.register(ShopType)
+admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
 admin.site.register(Shop, ShopAdmin)
 admin.site.register(FavouriteProduct, FavouriteProductAdmin)

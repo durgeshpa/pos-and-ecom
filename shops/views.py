@@ -155,7 +155,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
                     tempcategory=None
                     for category1 in category_list:
-                        if not tempcategory or category1.modified_at > tempcategory.modified_at:
+                        if not tempcategory or category1.updated_at > tempcategory.updated_at:
                             tempcategory = category1
 
                     category = tempcategory.category
@@ -603,9 +603,6 @@ class ShopUserMappingCsvSample(View):
         writer.writerow(['shop', 'manager', 'employee', 'employee_group'])
         writer.writerow(['23', '8989787878', '8989898989', '2'])
         return response
-
-
-from django.views.generic import View
 
 
 class BeatUserMappingCsvSample(View):
