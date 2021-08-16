@@ -539,7 +539,7 @@ class RewardCls(object):
 
 def filter_pos_shop(user):
     return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
-                                pos_enabled=1, pos_shop__user=user)
+                               pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
 def check_pos_shop(view_func):

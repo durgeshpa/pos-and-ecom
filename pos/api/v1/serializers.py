@@ -195,8 +195,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError('Please provide offer end date')
             if offer_sd > offer_ed:
                 raise serializers.ValidationError('Offer end date should be greater than or equal to offer start date')
-            if offer_sd < datetime.date.today():
-                raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
+            # if offer_sd < datetime.date.today():
+            #     raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
         else:
             attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
 
