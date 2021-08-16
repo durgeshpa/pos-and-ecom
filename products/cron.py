@@ -155,7 +155,10 @@ def update_price_discounted_product():
             #Active Discounted Product Price
             dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
             expired_life_days = get_config('EXPIRED_LIFE_DAYS')
-
+            cron_logger.info('SKU {},  expiry_date {}, manufacturing_date {}, product_life {}, remaining life {},'
+                             'discounted_life {}, half life {}, expired_life_days {}'
+                             .format(dis_prod.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
+                                     discounted_life, half_life, expired_life_days))
             if remaining_life.days <= expired_life_days:
                 move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
                                 state_total_available, type_normal, type_expired, tr_id, 'expired')
