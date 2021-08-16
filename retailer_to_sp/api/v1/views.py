@@ -15,10 +15,10 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework.generics import GenericAPIView
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, viewsets, permissions, authentication
+from rest_framework import status, generics, permissions, authentication
 
 from wkhtmltopdf.views import PDFTemplateResponse
 from num2words import num2words
@@ -59,7 +59,6 @@ from brand.models import Brand
 from addresses.models import Address
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
 from common.data_wrapper_view import DataWrapperViewSet
-from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -5391,9 +5390,10 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
-                    else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
-                                      .order_by('-created_at')
+        # queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
+        #             else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
+        #                               .order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at')
 
         params = request.query_params
         info_logger.info("SellerOrderList|query_params {}".format(request.query_params))
@@ -5441,7 +5441,7 @@ class RescheduleReason(generics.ListCreateAPIView):
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
-            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': [serializer.data]}
+            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)

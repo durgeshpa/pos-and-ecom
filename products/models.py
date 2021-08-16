@@ -1,12 +1,6 @@
-import codecs
-import csv
 import datetime
-import re
-import urllib.request
-
-from django.conf import settings
-from django.contrib.sites.shortcuts import get_current_site
 from django.core.validators import MinValueValidator, MaxValueValidator
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -20,13 +14,11 @@ from model_utils import Choices
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
-from categories.models import Category
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
 from coupon.models import Coupon
 from global_config.views import get_config
 from retailer_backend.validators import *
-from shops.models import Shop
-
-# from analytics.post_save_signal import get_category_product_report, get_master_report
+from shops.models import Shop, ShopUserMapping, ShopType
 
 
 SIZE_UNIT_CHOICES = (
@@ -45,7 +37,8 @@ WEIGHT_UNIT_CHOICES = (
     )
 
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
-                                   (2, 'MONTHLY', 'Monthly'))
+                               (2, 'MONTHLY', 'Monthly'))
+
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
@@ -58,6 +51,7 @@ class Size(models.Model):
     def __str__(self):
         return self.size_name
 
+
 class Color(models.Model):
     color_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     color_code = models.CharField(max_length=255, null=True, blank=True)
@@ -67,6 +61,7 @@ class Color(models.Model):
 
     def __str__(self):
         return self.color_name
+
 
 class Fragrance(models.Model):
     fragrance_name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -78,6 +73,7 @@ class Fragrance(models.Model):
     def __str__(self):
         return self.fragrance_name
 
+
 class Flavor(models.Model):
     flavor_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     flavor_code = models.CharField(max_length=255, null=True, blank=True)
@@ -88,16 +84,21 @@ class Flavor(models.Model):
     def __str__(self):
         return self.flavor_name
 
-class Weight(models.Model):
-    weight_value = models.CharField(max_length=255, null=True, blank=True)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'kg')
+
+class Weight(BaseTimestampUserStatusModel):
+    weight_value = models.DecimalField(null=True, blank=True, decimal_places=2, max_digits=12,
+                                       validators=[MinValueValidator(0.0)])
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default = 'kg')
     weight_name = models.SlugField(unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='weight_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.weight_name
+
 
 class PackageSize(models.Model):
     pack_size_value = models.CharField(max_length=255, null=True, blank=True)
@@ -117,42 +118,47 @@ class PackageSize(models.Model):
         verbose_name = _("Package Size")
         verbose_name_plural = _("Package Sizes")
 
-class ProductHSN(models.Model):
-    #product_hsn_name= models.CharField(max_length=255, null=True, blank=True)
+
+class ProductHSN(BaseTimestampUserStatusModel):
     product_hsn_code = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='product_hsn_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.product_hsn_code
 
-class ParentProduct(models.Model):
+
+class ParentProduct(BaseTimestampUserStatusModel):
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     parent_slug = models.SlugField(max_length=255)
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
-    # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
-    brand_case_size = models.PositiveIntegerField(blank=False)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
         ('b2b', 'B2B'),
         ('b2c', 'B2C'),
         ('both', 'Both B2B and B2C'),
     )
+    brand_case_size = models.PositiveIntegerField(blank=False)
     product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
-    status = models.BooleanField(default=True)
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
-    PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
+    PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'), (2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
     is_lead_time_applicable = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='parent_product_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     @property
     def ptr_type_text(self):
@@ -177,16 +183,16 @@ class ParentProduct(models.Model):
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)
 
+
 class ParentProductSKUGenerator(models.Model):
     cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
     brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
 
-class ParentProductCategory(models.Model):
+
+class ParentProductCategory(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_category', on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='parent_category_pro_category', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     class Meta:
@@ -194,14 +200,10 @@ class ParentProductCategory(models.Model):
         verbose_name_plural = _("Parent Product Categories")
 
 
-class ParentProductImage(models.Model):
+class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255, validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
     image = models.ImageField(upload_to='parent_product_image')
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    # status = models.BooleanField(default=True)
 
     def image_thumbnail(self):
         return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
@@ -231,7 +233,8 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
-class Product(models.Model):
+
+class Product(BaseTimestampUserStatusModel):
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
@@ -240,14 +243,14 @@ class Product(models.Model):
     weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
     product_special_cess = models.FloatField(null=True, blank=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     STATUS_CHOICES = (
         ('pending_approval', 'Pending Approval'),
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
-    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
+    status = models.CharField(max_length=20, default='pending_approval',
+                              choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
         ('default', 'Default'),
@@ -258,15 +261,19 @@ class Product(models.Model):
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
-    # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
     REPACKAGING_TYPES = (
         ('none', 'None'),
         ('source', 'Source'),
         ('destination', 'Destination'),
         ('packing_material', 'Packing Material')
     )
+
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
-    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='product_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -276,9 +283,13 @@ class Product(models.Model):
         return "{}-{}".format(self.product_name, self.product_sku)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-id']
         verbose_name = 'Child Product'
         verbose_name_plural = 'Child Products'
+
+    @property
+    def product_case_size(self):
+        return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def product_brand(self):
@@ -305,10 +316,6 @@ class Product(models.Model):
         if self.product_pro_tax.filter(tax__tax_type='surcharge').exists():
             return self.product_pro_tax.filter(tax__tax_type='surcharge').last().tax.tax_percentage
         return ''
-
-    @property
-    def product_case_size(self):
-        return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def parent_name(self):
@@ -394,7 +401,6 @@ class Product(models.Model):
             return None
         return product_capping.last()
 
-
     def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
@@ -427,7 +433,7 @@ class Product(models.Model):
             parent_brand = None
         # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
         product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
-        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
@@ -440,14 +446,10 @@ class ProductSKUGenerator(models.Model):
     last_auto_increment = models.CharField(max_length=8)
 
 
-class ChildProductImage(models.Model):
+class ChildProductImage(BaseTimeModel):
     product = models.ForeignKey(Product, related_name='child_product_pro_image', blank=True, on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255, blank=True, validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
     image = models.ImageField(upload_to='child_product_image', blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    # status = models.BooleanField(default=True)
 
     def image_thumbnail(self):
         return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
@@ -474,7 +476,7 @@ class ProductSourceMapping(models.Model):
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
-    size = models.ForeignKey(Size,related_name='size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
+    size = models.ForeignKey(Size, related_name='size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     color = models.ForeignKey(Color,related_name='color_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     fragrance = models.ForeignKey(Fragrance,related_name='fragrance_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     flavor = models.ForeignKey(Flavor,related_name='flavor_pro_option',null=True,blank=True,on_delete=models.CASCADE)
@@ -482,6 +484,7 @@ class ProductOption(models.Model):
     package_size = models.ForeignKey(PackageSize,related_name='package_size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
 
 class ProductHistory(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
@@ -617,7 +620,6 @@ class ProductPrice(models.Model):
         if per_piece_price:
             return per_piece_price * case_size
 
-
     def get_per_piece_price(self, qty):
 
         """
@@ -639,6 +641,7 @@ class SlabProductPrice(ProductPrice):
 
     class Meta:
         proxy = True
+
 
 class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
@@ -691,8 +694,8 @@ class PriceSlab(models.Model):
 
 
 class ProductCategory(models.Model):
-    product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_pro_category', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -701,20 +704,19 @@ class ProductCategory(models.Model):
         verbose_name = _("Product Category")
         verbose_name_plural = _("Product Categories")
 
+
 class ProductCategoryHistory(models.Model):
-    product = models.ForeignKey(Product, related_name='product_pro_cat_history',on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name='category_pro_cat_history',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_cat_history', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_pro_cat_history', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-class ProductImage(models.Model):
-    product = models.ForeignKey(Product,related_name='product_pro_image',on_delete=models.CASCADE)
+
+class ProductImage(BaseTimeModel):
+    product = models.ForeignKey(Product, related_name='product_pro_image', on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255,null=True,blank=True,validators=[NameValidator])
     image = models.ImageField(upload_to='product_image')
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def image_thumbnail(self):
@@ -729,7 +731,7 @@ class ProductImage(models.Model):
         return self.image.name
 
 
-class Tax(models.Model):
+class Tax(BaseTimestampUserStatusModel):
     TAX_CHOICES = (
             ("cess", "Cess"),
             ("gst", "GST"),
@@ -737,14 +739,17 @@ class Tax(models.Model):
             ("tcs", "TCS")
         )
 
-    tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES)
     tax_percentage = models.FloatField(default=0)
-    tax_start_at = models.DateTimeField(null=True,blank=True)
-    tax_end_at = models.DateTimeField(null=True,blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    tax_start_at = models.DateField(null=True, blank=True)
+    tax_end_at = models.DateField(null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='tax_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.tax_name
@@ -753,11 +758,10 @@ class Tax(models.Model):
         verbose_name = _("Tax")
         verbose_name_plural = _("Taxes")
 
-class ProductTaxMapping(models.Model):
-    product = models.ForeignKey(Product,related_name='product_pro_tax',on_delete=models.CASCADE)
-    tax = models.ForeignKey(Tax,related_name='tax_pro_tax',on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+
+class ProductTaxMapping(BaseTimeModel):
+    product = models.ForeignKey(Product, related_name='product_pro_tax', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_pro_tax', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -774,48 +778,28 @@ class ProductTaxMapping(models.Model):
 
     def get_products_tcs(self):
         return self.product.product_pro_tax.filter(tax__tax_type='tcs')
-# class ProductSurcharge(models.Model):
-#     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
-#     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
-#     surcharge_percentage = models.FloatField(default=0)
-#     surcharge_start_at = models.DateTimeField(null=True, blank=True)
-#     surcharge_end_at = models.DateTimeField(null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-#     status = models.BooleanField(default=True)
 
 
-class ParentProductTaxMapping(models.Model):
+class ParentProductTaxMapping(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_tax', on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='parent_tax_pro_tax', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
         return "{}-{}".format(self.parent_product, self.tax.tax_name)
 
-    # def get_products_gst_tax(self):
-    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='gst')
-
-    # def get_products_gst_cess(self):
-    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='cess')
-
-    # def get_products_gst_surcharge(self):
-    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
-
 
 class DestinationRepackagingCostMapping(models.Model):
     destination = models.ForeignKey(Product, related_name='destination_product_repackaging', on_delete=models.CASCADE)
-    raw_material = models.DecimalField(max_digits=10, decimal_places=2)
-    wastage = models.DecimalField(max_digits=10, decimal_places=2)
-    fumigation = models.DecimalField(max_digits=10, decimal_places=2)
-    label_printing = models.DecimalField(max_digits=10, decimal_places=2)
-    packing_labour = models.DecimalField(max_digits=10, decimal_places=2)
-    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    raw_material = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    wastage = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    fumigation = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    label_printing = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    packing_labour = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
+    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)])
 
     def __str__(self):
         return "{}".format(self.destination)
@@ -845,6 +829,7 @@ class ProductCSV(models.Model):
         verbose_name = _("Product CSV")
         verbose_name_plural = _("Product CSVS")
 
+
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')
     country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
@@ -860,20 +845,19 @@ class ProductPriceCSV(models.Model):
         verbose_name = _("Product Price CSV")
         verbose_name_plural = _("Product Price CSVS")
 
-class ProductVendorMapping(models.Model):
-    vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
-    product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)',null=True,blank=True) #(Per piece)
-    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)',null=True,blank=True)
-    brand_to_gram_price_unit = models.CharField(max_length = 100 ,default="Per Piece")
-    product_mrp = models.FloatField(null=True,blank=True)
+
+class ProductVendorMapping(BaseTimeModel):
+    vendor = models.ForeignKey(Vendor, related_name='vendor_brand_mapping', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_vendor_mapping', on_delete=models.CASCADE)
+    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)', null=True, blank=True) #(Per piece)
+    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)', null=True, blank=True)
+    brand_to_gram_price_unit = models.CharField(max_length=100, default="Per Piece")
+    product_mrp = models.FloatField(null=True, blank=True)
     case_size = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
 
-    def save_vendor(self,vendor):
+    def save_vendor(self, vendor):
         if vendor.vendor_products_brand is None:
             parent_brands = []
             parent_brand = parent_brands.append(self.product.parent_product.parent_brand_id)
@@ -888,11 +872,10 @@ class ProductVendorMapping(models.Model):
        
         if self.product_price:
             self.brand_to_gram_price_unit = "Per Piece"
-            
         else:
             self.brand_to_gram_price_unit = "Per Pack"
            
-        ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        ProductVendorMapping.objects.filter(product=self.product, vendor=self.vendor, status=True).update(status=False)
         if self.is_default:
             ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product, is_default=True)\
                                         .update(is_default=False)
@@ -906,6 +889,7 @@ class ProductVendorMapping(models.Model):
     def sku(self):
         return self.product.product_sku
 
+
 @receiver(pre_save, sender=Product)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     # product = Product.objects.get(pk=instance.product_id)
@@ -916,7 +900,8 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         cat_sku_code = parent_product_category.category_sku_part
         parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
         brand_sku_code = instance.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+                                                      brand_sku_code=brand_sku_code).last()
         if last_sku:
             last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
         else:
@@ -924,6 +909,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
         instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         # product.save()
+
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',
@@ -948,14 +934,13 @@ class ProductCapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-class BulkProductTaxUpdate(models.Model):
+
+class BulkProductTaxUpdate(BaseTimeModel):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
-        get_user_model(), related_name='bulk_product_tax_update',
+        get_user_model(), null=True, related_name='bulk_product_tax_update',
         on_delete=models.DO_NOTHING
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Bulk Product Tax Update'
@@ -964,14 +949,13 @@ class BulkProductTaxUpdate(models.Model):
         return "Product Tax Mapping updated at %s by %s" % (self.created_at,
                                                             self.updated_by)
 
-class BulkUploadForGSTChange(models.Model):
+
+class BulkUploadForGSTChange(BaseTimeModel):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
-        get_user_model(), null=True, related_name='bulk_upload_for_gst_change',
+        get_user_model(), null=True, related_name='bulk_product_gst_update',
         on_delete=models.DO_NOTHING
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Bulk Upload For GST Change'
@@ -980,14 +964,13 @@ class BulkUploadForGSTChange(models.Model):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
 
 
-class BulkUploadForProductAttributes(models.Model):
+class BulkUploadForProductAttributes(BaseTimeModel):
     file = models.FileField(upload_to='products/product_attributes/')
+    upload_type = models.CharField(max_length=50, default='')
     updated_by = models.ForeignKey(
-        get_user_model(), null=True, related_name='bulk_upload_for_product_attributes',
+        get_user_model(), null=True, related_name='bulk_file_uploaded_by',
         on_delete=models.DO_NOTHING
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
@@ -1056,3 +1039,23 @@ class ProductPackingMapping(models.Model):
 
     def __str__(self):
         return self.packing_sku.product_sku
+
+
+class CentralLog(models.Model):
+    action = models.CharField(max_length=50, null=True, blank=True)
+    shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
+    shop_type = models.ForeignKey(ShopType, related_name='shop_type_log', blank=True, null=True, on_delete=models.CASCADE)
+    shop_user_map = models.ForeignKey(ShopUserMapping, related_name='shop_user_map_log', blank=True, null=True, on_delete=models.CASCADE)
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
+    child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
+    brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
+    weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)
+    hsn = models.ForeignKey(ProductHSN, related_name='hsn_log', blank=True, null=True, on_delete=models.CASCADE)
+    update_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='updated_by',
+        on_delete=models.DO_NOTHING
+    )

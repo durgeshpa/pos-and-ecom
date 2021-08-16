@@ -778,6 +778,7 @@ def products_vendor_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
+
 def cart_products_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     current_time = datetime.datetime.now()
@@ -1052,7 +1053,6 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')
@@ -1166,7 +1166,7 @@ def UploadMasterDataSampleExcelFile(request, *args):
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
     category_id = request.GET['category_id']
-    categry = Category.objects.values('category_name').filter(id=int(category_id))
+    category = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1182,8 +1182,8 @@ def UploadMasterDataSampleExcelFile(request, *args):
 
     columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
                'weight_unit', 'weight_value', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-               'brand_case_size', 'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
-               'sub_brand_name','category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+               'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
+               'sub_brand_name', 'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                'status', 'repackaging_type', 'source_sku_id', 'source_sku_name',  'raw_material',
                'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
@@ -1201,12 +1201,11 @@ def UploadMasterDataSampleExcelFile(request, *args):
     products = Product.objects.values('id', 'product_sku', 'product_name', 'parent_product__parent_id',
                                       'parent_product__name', 'product_ean_code', 'product_mrp',
                                       'parent_product__product_hsn__product_hsn_code', 'weight_unit', 'weight_value',
-                                      'parent_product__brand_case_size', 'parent_product__inner_case_size',
-                                      'parent_product__parent_brand__id', 'parent_product__parent_brand__brand_name',
+                                      'parent_product__inner_case_size', 'parent_product__parent_brand__id', 'parent_product__parent_brand__brand_name',
                                       'parent_product__parent_brand__brand_parent_id',
                                       'parent_product__parent_brand__brand_parent__brand_name',
                                       'status','repackaging_type')\
-               .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
+        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=category[0]['category_name']))
 
     cat = Category.objects.values('id', 'category_name', 'category_parent_id', 'category_parent__category_name').filter(id=int(category_id))
 
@@ -1231,7 +1230,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
             if tax.tax.tax_type == 'surcharge':
                 tax_list[2] = tax.tax.tax_name
         row.extend(tax_list)
-        row.append(product['parent_product__brand_case_size'])
         row.append(product['parent_product__inner_case_size'])
 
         if product['parent_product__parent_brand__brand_parent_id']:
@@ -1244,7 +1242,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
             row.append(product['parent_product__parent_brand__brand_name'])
             row.append(product['parent_product__parent_brand__brand_parent_id'])
             row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
-
 
         if cat[0]['category_parent_id']:
             row.append(cat[0]['category_parent_id'])
@@ -1303,7 +1300,7 @@ def set_inactive_status_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for set Active Status
     """
     category_id = request.GET['category_id']
-    categry = Category.objects.values('category_name').filter(id=int(category_id))
+    category = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1330,7 +1327,7 @@ def set_inactive_status_sample_excel_file(request):
         cell.font = ft
 
     products = Product.objects.values('product_sku', 'product_name', 'status', 'product_mrp')\
-                .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
+                .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=category[0]['category_name']))
     for product in products:
         row = []
         row.append(product['product_sku'])
@@ -1352,7 +1349,7 @@ def set_child_with_parent_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for Child and Parent Mapping
     """
     category_id = request.GET['category_id']
-    categry = Category.objects.values('category_name').filter(id=int(category_id))
+    category = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1376,7 +1373,7 @@ def set_child_with_parent_sample_excel_file(request):
 
     products = Product.objects.values('product_sku', 'product_name',
                                       'parent_product__parent_id', 'parent_product__name', 'status')\
-        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
+        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=category[0]['category_name']))
 
     for product in products:
         row = []
@@ -1394,10 +1391,12 @@ def set_child_with_parent_sample_excel_file(request):
     info_logger.info("Child Parent Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
+
 def get_ptr_type_text(ptr_type=None):
     if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
         return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
     return ''
+
 
 def set_parent_data_sample_excel_file(request, *args):
     """
@@ -1417,11 +1416,12 @@ def set_parent_data_sample_excel_file(request, *args):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
+    columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-               'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+               'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
+               'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
                'is_lead_time_applicable']
+
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1433,11 +1433,10 @@ def set_parent_data_sample_excel_file(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    parent_products = ParentProductCategory.objects.values('parent_product__id','parent_product__parent_id',
+    parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                            'parent_product__name',
                                                            'parent_product__product_type',
                                                            'parent_product__product_hsn__product_hsn_code',
-                                                           'parent_product__brand_case_size',
                                                            'parent_product__inner_case_size',
                                                            'parent_product__parent_brand__id',
                                                            'parent_product__parent_brand__brand_name',
@@ -1470,7 +1469,6 @@ def set_parent_data_sample_excel_file(request, *args):
             if tax.tax.tax_type == 'surcharge':
                 tax_list[2] = tax.tax.tax_name
         row.extend(tax_list)
-        row.append(product['parent_product__brand_case_size'])
         row.append(product['parent_product__inner_case_size'])
 
         if product['parent_product__parent_brand__brand_parent_id']:
@@ -1520,7 +1518,7 @@ def set_child_data_sample_excel_file(request, *args):
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
     category_id = request.GET['category_id']
-    categry = Category.objects.values('category_name').filter(id=int(category_id))
+    category = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1548,11 +1546,9 @@ def set_child_data_sample_excel_file(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    products = Product.objects.values('id', 'product_sku', 'product_name',
-                                              'product_ean_code', 'product_mrp',
-                                              'weight_unit', 'weight_value',
-                                              'status', 'repackaging_type')\
-        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
+    products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code',
+                                      'product_mrp', 'weight_unit', 'weight_value', 'status', 'repackaging_type')\
+        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=category[0]['category_name']))
     for product in products:
         row = []
         row.append(product['product_sku'])
@@ -1753,19 +1749,19 @@ def upload_master_data_view(request):
                 count = 0
 
             if request.POST['upload_master_data'] == 'master_data':
-                SetMasterData.set_master_data(excel_file_headers, excel_file_list)
+                SetMasterData.set_master_data(excel_file_list)
             if request.POST['upload_master_data'] == 'inactive_status':
-                UploadMasterData.set_inactive_status(excel_file_headers, excel_file_list)
+                UploadMasterData.set_inactive_status(excel_file_list)
             if request.POST['upload_master_data'] == 'sub_brand_with_brand':
-                UploadMasterData.set_sub_brand_and_brand(excel_file_headers, excel_file_list)
+                UploadMasterData.set_sub_brand_and_brand(excel_file_list)
             if request.POST['upload_master_data'] == 'sub_category_with_category':
-                UploadMasterData.set_sub_category_and_category(excel_file_headers, excel_file_list)
+                UploadMasterData.set_sub_category_and_category(excel_file_list)
             if request.POST['upload_master_data'] == 'child_parent':
-                UploadMasterData.set_child_parent(excel_file_headers, excel_file_list)
+                UploadMasterData.set_child_parent(excel_file_list)
             if request.POST['upload_master_data'] == 'child_data':
-                UploadMasterData.set_child_data(excel_file_headers, excel_file_list)
+                UploadMasterData.set_child_data(excel_file_list)
             if request.POST['upload_master_data'] == 'parent_data':
-                UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
+                UploadMasterData.set_parent_data(excel_file_list)
 
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
             if attribute_id:
@@ -1836,6 +1832,7 @@ def FetchAllParentCategoriesWithID(request):
         data['categories'].append(category.category_name + "@" + str(category.id))
 
     return JsonResponse(data, safe=False)
+
 
 def FetchAllProductBrands(request):
     data = { 'brands': [] }

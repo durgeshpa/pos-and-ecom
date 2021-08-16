@@ -480,8 +480,8 @@ def create_po_from_demand(demand):
 
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
-
-            no_of_cases = math.ceil(demand_product.quantity / product_case_size)
+            
+            no_of_cases = demand_product.quantity / product_case_size
             no_of_pieces = no_of_cases * product_case_size
 
             CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=demand_product.product,

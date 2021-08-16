@@ -1,55 +1,53 @@
-import datetime
 from django import forms
 from dal import autocomplete
-from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from brand.models import Brand
 from categories.models import Category
-from .models import OfferBanner , OfferBannerPosition, TopSKU
+from .models import OfferBanner, OfferBannerPosition, TopSKU
 from shops.models import Shop
 from products.models import Product
 
+
 class OfferBannerForm(forms.ModelForm):
     category = forms.ModelChoiceField(required=False,
-        queryset=Category.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='category-autocomplete',
-        )
-     )
+                                      queryset=Category.objects.all(),
+                                      widget=autocomplete.ModelSelect2(
+                                          url='category-autocomplete',
+                                      )
+                                      )
     sub_category = forms.ModelChoiceField(required=False,
-        queryset=Category.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='sub-category-autocomplete',
-        )
-     )
+                                          queryset=Category.objects.all(),
+                                          widget=autocomplete.ModelSelect2(
+                                              url='sub-category-autocomplete',
+                                          )
+                                          )
     brand = forms.ModelChoiceField(required=False,
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='banner-brand-autocomplete',
-            forward=('category',)
-        )
-     )
+                                   queryset=Brand.objects.all(),
+                                   widget=autocomplete.ModelSelect2(
+                                       url='banner-brand-autocomplete',
+                                       forward=('category',)
+                                   )
+                                   )
     sub_brand = forms.ModelChoiceField(required=False,
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='banner-sub-brand-autocomplete',
-            forward=('category',)
-        )
-     )
+                                       queryset=Brand.objects.all(),
+                                       widget=autocomplete.ModelSelect2(
+                                           url='banner-sub-brand-autocomplete',
+                                           forward=('category',)
+                                       )
+                                       )
     products = forms.ModelMultipleChoiceField(required=False,
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2Multiple(
-            url='banner-product-autocomplete',
-            forward=('brand',)
-        )
-     )
+                                              queryset=Product.objects.all(),
+                                              widget=autocomplete.ModelSelect2Multiple(
+                                                  url='banner-product-autocomplete',
+                                                  forward=('brand',)
+                                              )
+                                              )
 
     class Meta:
         model = OfferBanner
-        fields = ('__all__')
+        fields = '__all__'
 
     class Media:
         js = ('admin/js/offer_banner.js',)
-
 
     def __init__(self, *args, **kwargs):
         super(OfferBannerForm, self).__init__(*args, **kwargs)
@@ -60,9 +58,10 @@ class OfferBannerForm(forms.ModelForm):
         self.fields['sub_brand'].widget.attrs['class'] = 'banner-select2'
         self.fields['products'].widget.attrs['class'] = 'banner-select2'
 
+
 class OfferBannerPositionForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', ]),
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
         required=False
     )
@@ -71,21 +70,22 @@ class OfferBannerPositionForm(forms.ModelForm):
         Model = OfferBannerPosition
         fields = '__all__'
 
+
 class TopSKUForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', ]),
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
         required=False
     )
 
     product = forms.ModelChoiceField(required=True,
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='banner-product-autocomplete',
-            forward=('brand',)
-        )
-     )
+                                     queryset=Product.objects.all(),
+                                     widget=autocomplete.ModelSelect2(
+                                         url='banner-product-autocomplete',
+                                         forward=('brand',)
+                                     )
+                                     )
 
     class Meta:
         model = TopSKU
-        fields = ('__all__')
+        fields = '__all__'
