@@ -1,9 +1,8 @@
 from django.conf.urls import include, url
-from django.contrib import admin
 
 from .filters import SkuFilterComplete
 from .views import ShopParentAutocomplete, ShopRetailerAutocomplete, BeatUserMappingCsvSample, BeatUserMappingCsvView, \
-    Skufilter, UserAutocomplete
+    UserAutocomplete
 
 urlpatterns = [
     url(r'^api/', include('shops.api.urls')),

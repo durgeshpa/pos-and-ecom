@@ -977,11 +977,11 @@ class VendorListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = Vendor.objects.filter(retailer_shop=self.shop)
+        queryset = Vendor.objects.filter(retailer_shop=self.shop).order_by('-modified_at')
 
         vendor_status = self.request.GET.get('status', None)
-        if vendor_status in [True, False]:
-            queryset = queryset.filter(status=vendor_status)
+        if vendor_status in ['1', '0']:
+            queryset = queryset.filter(status=int(vendor_status))
 
         search_text = self.request.GET.get('search_text', None)
         if search_text:
@@ -1057,7 +1057,7 @@ class POListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at').prefetch_related(
+        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-modified_at').prefetch_related(
             'po_products')
 
         search_text = self.request.GET.get('search_text', None)
@@ -1134,7 +1134,7 @@ class GrnOrderListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-created_at')
+        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-modified_at')
         return queryset
 
     @check_pos_shop

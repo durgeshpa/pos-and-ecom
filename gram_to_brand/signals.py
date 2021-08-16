@@ -60,9 +60,10 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         # from notification_center.utils import SendNotification
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
+
 @receiver(post_save, sender=GRNOrderProductMapping)
 def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
-    if instance.delivered_qty+instance.returned_qty > 0:
+    if instance.delivered_qty + instance.returned_qty > 0:
         cart_product = instance.grn_order.order.ordered_cart.cart_list.filter(cart_product=instance.product)
         cart_product.update(is_grn_done=True)
 
@@ -165,7 +166,7 @@ def mail_to_vendor(sender, instance=None, created=False, update_fields=None, **k
     """
         Send mail to vendor on po approval
     """
-    if instance.cart_type==Cart.CART_TYPE_CHOICE.AUTO and instance.is_approve and not instance.is_vendor_notified:
-       mail_to_vendor_on_po_approval(instance)
-       instance.is_vendor_notified = True
-       instance.save()
+    if instance.cart_type == Cart.CART_TYPE_CHOICE.AUTO and instance.is_approve and not instance.is_vendor_notified:
+        mail_to_vendor_on_po_approval(instance)
+        instance.is_vendor_notified = True
+        instance.save()

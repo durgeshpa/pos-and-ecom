@@ -293,6 +293,7 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
     return :- Ture if success else False
     """
     try:
+        order_status = order_status.replace('_', ' ')
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD

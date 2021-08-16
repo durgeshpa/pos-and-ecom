@@ -1,14 +1,14 @@
-
 from celery.task import task
 from elasticsearch import Elasticsearch
 
 from shops.models import Shop
+
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 
-from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
@@ -131,7 +131,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_images = [
 			{
 				"image_name": p_i.image_name,
-				"image_alt": p_i.image_alt_text,
+				# "image_alt": p_i.image_alt_text,
 				"image_url": p_i.image.url
 			}
 			for p_i in product_img
@@ -141,7 +141,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 				product_images = [
 					{
 						"image_name": p_i.image_name,
-						"image_alt": p_i.image_alt_text,
+						# "image_alt": p_i.image_alt_text,
 						"image_url": p_i.image.url
 					}
 					for p_i in product.parent_product.parent_product_pro_image.all()
@@ -150,7 +150,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 				product_images = [
 					{
 						"image_name": p_i.image_name,
-						"image_alt": p_i.image_alt_text,
+						# "image_alt": p_i.image_alt_text,
 						"image_url": p_i.image.url
 					}
 					for p_i in product.child_product_pro_image.all()

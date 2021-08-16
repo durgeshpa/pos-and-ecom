@@ -538,8 +538,6 @@ class ProductForm(forms.ModelForm):
 
     def clean(self):
         if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
-            if 'repackaging_type' in self.cleaned_data and self.cleaned_data['repackaging_type'] == 'packing_material':
-                return self.cleaned_data
             error = True
             if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
                                                                 product_id=self.instance.id).exists():
@@ -639,8 +637,8 @@ class UploadChildProductAdminForm(forms.Form):
             if len(row) == 0:
                 continue
             if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[
-                    5] == '' and row[6] == ''):
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == ''
+                        and row[5] == '' and row[6] == ''):
                     continue
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
@@ -820,9 +818,9 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
                         if row['brand_case_size'] != '':
                             if not re.match("^\d+$", str(row['brand_case_size'])):
-                                raise ValidationError(
-                                    _(
-                                        f"Row {row_num} | {row['brand_case_size']} |'Brand Case Size' can only be a numeric value."))
+                                raise ValidationError(_(f"Row {row_num} | {row['brand_case_size']} |"
+                                                        f"'Brand Case Size' can only be a numeric value."))
+
                 if 'inner_case_size' in header_list and 'inner_case_size' in row.keys():
                     if row['inner_case_size'] != '':
                         if not re.match("^\d+$", str(row['inner_case_size'])):
@@ -1161,7 +1159,7 @@ class UploadMasterDataAdminForm(forms.Form):
         if upload_master_data == "master_data":
             required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
                                     'weight_unit', 'weight_value','tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                                    'brand_case_size', 'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
+                                    'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
                                     'sub_brand_name','category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
                                     'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
@@ -1210,7 +1208,7 @@ class UploadMasterDataAdminForm(forms.Form):
             self.check_headers(excel_file_headers, required_header_list)
             
         if upload_master_data == "parent_data":
-            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
+            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                                     'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable',
@@ -1584,6 +1582,7 @@ class ProductVendorMappingForm(forms.ModelForm):
 
         if not (product_price == None or product_price_pack == None):
             raise forms.ValidationError("Please enter only one Brand to Gram Price")
+
 
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
@@ -2123,6 +2122,7 @@ class BulkProductVendorMapping(forms.Form):
 
         return self.cleaned_data['file']
 
+
 class ProductPriceSlabForm(forms.ModelForm):
     """
     This class is used to create Slab Product Price for a particular product
@@ -2136,6 +2136,7 @@ class ProductPriceSlabForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
 
 class ProductPriceSlabCreationForm(forms.ModelForm):
     """
@@ -2309,7 +2310,6 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
                 selling_price_per_saleable_unit = float(round(selling_price, 2))
 
-
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
             elif not row[5]:
@@ -2344,7 +2344,8 @@ class UploadSlabProductPriceForm(forms.Form):
                                   or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
-    
+
+
 def only_int(value):
     if value.isdigit() is False:
         raise ValidationError('HSN can only be a numeric value.')
@@ -2352,7 +2353,6 @@ def only_int(value):
 
 class ProductHSNForm(forms.ModelForm):
     product_hsn_code = forms.CharField(max_length=8, min_length=6, validators=[only_int])
-
 
     class Meta:
         model = ProductHSN

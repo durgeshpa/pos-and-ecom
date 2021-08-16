@@ -60,6 +60,8 @@ from brand.models import Brand
 
 from categories import models as categorymodel
 from common.data_wrapper_view import DataWrapperViewSet
+
+from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
@@ -427,9 +429,9 @@ class SearchProducts(APIView):
                 cart_products = cart.rt_cart_list.all()
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty", 'offer_price',
-                                            'offer_start_date', 'offer_end_date']}
+            # body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+            #                                 "description", "linked_product_id", "stock_qty", 'offer_price',
+            #                                 'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -438,9 +440,9 @@ class SearchProducts(APIView):
                 error_logger.error(e)
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id", "stock_qty", 'offer_price',
-                                            'offer_start_date', 'offer_end_date']}
+            # body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+            #                                 "description", "linked_product_id", "stock_qty", 'offer_price',
+            #                                 'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 product_ids = []
@@ -1579,9 +1581,9 @@ class CartCentral(GenericAPIView):
         selling_price = None
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
-            if price_change == 1 and selling_price:
+            if price_change == 1:
                 RetailerProductCls.update_price(product.id, selling_price, 'active', self.request.user, 'cart', cart_no)
-        if not selling_price and product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
+        elif product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
@@ -4997,6 +4999,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
         # redeem value
         redeem_value = order_return.refund_points if order_return.refund_points > 0 else 0
+        if redeem_value > 0:
+            redeem_value = round(redeem_value / order.ordered_cart.redeem_factor, 2)
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words
@@ -5766,9 +5770,10 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
-            else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user) \
-            .order_by('-created_at')
+        # queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at') if self.is_manager \
+        #             else Order.objects.filter(buyer_shop__id__in=shop_list, ordered_by=request.user)\
+        #                               .order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__id__in=shop_list).order_by('-created_at')
 
         params = request.query_params
         info_logger.info("SellerOrderList|query_params {}".format(request.query_params))
@@ -5817,7 +5822,7 @@ class RescheduleReason(generics.ListCreateAPIView):
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
-            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': [serializer.data]}
+            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)

@@ -426,7 +426,6 @@ def add_discounted_product_quantity(shop, inventory_type, sku_qty_dict):
     return sku_qty_dict
 
 
-
 def get_stock(shop, inventory_type, product_id_list=None):
     inventory_states = InventoryState.objects.filter(inventory_state__in=['reserved', 'ordered',
                                                                           'to_be_picked', 'total_available'])
@@ -455,17 +454,16 @@ def get_stock(shop, inventory_type, product_id_list=None):
     return sku_qty_dict
 
 
-
-
 def get_visibility_changes(shop, product):
     visibility_changes = {}
     if isinstance(product, int):
         product = Product.objects.filter(id=product).last()
         if not product:
             return visibility_changes
+
+    visibility_changes[product.id] = False
     child_siblings = Product.objects.filter(
-        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
-        status='active'
+        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(), status='active'
     )
     min_exp_date_data = {
         'id': '',
@@ -2068,6 +2066,7 @@ def update_visibility(shop,product,visible):
                 inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last()).update(visible=visible)
 
+
 def update_visibility_bulk(shop_id):
     shop = Shop.objects.filter(pk=shop_id).last()
     products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(
@@ -2114,7 +2113,6 @@ def get_stock_available_category_list(warehouse=None):
 
 def is_product_not_eligible(product_id):
     return Product.objects.filter(id=product_id, repackaging_type='packing_material').exists()
-
 
 
 def get_inventory_in_stock(warehouse, parent_product):
