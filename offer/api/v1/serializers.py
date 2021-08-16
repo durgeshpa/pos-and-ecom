@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from rest_framework import serializers
 from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage
@@ -6,9 +7,10 @@ from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
 from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data
-from products.api.v1.serializers import UserSerializers, ProductSerializers
+from products.api.v1.serializers import UserSerializers, BrandSerializers, CategorySerializers, ProductSerializers
 from shops.api.v2.serializers import ServicePartnerShopsSerializer
-from products.common_validators import get_validate_product, get_validate_seller_shop
+from products.common_validators import get_validate_product, get_validate_seller_shop, get_validate_parent_brand, \
+    get_validate_categories
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -31,9 +33,8 @@ class OfferBannerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OfferBanner
-        fields = (
-            'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
-            'status', 'offer_banner_start_date', 'offer_banner_end_date',)
+        fields = ('name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
+                  'status', 'offer_banner_start_date', 'offer_banner_end_date',)
 
     def product_category(self, obj):
         if obj.category_id is None:
@@ -407,3 +408,41 @@ class OfferBannerPositionSerializers(serializers.ModelSerializer):
         obj.pop('__str__')
         obj['offer_banner_position'] = representation['__str__']
         return obj
+
+
+class OfferBannerSerializers(serializers.ModelSerializer):
+    sub_category = CategorySerializers(read_only=True)
+    brand = BrandSerializers(read_only=True)
+    category = CategorySerializers(read_only=True)
+    sub_brand = BrandSerializers(read_only=True)
+    products = ProductSerializers(many=True, read_only=True)
+    offer_banner_log = OfferLogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = OfferBanner
+        fields = ('id', 'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand',
+                  'products', 'status', 'offer_banner_start_date', 'offer_banner_end_date', 'offer_banner_log')
+
+    def validate(self, data):
+        """
+            is_ptr_applicable validation.
+        """
+        if 'brand' in self.initial_data and self.initial_data['brand']:
+            parent_brand_val = get_validate_parent_brand(self.initial_data['brand'])
+            if 'error' in parent_brand_val:
+                raise serializers.ValidationError(parent_brand_val['error'])
+            data['brand'] = parent_brand_val['brand']
+
+        if 'category' in self.initial_data and self.initial_data['category']:
+            category_val = get_validate_categories(self.initial_data['category'])
+            if 'error' in category_val:
+                raise serializers.ValidationError(_(category_val["error"]))
+            data['category'] = category_val['category']
+
+        parent_pro_id = self.instance.id if self.instance else None
+        if 'name' in self.initial_data and self.initial_data['name'] is not None:
+            pro_obj = validate_parent_product_name(self.initial_data['name'], parent_pro_id)
+            if pro_obj is not None and 'error' in pro_obj:
+                raise serializers.ValidationError(pro_obj['error'])
+
+        return data

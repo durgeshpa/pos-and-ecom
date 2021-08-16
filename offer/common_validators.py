@@ -1,7 +1,7 @@
 import logging
 import re
+import json
 from offer.models import OfferPage, OfferBannerSlot, OfferBanner
-
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -40,3 +40,15 @@ def get_validated_offer_ban_data(offer_ban_data):
 
     return {'data': offer_ban_data}
 
+
+def validate_data_format(request):
+    # validate offer banner data
+    try:
+        data = json.loads(request.data["data"])
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    if request.FILES.getlist('image'):
+        data['image'] = request.FILES.getlist('image')
+
+    return data

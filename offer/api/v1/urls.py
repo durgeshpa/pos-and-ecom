@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from .views import (GetSlotOfferBannerListView, GetPageBannerListView, GetTopSKUListView, OfferPageView,
                     OfferBannerSlotView, OfferPageListView, TopSKUView, OfferBannerPositionView,
-                    OfferBannerSlotListView, OfferBannerListView)
+                    OfferBannerSlotListView, OfferBannerListView, OfferBannerView)
 
 urlpatterns = [
 
@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^offer-top-sku/$', TopSKUView.as_view(), name='offer-top-sku'),
     url(r'^offer-banner-position/$', OfferBannerPositionView.as_view(), name='offer-banner-position'),
     url(r'^offer-banner-slot-list/$', OfferBannerSlotListView.as_view(), name='offer-banner-slot-list'),
-    url(r'^offer-banner-list/$', OfferBannerListView.as_view(), name='offer-banner-list')
+    url(r'^offer-banner-list/$', OfferBannerListView.as_view(), name='offer-banner-list'),
+    url(r'^offer-banner/$', OfferBannerView.as_view(), name='offer-banner'),
 
 ]
