@@ -32,7 +32,7 @@ class OfferBanner(BaseTimestampUserStatusModel):
     updated_at = models.DateTimeField(auto_now=True)
     offer_banner_start_date = models.DateTimeField(blank=True, null=True)
     offer_banner_end_date = models.DateTimeField(blank=True, null=True)
-    offer_banner_type = models.CharField(max_length=255, choices=BANNER_TYPE, null=True, blank=True)
+    offer_banner_type = models.CharField(max_length=255, choices=BANNER_TYPE)
     category = models.ForeignKey(Category, max_length=255, null=True, on_delete=models.CASCADE, blank=True)
     sub_category = models.ForeignKey(Category, related_name='offer_banner_subcategory', max_length=255, null=True,
                                      on_delete=models.CASCADE, blank=True)

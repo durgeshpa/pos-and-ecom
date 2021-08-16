@@ -710,7 +710,7 @@ class OfferBannerView(GenericAPIView):
             offer_page = id_validation['data']
         else:
             """ GET Offer Banner List """
-            # self.queryset = self.offer_page_search()
+            self.queryset = self.offer_banner_search_filter()
             offer_banner_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
@@ -778,16 +778,12 @@ class OfferBannerView(GenericAPIView):
             return get_response(f'please provide a valid offer banner {o_id}', False)
         return get_response('offer banner were deleted successfully!', True)
 
-    def offer_banner_position_search_filter(self):
+    def offer_banner_search_filter(self):
 
         search_text = self.request.GET.get('search_text')
-        page = self.request.GET.get('page')
         # search using name based on criteria that matches
         if search_text:
-            self.queryset = offer_banner_position_search(self.queryset, search_text)
-        # filter based on page
-        if page is not None:
-            self.queryset = self.queryset.filter(page_id=page)
+            self.queryset = offer_banner_offer_page_slot_search(self.queryset, search_text)
 
         return self.queryset
 
