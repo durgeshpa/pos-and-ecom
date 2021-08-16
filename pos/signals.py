@@ -35,8 +35,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         Update elastic data on RetailerProduct update
     """
     update_shop_retailer_product_es(instance.shop.id, instance.id)
-    if instance.product_ref:
-        update_shop_retailer_product_es(instance.shop.id, instance.product_ref.id)
+
 
 
 @receiver(post_save, sender=PosInventory)
@@ -60,6 +59,7 @@ def update_product_status_on_inventory_update(sender, instance=None, created=Fal
         else:
             instance.product.status = 'active'
         instance.product.save()
+
 
 
 @receiver(post_save, sender=PosCart)

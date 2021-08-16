@@ -1,39 +1,56 @@
-import logging
-from dateutil.relativedelta import relativedelta
-from datetime import datetime, timedelta
-
-from django.db.models import Sum, Count, F, FloatField, Avg
-from django.core.exceptions import ObjectDoesNotExist
-from django_filters import rest_framework as filters
-from django.contrib.auth import get_user_model
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import generics, status, viewsets, permissions, authentication
-from rest_framework.parsers import FormParser, MultiPartParser
-
-from addresses.models import Address
-from addresses.api.v1.serializers import AddressSerializer
-from common.data_wrapper_view import DataWrapperViewSet
-from pos.common_functions import check_pos_shop, pos_check_permission
-from retailer_backend.utils import SmallOffsetPagination
-from retailer_backend import messages
-from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
-from retailer_to_sp.models import OrderedProduct, Order
-from retailer_to_sp.api.v1.views import update_trip_status
-from retailer_to_sp.views import update_shipment_status_after_return
+from shops.common_validators import validate_data_format_without_json, validate_id, validate_mapping, validate_psu_id, validate_psu_put
 from shops.common_functions import get_response, serializer_error
-from shops.services import shop_search
+from shops.services import pos_shop_user_mapping_search, shop_search
+from retailer_backend.utils import SmallOffsetPagination
+from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.viewsets import GenericViewSet
+from retailer_backend import messages
+from dateutil.relativedelta import relativedelta
+from retailer_to_sp.api.v1.views import update_trip_status
+from retailer_to_sp.views import (
+    update_shipment_status_with_id, update_shipment_status_after_return)
+from django.core.exceptions import ObjectDoesNotExist
+from addresses.api.v1.serializers import AddressSerializer
+import logging
+from pos.common_functions import check_pos_shop
+from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework import permissions, authentication
+from rest_framework.response import Response
+from django_filters import rest_framework as filters
+
+from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerializer, ShopPhotoSerializer, 
+                            ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer, SellerShopSerializer, 
+                            AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer, 
+                            FavouriteProductSerializer, AddFavouriteProductSerializer, ListFavouriteProductSerializer, 
+                            DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer, 
+                            PosShopUserMappingCrudSerializers, ShopBasicSerializer)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, 
+                            ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, 
+                            PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, 
+                            SalesAppVersion, ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, 
+                            ExecutiveFeedback, USER_TYPE_CHOICES)
+
+from rest_framework import generics
+from addresses.models import City, Area, Address
+from rest_framework import status
+from django.contrib.auth import get_user_model
+from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
+from rest_framework.parsers import FormParser, MultiPartParser
+from common.data_wrapper_view import DataWrapperViewSet
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from dal import autocomplete
+
 from shops.filters import FavouriteProductFilter
 
-from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping,
-                          SalesAppVersion, ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning,
-                          DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES)
-from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerializer, ShopPhotoSerializer,
-                          ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer, SellerShopSerializer,
-                          AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
-                          FavouriteProductSerializer, AddFavouriteProductSerializer, ListFavouriteProductSerializer,
-                          DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
-                          PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer)
+from common.data_wrapper_view import DataWrapperViewSet
+from retailer_to_sp.models import OrderedProduct
+
+from datetime import datetime, timedelta, date
+from django.db.models import Q, Sum, Count, F, FloatField, Avg, Value, IntegerField
+from retailer_to_sp.models import Order
+from django.contrib.auth.models import Group
 
 User = get_user_model()
 
@@ -932,7 +949,7 @@ class CheckUser(generics.ListAPIView):
 
 
 class CheckAppVersion(APIView):
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
         version = self.request.GET.get('app_version')
@@ -1130,7 +1147,7 @@ def set_shop_map_cron():
 
 class ShopListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (AllowAny,)
     queryset = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
                                    pos_enabled=1).only('id', 'shop_name', 'shop_owner', 'shop_type').\
         order_by('-id')
@@ -1149,7 +1166,7 @@ class ShopListView(generics.GenericAPIView):
 
 class UserTypeListView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (AllowAny,)
 
     def get(self, request):
         """ GET API for UserTypeList """
@@ -1161,27 +1178,145 @@ class UserTypeListView(generics.GenericAPIView):
 
 class PosShopUserMappingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (AllowAny,)
     queryset = PosShopUserMapping.objects.order_by('-id')
-    serializer_class = PosShopUserMappingCreateSerializer
+    serializer_class = PosShopUserMappingCrudSerializers
 
-    @check_pos_shop
-    @pos_check_permission
+    def check_pos_enabled_shop(self, shop_id):
+        qs = Shop.objects.filter(
+            shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=1)
+        qs = qs.filter(id=shop_id)
+        shop = qs.last()
+        return shop
+
+    def get(self, request, *args, **kwargs):
+        """ GET API for PosShopUserMapping """
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        self.queryset = self.queryset.filter(shop=shop)
+
+        if request.GET.get('id'):
+            """ Get PosShopUserMapping for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shop_user_data = id_validation['data']
+        else:
+            """ GET PosShopUserMapping List """
+            self.queryset = self.search_filter_shop_user_data()
+            shop_user_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shop_user_data, many=True)
+        msg = "" if shop_user_data else "no shop found"
+        return get_response(msg, serializer.data, True)
+
     def post(self, request, *args, **kwargs):
-        serializer = PosShopUserMappingCreateSerializer(data=request.data, context={'shop': kwargs['shop'],
-                                                                                    'created_by': request.user})
+        """ POST API for PosShopUserMapping Creation"""
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        modified_data = validate_data_format_without_json(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        modified_data['shop'] = shop.id
+
+        validated_data = validate_mapping(modified_data, shop)
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
-            serializer.save()
-            return get_response('User Mapped Successfully!', None, True, status.HTTP_200_OK)
+            serializer.save(created_by=request.user)
+            return get_response('shop created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    @check_pos_shop
-    @pos_check_permission
     def put(self, request, *args, **kwargs):
-        data = request.data
-        data['id'] = kwargs['pk']
-        serializer = PosShopUserMappingUpdateSerializer(data=data, context={'shop': kwargs['shop']})
+        """ PUT API for PosShopUserMapping Updation"""
+
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        self.queryset = self.queryset.filter(shop=shop)
+
+        modified_data = validate_data_format_without_json(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        modified_data['shop'] = shop.id
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shop', False)
+
+        # validations for input id
+        id_validation = validate_psu_put(modified_data)
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shop_instance = id_validation['data']
+
+        serializer = self.serializer_class(
+            instance=shop_instance, data=modified_data)
         if serializer.is_valid():
-            serializer.update(kwargs['pk'], serializer.data)
-            return get_response('User Mapping Updated Successfully!', None, True, status.HTTP_200_OK)
+            serializer.save(updated_by=request.user)
+            return get_response('Shop User Mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def delete(self, request, *args, **kwargs):
+        """ Delete PosShopUserMapping """
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return get_response("No Shop Selected!")
+        shop = self.check_pos_enabled_shop(shop_id)
+        if not shop:
+            return get_response("Franchise Shop Id Not Approved / Invalid!")
+        self.queryset = self.queryset.filter(shop=shop)
+
+        if not request.data.get('psu_id'):
+            return get_response('please provide psu_id', False)
+        try:
+            for id in request.data.get('psu_id'):
+                psu_id = self.queryset.get(id=int(id))
+                try:
+                    psu_id.delete()
+                except:
+                    return get_response(f'can not delete shop {psu_id.__str__()}', False)
+        except ObjectDoesNotExist as e:
+            logger.exception(e)
+            return get_response(f'please provide a valid psu_id {id}', False)
+        return get_response('shop were deleted successfully!', True)
+
+    def search_filter_shop_user_data(self):
+        search_text = self.request.GET.get('search_text')
+        user_type = self.request.GET.get('user_type')
+        user = self.request.GET.get('user')
+        shop = self.request.GET.get('shop')
+        status = self.request.GET.get('status')
+
+        '''search using user_id, user phone_num, shop_name and parent_shop based on criteria that matches'''
+        if search_text:
+            self.queryset = pos_shop_user_mapping_search(
+                self.queryset, search_text)
+
+        '''Filters using user_type, user, pin_code, shop, status, approval_status'''
+        if user_type:
+            self.queryset = self.queryset.filter(user_type=user_type)
+
+        if user:
+            self.queryset = self.queryset.filter(user__id=user)
+
+        if shop:
+            self.queryset = self.queryset.filter(shop__id=shop)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        return self.queryset

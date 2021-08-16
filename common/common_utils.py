@@ -188,10 +188,8 @@ def whatsapp_opt_in(phone_number, shop_name, media_url, file_name):
         opt_in_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(opt_in_api)
         if json.loads(response.text)['response']['status'] == 'success':
-            if whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
-                return True
-            else:
-                return False
+            whatsapp_invoice_send.delay(phone_number, shop_name, media_url, file_name)
+            return True
         else:
             return False
     except Exception as e:
@@ -278,7 +276,8 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, 
 
 
 @task()
-def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name):
+def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, points_credit, points_debit,
+                          net_points, shop_name, media_url, file_name):
     """
     request param:- phone_number
     request param:- shop_name
@@ -287,7 +286,6 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
     return :- Ture if success else False
     """
     try:
-        order_status = order_status.replace('_', ' ')
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
