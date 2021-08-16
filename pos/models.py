@@ -20,7 +20,7 @@ PAYMENT_MODE_POS = (
 )
 
 
-class RetailerProduct(models.Model):
+class  RetailerProduct(models.Model):
     PRODUCT_ORIGINS = (
         (1, 'CREATED'),
         (2, 'LINKED'),
