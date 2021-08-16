@@ -19,15 +19,15 @@ from .common_functions import RetailerProductCls, PosInventoryCls
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
-                     ProductChangeFields, DiscountedRetailerProduct, Document)
+                     ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
+                     RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
+                     RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
+                     InventoryChangePos, InventoryStatePos)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details
-from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
-    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
-    RetailerOrderReturn, RetailerReturnItems
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -404,7 +404,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     
 
-@admin.register(PosInventoryState)
+@admin.register(InventoryStatePos)
 class PosInventoryStateAdmin(admin.ModelAdmin):
     list_display = ('id', 'inventory_state',)
 
@@ -415,7 +415,7 @@ class PosInventoryStateAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(PosInventory)
+@admin.register(InventoryPos)
 class PosInventoryAdmin(admin.ModelAdmin):
     list_display = ('shop', 'product', 'quantity', 'inventory_state', 'created_at', 'modified_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
@@ -437,7 +437,7 @@ class PosInventoryAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(PosInventoryChange)
+@admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
