@@ -691,7 +691,6 @@ class OfferBannerView(GenericAPIView):
         Get OfferBanner List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = OfferBanner.objects.select_related('updated_by', 'category', 'sub_category', 'brand', 'sub_brand',) \
         .prefetch_related('products', 'offer_banner_log', 'offer_banner_log__updated_by')\
         .only('id', 'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
@@ -732,3 +731,63 @@ class OfferBannerView(GenericAPIView):
             info_logger.info("Offer Banner Created Successfully.")
             return get_response('offer banner created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Offer Banner Updation """
+
+        info_logger.info("Offer Banner PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update offer banner', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        offer_banner_slot = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=offer_banner_slot, data=modified_data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("Offer Banner Updated Successfully.")
+            return get_response('offer banner updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Offer Banner """
+
+        info_logger.info("Offer Banner DELETE api called.")
+        if not request.data.get('offer_banner_ids'):
+            return get_response('please select offer banner', False)
+        try:
+            for o_id in request.data.get('offer_banner_ids'):
+                offer_banner_id = self.queryset.get(id=int(o_id))
+                try:
+                    offer_banner_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'offer_banner_ids': offer_banner_id}
+                    info_logger.info("offer_banner_position deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete offer banner {offer_banner_id}, '
+                                        f'because this offer banner is mapped with offer', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid offer banner {o_id}', False)
+        return get_response('offer banner were deleted successfully!', True)
+
+    def offer_banner_position_search_filter(self):
+
+        search_text = self.request.GET.get('search_text')
+        page = self.request.GET.get('page')
+        # search using name based on criteria that matches
+        if search_text:
+            self.queryset = offer_banner_position_search(self.queryset, search_text)
+        # filter based on page
+        if page is not None:
+            self.queryset = self.queryset.filter(page_id=page)
+
+        return self.queryset
+

@@ -74,6 +74,6 @@ def validate_data_format(request):
             pass
 
     if request.FILES.getlist('image'):
-        data['image'] = request.FILES.getlist('image')
+        data['image'] = request.FILES['image']
 
     return data

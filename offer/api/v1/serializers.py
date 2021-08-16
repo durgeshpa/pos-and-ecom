@@ -431,13 +431,23 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             parent_brand_val = get_validate_parent_brand(self.initial_data['brand'])
             if 'error' in parent_brand_val:
                 raise serializers.ValidationError(parent_brand_val['error'])
-            data['brand'] = parent_brand_val['brand']
+            data['brand'] = parent_brand_val['parent_brand']
+        if 'sub_brand' in self.initial_data and self.initial_data['sub_brand']:
+            sub_brand_brand_val = get_validate_parent_brand(self.initial_data['sub_brand'])
+            if 'error' in sub_brand_brand_val:
+                raise serializers.ValidationError(sub_brand_brand_val['error'])
+            data['sub_brand'] = sub_brand_brand_val['parent_brand']
 
         if 'category' in self.initial_data and self.initial_data['category']:
             category_val = get_validate_categories(self.initial_data['category'])
             if 'error' in category_val:
                 raise serializers.ValidationError(_(category_val["error"]))
             data['category'] = category_val['category']
+        if 'sub_category' in self.initial_data and self.initial_data['sub_category']:
+            sub_category_val = get_validate_categories(self.initial_data['sub_category'])
+            if 'error' in sub_category_val:
+                raise serializers.ValidationError(_(sub_category_val["error"]))
+            data['sub_category'] = sub_category_val['category']
 
         return data
 
