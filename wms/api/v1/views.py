@@ -253,8 +253,17 @@ class PutAwayViewSet(APIView):
                 # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
                 # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
                 # if inventory is more than zero, putaway won't be allowed, else putaway will be done
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id)\
-                                                           .exclude(batch_id=i)
+                product = Product.objects.filter(product_sku=i[:17]).last()
+                discounted_product = product.discounted_sku
+                if not discounted_product:
+                    bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id)\
+                                                               .exclude(batch_id=i)
+                else:
+
+                    bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(
+                                                                        sku__id__in=[product.id, discounted_product.id],
+                                                                        bin__bin_id=bin_id)\
+                                                               .exclude(batch_id=i)
                 with transaction.atomic():
                     if bin_inventory.exists():
                         qs = bin_inventory.filter(inventory_type=type_normal)\

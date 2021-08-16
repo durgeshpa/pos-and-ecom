@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.db.models import Q
 
 from addresses.models import Address, City, State
-from products.models import ProductVendorMapping
+from products.models import ProductVendorMapping, Product
 from .models import ProductHSN
 from django.db.models.functions import Length
 
@@ -257,3 +257,7 @@ def hsn_queryset(self):
                                                                                  text_len__lte=8,
                                                                                  product_hsn_code__icontains=self.q)
     return qs
+
+def deactivate_product(product):
+    product.status = 'deactivated'
+    product.save()

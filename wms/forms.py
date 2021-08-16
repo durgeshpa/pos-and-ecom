@@ -242,8 +242,11 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                                                       sku=product,
                                                       batch_id=self.instance.batch_id)
             if not bin_exp_obj.exists():
+                product_ids = [product.id]
+                if product.discounted_sku:
+                    product_ids.append(product.discounted_sku.id)
                 bin_in_obj = BinInventory.objects.filter(warehouse=warehouse,
-                                                         sku=product)
+                                                         sku__id__in=product_ids)
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == bin_selected.bin_id:
@@ -283,7 +286,12 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 raise forms.ValidationError("You can't perform this action, PutAway has already done.")
             else:
                 product = Product.objects.filter(product_sku=self.instance.sku_id).last()
-                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse, sku=product)
+
+                product_ids = [product.id]
+                if product.discounted_sku:
+                    product_ids.append(product.discounted_sku.id)
+                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
+                                                         sku__id__in=product_ids)
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
