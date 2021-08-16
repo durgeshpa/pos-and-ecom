@@ -8,12 +8,12 @@ from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, Offe
 from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
-from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data,\
+from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data, \
     get_validate_products
 from products.api.v1.serializers import UserSerializers, BrandSerializers, CategorySerializers, ProductSerializers
 from shops.api.v2.serializers import ServicePartnerShopsSerializer
-from products.common_validators import get_validate_product, get_validate_seller_shop, get_validate_parent_brand, \
-    get_validate_categories
+from products.common_validators import get_validate_product, get_validate_seller_shop, get_validate_parent_brand
+from categories.common_validators import get_validate_category
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -431,17 +431,6 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             data validation.
         """
 
-        if self.initial_data['offer_banner_type'] == 'brand' and self.initial_data['brand'] is None:
-            raise serializers.ValidationError('Please select the Brand')
-        if self.initial_data['offer_banner_type'] == 'category' and self.initial_data['category'] is None:
-            raise serializers.ValidationError('Please select the Category')
-        if self.initial_data['offer_banner_type'] == 'subbrand' and self.initial_data['sub_brand'] is None:
-            raise serializers.ValidationError('Please select the SubBrand')
-        if self.initial_data['offer_banner_type'] == 'subcategory' and self.initial_data['sub_category'] is None:
-            raise serializers.ValidationError('Please select the SubCategory')
-        if self.initial_data['offer_banner_type'] == 'products' and self.initial_data['products'] is None:
-            raise serializers.ValidationError('Please select at least one Product')
-
         if 'brand' in self.initial_data and self.initial_data['brand']:
             parent_brand_val = get_validate_parent_brand(self.initial_data['brand'])
             if 'error' in parent_brand_val:
@@ -455,13 +444,13 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             data['sub_brand'] = sub_brand_brand_val['parent_brand']
 
         if 'category' in self.initial_data and self.initial_data['category']:
-            category_val = get_validate_categories(self.initial_data['category'])
+            category_val = get_validate_category(self.initial_data['category'])
             if 'error' in category_val:
                 raise serializers.ValidationError(_(category_val["error"]))
             data['category'] = category_val['category']
 
         if 'sub_category' in self.initial_data and self.initial_data['sub_category']:
-            sub_category_val = get_validate_categories(self.initial_data['sub_category'])
+            sub_category_val = get_validate_category(self.initial_data['sub_category'])
             if 'error' in sub_category_val:
                 raise serializers.ValidationError(_(sub_category_val["error"]))
             data['sub_category'] = sub_category_val['category']
@@ -471,6 +460,18 @@ class OfferBannerSerializers(serializers.ModelSerializer):
             if 'error' in products_val:
                 raise serializers.ValidationError(_(products_val["error"]))
             data['products'] = products_val["products"]
+
+        if self.initial_data['offer_banner_type'] == 'brand' and self.initial_data['brand'] is None:
+            raise serializers.ValidationError('Please select the Brand')
+        if self.initial_data['offer_banner_type'] == 'category' and self.initial_data['category'] is None:
+            raise serializers.ValidationError('Please select the Category')
+        if self.initial_data['offer_banner_type'] == 'subbrand' and self.initial_data['sub_brand'] is None:
+            raise serializers.ValidationError('Please select the SubBrand')
+        if self.initial_data['offer_banner_type'] == 'subcategory' and self.initial_data['sub_category'] is None:
+            raise serializers.ValidationError('Please select the SubCategory')
+        if self.initial_data['offer_banner_type'] == 'product' and (
+                self.initial_data['products'] is None or len(self.initial_data['products']) == 0):
+            raise serializers.ValidationError('Please select at least one Product')
 
         if 'offer_banner_start_date' in self.initial_data and self.initial_data['offer_banner_start_date'] and \
                 datetime.strptime(self.initial_data['offer_banner_start_date'],
@@ -488,8 +489,13 @@ class OfferBannerSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        products = validated_data.pop('products', None)
         try:
             offer_banner = OfferBanner.objects.create(**validated_data)
+            if products:
+                for pro in products:
+                    offer_banner.products.add(pro)
+
             OfferCls.create_offer_banner_log(offer_banner, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
@@ -502,6 +508,7 @@ class OfferBannerSerializers(serializers.ModelSerializer):
         try:
             offer_banner = super().update(instance, validated_data)
             OfferCls.create_offer_banner_log(offer_banner, "updated")
+
         except Exception as e:
             error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

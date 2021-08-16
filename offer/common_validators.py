@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
 
 from products.models import Product
-
+from categories.models import Category
 from offer.models import OfferPage, OfferBannerSlot, OfferBanner
 
 # Get an instance of a logger

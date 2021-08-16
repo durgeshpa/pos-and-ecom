@@ -61,7 +61,7 @@ def get_validate_parent_brand(parent_brand):
         parent_brand_obj = Brand.objects.get(id=parent_brand)
     except Exception as e:
         logger.error(e)
-        return {'error': 'please provide a valid parent_brand id'}
+        return {'error': 'please provide a valid brand id'}
     return {'parent_brand': parent_brand_obj}
 
 

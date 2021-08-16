@@ -12,7 +12,7 @@ from .serializers import OfferBannerDataSerializer, OfferPageListSerializers, To
 from offer.models import OfferBannerPosition, OfferBannerData, OfferBannerSlot, OfferPage, TopSKU, OfferBanner
 
 from shops.models import Shop, ParentRetailerMapping
-
+from products.models import Product
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
@@ -22,6 +22,12 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
 from offer.services import offer_banner_offer_page_slot_search, offer_banner_position_search
 from offer.common_validators import validate_data_format
+from categories.models import Category
+from categories.services import category_search
+from products.services import brand_search, child_product_search
+from products.api.v1.serializers import CategorySerializers, BrandSerializers, ProductSerializers
+from brand.models import Brand
+
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -697,7 +703,7 @@ class OfferBannerTypeView(GenericAPIView):
 
         info_logger.info("BANNER TYPE GET api called.")
         """ GET BANNER TYPE Choice List """
-        fields = ['benner_type',]
+        fields = ['offer_banner_type', ]
         data = [dict(zip(fields, d)) for d in OfferBanner.BANNER_TYPE]
         msg = ""
         return get_response(msg, data, True)
@@ -708,8 +714,8 @@ class OfferBannerView(GenericAPIView):
         Get OfferBanner List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = OfferBanner.objects.select_related('updated_by', 'category', 'sub_category', 'brand', 'sub_brand',) \
-        .prefetch_related('products', 'offer_banner_log', 'offer_banner_log__updated_by')\
+    queryset = OfferBanner.objects.select_related('updated_by', 'category', 'sub_category', 'brand', 'sub_brand', ) \
+        .prefetch_related('products', 'offer_banner_log', 'offer_banner_log__updated_by') \
         .only('id', 'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
               'status', 'offer_banner_start_date', 'offer_banner_end_date', 'updated_by').order_by('-id')
     serializer_class = OfferBannerSerializers
@@ -786,9 +792,9 @@ class OfferBannerView(GenericAPIView):
                     offer_banner_id.delete()
                     dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
                                  'offer_banner_ids': offer_banner_id}
-                    info_logger.info("offer_banner_position deleted info ", dict_data)
+                    info_logger.info("offer_banner deleted info ", dict_data)
                 except:
-                    return get_response(f'You can not delete offer banner {offer_banner_id}, '
+                    return get_response(f'You can not delete offer banner {offer_banner_id.name}, '
                                         f'because this offer banner is mapped with offer', False)
         except ObjectDoesNotExist as e:
             error_logger.error(e)
@@ -804,3 +810,90 @@ class OfferBannerView(GenericAPIView):
 
         return self.queryset
 
+
+class ParentCategoryList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Category.objects.filter(category_parent=None)
+    serializer_class = CategorySerializers
+
+    def get(self, request):
+        """ GET API for Category"""
+
+        """ GET API for Category LIST """
+        search_text = self.request.GET.get('search_text')
+        # search based on category name
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text.strip())
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+
+class ChildCategoryList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Category.objects.filter(category_parent__isnull=False)
+    serializer_class = CategorySerializers
+
+    def get(self, request):
+        """ GET API for Category LIST with SubCategory """
+        search_text = self.request.GET.get('search_text')
+        # search based on category name
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text.strip())
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+
+class ParentBrandListView(GenericAPIView):
+    """
+        Get Brand List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Brand.objects.filter(brand_parent=None)
+    serializer_class = BrandSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = brand_search(self.queryset, search_text)
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data, True)
+
+
+class ChildBrandListView(GenericAPIView):
+    """
+        Get Brand List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Brand.objects.filter(brand_parent__isnull=False)
+    serializer_class = BrandSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = brand_search(self.queryset, search_text)
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data, True)
+
+
+class ProductListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Product.objects.order_by('-id')
+
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(child_product, many=True)
+        msg = "" if child_product else "no product found"
+        return get_response(msg, serializer.data, True)
