@@ -381,6 +381,37 @@ def validate_shop_owner_id(queryset, id):
     if not queryset.filter(shop_owner__id=id).exists():
         return {'error': 'please provide a valid shop_owner id'}
     return {'data': queryset.filter(shop_owner__id=id)}
+def validate_psu_id(queryset, id):
+    """ validation only ids that belong to a selected related model """
+    try:
+        return {'data': queryset.get(id=id)}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_psu_put(data):
+    """ validation only ids that belong to a selected related model """
+    try:
+        instance = PosShopUserMapping.objects.get(id=data['id'])
+        if 'shop' in data:
+            if not instance.shop.id == data['shop']:
+                return {'error': 'Invalid shop for mapped id.'}
+        if 'user' in data:
+            if not instance.user.id == data['user']:
+                return {'error': 'Invalid user for mapped id.'}
+        return {'data': instance}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_data_format_without_json(request):
+    """ Validate shop data  """
+    try:
+        data = request.data["data"]
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    return data
 
 
 def get_validate_user(user_id):

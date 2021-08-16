@@ -13,7 +13,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
-from shops.models import Shop, PosShopUserMapping
+from shops.models import Shop
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
@@ -500,7 +500,7 @@ class RewardCls(object):
 
 def filter_pos_shop(user):
     return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
-                               pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
+                                pos_enabled=1, pos_shop__user=user)
 
 
 def check_pos_shop(view_func):
@@ -525,17 +525,6 @@ def check_pos_shop(view_func):
         if not shop:
             return api_response("Franchise Shop Id Not Approved / Invalid!")
         kwargs['shop'] = shop
-        return view_func(self, request, *args, **kwargs)
-
-    return _wrapped_view_func
-
-
-def pos_check_permission(view_func):
-    @wraps(view_func)
-    def _wrapped_view_func(self, request, *args, **kwargs):
-        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
-                                                 user_type='manager').exists():
-            return api_response("You are not authorised to make this change!")
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func

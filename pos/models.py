@@ -16,7 +16,7 @@ PAYMENT_MODE_POS = (
 )
 
 
-class RetailerProduct(models.Model):
+class  RetailerProduct(models.Model):
     PRODUCT_ORIGINS = (
         (1, 'CREATED'),
         (2, 'LINKED'),
@@ -34,8 +34,8 @@ class RetailerProduct(models.Model):
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    offer_start_date = models.DateField(null=True, blank=True)
-    offer_end_date = models.DateField(null=True, blank=True)
+    offer_start_date = models.DateTimeField(null=True, blank=True)
+    offer_end_date = models.DateTimeField(null=True, blank=True)
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
@@ -161,8 +161,6 @@ class Vendor(models.Model):
     retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE,
                                       null=True, blank=True)
     status = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.vendor_name
