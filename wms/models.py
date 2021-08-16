@@ -553,14 +553,17 @@ class PosInventory(models.Model):
 
 
 class PosInventoryChange(models.Model):
-    ORDERED, CANCELLED, RETURN, STOCK_ADD, STOCK_UPDATE = 'ordered', 'order_cancelled', 'order_return', 'stock_add', \
-                                                          'stock_update'
+    ORDERED, CANCELLED, RETURN, STOCK_ADD, STOCK_UPDATE, GRN_ADD, GRN_UPDATE = 'ordered', 'order_cancelled',\
+                                                                               'order_return', 'stock_add',\
+                                                                               'stock_update', 'grn_add', 'grn_update'
     transaction_type = (
         (ORDERED, "Ordered"),
         (CANCELLED, 'Order Cancelled'),
         (RETURN, 'Order Return'),
         (STOCK_ADD, 'Stock Add'),
         (STOCK_UPDATE, 'Stock Update'),
+        (GRN_ADD, 'GRN Add'),
+        (GRN_UPDATE, 'GRN Update')
     )
     product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
     quantity = models.IntegerField()

@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+import traceback
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
@@ -14,7 +15,7 @@ from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
-
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -35,6 +36,12 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
+MANAGER, CASHIER = 'manager', 'cashier'
+USER_TYPE_CHOICES = (
+    (MANAGER, 'Manager'),
+    (CASHIER, 'Cashier')
+)
+
 
 class RetailerType(models.Model):
     retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='gm')
@@ -46,18 +53,19 @@ class RetailerType(models.Model):
         return self.retailer_type_name
 
 
-class ShopType(models.Model):
+class ShopType(BaseTimestampUserStatusModel):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,
                                       on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
     shop_min_amount = models.FloatField(default=0)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='shop_type_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
-        return "%s - %s" % (
-        self.get_shop_type_display(), self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s" % (
+        return "%s - %s" % (self.get_shop_type_display(), self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s" % (
             self.get_shop_type_display())
 
 
@@ -83,9 +91,13 @@ class Shop(models.Model):
     imei_no = models.CharField(max_length=20, null=True, blank=True)
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='shop_uploaded_by',
+        on_delete=models.DO_NOTHING
+    )
     pos_enabled = models.BooleanField(default=False, verbose_name='Enabled For POS')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
@@ -119,20 +131,63 @@ class Shop(models.Model):
                 return parent.shop_name
         except:
             return None
+    
+    @property
+    def shipping_address(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().address_line1
+        except:
+            return None
+    
+    @property
+    def shipping_address_obj(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last()
+        except:
+            return None
+
+    @property
+    def city_name(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().city.city_name
+        except:
+            return None
+
+    @property
+    def pin_code(self):
+        try:
+            if self.shop_name_address_mapping.exists():
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
+        except:
+            return None
+
+    @property
+    def owner(self):
+        try:
+            if self.shop_owner.first_name and self.shop_owner.last_name:
+                return "%s %s - %s" % (self.shop_owner.first_name, self.shop_owner.last_name, str(self.shop_owner.id))
+
+            elif self.shop_owner.first_name:
+                return "%s - %s" % (self.shop_owner.first_name, str(self.shop_owner.id))
+
+            return "%s - %s" % (str(self.shop_owner.phone_number), str(self.shop_owner.id))
+        except:
+            return None
 
     @property
     def get_shop_shipping_address(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
-                return address.address_line1
+            return self.shop_name_address_mapping.filter(address_type='shipping').last().address_line1
 
     get_shop_shipping_address.fget.short_description = 'Shipping Address'
 
     @property
     def get_shop_pin_code(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
-                return address.pincode
+            return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
 
     get_shop_pin_code.fget.short_description = 'PinCode'
 
@@ -154,10 +209,6 @@ class Shop(models.Model):
     def shop_approved(self):
         return True if self.status == True and self.retiler_mapping.filter(
             status=True).exists() and self.approval_status == self.APPROVED else False
-
-    @property
-    def shipping_address(self):
-        return self.shop_name_address_mapping.filter(address_type='shipping').last()
 
     @property
     def get_shop_parent_name(self):
@@ -450,7 +501,7 @@ class ShopRequestBrand(models.Model):
         super(ShopRequestBrand, self).__init__(*args, **kwargs)
 
 
-class ShopUserMapping(models.Model):
+class ShopUserMapping(BaseTimestampUserStatusModel):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list',
                                 on_delete=models.DO_NOTHING,
@@ -458,9 +509,11 @@ class ShopUserMapping(models.Model):
                                                   'employee_group__permissions__codename': 'can_sales_manager_add_shop'}, )
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group', default='1', on_delete=models.SET_DEFAULT)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='shop_user_mapping_updated_by',
+        on_delete=models.DO_NOTHING
+    )
 
     # class Meta:
     #     unique_together = ('shop', 'employee', 'status')
@@ -471,7 +524,6 @@ class ShopUserMapping(models.Model):
         else:
             ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group,
                                            status=True).update(status=False)
-            # ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         if self.status == True and self.employee_group.name == 'Sales Executive':
             ShopUserMapping.objects.filter(shop=self.shop, manager=self.manager, employee_group__name='Sales Executive',
@@ -480,7 +532,26 @@ class ShopUserMapping(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return "%s" % (self.employee)
+        return "%s" % self.employee
+
+
+class PosShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='pos_shop', on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(), related_name='pos_shop_user', on_delete=models.CASCADE)
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default="cashier")
+    status = models.BooleanField(default=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='pos_shop_created_by', null=True, blank=True,
+                                   on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'POS Shop User Mapping'
+        verbose_name_plural = 'POS Shop User Mappings'
+        unique_together = ['shop', 'user']
+
+    def __str__(self):
+        return "%s" % (self.user)
 
 
 class SalesAppVersion(models.Model):

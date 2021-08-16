@@ -53,7 +53,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
@@ -192,7 +192,7 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             defaults['form'] = POGenerationForm
         elif obj is not None and obj.po_status == 'PDA' \
-                and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+                 and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
             defaults['form'] = POGenerationForm
@@ -490,7 +490,6 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
 class VendorShopMappingAdmin(admin.ModelAdmin):
     form = VendorShopMappingForm
     list_display = ('vendor', 'shop')
-
 
 
 admin.site.register(PickList, PickListAdmin)

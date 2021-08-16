@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.contrib.admin import SimpleListFilter
 from categories.models import Category
 
+
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field
@@ -180,6 +181,15 @@ class EmployeeFilter(InputFilter):
         value = self.value()
         if value:
             return queryset.filter(employee__phone_number=value)
+
+class UserFilter(InputFilter):
+    title = 'User'
+    parameter_name = 'user'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(user__phone_number=value)
 
 class SellerShopFilter(AutocompleteFilter):
     title = 'Seller Shop'

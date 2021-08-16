@@ -1,23 +1,28 @@
 import logging
 import json
 from functools import wraps
+from copy import deepcopy
+from decimal import Decimal
 
 from rest_framework.response import Response
 from rest_framework import status
 from django.urls import reverse
-from django.db.models import Q, Sum
+from django.db.models import Sum
+from django.core.exceptions import ObjectDoesNotExist
 
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
-from accounts.models import User
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
 from rest_auth.utils import AutoUser
+from products.models import Product
 
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage
+from .common_validators import validate_user_type_for_pos_shop
+from pos import error_code
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -37,15 +42,22 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, product_status='active'):
+                                product_ean_code, user, event_type, event_id=None, product_status='active',
+                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None):
         """
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
-        return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price,
-                                              description=description, product_ean_code=product_ean_code,
-                                              status=product_status)
+        product = RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
+                                                 mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                                 offer_price=offer_price, offer_start_date=offer_sd,
+                                                 offer_end_date=offer_ed, description=description,
+                                                 product_ean_code=product_ean_code, status=product_status,
+                                                 product_ref=product_ref)
+        event_id = product.sku if not event_id else event_id
+        # Change logs
+        ProductChangeLogs.product_create(product, user, event_type, event_id)
+        return product
 
     @classmethod
     def create_images(cls, product, images):
@@ -58,6 +70,16 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
+    def copy_images(cls, product, images):
+        """
+        Params :
+            product : retailer product instance for which images are to be created
+            images : RetailerProductImage queryset
+        """
+        for image in images:
+            RetailerProductImage.objects.create(product=product, image=image.image)
+
+    @classmethod
     def update_images(cls, product, images):
         if images:
             for image in images:
@@ -65,10 +87,14 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
-    def update_price(cls, product_id, selling_price):
+    def update_price(cls, product_id, selling_price, product_status, user, event_type, event_id):
         product = RetailerProduct.objects.filter(id=product_id).last()
+        old_product = deepcopy(product)
         product.selling_price = selling_price
+        product.status = product_status
         product.save()
+        # Change logs
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -81,6 +107,12 @@ class RetailerProductCls(object):
             return 'LINKED'
         if sku_type == 3:
             return 'LINKED_EDITED'
+        if sku_type == 4:
+            return 'DISCOUNTED'
+
+    @classmethod
+    def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
 class OffersCls(object):
@@ -175,6 +207,30 @@ class PosInventoryCls(object):
                                           transaction_id=transaction_id, initial_state=i_state_obj,
                                           final_state=f_state_obj, changed_by=user)
 
+    @classmethod
+    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+        """
+            Manage GRN related product inventory
+        """
+        i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
+        f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
+        pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
+        inv_qty = pos_inv.quantity
+        pos_inv.quantity = qty + inv_qty
+        pos_inv.save()
+        PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
+                                                user)
+
+    @classmethod
+    def get_available_inventory(cls, pid, state):
+        """
+        Returns stock for any product in the given state
+        Params:
+            pid : product id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
+        return inventory_object.quantity if inventory_object else 0
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -443,8 +499,8 @@ class RewardCls(object):
 
 
 def filter_pos_shop(user):
-    return Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
-                               approval_status=2, pos_enabled=1)
+    return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                pos_enabled=1, pos_shop__user=user)
 
 
 def check_pos_shop(view_func):
@@ -472,3 +528,139 @@ def check_pos_shop(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+class ProductChangeLogs(object):
+
+    @classmethod
+    def product_create(cls, instance, user, event_type, event_id):
+        product_changes = {}
+        product_change_cols = ProductChangeFields.COLUMN_CHOICES
+        for product_change_col in product_change_cols:
+            product_changes[product_change_col[0]] = [None, getattr(instance, product_change_col[0])]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+
+    @classmethod
+    def product_update(cls, product, old_instance, user, event_type, event_id):
+        instance = RetailerProduct.objects.get(id=product.id)
+        product_changes, product_change_cols = {}, ProductChangeFields.COLUMN_CHOICES
+        for product_change_col in product_change_cols:
+            old_value = getattr(old_instance, product_change_col[0])
+            new_value = getattr(instance, product_change_col[0])
+            if str(old_value) != str(new_value):
+                product_changes[product_change_col[0]] = [old_value, new_value]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+
+    @classmethod
+    def create_product_log(cls, product, event_type, event_id, user, product_changes):
+        if product_changes:
+            product_change_obj = ProductChange.objects.create(product=product, event_type=event_type, event_id=event_id,
+                                                              changed_by=user)
+            for col in product_changes:
+                ProductChangeFields.objects.create(product_change=product_change_obj, column_name=col,
+                                                   old_value=product_changes[col][0], new_value=product_changes[col][1])
+
+
+class PosAddToCart(object):
+
+    @staticmethod
+    def validate_request_body(view_func):
+
+        @wraps(view_func)
+        def _wrapped_view_func(self, request, *args, **kwargs):
+            shop, cart_id = kwargs['shop'], kwargs['pk'] if 'pk' in kwargs else None
+
+            # Check if existing or new cart
+            cart = None
+            if cart_id:
+                cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+                if not cart:
+                    return api_response("Cart Doesn't Exist")
+                elif cart.cart_status == Cart.ORDERED:
+                    return api_response("Order already placed on this cart!", None, status.HTTP_406_NOT_ACCEPTABLE,
+                                        False, {'error_code': error_code.CART_NOT_ACTIVE})
+                elif cart.cart_status == Cart.DELETED:
+                    return api_response("This cart was deleted!", None, status.HTTP_406_NOT_ACCEPTABLE,
+                                        False, {'error_code': error_code.CART_NOT_ACTIVE})
+                elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
+                    return api_response("Active Cart Doesn't Exist!")
+
+            # Quantity check
+            qty = request.data.get('qty')
+            if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+                return api_response("Qty Invalid!")
+
+            # Either existing product OR info for adding new product
+            product = None
+            new_product_info = dict()
+            # Adding new product in catalogue and cart
+            if not request.data.get('product_id'):
+                # User permission check
+                pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
+                if 'error' in pos_shop_user_obj:
+                    if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                        return api_response('Unauthorised user to add new product.')
+                    return api_response(pos_shop_user_obj['error'])
+
+                # Provided product info check
+                name, sp, ean = request.data.get('product_name'), request.data.get(
+                    'selling_price'), request.data.get('product_ean_code')
+                if not name or not sp or not ean:
+                    return api_response("Please provide product_id OR product_name, product_ean_code, selling_price!")
+
+                # Linked product check
+                linked_pid = request.data.get('linked_product_id') if request.data.get('linked_product_id') else None
+                new_product_info['mrp'], new_product_info['type'] = 0, 1
+                if linked_pid:
+                    linked_product = Product.objects.filter(id=linked_pid).last()
+                    if not linked_product:
+                        return api_response(f"GramFactory product not found for given {linked_pid}")
+                    new_product_info['mrp'], new_product_info['type'] = linked_product.product_mrp, 2
+
+                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
+                new_product_info['ean'] = ean
+            # Add by Product Id
+            else:
+                try:
+                    product = RetailerProduct.objects.get(id=request.data.get('product_id'), shop=shop)
+                except ObjectDoesNotExist:
+                    return api_response("Product Not Found!")
+                # Check if selling price is less than equal to mrp if price change
+                price_change = request.data.get('price_change')
+                if price_change in [1, 2]:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+
+                    # Price update check
+                    selling_price = request.data.get('selling_price')
+                    if not selling_price:
+                        return api_response("Please provide selling price to change price")
+                    if product.mrp and Decimal(selling_price) > product.mrp:
+                        return api_response("Selling Price should be equal to OR less than MRP")
+
+                # Check discounted product
+                if product.sku_type == 4:
+                    discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+                    if product.status != 'active':
+                        return api_response("This product is de-activated!")
+                    elif discounted_stock < qty:
+                        return api_response("This product has only {} in stock!".format(discounted_stock))
+
+                check_discounted = request.data.get('check_discounted', None)
+                if check_discounted and RetailerProductCls.is_discounted_product_exists(
+                        product) and product.discounted_product.status == 'active':
+                    return api_response('Discounted product found', self.serialize_product(product),
+                                        status.HTTP_300_MULTIPLE_CHOICES, False)
+
+            # Return with objects
+            kwargs['product'] = product
+            kwargs['new_product_info'] = new_product_info
+            kwargs['quantity'] = qty
+            kwargs['cart'] = cart
+            return view_func(self, request, *args, **kwargs)
+
+        return _wrapped_view_func

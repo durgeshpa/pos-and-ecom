@@ -24,12 +24,6 @@
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      <h4 style="margin: 10px">{{form.as_p}}</h4>
-                     <label style="margin: 30px" for="catalogue_product_status">Select an Option:</label>
-                     <select style="margin: 30px" name="catalogue_product_status" id="catalogue_product_status" required>
-                          <option value="">----------------</option>
-                          <option value="update_products">Update Product Details</option>
-                          <option value="create_products">Create new Products</option>
-                     </select>
                   </fieldset>
                   <h3 style="margin-left: 30px"><a id="id_download" onclick="shop_id_status_validation()" style="margin-top: 15px;">Download Sample FIle</a></h3>
                </div>
@@ -44,55 +38,17 @@
 <script>
    function shop_id_status_validation(){
        var id_shop = document.getElementById("id_shop");
-       var catalogue_product_status = document.getElementById("catalogue_product_status");
-       var product_status = catalogue_product_status.options[catalogue_product_status.selectedIndex].value;
        var shop_id = id_shop.options[id_shop.selectedIndex].value;
-       if(product_status==="" && shop_id===""){
-             alert("Please 'Select a Shop' AND 'Select an Option' for Download");
-       }
-       else{
-            if(product_status==="update_products" && shop_id===""){
+       if(shop_id===""){
                alert("Please 'Select a Shop'");
-            }
        }
    }
-</script>
-<script>
-   document.getElementById("catalogue_product_status").onchange = function(event){
-       var id_shop = document.getElementById("id_shop");
-       var catalogue_product_status = document.getElementById("catalogue_product_status");
-       var product_status = catalogue_product_status.options[catalogue_product_status.selectedIndex].value;
-       var shop_id = id_shop.options[id_shop.selectedIndex].value;
-       if(product_status==="create_products"){
-         document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
-       }
-       else{
-            if(shop_id!=""){
-             if(product_status==="update_products"){
-               document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
-             }
-             else if(product_status==="create_products"){
-               document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
-             }
-          }
-       }
-
-   };
-</script>
-<script>
    document.getElementById("id_shop").onchange = function(event){
        var id_shop = document.getElementById("id_shop");
-       var catalogue_product_status = document.getElementById("catalogue_product_status");
-       var product_status = catalogue_product_status.options[catalogue_product_status.selectedIndex].value;
        var shop_id = id_shop.options[id_shop.selectedIndex].value;
-       if(shop_id!=""){
-          if(product_status==="update_products"){
-            document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
+         if(shop_id != ""){
+            document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}" + "?shop_id=" + shop_id;
           }
-          else if(product_status==="create_products"){
-            document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
-          }
-       }
    };
 </script>
 {% endblock %}

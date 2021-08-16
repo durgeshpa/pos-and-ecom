@@ -322,7 +322,7 @@ def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):
         model.objects.bulk_create(items)
 
 
-def send_mail(sender, recipient_list, subject, body, attachment_list=None, **kwargs):
+def send_mail(sender, recipient_list, subject, body, attachment_list=[], **kwargs):
     """
     Parameters:
         sender : valid email address as string

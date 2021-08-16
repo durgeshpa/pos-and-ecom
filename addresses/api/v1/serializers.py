@@ -58,3 +58,20 @@ class AddressSerializer(serializers.ModelSerializer):
         response['state'] = StateSerializer(instance.state).data
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
+
+
+class PinCityStateSerializer(serializers.ModelSerializer):
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_city(obj):
+        return obj.city.city_name
+
+    @staticmethod
+    def get_state(obj):
+        return obj.city.state.state_name
+
+    class Meta:
+        model = Pincode
+        fields = ('pincode', 'city', 'state')

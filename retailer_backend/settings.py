@@ -139,7 +139,8 @@ INSTALLED_APPS = [
     'whc',
     'redash_report',
     'retailer_incentive',
-    'ars'
+    'ars',
+    'cms'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -297,7 +298,6 @@ REST_FRAMEWORK = {
 #     ),
 # }
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -402,6 +402,7 @@ CRONJOBS = [
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'pos.cron.deactivate_coupon_combo_offer'),
+    ('0 0 * * *', 'pos.cron.pos_archive_inventory_cron'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
     ('30 21 * * *', 'products.cron.packing_sku_inventory_alert'),
@@ -412,9 +413,6 @@ CRONJOBS = [
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
-
-
-
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
