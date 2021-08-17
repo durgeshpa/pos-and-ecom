@@ -1151,7 +1151,7 @@ def create_bulk_product_vendor_mapping(validated_data):
     next(reader)
     try:
         for row_id, row in enumerate(reader):
-            if row[4].lower() == "per piece":
+            if row[3].lower() == "per piece":
                 product_vendor = ProductVendorMapping.objects.create(
                     vendor=validated_data['vendor_id'],
                     product=Product.objects.get(id=int(row[0])),
