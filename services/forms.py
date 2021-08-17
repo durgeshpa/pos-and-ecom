@@ -1,5 +1,6 @@
 from django import forms
 from shops.models import Shop
+from products.models import Product
 from dal import autocomplete
 from tempus_dominus.widgets import DateTimePicker
 from django.db.models import Q
@@ -133,4 +134,29 @@ class SalesReportForm(forms.Form):
 #             }
 #         ),
 #     )
+
+
+class InOutLedgerForm(forms.Form):
+    sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-sku-autocomplete', ),
+    )
+    warehouse = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='warehouse-autocomplete', ),
+    )
+    start_date = forms.DateTimeField(
+    widget=DateTimePicker(
+        options={
+            'format': 'YYYY-MM-DD H:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+            'format': 'YYYY-MM-DD H:mm:ss',
+            }
+        ),
+    )
 

@@ -3,6 +3,8 @@ from PIL import Image
 import PIL
 import datetime
 from decimal import Decimal
+from itertools import chain
+
 
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -12,9 +14,10 @@ from django.conf import settings
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from shops.models import ParentRetailerMapping
 from shops.models import Shop
+from wms.models import In, Out, InventoryType
 from django.db.models import Sum
 import csv
-from .forms import SalesReportForm
+from .forms import InOutLedgerForm, SalesReportForm
 from django.views import View
 from products.models import Product, ProductPrice
 from .models import RetailerReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
@@ -801,3 +804,82 @@ class ResizeImage(APIView):
 #
 #
 #     })
+
+class InOutLedgerReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_in_out_ledger_report(self, product_id, warehouse_id, start_date, end_date, inventory_types_qs):
+        sku_id = Product.objects.filter(id=product_id).last().product_sku
+        ins = In.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                created_at__lte=end_date)
+        outs = Out.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                  created_at__lte=end_date)
+        data = sorted(chain(ins, outs), key=lambda instance: instance.created_at)
+
+        ins_type_wise_qty = ins.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+        out_type_wise_qty = outs.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+
+        in_type_ids = {x['inventory_type']: x['total_qty'] for x in ins_type_wise_qty}
+        out_type_ids = {x['inventory_type']: x['total_qty'] for x in out_type_wise_qty}
+
+        ins_count_list = ['TOTAL IN QUANTITY']
+        outs_count_list = ['TOTAL OUT QUANTITY']
+        for i in range(len(inventory_types_qs)):
+            if i + 1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i + 1])
+            else:
+                ins_count_list.append('0')
+            if i + 1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i + 1])
+            else:
+                outs_count_list.append('0')
+        return data, ins_count_list, outs_count_list
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        sku_id = self.request.GET.get('sku')
+        warehouse_id = self.request.GET.get('warehouse')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/in-out-ledger.html',
+                {'form': InOutLedgerForm(initial=self.request.GET)}
+            )
+        it_qs = InventoryType.objects.values('id', 'inventory_type').order_by('id')
+        inventory_types = list(x['inventory_type'].upper() for x in it_qs)
+        data, ins_qtylst, outs_qtylst = self.get_in_out_ledger_report(sku_id, warehouse_id, start_date, end_date, it_qs)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="ledger-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow([''] + inventory_types)
+        writer.writerow(ins_qtylst)
+        writer.writerow(outs_qtylst)
+        writer.writerow([])
+        writer.writerow(['TRANSACTION TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'MOVEMENT TYPE',
+                         'TRANSACTION TYPE', 'TRANSACTION ID', 'QUANTITY'])
+        for obj in data:
+            created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
+            if obj.__class__.__name__ == 'In':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "IN", obj.in_type,
+                                 obj.in_type_id, obj.quantity])
+            elif obj.__class__.__name__ == 'Out':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "OUT", obj.out_type,
+                                 obj.out_type_id, obj.quantity])
+            else:
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
+                                 obj.quantity])
+        return response
+
+
+class InOutLedgerFormView(View):
+    def get(self, request):
+        form = InOutLedgerForm()
+        return render(
+            self.request,
+            'admin/services/in-out-ledger.html',
+            {'form': form}
+        )
