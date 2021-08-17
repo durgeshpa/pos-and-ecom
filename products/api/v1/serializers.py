@@ -1269,11 +1269,19 @@ class PriceSlabSerializersData(serializers.ModelSerializer):
     class Meta:
         model = PriceSlab
         fields = ('id', 'start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date',
-                  'offer_price_end_date',)
+                  'offer_price_end_date', '__str__')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        obj = representation.copy()
+        obj.pop('__str__')
+        obj['price_slab'] = representation['__str__']
+        return obj
 
 
 class ImageProductSerializers(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
+
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_mrp', 'product_pro_image')
