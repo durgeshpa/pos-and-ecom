@@ -222,10 +222,15 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     """
         RetailerProduct data for BASIC cart
     """
+    is_discounted = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_is_discounted(obj):
+        return obj.sku_type == 4
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -234,8 +239,13 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
+    offer_price_applied = serializers.SerializerMethodField()
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
+
+    @staticmethod
+    def get_offer_price_applied(obj):
+        return obj.retailer_product.offer_price and obj.retailer_product.offer_start_date <= datetime.date.today() <= obj.retailer_product.offer_end_date
 
     def product_price_dt(self, obj):
         """
@@ -264,7 +274,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
