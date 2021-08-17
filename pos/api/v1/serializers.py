@@ -53,6 +53,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
+    online_order = serializers.BooleanField(default = True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -69,6 +71,9 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'online_price' in attrs and attrs['online_price'] > mrp:
+            raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
@@ -149,6 +154,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
+    online_order = serializers.BooleanField(default = True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
+
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -166,6 +174,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'online_price' in attrs and attrs['online_price'] > mrp:
+            raise serializers.ValidationError("Online Price should be less than or equal to mrp")
 
         if 'product_ean_code' in attrs and attrs['product_ean_code']:
             if not attrs['product_ean_code'].isdigit():

@@ -78,10 +78,10 @@ class PosProductView(GenericAPIView):
         serializer = RetailerProductCreateSerializer(data=modified_data)
         if serializer.is_valid():
             data = serializer.data
-            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty = data[
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, online_order, online_price = data[
                 'product_name'], data['product_ean_code'], data['mrp'], data['selling_price'], data[
                     'offer_price'], data['offer_start_date'], data['offer_end_date'], data[
-                        'linked_product_id'], data['description'], data['stock_qty']
+                        'linked_product_id'], data['description'], data['stock_qty'], data['online_order'], data.get('online_price',None)
             with transaction.atomic():
                 # Decide sku_type 2 = using GF product, 1 = new product
                 sku_type = 2 if linked_pid else 1
@@ -89,7 +89,7 @@ class PosProductView(GenericAPIView):
                 # Create product
                 product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
                                                                      description, ean, self.request.user, 'product',
-                                                                     None, 'active', offer_price, offer_sd, offer_ed)
+                                                                     None, 'active', offer_price, offer_sd, offer_ed, None, online_order, online_price)
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
@@ -121,10 +121,11 @@ class PosProductView(GenericAPIView):
         if serializer.is_valid():
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
-            name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty']
+            name, ean, mrp, sp, description, stock_qty, online_order, online_price = data['product_name'], data['product_ean_code'], data[
+                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_order'], data.get('online_price', None)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
+
 
             with transaction.atomic():
                 old_product = deepcopy(product)
@@ -139,6 +140,8 @@ class PosProductView(GenericAPIView):
                     product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
+                product.online_order = online_order
+                product.online_price = online_price if online_price else product.online_price 
                 # Update images
                 if 'image_ids' in modified_data:
                     RetailerProductImage.objects.filter(product=product).exclude(
@@ -172,7 +175,7 @@ class PosProductView(GenericAPIView):
                                                                  discounted_price, product.linked_product_id, 4,
                                                                  product.description, product.product_ean_code,
                                                                  self.request.user, 'product', None, product_status,
-                                                                 None, None, None, product)
+                                                                 None, None, None, product, False, None)
                     else:
                         RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
                                                         self.request.user, 'product', discounted_product.sku)
@@ -220,7 +223,7 @@ class PosProductView(GenericAPIView):
         try:
             p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):
-            return {'error': "Invalid Data Format"}
+            return {'error': "Invalid Data Format"}, "error_msg"
         if 'product_name' not in p_data:
             if 'selling_price' in p_data:
                 success_msg = 'Price has been updated successfully!'
