@@ -483,11 +483,11 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
             if not row[5] or not re.match("^[\d\,]*$", row[5]):
                 raise serializers.ValidationError(
                     "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                        'EMPTY_OR_NOT_VALID'] % "Case_size")
-            #
-            # if int(float(str(row[5]))) <= 0:
-            #     raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
-            #                                       " | Ensure this value is greater than 0" % "Case_size")
+                        'EMPTY_OR_NOT_VALID'] % "case_size")
+
+            if int(row[5]) <= 0:
+                raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
+                                                  " | case_size Ensure this value is greater than 0")
 
         return data
 
