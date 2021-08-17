@@ -20,21 +20,20 @@ from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
 
-
 SIZE_UNIT_CHOICES = (
-        ('mm', 'Millimeter'),
-        ('cm', 'Centimeter'),
-        ('dm', 'Decimeter'),
-        ('m', 'Meter'),
-    )
+    ('mm', 'Millimeter'),
+    ('cm', 'Centimeter'),
+    ('dm', 'Decimeter'),
+    ('m', 'Meter'),
+)
 
 WEIGHT_UNIT_CHOICES = (
-        #('kg', 'Kilogram'),
-        ('gm', 'Gram'),
-        # ('mg', 'Milligram'),
-        # ('l', 'Litre'),
-        # ('ml', 'Milliliter'),
-    )
+    # ('kg', 'Kilogram'),
+    ('gm', 'Gram'),
+    # ('mg', 'Milligram'),
+    # ('l', 'Litre'),
+    # ('ml', 'Milliliter'),
+)
 
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
@@ -42,7 +41,8 @@ CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
-    size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES, default = 'mm')
+    size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES,
+                                 default='mm')
     size_name = models.SlugField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -88,7 +88,8 @@ class Flavor(models.Model):
 class Weight(BaseTimestampUserStatusModel):
     weight_value = models.DecimalField(null=True, blank=True, decimal_places=2, max_digits=12,
                                        validators=[MinValueValidator(0.0)])
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default = 'kg')
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES,
+                                   default='kg')
     weight_name = models.SlugField(unique=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
@@ -102,7 +103,8 @@ class Weight(BaseTimestampUserStatusModel):
 
 class PackageSize(models.Model):
     pack_size_value = models.CharField(max_length=255, null=True, blank=True)
-    pack_size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES, default = 'mm')
+    pack_size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES,
+                                      default='mm')
     pack_size_name = models.SlugField(unique=True)
     pack_length = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     pack_width = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
@@ -185,13 +187,16 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
 
 class ParentProductSKUGenerator(models.Model):
-    cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
-    brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
+    cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
+                                    help_text="Please enter three characters for SKU")
+    brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
+                                      help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
 
 
 class ParentProductCategory(BaseTimeModel):
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_category', on_delete=models.CASCADE)
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_category',
+                                       on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='parent_category_pro_category', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
@@ -207,11 +212,11 @@ class ParentProductImage(BaseTimeModel):
 
     def image_thumbnail(self):
         return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
-            url = self.image.url,
+            url=self.image.url,
             width='500px',
             height='500px',
-            )
-    )
+        )
+        )
 
     def __str__(self):
         return self.image.name
@@ -229,8 +234,9 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
         last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
     else:
         last_sku_increment = '0001'
-    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-    parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
+                                             last_auto_increment=last_sku_increment)
+    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
 
@@ -241,7 +247,8 @@ class Product(BaseTimestampUserStatusModel):
     product_ean_code = models.CharField(max_length=255, blank=True)
     product_mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES,
+                                   default='gm')
     product_special_cess = models.FloatField(null=True, blank=False)
     moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     STATUS_CHOICES = (
@@ -251,7 +258,8 @@ class Product(BaseTimestampUserStatusModel):
     )
     status = models.CharField(max_length=20, default='pending_approval',
                               choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
-    parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
+    parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False,
+                                       on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
         ('default', 'Default'),
         ('different_mrp', 'Different MRP'),
@@ -363,16 +371,16 @@ class Product(BaseTimestampUserStatusModel):
         we will further filter to city, pincode and buyer shop level.
         '''
         today = datetime.datetime.today()
-        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
+        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link') \
             .filter(shop_name_id=buyer_shop_id, address_type='shipping')
         if buyer_shop_dt.exists():
             buyer_shop_dt = buyer_shop_dt.last()
-        product_price = self.product_pro_price\
+        product_price = self.product_pro_price \
             .filter(Q(seller_shop_id=seller_shop_id),
                     Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
                     Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
                     Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
-                    approval_status=ProductPrice.APPROVED)\
+                    approval_status=ProductPrice.APPROVED) \
             .order_by('start_date')
         if product_price.count() > 1:
             product_price = product_price.filter(
@@ -384,7 +392,8 @@ class Product(BaseTimestampUserStatusModel):
             product_price = product_price.filter(
                 buyer_shop_id=buyer_shop_id)
         if not product_price:
-            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED)
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id,
+                                                          approval_status=ProductPrice.APPROVED)
         if not product_price:
             return None
         return product_price.last()
@@ -395,7 +404,7 @@ class Product(BaseTimestampUserStatusModel):
         we will further filter to city, pincode and buyer shop level.
         '''
         today = datetime.datetime.today()
-        product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True,
+        product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status=True,
                                                           start_date__lte=today, end_date__gte=today)
         if not product_capping:
             return None
@@ -423,8 +432,8 @@ class Product(BaseTimestampUserStatusModel):
     def getProductCoupons(self):
         product_coupons = []
         date = datetime.datetime.now()
-        for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
-            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+        for rules in self.purchased_product_coupon.filter(rule__is_active=True, rule__expiry_date__gte=date):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date):
                 product_coupons.append(rule.coupon_code)
         parent_product_brand = self.parent_product.parent_brand if self.parent_product else None
         if parent_product_brand:
@@ -433,16 +442,21 @@ class Product(BaseTimestampUserStatusModel):
             parent_brand = None
         # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
         product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
-        brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).filter(
+            Q(rule__brand_ruleset__brand=product_brand_id) | Q(rule__brand_ruleset__brand=parent_brand)).order_by(
+            'rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
 
 
 class ProductSKUGenerator(models.Model):
-    parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
-    cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
-    brand_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
+    parent_cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
+                                           help_text="Please enter three characters for SKU")
+    cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
+                                    help_text="Please enter three characters for SKU")
+    brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
+                                      help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
 
 
@@ -463,7 +477,8 @@ class ChildProductImage(BaseTimeModel):
 
 
 class ProductSourceMapping(models.Model):
-    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True, on_delete=models.CASCADE)
+    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True,
+                                        on_delete=models.CASCADE)
     source_sku = models.ForeignKey(Product, related_name='source_product_pro', blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -476,22 +491,27 @@ class ProductSourceMapping(models.Model):
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
-    size = models.ForeignKey(Size, related_name='size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
-    color = models.ForeignKey(Color,related_name='color_pro_option',null=True,blank=True,on_delete=models.CASCADE)
-    fragrance = models.ForeignKey(Fragrance,related_name='fragrance_pro_option',null=True,blank=True,on_delete=models.CASCADE)
-    flavor = models.ForeignKey(Flavor,related_name='flavor_pro_option',null=True,blank=True,on_delete=models.CASCADE)
-    weight = models.ForeignKey(Weight,related_name='weight_pro_option',null=True,blank=True,on_delete=models.CASCADE)
-    package_size = models.ForeignKey(PackageSize,related_name='package_size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
+    size = models.ForeignKey(Size, related_name='size_pro_option', null=True, blank=True, on_delete=models.CASCADE)
+    color = models.ForeignKey(Color, related_name='color_pro_option', null=True, blank=True, on_delete=models.CASCADE)
+    fragrance = models.ForeignKey(Fragrance, related_name='fragrance_pro_option', null=True, blank=True,
+                                  on_delete=models.CASCADE)
+    flavor = models.ForeignKey(Flavor, related_name='flavor_pro_option', null=True, blank=True,
+                               on_delete=models.CASCADE)
+    weight = models.ForeignKey(Weight, related_name='weight_pro_option', null=True, blank=True,
+                               on_delete=models.CASCADE)
+    package_size = models.ForeignKey(PackageSize, related_name='package_size_pro_option', null=True, blank=True,
+                                     on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
 
 class ProductHistory(models.Model):
-    product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
-    product_long_description = models.TextField(null=True,blank=True)
-    product_sku = models.CharField(max_length=255,null=True,blank=True)
-    product_ean_code = models.CharField(max_length=255, null=True,blank=True,validators=[EanCodeValidator])
+    product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    product_short_description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True,
+                                                 blank=True)
+    product_long_description = models.TextField(null=True, blank=True)
+    product_sku = models.CharField(max_length=255, null=True, blank=True)
+    product_ean_code = models.CharField(max_length=255, null=True, blank=True, validators=[EanCodeValidator])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -550,8 +570,8 @@ class ProductPrice(models.Model):
     def update_city_pincode(self):
         if self.buyer_shop and not (self.city or self.pincode):
             if self.buyer_shop.shop_name_address_mapping.exists():
-                address_data = self.buyer_shop.shop_name_address_mapping\
-                    .values('pincode_link', 'city')\
+                address_data = self.buyer_shop.shop_name_address_mapping \
+                    .values('pincode_link', 'city') \
                     .filter(address_type='shipping').last()
                 self.city_id = address_data.get('city')
                 self.pincode_id = address_data.get('pincode_link')
@@ -632,13 +652,12 @@ class ProductPrice(models.Model):
                 return slab.ptr
         return 0
 
-
     # @property
     # def mrp(self):
     #     return self.product.product_mrp
 
-class SlabProductPrice(ProductPrice):
 
+class SlabProductPrice(ProductPrice):
     class Meta:
         proxy = True
 
@@ -647,9 +666,11 @@ class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
     start_value = models.PositiveIntegerField()
     end_value = models.PositiveIntegerField()
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False, validators=[PriceValidator],
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False,
+                                        validators=[PriceValidator],
                                         verbose_name='Selling Price(Per piece)')
-    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[PriceValidator],
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                      validators=[PriceValidator],
                                       verbose_name='Offer Price(Per piece)')
     offer_price_start_date = models.DateField(null=True, blank=True)
     offer_price_end_date = models.DateField(null=True, blank=True)
@@ -684,10 +705,10 @@ class PriceSlab(models.Model):
         single_slab = "Single Slab, SP - %s" % (self.selling_price)
         start_slab = "Up to %s, SP - %s" % (self.end_value, self.selling_price)
         # intermediate_slab = "%s - %s, SP - %s," %  (self.start_value, self.end_value, self.selling_price)
-        end_slab = "For %s+, SP - %s " %  (self.start_value, self.selling_price)
-        offer_price = "Offer Price - %s, Offer Start Date - %s, Offer End Date -%s"\
+        end_slab = "For %s+, SP - %s " % (self.start_value, self.selling_price)
+        offer_price = "Offer Price - %s, Offer Start Date - %s, Offer End Date -%s" \
                       % (self.offer_price, self.offer_price_start_date, self.offer_price_end_date)
-        slab_details = single_slab if self.start_value==0 and self.end_value==0 else end_slab if self.end_value == 0 else start_slab
+        slab_details = single_slab if self.start_value == 0 and self.end_value == 0 else end_slab if self.end_value == 0 else start_slab
         if self.offer_price:
             slab_details = slab_details + ", " + offer_price
         return slab_details
@@ -715,17 +736,17 @@ class ProductCategoryHistory(models.Model):
 
 class ProductImage(BaseTimeModel):
     product = models.ForeignKey(Product, related_name='product_pro_image', on_delete=models.CASCADE)
-    image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
+    image_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     image = models.ImageField(upload_to='product_image')
     status = models.BooleanField(default=True)
 
     def image_thumbnail(self):
         return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
-            url = self.image.url,
+            url=self.image.url,
             width='500px',
             height='500px',
-            )
-    )
+        )
+        )
 
     def __str__(self):
         return self.image.name
@@ -733,11 +754,11 @@ class ProductImage(BaseTimeModel):
 
 class Tax(BaseTimestampUserStatusModel):
     TAX_CHOICES = (
-            ("cess", "Cess"),
-            ("gst", "GST"),
-            ("surcharge", "Surcharge"),
-            ("tcs", "TCS")
-        )
+        ("cess", "Cess"),
+        ("gst", "GST"),
+        ("surcharge", "Surcharge"),
+        ("tcs", "TCS")
+    )
 
     tax_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     tax_type = models.CharField(max_length=255, choices=TAX_CHOICES)
@@ -808,8 +829,8 @@ class DestinationRepackagingCostMapping(models.Model):
 @receiver(pre_save, sender=DestinationRepackagingCostMapping)
 def calculate_fg_and_conversion_cost(sender, instance=None, created=False, **kwargs):
     instance.final_fg_cost = instance.raw_material + instance.wastage + \
-        instance.fumigation + instance.label_printing + instance.packing_labour + \
-        instance.primary_pm_cost + instance.secondary_pm_cost
+                             instance.fumigation + instance.label_printing + instance.packing_labour + \
+                             instance.primary_pm_cost + instance.secondary_pm_cost
     instance.conversion_cost = instance.final_fg_cost - instance.raw_material
 
 
@@ -832,10 +853,10 @@ class ProductCSV(models.Model):
 
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')
-    country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
-    states = models.ForeignKey(State, null=True,blank=True, on_delete=models.CASCADE)
-    city = models.ForeignKey(City, null=True,blank=True, on_delete=models.CASCADE)
-    area = models.ForeignKey(Area,null=True,blank=True,on_delete=models.CASCADE)
+    country = models.ForeignKey(Country, null=True, blank=True, on_delete=models.CASCADE)
+    states = models.ForeignKey(State, null=True, blank=True, on_delete=models.CASCADE)
+    city = models.ForeignKey(City, null=True, blank=True, on_delete=models.CASCADE)
+    area = models.ForeignKey(Area, null=True, blank=True, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -849,7 +870,8 @@ class ProductPriceCSV(models.Model):
 class ProductVendorMapping(BaseTimestampUserStatusModel):
     vendor = models.ForeignKey(Vendor, related_name='vendor_brand_mapping', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_vendor_mapping', on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)', null=True, blank=True) #(Per piece)
+    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)', null=True,
+                                      blank=True)  # (Per piece)
     product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)', null=True, blank=True)
     brand_to_gram_price_unit = models.CharField(max_length=100, default="Per Piece")
     product_mrp = models.FloatField(null=True, blank=True)
@@ -873,16 +895,16 @@ class ProductVendorMapping(BaseTimestampUserStatusModel):
         vendor.save()
 
     def save(self, *args, **kwargs):
-       
+
         if self.product_price:
             self.brand_to_gram_price_unit = "Per Piece"
         else:
             self.brand_to_gram_price_unit = "Per Pack"
-           
+
         ProductVendorMapping.objects.filter(product=self.product, vendor=self.vendor, status=True).update(status=False)
         if self.is_default:
-            ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product, is_default=True)\
-                                        .update(is_default=False)
+            ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product, is_default=True) \
+                .update(is_default=False)
         self.status = True
         super().save(*args, **kwargs)
         self.save_vendor(vendor=self.vendor)
@@ -900,18 +922,21 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     # if not product.product_sku:
     if not instance.product_sku:
         # cat_sku_code = instance.category.category_sku_part
-        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).first().category
+        parent_product_category = ParentProductCategory.objects.filter(
+            parent_product=instance.parent_product).first().category
         cat_sku_code = parent_product_category.category_sku_part
         parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
         brand_sku_code = instance.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,
+                                                      parent_cat_sku_code=parent_cat_sku_code,
                                                       brand_sku_code=brand_sku_code).last()
         if last_sku:
             last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
         else:
             last_sku_increment = '00000001'
-        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
+        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+                                           brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+        instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         # product.save()
 
 
@@ -1048,10 +1073,14 @@ class ProductPackingMapping(models.Model):
 class CentralLog(models.Model):
     action = models.CharField(max_length=50, null=True, blank=True)
     shop = models.ForeignKey(Shop, related_name='shop_log', blank=True, null=True, on_delete=models.CASCADE)
-    shop_type = models.ForeignKey(ShopType, related_name='shop_type_log', blank=True, null=True, on_delete=models.CASCADE)
-    shop_user_map = models.ForeignKey(ShopUserMapping, related_name='shop_user_map_log', blank=True, null=True, on_delete=models.CASCADE)
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
-    child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
+    shop_type = models.ForeignKey(ShopType, related_name='shop_type_log', blank=True, null=True,
+                                  on_delete=models.CASCADE)
+    shop_user_map = models.ForeignKey(ShopUserMapping, related_name='shop_user_map_log', blank=True, null=True,
+                                      on_delete=models.CASCADE)
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True,
+                                       on_delete=models.CASCADE)
+    child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True,
+                                      on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)

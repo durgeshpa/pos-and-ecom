@@ -169,10 +169,10 @@ class OfferBannerSlotSerializers(serializers.ModelSerializer):
         fields = ('id', 'name', 'page', 'offer_banner_slot_log')
 
     def validate(self, data):
-        offer_page_id = self.instance.id if self.instance else None
+        offer_banner_slot_id = self.instance.id if self.instance else None
         if 'name' in self.initial_data and self.initial_data['name']:
-            if OfferPage.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
-                    id=offer_page_id).exists():
+            if OfferBannerSlot.objects.filter(name__iexact=self.initial_data['name'], status=True).exclude(
+                    id=offer_banner_slot_id).exists():
                 raise serializers.ValidationError(f"offer banner slot with name {self.initial_data['name']} "
                                                   f"already exists.")
 
