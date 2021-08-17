@@ -2116,8 +2116,7 @@ def create_discounted_product(product):
                                                                 )
     if created:
         for i in product.product_pro_image.all():
-            ProductImage.objects.create(product=discounted_product, image_name=i.image_name,
-                                        image_alt_text=i.image_alt_text, image=i.image)
+            ProductImage.objects.create(product=discounted_product, image_name=i.image_name, image=i.image)
         product.discounted_sku = discounted_product
         product.save()
     return discounted_product
