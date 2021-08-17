@@ -484,10 +484,10 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                         'EMPTY_OR_NOT_VALID'] % "Case_size")
-
-            if int(row[5]) <= 0:
-                raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
-                                                  " | Ensure this value is greater than 0" % "Case_size")
+            #
+            # if int(float(str(row[5]))) <= 0:
+            #     raise serializers.ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] +
+            #                                       " | Ensure this value is greater than 0" % "Case_size")
 
         return data
 
