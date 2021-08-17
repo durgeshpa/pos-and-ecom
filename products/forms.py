@@ -427,9 +427,10 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn', 'brand_case_size', 'inner_case_size', 'product_type',
-                  'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
-                  'is_lead_time_applicable')
+        fields = ('parent_brand', 'name', 'product_hsn',
+                  'brand_case_size', 'inner_case_size',
+                  'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
+                  'is_lead_time_applicable', 'discounted_life_percent')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -897,7 +898,11 @@ class UploadMasterDataAdminForm(forms.Form):
                         and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent'] or  row['ptr_percent'] < 0) :
                         raise ValidationError(_(f"Row {row_num} | "
                                                     f"'ptr_percent' is invalid"))
-
+                if 'discounted_life_percent' in row.keys() \
+                        and (row['discounted_life_percent'] == '' or 100 < row['discounted_life_percent']
+                             or  row['discounted_life_percent'] < 0) :
+                        raise ValidationError(_(f"Row {row_num} | "
+                                                    f"'discounted_life_percent' is invalid"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
                         if not row['repackaging_type'].lower() in ['none', 'source', 'destination', 'packing_material']:
@@ -1207,7 +1212,7 @@ class UploadMasterDataAdminForm(forms.Form):
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                                     'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable',
-                                    'max_inventory_in_days', 'is_lead_time_applicable']
+                                    'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase

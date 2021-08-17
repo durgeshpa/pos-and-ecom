@@ -71,6 +71,7 @@ RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
+ECOM = 'EC0M'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -103,7 +104,8 @@ CART_TYPES = (
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
-    (BASIC, 'Basic')
+    (BASIC, 'Basic'),
+    (ECOM, 'Ecom')
 )
 
 
@@ -185,7 +187,7 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            if self.cart_type == 'BASIC':
+            if self.cart_type in ['BASIC', 'ECOM']:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('selling_price') * F('qty'),
                                      output_field=FloatField()))['subtotal_sum'], 2)
@@ -233,7 +235,7 @@ class Cart(models.Model):
     @property
     def mrp_subtotal(self):
         try:
-            if self.cart_type == 'BASIC':
+            if self.cart_type in ['BASIC', 'ECOM']:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
@@ -552,7 +554,7 @@ class Cart(models.Model):
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
-            if self.cart_type != 'BASIC':
+            if self.cart_type not in ['BASIC', 'ECOM']:
                 for cart_product in self.rt_cart_list.all():
                     cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
@@ -1757,6 +1759,12 @@ class OrderedProduct(models.Model):  # Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'ECOM':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number(
@@ -2827,6 +2835,12 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+        if instance.ordered_cart.cart_type in ['ECOM']:
+            instance.order_no = common_function.order_id_pattern(
+                sender, 'order_no', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk, "EO")
         elif instance.ordered_cart.cart_type == 'BULK':
             instance.order_no = common_function.order_id_pattern_bulk(
                 sender, 'order_no', instance.pk,

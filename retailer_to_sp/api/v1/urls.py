@@ -8,7 +8,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList, OrderCommunication
+                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication
                     )
 
 router = routers.DefaultRouter()
@@ -27,8 +27,11 @@ urlpatterns = [
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
     url(r'^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
-    # ORDER
+    # COMMIT TO ORDER
+    url('^cart/check/stock_qty/$', CartStockCheckView.as_view(), name='ecom_cart_check'),
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
+    url('^payment-data/$', PaymentDataView.as_view(), name='ecom-payment-data'),
+    # ORDER
     url('^order/$', OrderCentral.as_view()),
     url(r'^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
     url(r'^order-communication/(?P<type>[-\w]+)/(?P<pk>\d+)/$', OrderCommunication.as_view()),

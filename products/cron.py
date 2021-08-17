@@ -113,3 +113,4 @@ def packing_sku_inventory_alert():
     except Exception as e:
         cron_logger.error(e)
         cron_logger.info('cron packing material inventory alert | exception')
+

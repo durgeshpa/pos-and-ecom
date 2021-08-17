@@ -77,6 +77,7 @@ urlpatterns = [
     url(r'^pos/', include('pos.urls')),
     url(r'^retailer-incentive/', include('retailer_incentive.urls')),
     url(r'^ars/', include('ars.urls')),
+    url(r'^ecom/', include('ecom.urls')),
     url(r'^cms/', include('cms.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

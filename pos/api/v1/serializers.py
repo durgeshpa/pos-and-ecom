@@ -25,6 +25,7 @@ from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
+from ecom.models import Address
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -286,11 +287,13 @@ class BasicCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_dt')
     total_quantity = serializers.SerializerMethodField('total_quantity_dt')
     total_amount = serializers.SerializerMethodField('total_amount_dt')
+    total_discount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
-                  'created_at', 'modified_at')
+        fields = ('id', 'cart_no', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
+                  'total_discount', 'amount_payable')
 
     def rt_cart_list_dt(self, obj):
         """
@@ -378,6 +381,20 @@ class BasicCartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
+
+    @staticmethod
+    def get_total_discount(obj):
+        discount = 0
+        offers = obj.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def get_amount_payable(self, obj):
+        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        return round(sub_total, 2)
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
@@ -1526,6 +1543,12 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
+
+
+class AddressCheckoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ('type', 'complete_address')
 
 
 class VendorSerializer(serializers.ModelSerializer):

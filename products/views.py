@@ -36,9 +36,9 @@ from categories.models import Category
 from brand.models import Brand, Vendor
 from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin,\
     WarehouseInternalInventoryChange, Out
-from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions,\
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange,\
-    InternalStockCorrectionChange, inventory_in_and_out_weight
+from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions, \
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange, \
+    InternalStockCorrectionChange, inventory_in_and_out_weight, get_manufacturing_date
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -1418,10 +1418,9 @@ def set_parent_data_sample_excel_file(request, *args):
 
     columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-               'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-               'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-               'is_lead_time_applicable']
-
+               'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+               'is_lead_time_applicable', 'discounted_life_percent']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1451,7 +1450,8 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'parent_product__ptr_percent',
                                                            'parent_product__is_ars_applicable',
                                                            'parent_product__max_inventory',
-                                                           'parent_product__is_lead_time_applicable').filter(
+                                                           'parent_product__is_lead_time_applicable',
+                                                           'parent_product__discounted_life_percent').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1503,6 +1503,7 @@ def set_parent_data_sample_excel_file(request, *args):
         row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
         row.append(product['parent_product__max_inventory'])
         row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
+        row.append(product['parent_product__discounted_life_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
@@ -2457,9 +2458,10 @@ def packing_material_inventory(request):
                         inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                         transaction_type = 'stock_correction_in_type'
                         for inv_type, weight in in_quantity_dict.items():
+                            manufacturing_date = get_manufacturing_date(batch_id)
                             in_obj = InCommonFunctions.create_only_in(warehouse_obj, stock_correction_type,
                                                                       stock_movement_obj[0].id, product_obj, batch_id,
-                                                                      0, inv_type, weight)
+                                                                      0, inv_type, weight, manufacturing_date)
                             inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type,
                                                         inventory_state, weight, transaction_type, in_obj.id)
                             # Create data in Stock Correction change Model

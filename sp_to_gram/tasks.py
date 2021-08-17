@@ -1,10 +1,10 @@
 from celery.task import task
-from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch import Elasticsearch
 
 from shops.models import Shop
 
 from products.models import Product, ProductPrice
-from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF
+from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 
@@ -70,8 +70,9 @@ def get_product_price(shop_id, products):
 
 
 def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
+	type_normal = InventoryType.objects.filter(inventory_type='normal').last()
 	if inventory_type is None:
-		inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+		inventory_type = type_normal
 	product_dict = None
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
@@ -154,20 +155,21 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 					}
 					for p_i in product.child_product_pro_image.all()
 				]
-		category = [str(c.category) for c in product.product_pro_category.filter(status=True)]
+
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
 		if product_dict:
-			visible=WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
-                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
-                inventory_type='normal').last()).last()
+			visible=WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=type_normal).last()
 			visible = visible.visible
 		else:
 			visible=True
 		ean = product.product_ean_code
 		if ean and type(ean) == str:
 			ean = ean.split('_')[0]
+		is_discounted = True if product.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED else False
+		expiry_date = get_earliest_expiry_date(product, shop, type_normal, is_discounted) if is_discounted else None
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
@@ -191,7 +193,9 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"available": available_qty,
 			"visible":visible,
 			"ean":ean,
-			"price_details" : price_details
+			"price_details" : price_details,
+			"is_discounted": is_discounted,
+			"expiry_date": expiry_date
 		}
 		yield(product_details)
 

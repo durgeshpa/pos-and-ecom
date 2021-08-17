@@ -140,7 +140,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                                                          instance.product,
                                                          instance.batch_id, int(instance.delivered_qty),
                                                          putaway_quantity,
-                                                         type_normal, weight)
+                                                         type_normal, weight, instance.manufacture_date)
 
         # ends here
         instance.available_qty = 0

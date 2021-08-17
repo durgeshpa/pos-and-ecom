@@ -140,7 +140,8 @@ INSTALLED_APPS = [
     'redash_report',
     'retailer_incentive',
     'ars',
-    'cms'
+    'ecom',
+    'cms',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -411,6 +412,7 @@ CRONJOBS = [
     ('0 3 * * *', 'ars.cron.generate_po_cron'),
     ('0 2 * * *', 'ars.cron.daily_average_sales_cron'),
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
+    ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
