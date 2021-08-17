@@ -278,7 +278,6 @@ class Product(BaseTimestampUserStatusModel):
     )
 
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
-    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     product_type = models.PositiveSmallIntegerField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
     discounted_sku = models.OneToOneField('self', related_name='product_ref', on_delete=models.CASCADE, null=True, blank=True)
     is_manual_price_update = models.BooleanField(default=False)
