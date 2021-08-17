@@ -699,19 +699,27 @@ class PosAddToCart(object):
                     if product.mrp and Decimal(selling_price) > product.mrp:
                         return api_response("Selling Price should be equal to OR less than MRP")
 
+                # If adding discounted product for given product
+                add_discounted = request.data.get('add_discounted', None)
+                if add_discounted and product.sku_type != 4:
+                    if RetailerProductCls.is_discounted_product_exists(product):
+                        product = product.discounted_product
+                    else:
+                        return api_response("No discounted product found for this product")
+
+                # check_discounted = request.data.get('check_discounted', None)
+                # if check_discounted and RetailerProductCls.is_discounted_product_exists(
+                #         product) and product.discounted_product.status == 'active':
+                #     return api_response('Discounted product found', self.serialize_product(product),
+                #                         status.HTTP_300_MULTIPLE_CHOICES, False)
+
                 # Check discounted product
                 if product.sku_type == 4:
                     discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
                     if product.status != 'active':
-                        return api_response("This product is de-activated!")
+                        return api_response("The discounted product is de-activated!")
                     elif discounted_stock < qty:
-                        return api_response("This product has only {} in stock!".format(discounted_stock))
-
-                check_discounted = request.data.get('check_discounted', None)
-                if check_discounted and RetailerProductCls.is_discounted_product_exists(
-                        product) and product.discounted_product.status == 'active':
-                    return api_response('Discounted product found', self.serialize_product(product),
-                                        status.HTTP_300_MULTIPLE_CHOICES, False)
+                        return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
             # Return with objects
             kwargs['product'] = product
