@@ -32,6 +32,12 @@ ORDER_STATUS_MAP = {
     4: Order.CANCELLED
 }
 
+ONLINE_ORDER_STATUS_MAP = {
+    1: [Order.ORDERED],
+    2: [Order.PICKING_COMPLETE, Order.DISPATCHED],
+    3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED],
+}
+
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
