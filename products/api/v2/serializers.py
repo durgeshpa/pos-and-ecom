@@ -485,6 +485,11 @@ class BulkProductVendorMappingSerializers(serializers.ModelSerializer):
                     "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                         'EMPTY_OR_NOT_VALID'] % "Case_size")
 
+            if not int(row[5]) > 0:
+                raise serializers.ValidationError(
+                    "Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                        'EMPTY_OR_NOT_VALID'] % "Case_size")
+
         return data
 
     @transaction.atomic
@@ -656,7 +661,7 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
 
                 if offer_price_1 and selling_price_slab_2 >= offer_price_1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP "
-                          f"{selling_price_slab_2} >= Slab 1 Offer Price {offer_price_1}"))
+                                            f"{selling_price_slab_2} >= Slab 1 Offer Price {offer_price_1}"))
 
                 if offer_price_2 and offer_price_2 >= selling_price_slab_2:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
