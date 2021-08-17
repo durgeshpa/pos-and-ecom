@@ -1161,7 +1161,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductVendorMapping
         fields = ('id', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'status', 'is_default',
-                  'vendor', 'product')
+                  'vendor', 'product', 'created_at')
 
     @transaction.atomic
     def create(self, validated_data):

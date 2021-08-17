@@ -424,7 +424,8 @@ class OfferBannerSerializers(serializers.ModelSerializer):
     class Meta:
         model = OfferBanner
         fields = ('id', 'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand',
-                  'products', 'status', 'offer_banner_start_date', 'offer_banner_end_date', 'offer_banner_log')
+                  'products', 'status', 'offer_banner_start_date', 'created_at', 'offer_banner_end_date',
+                  'offer_banner_log')
 
     def validate(self, data):
         """

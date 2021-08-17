@@ -717,7 +717,7 @@ class OfferBannerView(GenericAPIView):
     queryset = OfferBanner.objects.select_related('updated_by', 'category', 'sub_category', 'brand', 'sub_brand', ) \
         .prefetch_related('products', 'offer_banner_log', 'offer_banner_log__updated_by') \
         .only('id', 'name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
-              'status', 'offer_banner_start_date', 'offer_banner_end_date', 'updated_by').order_by('-id')
+              'status', 'offer_banner_start_date', 'offer_banner_end_date', 'updated_by', 'created_at').order_by('-id')
     serializer_class = OfferBannerSerializers
 
     def get(self, request):
