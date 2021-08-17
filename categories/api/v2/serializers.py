@@ -14,7 +14,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'category_desc', 'status')
+        fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
+                  'status',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
 
 
 class CategoryPosSerializer(serializers.ModelSerializer):
@@ -44,4 +51,12 @@ class AllCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'cat_parent', 'category_desc')
+        fields = ('id', 'category_name', 'cat_parent', 'category_desc', 'category_slug',
+                  'category_sku_part', 'category_image', 'status',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
