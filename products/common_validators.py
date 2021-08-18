@@ -354,7 +354,8 @@ def read_file(csv_file, upload_master_data, category):
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
                                 'sub_brand_name', 'category_id', 'category_name', 'sub_category_id', 'brand_case_size',
                                 'sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                                'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status']
+                                'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
+                                'discounted_life_percent']
 
     if upload_master_data == "child_product_update":
         required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
@@ -378,7 +379,7 @@ def read_file(csv_file, upload_master_data, category):
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                                 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
-                                'brand_case_size', 'brand_id']
+                                'brand_case_size', 'brand_id', 'discounted_life_percent']
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
@@ -675,7 +676,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         mandatory_columns = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                              'brand_case_size', 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type',
                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
-                             'status']
+                             'status', 'discounted_life_percent']
         for ele in mandatory_columns:
             if ele not in header_list:
                 raise ValidationError(f"{mandatory_columns} are mandatory columns for to Create Parent Product")
@@ -720,6 +721,11 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' is a mandatory field")
             if 'inner_case_size' in row.keys() and row['inner_case_size'] == '':
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' can't be empty")
+
+            if 'discounted_life_percent' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'discounted_life_percent' is a mandatory field")
+            if 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] == '':
+                raise ValidationError(f"Row {row_num} | 'discounted_life_percent' can't be empty")
 
             if 'brand_case_size' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'brand_case_size' is a mandatory field")
@@ -1189,7 +1195,8 @@ def validate_row(uploaded_data_list, header_list, category):
                         and ('ptr_percent' not in row.keys() or str(row['ptr_percent']) == '' or 100 <
                              float(row['ptr_percent']) or float(row['ptr_percent']) < 0):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
-
+            # if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] != '':
+            #     pass
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
                 product_type_list = ['b2b', 'b2c', 'both']
                 if row['product_type'].lower() not in product_type_list:
