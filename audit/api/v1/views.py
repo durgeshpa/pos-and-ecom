@@ -855,7 +855,8 @@ class AuditInventory(APIView):
             info_logger.info('AuditInventory | update_inventory | OUT entry done ')
         elif tr_type == 'manual_audit_add':
             manufacturing_date = get_manufacturing_date(batch_id)
-            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type, manufacturing_date)
+            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type,
+                                             sku.weight_value, manufacturing_date)
             putaway_object = PutawayCommonFunctions.create_putaway(warehouse, tr_type, tr_type_id, sku, batch_id,
                                                                    qty, qty, inventory_type)
             PutawayBinInventory.objects.create(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin,
