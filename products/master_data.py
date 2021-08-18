@@ -846,7 +846,7 @@ class DownloadMasterData(object):
                    "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "123456", "18", "12", "100",
                  "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
