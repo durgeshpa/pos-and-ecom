@@ -1195,13 +1195,16 @@ def validate_row(uploaded_data_list, header_list, category):
                         and ('ptr_percent' not in row.keys() or str(row['ptr_percent']) == '' or 100 <
                              float(row['ptr_percent']) or float(row['ptr_percent']) < 0):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
-            # if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] != '':
-            #     pass
+
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
                 product_type_list = ['b2b', 'b2c', 'both']
                 if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'b2b', 'b2c' or 'both'!")
+
+            if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] != '':
+                if not re.match("^\d+[.]?[\d]{0,2}$", str(row['discounted_life_percent'])):
+                    raise ValidationError(f"Row {row_num} | discounted_life_percent' can only be a numeric value.")
 
             if 'mrp' in header_list and 'mrp' in row.keys() and row['mrp'] != '':
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
