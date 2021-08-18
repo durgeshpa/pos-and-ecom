@@ -1486,7 +1486,8 @@ def get_expiry_date_db(batch_id):
     return expiry_date_db
 
 def get_manufacturing_date(batch_id):
-    return '2021-01-01'
+    in_entry = In.objects.filter(in_type='GRN', batch_id=batch_id).last()
+    return in_entry.manufacturing_date if in_entry else None
 
 def set_expiry_date(batch_id):
     """
