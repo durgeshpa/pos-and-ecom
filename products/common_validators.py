@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage
+    ParentProductImage, ProductHSN, ProductCapping, ProductImage
 from categories.models import Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
@@ -48,11 +48,11 @@ def validate_tax_name(tax_name, tax_id):
         return {'error': 'tax with this tax name already exists'}
 
 
-def validate_id(queryset, id):
+def validate_id(queryset, s_id):
     """ validation only ids that belong to a selected related model """
-    if not queryset.filter(id=id).exists():
+    if not queryset.filter(id=s_id).exists():
         return {'error': 'please provide a valid id'}
-    return {'data': queryset.filter(id=id)}
+    return {'data': queryset.filter(id=s_id)}
 
 
 def get_validate_parent_brand(parent_brand):
@@ -68,11 +68,11 @@ def get_validate_parent_brand(parent_brand):
 def get_validate_product_hsn(product_hsn):
     """ validate id that belong to a ProductHSN model if not through error """
     try:
-        product_hsn = ProductHSN.objects.get(id=product_hsn)
+        product_hsn_obj = ProductHSN.objects.get(id=product_hsn)
     except Exception as e:
         logger.error(e)
-        return {'error': 'please provide a valid parent_brand id'}
-    return {'product_hsn': product_hsn}
+        return {'error': 'please provide a valid product_hsn id'}
+    return {'product_hsn': product_hsn_obj}
 
 
 def get_validate_categories(parent_product_pro_category):
@@ -182,22 +182,22 @@ def get_validate_vendor(vendor):
     return {'vendor': vendor}
 
 
-def get_validate_seller_shop(seller_shop):
+def get_validate_seller_shop(seller_shop_id):
     """ validate seller_shop id that belong to a Shop model also
         checking shop_type 'sp' should be selected """
     try:
-        seller_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type='sp')
+        seller_shop = Shop.objects.get(id=seller_shop_id, shop_type__shop_type='sp')
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid seller_shop id'}
     return {'seller_shop': seller_shop}
 
 
-def get_validate_buyer_shop(seller_shop):
+def get_validate_buyer_shop(buyer_shop_id):
     """ validate buyer_shop id that belong to a Shop model also
         checking shop_type 'r' or 'f' should be selected """
     try:
-        buyer_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type__in=['r', 'f'])
+        buyer_shop = Shop.objects.get(id=buyer_shop_id, shop_type__shop_type__in=['r', 'f'])
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid buyer shop id'}
@@ -303,23 +303,16 @@ def validate_bulk_data_format(request):
 
 
 def get_csv_file_data(csv_file, csv_file_headers):
-    entries = []
-    duplicate_entries = []
     uploaded_data_by_user_list = []
     csv_dict = {}
     count = 0
     for row in csv_file:
-        # if row[0] not in entries:
-        #     entries.append(row[0])
         for ele in row:
             csv_dict[csv_file_headers[count]] = ele
             count += 1
         uploaded_data_by_user_list.append(csv_dict)
         csv_dict = {}
         count = 0
-
-        # else:
-        #     duplicate_entries.append(row[0])
 
     return uploaded_data_by_user_list
 
@@ -1208,7 +1201,7 @@ def validate_row(uploaded_data_list, header_list, category):
 
             if 'mrp' in header_list and 'mrp' in row.keys() and row['mrp'] != '':
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
-                    raise ValidationError(f"Row {row_num} | 'Product MRP' can only be a numeric value.")
+                    raise ValidationError(f"Row {row_num} | 'mrp' can only be a numeric value.")
 
             if 'product_special_cess' in header_list and 'product_special_cess' in row.keys():
                 if str(row['product_special_cess']).strip() != '':

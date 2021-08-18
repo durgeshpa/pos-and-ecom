@@ -74,8 +74,6 @@ class ChoiceField(serializers.ChoiceField):
             if key == data:
                 return key
         self.fail('invalid_choice', input=data)
-        # if not (any(data in i for i in DATA_TYPE_CHOICES)):
-        #     raise serializers.ValidationError(_('Sorry! Not a Valid Option.'))
 
 
 class UploadMasterDataSerializers(serializers.ModelSerializer):
