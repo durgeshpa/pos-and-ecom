@@ -231,7 +231,7 @@ class UploadMasterData(object):
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
                               'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
-                              'max_inventory_in_days', 'is_lead_time_applicable']
+                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
 
                     available_fields = []
                     for col in fields:
@@ -291,6 +291,11 @@ class UploadMasterData(object):
                         if col == 'is_ars_applicable':
                             parent_product.update(
                                 is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+
+                        if col == 'discounted_life_percent':
+                            parent_product.update(
+                                discounted_life_percent=float(row['discounted_life_percent']) if not
+                                row['discounted_life_percent'] is None else 0.0)
 
                         if col == 'max_inventory_in_days':
                             parent_product.update(max_inventory=int(row['max_inventory_in_days']))
@@ -546,6 +551,8 @@ class UploadMasterData(object):
                     ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
+                    discounted_life_percent=(0.0 if not row['discounted_life_percent'] else
+                                             float(row['discounted_life_percent'])),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
                     brand_case_size=int(row['brand_case_size']),
@@ -834,14 +841,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge",
-                   "inner_case_size",
-                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
-                   "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable", "status"]
+                   "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                   "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
+                   "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
                  "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "123456", "18", "12", "100",
-                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "active"]]
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -986,8 +993,8 @@ class DownloadMasterData(object):
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                    'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-                   'is_ptr_applicable', 'ptr_type',
-                   'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
+                   'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                   'is_lead_time_applicable', 'discounted_life_percent']
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
@@ -1009,7 +1016,8 @@ class DownloadMasterData(object):
                                                                'parent_product__ptr_percent',
                                                                'parent_product__is_ars_applicable',
                                                                'parent_product__max_inventory',
-                                                               'parent_product__is_lead_time_applicable').filter(
+                                                               'parent_product__is_lead_time_applicable',
+                                                               'parent_product__discounted_life_percent',).filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
 
         for product in parent_products:
@@ -1054,7 +1062,7 @@ class DownloadMasterData(object):
                 row.append(product['category__category_parent_id'])
                 row.append(product['category__category_parent__category_name'])
 
-            if product['parent_product__status'] == True:
+            if product['parent_product__status']:
                 row.append("active")
             else:
                 row.append("deactivated")
@@ -1064,6 +1072,7 @@ class DownloadMasterData(object):
             row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
             row.append(product['parent_product__max_inventory'])
             row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
+            row.append(product['parent_product__discounted_life_percent'])
 
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
