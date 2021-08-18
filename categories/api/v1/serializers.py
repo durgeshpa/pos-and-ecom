@@ -30,6 +30,12 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
                   'status', 'category_product_log')
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
 
 class CategoryPosSerializer(serializers.ModelSerializer):
 
@@ -61,19 +67,37 @@ class AllCategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('id', 'category_name', 'cat_parent', 'category_image', 'category_desc')
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
 
 class SubCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'category_desc', 'status')
+        fields = ('id', 'category_name', 'category_desc', 'status', 'category_image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
 
 
 class ParentCategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
 
-        fields = ('id', 'category_name',)
+        fields = ('id', 'category_name', 'category_image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
 
 
 class SubCategorySerializers(serializers.ModelSerializer):
@@ -88,6 +112,8 @@ class SubCategorySerializers(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         if representation['category_name']:
             representation['category_name'] = representation['category_name'].title()
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
         return representation
 
 
