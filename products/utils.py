@@ -9,8 +9,9 @@ from django.http import HttpResponse
 from django.db.models import Q
 
 from addresses.models import Address, City, State
-from products.models import ProductVendorMapping
 from .models import ProductHSN, ParentProduct
+from products.models import ProductVendorMapping, Product
+
 from django.db.models.functions import Length
 
 
@@ -268,3 +269,9 @@ def get_selling_price(def_product):
     elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
         selling_price = def_product.product_mrp * (1 - (ptr_percent / 100))
     return selling_price
+
+
+def deactivate_product(product):
+    product.status = 'deactivated'
+    product.save()
+

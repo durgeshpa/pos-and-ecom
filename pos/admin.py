@@ -19,20 +19,21 @@ from .common_functions import RetailerProductCls, PosInventoryCls
 
 from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustomerMap, Vendor, PosCart,
                      PosCartProductMapping, PosGRNOrder, PosGRNOrderProductMapping, PaymentType, ProductChange,
-                     ProductChangeFields, DiscountedRetailerProduct, Document)
+                     ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
+                     RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
+                     RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
+                     InventoryChangePos, InventoryStatePos)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details
-from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
-    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, RetailerCartProductMapping,\
-    RetailerOrderReturn, RetailerReturnItems
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel, create_order_return_excel
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
+
 
 class ExportCsvMixin:
 
@@ -76,6 +77,13 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
     list_per_page = 10
     search_fields = ('product__name',)
 
+    def get_queryset(self, request):
+        qs = super(RetailerProductImageAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(product__shop__pos_shop__user=request.user,
+                         product__shop__pos_shop__status=True)
+
     def has_change_permission(self, request, obj=None):
         return False
 
@@ -92,18 +100,21 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
-
-    
-    list_per_page = 50
-    search_fields = ('name', 'product_ean_code')
-    list_filter = [ProductEanSearch, ShopFilter]
-    inlines = [RetailerProductImageTabularAdmin]
+    readonly_fields = (
+    'shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
         qs = qs.filter(~Q(sku_type=4))
-        return qs
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(shop__pos_shop__user=request.user,
+                         shop__pos_shop__status=True)
+
+    list_per_page = 50
+    search_fields = ('name', 'product_ean_code')
+    list_filter = [ProductEanSearch, ShopFilter]
+    inlines = [RetailerProductImageTabularAdmin]
 
     @staticmethod
     def image(obj):
@@ -160,6 +171,13 @@ class PaymentAdmin(admin.ModelAdmin):
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number')
 
+    def get_queryset(self, request):
+        qs = super(PaymentAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(order__seller_shop__pos_shop__user=request.user,
+                         order__seller_shop__pos_shop__status=True)
+
     def has_change_permission(self, request, obj=None):
         return False
 
@@ -175,6 +193,13 @@ class ShopCustomerMapAdmin(admin.ModelAdmin):
     list_filter = [UserFilter, ShopFilter]
     list_per_page = 10
 
+    def get_queryset(self, request):
+        qs = super(ShopCustomerMapAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(shop__pos_shop__user=request.user,
+                         shop__pos_shop__status=True)
+
     def has_change_permission(self, request, obj=None):
         return False
 
@@ -189,9 +214,14 @@ class ShopCustomerMapAdmin(admin.ModelAdmin):
 
 
 class RetailerCouponRuleSetAdmin(admin.ModelAdmin):
+
     def get_queryset(self, request):
         qs = super(RetailerCouponRuleSetAdmin, self).get_queryset(request)
-        return qs.filter(coupon_ruleset__shop__shop_type__shop_type='f')
+        qs = qs.filter(coupon_ruleset__shop__shop_type__shop_type='f')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(coupon_ruleset__shop__pos_shop__user=request.user,
+                         coupon_ruleset__shop__pos_shop__status=True)
 
     search_fields = ('rulename', 'free_product__name', 'cart_qualifying_min_sku_value')
     list_per_page = 10
@@ -218,7 +248,11 @@ class RetailerCouponAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(RetailerCouponAdmin, self).get_queryset(request)
-        return qs.filter(shop__shop_type__shop_type='f')
+        qs = qs.filter(shop__shop_type__shop_type='f')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(shop__pos_shop__user=request.user,
+                         shop__pos_shop__status=True)
 
     fields = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
     list_display = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
@@ -242,7 +276,11 @@ class RetailerRuleSetProductMappingAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(RetailerRuleSetProductMappingAdmin, self).get_queryset(request)
-        return qs.filter(rule__coupon_ruleset__shop__shop_type__shop_type='f')
+        qs = qs.filter(rule__coupon_ruleset__shop__shop_type__shop_type='f')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(rule__coupon_ruleset__shop__pos_shop__user=request.user,
+                         rule__coupon_ruleset__shop__pos_shop__status=True)
 
     list_per_page = 10
     search_fields = ('rule__rulename', 'retailer_primary_product__name', 'retailer_free_product__name')
@@ -282,7 +320,11 @@ class RetailerCartAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(RetailerCartAdmin, self).get_queryset(request)
-        return qs.filter(cart_type='BASIC')
+        qs = qs.filter(cart_type='BASIC')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(seller_shop__pos_shop__user=request.user,
+                         seller_shop__pos_shop__status=True)
 
     list_per_page = 10
     inlines = [RetailerCartProductMappingAdmin]
@@ -381,10 +423,8 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         qs = qs.filter(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
-        return qs.filter(
-            Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
-        )
+        return qs.filter(order__seller_shop__pos_shop__user=request.user,
+                         order__seller_shop__pos_shop__status=True)
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -400,11 +440,11 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     def order_data_excel_action(self, request, queryset):
         return create_order_data_excel(request, queryset)
+
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
-    
 
-@admin.register(PosInventoryState)
+@admin.register(InventoryStatePos)
 class PosInventoryStateAdmin(admin.ModelAdmin):
     list_display = ('id', 'inventory_state',)
 
@@ -415,7 +455,7 @@ class PosInventoryStateAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(PosInventory)
+@admin.register(InventoryPos)
 class PosInventoryAdmin(admin.ModelAdmin):
     list_display = ('shop', 'product', 'quantity', 'inventory_state', 'created_at', 'modified_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
@@ -436,8 +476,15 @@ class PosInventoryAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def get_queryset(self, request):
+        qs = super(PosInventoryAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(product__shop__pos_shop__user=request.user,
+                         product__shop__pos_shop__status=True)
 
-@admin.register(PosInventoryChange)
+
+@admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
@@ -448,6 +495,13 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     list_filter = [ProductInvEanSearch]
 
     change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
+
+    def get_queryset(self, request):
+        qs = super(PosInventoryChangeAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(product__shop__pos_shop__user=request.user,
+                         product__shop__pos_shop__status=True)
 
     @staticmethod
     def shop(obj):
@@ -504,12 +558,21 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 @admin.register(RetailerOrderReturn)
 class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_order_return_as_csv']
-    list_display = ('order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
-                    'refund_mode', 'created_at')
+    list_display = (
+    'order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+    'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
     search_fields = ('order__order_no', 'order__buyer__phone_number')
     inlines = [RetailerReturnItemsAdmin]
+
+    def get_queryset(self, request):
+        qs = super(RetailerOrderReturnAdmin, self).get_queryset(request)
+        qs = qs.filter(order__ordered_cart__cart_type='BASIC')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(order__seller_shop__pos_shop__user=request.user,
+                         order__seller_shop__pos_shop__status=True)
 
     @staticmethod
     def refunded_amount(obj):
@@ -524,11 +587,13 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     def has_add_permission(self, request, obj=None):
         return False
 
+
 class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     form = DiscountedRetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'product_ref', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'status', 'created_at', 'modified_at')
-    fields = ('shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_selling_price', 'discounted_stock')
+    fields = (
+    'shop', 'product_ref', 'product_ean_code', 'mrp', 'selling_price', 'discounted_selling_price', 'discounted_stock')
     readonly_fields = ('sku', 'name', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     list_per_page = 50
     search_fields = ('name', 'product_ean_code')
@@ -539,7 +604,10 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(DiscountedRetailerProductAdmin, self).get_queryset(request)
         qs = qs.filter(sku_type=4)
-        return qs
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(shop__pos_shop__user=request.user,
+                         shop__pos_shop__status=True)
 
     @staticmethod
     def image(obj):
@@ -603,7 +671,6 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
                                         tr_type)
 
 
-
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
     list_display = ('company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
@@ -611,6 +678,13 @@ class VendorAdmin(admin.ModelAdmin):
     fields = list_display
     list_per_page = 10
     search_fields = ('company_name', 'vendor_name', 'phone_number', 'retailer_shop__shop_name', 'pincode')
+
+    def get_queryset(self, request):
+        qs = super(VendorAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(retailer_shop__pos_shop__user=request.user,
+                         retailer_shop__pos_shop__status=True)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -638,16 +712,25 @@ class PosCartProductMappingAdmin(admin.TabularInline):
 
 @admin.register(PosCart)
 class PosCartAdmin(admin.ModelAdmin):
-    list_display = ('po_no', 'vendor', 'download_purchase_order', 'retailer_shop', 'status', 'raised_by', 'last_modified_by',
-                    'created_at', 'modified_at')
+    list_display = (
+    'po_no', 'vendor', 'download_purchase_order', 'retailer_shop', 'status', 'raised_by', 'last_modified_by',
+    'created_at', 'modified_at')
     fields = list_display
     list_per_page = 10
     inlines = [PosCartProductMappingAdmin]
     search_fields = ('po_no', 'retailer_shop__shop_name')
     actions = ['download_store_po']
 
+    def get_queryset(self, request):
+        qs = super(PosCartAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(retailer_shop__pos_shop__user=request.user,
+                         retailer_shop__pos_shop__status=True)
+
     def download_purchase_order(self, obj):
-        return format_html("<a href= '%s' >Download PO</a>" % (reverse('admin:pos_download_purchase_order', args=[obj.pk])))
+        return format_html(
+            "<a href= '%s' >Download PO</a>" % (reverse('admin:pos_download_purchase_order', args=[obj.pk])))
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
@@ -673,9 +756,10 @@ class PosCartAdmin(admin.ModelAdmin):
     def download_store_po(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow([ 'PO No', 'Status',  'Vendor', 'Store Id', 'Store Name', 'Shop User',  'Raised By',
-                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category',
-                          'Brand', 'Sub Brand', 'Quantity', 'Price'])
+        writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
+                         'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
+                         'Sub Category',
+                         'Brand', 'Sub Brand', 'Quantity', 'Price'])
 
         for obj in queryset:
             for p in obj.po_products.all():
@@ -715,6 +799,13 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     search_fields = ('order__ordered_cart__po_no', 'order__ordered_cart__retailer_shop__shop_name')
     actions = ['download_grns']
 
+    def get_queryset(self, request):
+        qs = super(PosGrnOrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(order__ordered_cart__retailer_shop__pos_shop__user=request.user,
+                         order__ordered_cart__retailer_shop__pos_shop__status=True)
+
     def po_no(self, obj):
         return obj.order.ordered_cart.po_no
 
@@ -733,10 +824,10 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow([ 'GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
-                          'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
-                          'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
-                          'Recieved Quantity'])
+        writer.writerow(['GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                         'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
+                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
+                         'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
@@ -751,7 +842,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_'+date.today().isoformat()+'.csv'
+        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
         return response
 
 
@@ -798,6 +889,13 @@ class ProductChangeAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def get_queryset(self, request):
+        qs = super(ProductChangeAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(product__shop__pos_shop__user=request.user,
+                         product__shop__pos_shop__status=True)
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

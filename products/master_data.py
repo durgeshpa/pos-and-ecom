@@ -298,7 +298,8 @@ class UploadMasterData(object):
                         if col == 'is_lead_time_applicable':
                             parent_product.update(is_lead_time_applicable=True if row[
                                                                                       'is_lead_time_applicable'].lower() == 'yes' else False)
-
+                        if col == 'discounted_life_percent':
+                            parent_product.update(discounted_life_percent=row['discounted_life_percent'])
                         parent_product.update(updated_by=user)
                         ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
 
@@ -371,7 +372,7 @@ class UploadMasterData(object):
 
                     if 'repackaging_type' in row and row['repackaging_type']:
                         child_obj['repackaging_type'] = row['repackaging_type']
-                        if row['repackaging_type'] == 'destination':
+                        if row['repackaging_type'] ==    'destination':
                             if 'raw_material' in row and row['raw_material']:
                                 dest_obj['raw_material'] = float(row['raw_material'])
 

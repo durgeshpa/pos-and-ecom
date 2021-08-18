@@ -15,7 +15,7 @@ from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, InCommonFunctions, PutawayCommonFunctions, \
-    get_expiry_date
+    get_expiry_date, get_manufacturing_date
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
     BinInternalInventoryChange, In, Out, PutawayBinInventory
 from wms.views import PicklistRefresh
@@ -854,7 +854,8 @@ class AuditInventory(APIView):
                                batch_id=batch_id, inventory_type=inventory_type, quantity=qty)
             info_logger.info('AuditInventory | update_inventory | OUT entry done ')
         elif tr_type == 'manual_audit_add':
-            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type)
+            manufacturing_date = get_manufacturing_date(batch_id)
+            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type, manufacturing_date)
             putaway_object = PutawayCommonFunctions.create_putaway(warehouse, tr_type, tr_type_id, sku, batch_id,
                                                                    qty, qty, inventory_type)
             PutawayBinInventory.objects.create(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin,

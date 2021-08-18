@@ -3,7 +3,8 @@ import csv
 import datetime
 import json
 import re
-import collections
+import collections, decimal
+from django.db.models.query import InstanceCheckMeta
 
 from django.forms import BaseInlineFormSet
 
@@ -12,6 +13,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
+
+from django.db.models import Value, Case, When, F, Q, fields
 
 from django.db import transaction
 from model_utils import Choices
@@ -29,7 +32,8 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
+                             DiscountedProductPrice)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -422,22 +426,23 @@ class ParentProductForm(forms.ModelForm):
     Parent Product Form
     """
     product_hsn = forms.ModelChoiceField(queryset=hsn_choices,
-                                         widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete',))
+                                         widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete', ))
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn', 'brand_case_size', 'inner_case_size', 'product_type',
-                  'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
-                  'is_lead_time_applicable')
+        fields = ('parent_brand', 'name', 'product_hsn',
+                  'brand_case_size', 'inner_case_size',
+                  'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
+                  'is_lead_time_applicable', 'discounted_life_percent')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.fields['max_inventory'].initial =  get_config('max_quantity_in_days', 10)
+        self.fields['max_inventory'].initial = get_config('max_quantity_in_days', 10)
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if cleaned_data.get('is_ptr_applicable') :
+        if cleaned_data.get('is_ptr_applicable'):
             if not cleaned_data.get('ptr_type'):
                 raise ValidationError(_('Invalid PTR Type'))
             elif not cleaned_data.get('ptr_percent'):
@@ -530,9 +535,9 @@ class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = (
-        'parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value',
-        'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
-        'product_special_cess',)
+            'parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value',
+            'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
+            'product_special_cess',)
 
     def clean(self):
         if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
@@ -543,6 +548,13 @@ class ProductForm(forms.ModelForm):
             if error:
                 raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
         return self.cleaned_data
+
+
+class DiscountedProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
+                  'product_ean_code', 'product_mrp', 'status', 'is_manual_price_update')
 
 
 class ProductSourceMappingForm(forms.ModelForm):
@@ -734,7 +746,8 @@ class UploadMasterDataAdminForm(forms.Form):
                     product = Product.objects.filter(product_sku=row['sku_id'])
                     categry = Category.objects.values('category_name').filter(id=int(category))
                     if not Product.objects.filter(id=product[0].id,
-                                                  parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']).exists():
+                                                  parent_product__parent_product_pro_category__category__category_name__icontains=
+                                                  categry[0]['category_name']).exists():
                         raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
                                                 f"({categry[0]['category_name']}) that you have "
                                                 f"selected in Dropdown Only! "))
@@ -756,7 +769,8 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
                     parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
                     if 'sku_id' not in row.keys():
-                        if not ParentProductCategory.objects.filter(category=int(category), parent_product=parent_product[0].id).exists():
+                        if not ParentProductCategory.objects.filter(category=int(category),
+                                                                    parent_product=parent_product[0].id).exists():
                             categry = Category.objects.values('category_name').filter(id=int(category))
                             raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
                                                     f"({categry[0]['category_name']}) that you have "
@@ -794,8 +808,9 @@ class UploadMasterDataAdminForm(forms.Form):
                     if row['hsn'] != '':
                         if not ProductHSN.objects.filter(
                                 product_hsn_code=row['hsn']).exists() and not ProductHSN.objects.filter(
-                                product_hsn_code='0' + str(row['hsn'])).exists():
-                            raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
+                            product_hsn_code='0' + str(row['hsn'])).exists():
+                            raise ValidationError(
+                                _(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
                         if len(str(row['hsn'])) < 6 or len(str(row['hsn'])) > 8:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['hsn']} |'HSN' code should be min 6 char and max 8 char."))
@@ -814,10 +829,10 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(_(f"Row {row_num} | {row['tax_3(surcharge)']} "
                                                     f"| Invalid Tax(Surcharge)!"))
                 if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
-                        if row['brand_case_size'] != '':
-                            if not re.match("^\d+$", str(row['brand_case_size'])):
-                                raise ValidationError(_(f"Row {row_num} | {row['brand_case_size']} |"
-                                                        f"'Brand Case Size' can only be a numeric value."))
+                    if row['brand_case_size'] != '':
+                        if not re.match("^\d+$", str(row['brand_case_size'])):
+                            raise ValidationError(_(f"Row {row_num} | {row['brand_case_size']} |"
+                                                    f"'Brand Case Size' can only be a numeric value."))
 
                 if 'inner_case_size' in header_list and 'inner_case_size' in row.keys():
                     if row['inner_case_size'] != '':
@@ -867,36 +882,43 @@ class UploadMasterDataAdminForm(forms.Form):
                                                     f"'Sub_Category_Name' doesn't exist in the system "))
                 if 'max_inventory_in_days' in header_list and 'max_inventory_in_days' in row.keys():
                     if row['max_inventory_in_days'] != '':
-                        if not re.match("^\d+$", str(row['max_inventory_in_days'])) or  row['max_inventory_in_days'] < 1\
-                                or  row['max_inventory_in_days'] > 999:
+                        if not re.match("^\d+$", str(row['max_inventory_in_days'])) or row['max_inventory_in_days'] < 1 \
+                                or row['max_inventory_in_days'] > 999:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['max_inventory_in_days']} |'Max Inventory In Days' is invalid."))
 
                 if 'is_ars_applicable' in header_list and 'is_ars_applicable' in row.keys():
-                    if row['is_ars_applicable'] != '' :
+                    if row['is_ars_applicable'] != '':
                         if str(row['is_ars_applicable']).lower() not in ['yes', 'no']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['is_ars_applicable']} |"
-                                                    f"'is_ars_applicable' can only be 'Yes' or 'No' "))
+                                  f"'is_ars_applicable' can only be 'Yes' or 'No' "))
                 if 'is_lead_time_applicable' in header_list and 'is_lead_time_applicable' in row.keys():
                     if row['is_lead_time_applicable'] != '':
                         if str(row['is_lead_time_applicable']).lower() not in ['yes', 'no']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['is_lead_time_applicable']} |"
-                                                    f"'is_lead_time_applicable' can only be 'Yes' or 'No' "))
+                                  f"'is_lead_time_applicable' can only be 'Yes' or 'No' "))
                 if 'is_ptr_applicable' in header_list and 'is_ptr_applicable' in row.keys():
                     if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() not in ['yes', 'no']:
-                            raise ValidationError(_(f"Row {row_num} | {row['is_ptr_applicable']} | "
-                                                    f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
-                    elif row['is_ptr_applicable'].lower()=='yes' and \
-                        ('ptr_type' not in row.keys() or row['ptr_type'] == '' or row['ptr_type'].lower() not in ['mark up', 'mark down']):
+                        raise ValidationError(_(f"Row {row_num} | {row['is_ptr_applicable']} | "
+                                                f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
+                    elif row['is_ptr_applicable'].lower() == 'yes' and \
+                            ('ptr_type' not in row.keys() or row['ptr_type'] == '' or row['ptr_type'].lower() not in [
+                                'mark up', 'mark down']):
                         raise ValidationError(_(f"Row {row_num} | "
-                                                    f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
+                                                f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
                     elif row['is_ptr_applicable'].lower() == 'yes' \
-                        and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent'] or  row['ptr_percent'] < 0) :
+                            and (
+                            'ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent'] or
+                            row['ptr_percent'] < 0):
                         raise ValidationError(_(f"Row {row_num} | "
-                                                    f"'ptr_percent' is invalid"))
-
+                                                f"'ptr_percent' is invalid"))
+                if 'discounted_life_percent' in row.keys() \
+                        and (row['discounted_life_percent'] == '' or 100 < row['discounted_life_percent']
+                             or row['discounted_life_percent'] < 0):
+                    raise ValidationError(_(f"Row {row_num} | "
+                                            f"'discounted_life_percent' is invalid"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
                         if not row['repackaging_type'].lower() in ['none', 'source', 'destination', 'packing_material']:
@@ -924,9 +946,10 @@ class UploadMasterDataAdminForm(forms.Form):
                                                         f"when repackaging_type is destination"))
                         for field in mandatory_fields:
                             if field not in header_list:
-                                raise ValidationError(_(f"{mandatory_fields} are the essential headers and cannot be empty "
-                                                        f"when repackaging_type is destination"))
-                            if row[field]=='':
+                                raise ValidationError(
+                                    _(f"{mandatory_fields} are the essential headers and cannot be empty "
+                                      f"when repackaging_type is destination"))
+                            if row[field] == '':
                                 raise ValidationError(_(f"Row {row_num} | {row[field]} | {field} cannot be empty"
                                                         f"| {mandatory_fields} are the essential fields when "
                                                         f"repackaging_type is destination"))
@@ -1152,9 +1175,10 @@ class UploadMasterDataAdminForm(forms.Form):
         # Checking the headers of the excel file
         if upload_master_data == "master_data":
             required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
-                                    'weight_unit', 'weight_value','tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                                    'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
-                                    'sub_brand_name','category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+                                    'weight_unit', 'weight_value', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
+                                    'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
+                                    'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
+                                    'sub_category_name',
                                     'status', 'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
                                     'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                                     'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
@@ -1200,13 +1224,14 @@ class UploadMasterDataAdminForm(forms.Form):
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
             self.check_headers(excel_file_headers, required_header_list)
-            
+
         if upload_master_data == "parent_data":
-            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
+            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
+                                    'tax_3(surcharge)',
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                                     'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable',
-                                    'max_inventory_in_days', 'is_lead_time_applicable']
+                                    'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
@@ -2057,8 +2082,10 @@ class RepackagingForm(forms.ModelForm):
             if ppm:
                 inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
                                                               inventory_state__inventory_state='total_available',
-                                                              sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
-                self.fields['available_packing_material_weight'].initial = (inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku)/1000 if inventory else 0
+                                                              sku=ppm.packing_sku,
+                                                              warehouse=repack_obj.seller_shop).last()
+                self.fields['available_packing_material_weight'].initial = (
+                                                                                       inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku) / 1000 if inventory else 0
                 self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
                 self.fields['packing_sku_weight_per_unit_sku'].initial = ppm.packing_sku_weight_per_unit_sku
 
@@ -2161,12 +2188,13 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
         required=False
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'],
+                                        product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
-            url='product-autocomplete',
+            url='products-product-autocomplete',
             attrs={"onChange": 'getProductDetails()'},
-            forward=(forward.Const(1, 'price-slab'), )
+            forward=(forward.Const(1, 'price-slab'),)
         )
     )
     mrp = forms.DecimalField(required=False)
@@ -2194,7 +2222,7 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
             data['mrp'] = data['product'].product_mrp
         if not data.get('slab_price_applicable'):
             if data.get('selling_price') is None or data.get('selling_price') == 0 \
-                    or data.get('selling_price') > data['mrp']*data['product'].product_inner_case_size:
+                    or data.get('selling_price') > data['mrp'] * data['product'].product_inner_case_size:
                 raise ValidationError('Invalid Selling Price')
             elif data.get('offer_price') is not None:
                 if data.get('selling_price') <= data.get('offer_price'):
@@ -2205,7 +2233,6 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
                 elif data.get('offer_price_end_date') is None \
                         or data.get('offer_price_end_date') < data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
-
         return data
 
 
@@ -2232,7 +2259,6 @@ class PriceSlabForm(forms.ModelForm):
 
 
 class SlabInlineFormSet(BaseInlineFormSet):
-
     """
         This class is used to check for PriceSlab form validations
     """
@@ -2254,15 +2280,18 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 raise ValidationError('Invalid Selling Price')
             elif form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
                 raise ValidationError("Quantity should be greater than earlier slabs quantity")
-            elif form.prefix != 'price_slabs-0' and slab_data.get('selling_price') and (slab_data.get('selling_price') >= last_slab_selling_price \
-                    or (last_slab_offer_price and slab_data.get('selling_price') >= last_slab_offer_price)) :
+            elif form.prefix != 'price_slabs-0' and slab_data.get('selling_price') and (
+                    slab_data.get('selling_price') >= last_slab_selling_price \
+                    or (last_slab_offer_price and slab_data.get('selling_price') >= last_slab_offer_price)):
                 raise ValidationError("Selling price should be less than earlier slabs selling price/offer price.")
             elif slab_data.get('offer_price') is not None:
                 if slab_data.get('selling_price') <= slab_data.get('offer_price'):
                     raise ValidationError('Invalid Offer Price')
-                elif slab_data.get('offer_price_start_date') is None or slab_data.get('offer_price_start_date') < datetime.datetime.today().date():
+                elif slab_data.get('offer_price_start_date') is None or slab_data.get(
+                        'offer_price_start_date') < datetime.datetime.today().date():
                     raise ValidationError('Offer Price Start Date is invalid')
-                elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') < slab_data.get('offer_price_start_date'):
+                elif slab_data.get('offer_price_end_date') is None or slab_data.get(
+                        'offer_price_end_date') < slab_data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
             last_slab_end_value = slab_data['end_value']
             last_slab_selling_price = slab_data.get('selling_price')
@@ -2302,7 +2331,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
-                    selling_price = product.product_mrp*(1 - (ptr_percent / 100))
+                    selling_price = product.product_mrp * (1 - (ptr_percent / 100))
                 selling_price_per_saleable_unit = float(round(selling_price, 2))
 
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
@@ -2312,9 +2341,11 @@ class UploadSlabProductPriceForm(forms.Form):
             if not row[6] or float(row[6]) <= 0:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling price'"))
             elif selling_price_per_saleable_unit != float(row[6]):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
             elif float(row[6]) > float(product.product_mrp):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
             elif row[7] and float(row[7]) >= float(row[6]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
             elif row[7] and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
@@ -2322,15 +2353,17 @@ class UploadSlabProductPriceForm(forms.Form):
                              or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
                              or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
-            elif int(row[5]) > 0 :
-                if not row[10] or int(row[10]) != int(row[5])+1:
+            elif int(row[5]) > 0:
+                if not row[10] or int(row[10]) != int(row[5]) + 1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
                 elif not row[11] or float(row[11]) <= 0:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
                 elif float(row[11]) >= float(row[6]):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
                 elif (row[7] and float(row[11]) >= float(row[7])):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
                 elif row[12] and float(row[12]) >= float(row[11]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
                 elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
@@ -2338,6 +2371,52 @@ class UploadSlabProductPriceForm(forms.Form):
                                   or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
                                   or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+        return self.cleaned_data['file']
+
+
+class UploadDiscountedProductPriceForm(forms.Form):
+    """
+    Upload SLab Product Prices Form
+    """
+    file = forms.FileField(label='Upload Discounted Product Prices')
+
+    class Meta:
+        model = DiscountedProductPrice
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if isBlankRow(row, len(first_row)):
+                continue
+            product = Product.objects.filter(product_sku=row[0]).last()
+            if not row[0] or product is None:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+            if int(product.product_type) != 1:
+                raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not discounted"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
+            seller_shop = Shop.objects.filter(pk=int(row[2])).last()
+            manual_price_update = product.is_manual_price_update
+            selling_price = float(row[4])
+            if not manual_price_update:
+                original_product = product.product_ref
+                product_price = original_product.product_pro_price.all()
+                shops = Shop.objects.filter(shop_product_price__in=product_price).distinct()
+                if seller_shop not in shops:
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | No original product exist for this shop and no selling price is provided."))
+            if manual_price_update and not selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | No 'Selling Price' in case of manual price update"))
+            if manual_price_update and selling_price:
+                if selling_price == 0 \
+                        or selling_price > product.product_mrp:
+                    raise ValidationError('Invalid Selling Price')
         return self.cleaned_data['file']
 
 
@@ -2355,7 +2434,6 @@ class ProductHSNForm(forms.ModelForm):
 
     # this function will be used for the validation
     def clean(self):
-
         # data from the form is fetched using super function
         super(ProductHSNForm, self).clean()
 
@@ -2622,3 +2700,72 @@ class UploadPackingSkuInventoryAdminForm(forms.Form):
                 " please re-verify at your end."))
 
         return form_data_list
+
+
+class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
+    """
+        This class is used to create Slab Product Price for a particular discounted product
+        """
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(
+            url='admin:seller_shop_autocomplete',
+            attrs={"onChange": 'getSellingPriceDetails()'},
+        )
+    )
+
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete',
+                                         ),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
+        required=False
+    )
+
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'], product_type=1),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='discounted-product-price-autocomplete',
+            attrs={"onChange": 'getSellingPriceDetails()'},
+            forward=(forward.Const(0, 'price-slab'),)
+        )
+    )
+    mrp = forms.DecimalField(required=False)
+    selling_price = forms.DecimalField(min_value=0, decimal_places=2, required=False)
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['mrp'].disabled = True
+        if 'approval_status' in self.fields:
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
+    def clean(self):
+        data = self.cleaned_data
+        if not data.get('product'):
+            raise ValidationError(_('Invalid Product.'))
+        if data.get('product') and data['product'].product_mrp:
+            data['mrp'] = data['product'].product_mrp
+
+        if data.get('selling_price') is None or data.get('selling_price') == 0 \
+                or data.get('selling_price') > data['mrp']:
+            raise ValidationError('Invalid Selling Price')
+
+        return data
