@@ -941,7 +941,8 @@ class ChildProductListView(GenericAPIView):
         Get Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination']) \
+    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination'],
+                                           product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL) \
         .values('id', 'product_name', 'product_sku', 'product_mrp')
     serializer_class = ProductSerializers
 
