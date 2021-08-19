@@ -182,8 +182,9 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         try:
             params = get_common_coupon_params(instance)
             coupon_type = instance.coupon_type
+            product = None
             if coupon_type == 'catalog':
-                response = get_catalogue_coupon_params(instance)
+                response, product = get_catalogue_coupon_params(instance)
             else:
                 response = get_cart_coupon_params(instance)
             if 'error' in response:
@@ -193,6 +194,8 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
                 return
             params.update(response)
             es.index(index=create_es_index('rc-{}'.format(instance.shop.id)), id=params['id'], body=params)
+            if product:
+                product.save()
         except Exception as e:
             error_logger.error("Could not add coupon to elastic shop {}, coupon {}".format(instance.shop.id, instance.id))
             error_logger.error(e)
@@ -228,7 +231,7 @@ def get_catalogue_coupon_params(coupon):
         params['free_product_name'] = product_ruleset.retailer_free_product.name
         params['purchased_product_qty'] = product_ruleset.purchased_product_qty
         params['free_product_qty'] = product_ruleset.free_product_qty
-        return params
+        return params, product_ruleset.retailer_primary_product
     else:
         return {'error': "Catalogue coupon invalid"}
 

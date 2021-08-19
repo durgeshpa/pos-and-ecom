@@ -418,7 +418,15 @@ class SearchProducts(APIView):
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
-        body["sort"] = {"modified_at": "desc"}
+        sort_by = self.request.GET.get('sort_by', 'modified_at')
+        sort_order = self.request.GET.get('sort_order', 'desc')
+        sort_by = sort_by if sort_by in ['ptr', 'combo_available'] else 'modified_at'
+        sort_order = sort_order if sort_order in ['asc'] else 'desc'
+        if sort_by == 'modified_at':
+            sort_order = 'desc'
+        if sort_by == 'combo_available':
+            sort_order = 'desc'
+        body["sort"] = {sort_by: sort_order}
         p_list = []
         cart_check = False
         # Ecom Cart
@@ -449,14 +457,14 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
-                coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
-                                                                  ["coupon_code", "coupon_type"])
+                # coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
+                #                                                   ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
                     if cart_check:
                         p = self.modify_rp_cart_product_es(cart, cart_products, p)
-                    for coupon in coupons:
-                        if int(coupon['purchased_product']) == int(p["_source"]['id']):
-                            p['_source']['coupons'] = [coupon]
+                    # for coupon in coupons:
+                    #     if int(coupon['purchased_product']) == int(p["_source"]['id']):
+                    #         p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
