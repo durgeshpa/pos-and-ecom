@@ -2072,6 +2072,8 @@ def create_update_discounted_products(parent_product=None):
             s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
             expiry_date = s_in_entry.expiry_date
             manufacturing_date = s_in_entry.manufacturing_date
+            cron_logger.info("manufacturing_date " + str(manufacturing_date))
+            cron_logger.info("expiry_date " + str(expiry_date))
             product_life = expiry_date - manufacturing_date
             remaining_life = expiry_date - today
             discounted_life = floor(product_life.days * discounted_life_percent / 100)
