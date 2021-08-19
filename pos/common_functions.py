@@ -113,6 +113,10 @@ class RetailerProductCls(object):
 
     @classmethod
     def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product')
+
+    @classmethod
+    def is_discounted_product_available(cls, product):
         return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
@@ -702,10 +706,10 @@ class PosAddToCart(object):
                 # If adding discounted product for given product
                 add_discounted = request.data.get('add_discounted', None)
                 if add_discounted and product.sku_type != 4:
-                    if RetailerProductCls.is_discounted_product_exists(product):
+                    if RetailerProductCls.is_discounted_product_available(product):
                         product = product.discounted_product
                     else:
-                        return api_response("No discounted product found for this product")
+                        return api_response("Discounted product not available")
 
                 # check_discounted = request.data.get('check_discounted', None)
                 # if check_discounted and RetailerProductCls.is_discounted_product_exists(
