@@ -516,6 +516,7 @@ class TopSKUView(GenericAPIView):
     def top_sku_filter(self):
         seller_shop_id = self.request.GET.get('seller_shop_id')
         product_id = self.request.GET.get('product_id')
+        status = self.request.GET.get('status')
         start_date_range_from = self.request.GET.get('start_date_range_from')
         start_date_range_to = self.request.GET.get('start_date_range_to')
         end_date_range_from = self.request.GET.get('end_date_range_from')
@@ -525,6 +526,8 @@ class TopSKUView(GenericAPIView):
             self.queryset = self.queryset.filter(product_id=product_id)
         if seller_shop_id is not None:
             self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
 
         if start_date_range_from:
             self.queryset = self.queryset.filter(start_date__date__gte=start_date_range_from)
