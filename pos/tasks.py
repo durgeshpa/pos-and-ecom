@@ -19,6 +19,7 @@ from marketing.models import Referral
 from accounts.models import User
 from pos.common_functions import RewardCls, RetailerProductCls
 from marketing.sms import SendSms
+from pos.offers import BasicCartOffers
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -80,6 +81,17 @@ def update_es(products, shop_id):
         stock_qty = pos_inv.quantity if pos_inv else 0
         discounted_product_available = True if RetailerProductCls.is_discounted_product_exists(product) else False
         is_discounted = True if product.sku_type == 4 else False
+
+        offer = BasicCartOffers.get_basic_combo_coupons([product.id], product.shop.id)
+        coupons = None
+        if offer:
+            coupons = [
+                {
+                    "coupon_code": offer[0]['coupon_code'],
+                    "coupon_type": offer[0]['coupon_type']
+                }
+            ]
+
         params = {
             'id': product.id,
             'name': product.name,
@@ -100,7 +112,9 @@ def update_es(products, shop_id):
             'is_discounted': is_discounted,
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
-            'offer_end_date': product.offer_end_date
+            'offer_end_date': product.offer_end_date,
+            'combo_available': True if coupons else False,
+            'coupons': coupons
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
