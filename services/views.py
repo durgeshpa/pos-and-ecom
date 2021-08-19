@@ -842,8 +842,20 @@ class InOutLedgerReport(APIView):
         warehouse_id = self.request.GET.get('warehouse')
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
-        if end_date and end_date < start_date:
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
             messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
             return render(
                 self.request,
                 'admin/services/in-out-ledger.html',
