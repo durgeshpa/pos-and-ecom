@@ -2062,6 +2062,7 @@ def create_update_discounted_products(parent_product=None):
                                     .prefetch_related('sku__ins')
     if parent_product:
         inventory = inventory.filter(sku__parent_product=parent_product)
+    cron_logger.info("Total Inventories " + str(inventory.count()))
     for i in inventory:
         if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
             info_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))

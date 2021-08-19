@@ -139,7 +139,6 @@ def update_price_discounted_product():
         .prefetch_related('sku__product_ref')
     cron_logger.info("Total Inventories " + str(inventory.count()))
     for dis_prod in inventory:
-        cron_logger.info("Inventory " + str(dis_prod))
         try:
             latest_in = In.objects.filter(batch_id=dis_prod.batch_id)
             expiry_date = latest_in[0].expiry_date
