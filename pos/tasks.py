@@ -79,7 +79,16 @@ def update_es(products, shop_id):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
         stock_qty = pos_inv.quantity if pos_inv else 0
-        discounted_product_available = True if RetailerProductCls.is_discounted_product_exists(product) else False
+
+        discounted_product_exists = RetailerProductCls.is_discounted_product_exists(product)
+        discounted_product_available = True if RetailerProductCls.is_discounted_product_available(product) else False
+        discounted_price, discounted_stock = None, None
+        if discounted_product_exists:
+            discounted_price = product.discounted_product.selling_price
+            discounted_inv = PosInventory.objects.filter(product=product.discounted_product,
+                                                         inventory_state=inv_available).last()
+            discounted_stock = discounted_inv.quantity if discounted_inv else 0
+
         is_discounted = True if product.sku_type == 4 else False
 
         offer = BasicCartOffers.get_basic_combo_coupons([product.id], product.shop.id)
@@ -108,8 +117,11 @@ def update_es(products, shop_id):
             'description': product.description if product.description else "",
             'linked_product_id': product.linked_product.id if product.linked_product else '',
             'stock_qty': stock_qty,
-            'discounted_product_available': discounted_product_available,
             'is_discounted': is_discounted,
+            'discounted_product_exists': discounted_product_exists,
+            'discounted_product_available': discounted_product_available,
+            'discounted_price': discounted_price,
+            'discounted_stock': discounted_stock,
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date,
