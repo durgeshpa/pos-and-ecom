@@ -21,7 +21,6 @@ from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
 from django.db.models import query, manager
 from django.utils import timezone
-from pos.models import RetailerProduct
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -170,13 +169,14 @@ class In(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     in_type = models.CharField(max_length=20, null=True, blank=True)
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins+')
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    manufacturing_date = models.DateField(null=True)
     expiry_date = models.DateField(null=True)
 
     def save(self, *args, **kwargs):
@@ -239,7 +239,7 @@ class Out(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     out_type = models.CharField(max_length=50, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='outs')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
@@ -357,7 +357,9 @@ class WarehouseInternalInventoryChange(models.Model):
         ('audit_correction_deduct', 'Audit Correction Deduct'),
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
-        ('franchise_returns', 'Franchise Returns')
+        ('franchise_returns', 'Franchise Returns'),
+        ('moved_to_discounted', 'Moved To Discounted'),
+        ('added_as_discounted', 'Added As Discounted')
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -415,7 +417,9 @@ class BinInternalInventoryChange(models.Model):
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
         ('franchise_returns', 'Franchise Returns'),
-        ('repackaging', 'Repackaging')
+        ('repackaging', 'Repackaging'),
+        ('moved_to_discounted', 'Moved To Discounted'),
+        ('added_as_discounted', 'Added As Discounted')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -537,7 +541,7 @@ class PosInventoryState(models.Model):
 
 
 class PosInventory(models.Model):
-    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.IntegerField(default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -560,7 +564,7 @@ class PosInventoryChange(models.Model):
         (GRN_ADD, 'GRN Add'),
         (GRN_UPDATE, 'GRN Update')
     )
-    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.IntegerField()
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
     transaction_id = models.CharField(max_length=25)

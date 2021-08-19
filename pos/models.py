@@ -4,10 +4,14 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from addresses.models import City, State, Pincode
-from shops.models import Shop
+from shops.models import Shop, PosShopUserMapping
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from accounts.models import User
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
+                                   OrderedProductMapping)
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -34,8 +38,8 @@ class RetailerProduct(models.Model):
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    offer_start_date = models.DateField(null=True, blank=True)
-    offer_end_date = models.DateField(null=True, blank=True)
+    offer_start_date = models.DateTimeField(null=True, blank=True)
+    offer_end_date = models.DateTimeField(null=True, blank=True)
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
@@ -71,7 +75,6 @@ class RetailerProduct(models.Model):
 
     def save(self, *args, **kwargs):
         super(RetailerProduct, self).save(*args, **kwargs)
-
 
     class Meta:
         verbose_name = 'Product'
@@ -118,7 +121,7 @@ class PaymentType(models.Model):
     class Meta:
         verbose_name = 'Payment Mode'
         verbose_name_plural = _("Payment Modes")
-    
+
     def __str__(self) -> str:
         return self.type
 
@@ -127,8 +130,10 @@ class Payment(models.Model):
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
     payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default=None, null=True, blank=True)
-    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment', on_delete=models.DO_NOTHING)
-    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True, help_text="Transaction ID for Non Cash Payments.")
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment',
+                                     on_delete=models.DO_NOTHING)
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
+                                      help_text="Transaction ID for Non Cash Payments.")
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,
@@ -146,6 +151,7 @@ class DiscountedRetailerProduct(RetailerProduct):
         verbose_name = 'Discounted Product'
         verbose_name_plural = 'Discounted Products'
 
+
 class Vendor(models.Model):
     company_name = models.CharField(max_length=255)
     vendor_name = models.CharField(max_length=255)
@@ -161,8 +167,6 @@ class Vendor(models.Model):
     retailer_shop = models.ForeignKey(Shop, related_name='retailer_shop_vendor', on_delete=models.CASCADE,
                                       null=True, blank=True)
     status = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.vendor_name
@@ -312,3 +316,82 @@ class ProductChangeFields(models.Model):
     column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
     old_value = models.CharField(max_length=255, null=True)
     new_value = models.CharField(max_length=255, null=True)
+
+
+class RetailerCouponRuleSet(CouponRuleSet):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon Ruleset'
+
+
+class RetailerRuleSetProductMapping(RuleSetProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon Ruleset Product Mapping'
+
+
+class RetailerCoupon(Coupon):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon'
+
+
+class RetailerCart(Cart):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Cart'
+
+
+class RetailerCartProductMapping(CartProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Cart Product Mapping'
+
+
+class RetailerOrderedProduct(OrderedProduct):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Order'
+
+
+class RetailerOrderedProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Ordered Product Mapping'
+
+
+class RetailerOrderReturn(OrderReturn):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Return'
+
+    @property
+    def order_no(self):
+        return self.order.order_no
+
+
+class RetailerReturnItems(ReturnItems):
+    class Meta:
+        proxy = True
+        verbose_name = 'Return Item'
+
+    def __str__(self):
+        return ''
+
+
+class InventoryStatePos(PosInventoryState):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory State'
+
+
+class InventoryPos(PosInventory):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory'
+
+
+class InventoryChangePos(PosInventoryChange):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory Change'

@@ -11,6 +11,7 @@ import re
 import boto3
 from botocore.exceptions import ClientError
 from decouple import config
+from django.core.exceptions import ValidationError
 import openpyxl
 from openpyxl.styles import Font
 from pyexcel_xlsx import get_data as xlsx_get
@@ -35,16 +36,16 @@ from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
 from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin,\
-    WarehouseInternalInventoryChange, Out
-from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions,\
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange,\
-    InternalStockCorrectionChange, inventory_in_and_out_weight
+    WarehouseInternalInventoryChange, Out, In
+from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions, \
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange, \
+    InternalStockCorrectionChange, inventory_in_and_out_weight, get_manufacturing_date
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
     UploadChildProductAdminForm, ParentProductImageForm, BulkProductVendorMapping,
-    UploadMasterDataAdminForm, UploadSlabProductPriceForm, UploadPackingSkuInventoryAdminForm
+    UploadMasterDataAdminForm, UploadSlabProductPriceForm, UploadPackingSkuInventoryAdminForm, UploadDiscountedProductPriceForm
 )
 from .master_data import UploadMasterData, SetMasterData
 from products.models import (
@@ -55,10 +56,12 @@ from products.models import (
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
     DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
-    ProductPackingMapping
+    ProductPackingMapping, DiscountedProductPrice
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
+
+from global_config.views import get_config
 from pos.models import RetailerProduct
 
 logger = logging.getLogger(__name__)
@@ -877,7 +880,7 @@ def NameIDCSV(request):
 
 class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Product.objects.all()
+        qs = Product.objects.filter(product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
@@ -968,9 +971,8 @@ def parent_product_upload(request):
                         name=row[0].strip(),
                         parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                        brand_case_size=int(row[7]),
-                        inner_case_size=int(row[8]),
-                        product_type=row[9]
+                        inner_case_size=int(row[7]),
+                        product_type=row[8]
                     )
                     parent_product.save()
                     parent_gst = gst_mapper(row[4])
@@ -1451,7 +1453,8 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'parent_product__ptr_percent',
                                                            'parent_product__is_ars_applicable',
                                                            'parent_product__max_inventory',
-                                                           'parent_product__is_lead_time_applicable').filter(
+                                                           'parent_product__is_lead_time_applicable',
+                                                           'parent_product__discounted_life_percent').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1503,6 +1506,7 @@ def set_parent_data_sample_excel_file(request, *args):
         row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
         row.append(product['parent_product__max_inventory'])
         row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
+        row.append(product['parent_product__discounted_life_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
@@ -1868,6 +1872,70 @@ def FetchProductDdetails(request):
 
     return JsonResponse(data)
 
+def FetchDiscountedProductdetails(request):
+    product_id = request.GET.get('product')
+    seller_shop = request.GET.get('seller_shop')
+    print(product_id, seller_shop)
+    data = {
+        'found': 0,
+    }
+    if not product_id:
+        return JsonResponse(data)
+    def_product = Product.objects.filter(pk=product_id).last()
+    if not seller_shop:
+        if def_product:
+            data = {
+            'found': 1,
+            'product_mrp': def_product.product_mrp,
+            'manual_update': def_product.is_manual_price_update
+            }
+        return JsonResponse(data)
+    shop = Shop.objects.filter(pk = seller_shop).last()
+    selling_price = None
+    if def_product and shop:
+        original_prod = def_product.product_ref
+        bin_inventory = BinInventory.objects.filter(sku = def_product ,
+                                                    inventory_type__inventory_type='normal', quantity__gt=0).last()
+        print(bin_inventory)
+        if not bin_inventory:
+            data = {
+                'error':True,
+                'message': "This discounted product has no inventory. Select another product"
+            }
+            return JsonResponse(data)
+        latest_in = In.objects.filter(sku = bin_inventory.sku.product_ref, batch_id = bin_inventory.batch_id).order_by('-modified_at')
+        expiry_date = latest_in[0].expiry_date
+        manufacturing_date = latest_in[0].manufacturing_date
+        product_life = expiry_date - manufacturing_date
+        remaining_life = expiry_date - datetime.date.today()
+        discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+        product_price = original_prod.product_pro_price.filter(seller_shop=shop,
+                                                   approval_status=ProductPrice.APPROVED).last()
+        if not product_price:
+            data = {
+                'error':True,
+                'message': "No product price for this shop"
+            }
+            return JsonResponse(data)
+        base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+        base_price = base_price_slab.ptr
+
+        half_life = (discounted_life - 2) / 2
+
+        if remaining_life.days <= half_life:
+            selling_price = round(base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+        else:
+            selling_price = round(base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+        data = {
+            'found': 2,
+            'product_mrp': def_product.product_mrp,
+            'selling_price' : selling_price,
+            'manual_update': def_product.is_manual_price_update
+            # 'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
+        }
+    print(data)
+    return JsonResponse(data)
+
 
 def get_selling_price(def_product):
     selling_price = 0
@@ -1963,10 +2031,10 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
 
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = Product.objects.all()
+        qs = Product.objects.filter(product_type = Product.PRODUCT_TYPE_CHOICE.NORMAL)
+
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
-                           Q(product_gf_code__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
 
@@ -2308,6 +2376,18 @@ def get_slab_product_price_sample_csv(request):
                      "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-21", "30-04-21" ])
     return response
 
+def get_discounted_product_price_sample_csv(request):
+    """
+    returns sample CSV for bulk creation of Slab Product Prices
+    """
+    filename = "discounted_product_price_sample_csv.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "selling price"])
+    writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)", "123.00"])
+    return response
+
 def slab_product_price_csv_upload(request):
     """
     Creates Slab Product Prices in bulk through CSV upload
@@ -2375,6 +2455,77 @@ def slab_product_price_csv_upload(request):
     else:
         form = UploadSlabProductPriceForm()
     return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
+
+def discounted_product_price_csv_upload(request):
+    """
+    Creates Discounted Product Prices in bulk through CSV upload
+    """
+    if request.method == 'POST':
+        form = UploadDiscountedProductPriceForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            first_row = next(reader)
+
+            try:
+                for row_id, row in enumerate(reader):
+                    with transaction.atomic():
+                        product = Product.objects.filter(product_sku=row[0]).last()
+                        seller_shop_id = int(row[2])
+                        seller_shop = Shop.objects.filter(pk = seller_shop_id).last()
+
+                        if not product.is_manual_price_update:
+                            original_prod = product.product_ref
+                            bin_inventory = BinInventory.objects.filter(sku = product ,
+                                                    inventory_type__inventory_type='normal', quantity__gt=0).last()
+                            latest_in = In.objects.filter(sku = bin_inventory.sku.product_ref, batch_id = bin_inventory.batch_id).order_by('-modified_at')
+                            expiry_date = latest_in[0].expiry_date
+                            manufacturing_date = latest_in[0].manufacturing_date
+                            product_life = expiry_date - manufacturing_date
+                            remaining_life = expiry_date - datetime.date.today()
+                            discounted_life = math.floor(product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+                            product_price = original_prod.product_pro_price.filter(seller_shop=seller_shop,
+                                                                    approval_status=ProductPrice.APPROVED).last()
+                            base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+                            base_price = base_price_slab.ptr
+
+                            half_life = (discounted_life - 2) / 2
+
+                            if remaining_life.days <= half_life:
+                                selling_price = round(base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+                            else:
+                                selling_price = round(base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+                        
+                        else:
+                            selling_price = float(row[4])
+
+                        #Create Product Price
+                        product_price = DiscountedProductPrice(product=product, mrp=product.product_mrp,
+                                                        seller_shop_id=seller_shop_id, selling_price = selling_price,
+                                                        start_date=datetime.datetime.today(), approval_status=ProductPrice.APPROVED)
+                        product_price.save()
+
+                        #Create Price for discounted Product
+                        discounted_product_price = PriceSlab(product_price = product_price, selling_price = selling_price,
+                                                                            start_value = 1, end_value = 0)
+                        discounted_product_price.save()
+
+            except Exception as e:
+                print(e)
+                msg =  'Unable to create price for row {}'.format(row_id+1)
+                return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form, 'error': msg})
+
+            return render(request, 'admin/products/bulk-discounted-product-price.html', {
+                'form': form,
+                'success': 'Slab Product Prices uploaded successfully !',
+            })
+    else:
+        form = UploadDiscountedProductPriceForm()
+    return render(request, 'admin/products/bulk-discounted-product-price.html', {'form': form})
 
 
 class PackingProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -2457,9 +2608,10 @@ def packing_material_inventory(request):
                         inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                         transaction_type = 'stock_correction_in_type'
                         for inv_type, weight in in_quantity_dict.items():
+                            manufacturing_date = get_manufacturing_date(batch_id)
                             in_obj = InCommonFunctions.create_only_in(warehouse_obj, stock_correction_type,
                                                                       stock_movement_obj[0].id, product_obj, batch_id,
-                                                                      0, inv_type, weight)
+                                                                      0, inv_type, weight, manufacturing_date)
                             inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type,
                                                         inventory_state, weight, transaction_type, in_obj.id)
                             # Create data in Stock Correction change Model
@@ -2574,6 +2726,18 @@ class HSNAutocomplete(autocomplete.Select2QuerySetView):
     """
     def get_queryset(self, *args, **kwargs):
         qs = hsn_queryset(self)
+        return qs
+
+class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Get discounted product
+    """
+    def get_queryset(self):
+        qs = Product.objects.filter(product_type=1)
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
         return qs
 
 

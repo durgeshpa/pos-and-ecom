@@ -76,7 +76,10 @@ class GetAllCategoryListView(APIView):
         categories_to_return = []
         shop_id = self.request.GET.get('shop_id')
         if Shop.objects.filter(id=shop_id).exists():
-            shop = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
+            try:
+                shop = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
+            except Exception as e:
+                return Response(data={'message': str(e)})
             # get list of category ids with available inventory for this shop
             categories_with_products = get_stock_available_category_list(shop)
         else:
