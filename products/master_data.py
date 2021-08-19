@@ -368,16 +368,14 @@ class UploadMasterData(object):
                     if 'weight_value' in row and row['weight_value']:
                         child_obj['weight_value'] = float(row['weight_value'])
 
-                    if 'repackaging_type' in row and row['repackaging_type']:
-                        child_obj['repackaging_type'] = row['repackaging_type']
-
                     if 'product_special_cess' in row and row['product_special_cess']:
                         child_obj['product_special_cess'] = float(row['product_special_cess']) if row[
                             'product_special_cess'] else None
 
                     if 'repackaging_type' in row and row['repackaging_type']:
                         child_obj['repackaging_type'] = row['repackaging_type']
-                        if row['repackaging_type'] ==    'destination':
+
+                        if row['repackaging_type'] == 'destination':
                             if 'raw_material' in row and row['raw_material']:
                                 dest_obj['raw_material'] = float(row['raw_material'])
 
@@ -426,8 +424,12 @@ class UploadMasterData(object):
                                                                                        defaults=dest_obj)
                             ProductPackingMapping.objects.update_or_create(sku=child_pro.last(), defaults=pack_obj)
 
-                        child_pro.update(**child_obj)
-                        ProductCls.create_child_product_log(child_pro.last(), "updated")
+                    child_pro.update(**child_obj)
+                    if 'repackaging_type' in row and row['repackaging_type']:
+                        if row['repackaging_type'] == 'packing_material':
+                            ProductCls.update_weight_inventory(child_pro.last())
+
+                    ProductCls.create_child_product_log(child_pro.last(), "updated")
 
                 except Exception as e:
                     set_child.append(str(row_num))
@@ -621,6 +623,9 @@ class UploadMasterData(object):
                         None if str(row['product_special_cess']).strip() == '' else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
+
+                if row['repackaging_type'] == 'packing_material':
+                    ProductCls.update_weight_inventory(child_product)
 
                 if row['repackaging_type'] == 'destination':
                     source_map = []
