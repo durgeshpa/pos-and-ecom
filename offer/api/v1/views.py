@@ -82,29 +82,6 @@ class GetSlotOfferBannerListView(APIView):
             return Response({"message": [message], "response_data": serializer.data, "is_success": is_success})
 
 
-'''class GetAllBannerListView(ListCreateAPIView):
-    startdate = datetime.datetime.now()
-    queryset = Banner.objects.filter(status= True, banner_start_date__lte= startdate, banner_end_date__gte= startdate)
-    serializer_class = BannerSerializer
-    @list_route
-    def roots(self, request):
-        queryset = BannerPosition.objects.filter(status=True)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-'''
-
-'''class GetSlotBannerListView(ListCreateAPIView):
-    queryset = BannerData.objects.all().order_by('banner_data_order')
-    serializer_class = BannerDataSerializer
-    @list_route
-    def roots(self, request):
-        queryset = BannerData.objects.all().order_by('banner_data_order')
-        serializer = self.get_serializer(queryset, many=True)
-        is_success = True if queryset else False
-        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
-       '''
-
-
 class GetPageBannerListView(APIView):
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
     # serializer_class = BannerPositionSerializer
@@ -176,8 +153,7 @@ class GetTopSKUListView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
-
-        startdate = datetime.now()
+        
         shop_id = self.request.GET.get('shop_id')
         date = datetime.now()
 
