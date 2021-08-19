@@ -228,14 +228,16 @@ class TopSKUSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log', 'status')
 
     def validate(self, data):
-        if self.initial_data['product'] is None:
+
+        if not 'product' in self.initial_data or not self.initial_data['product']:
             raise serializers.ValidationError("please select product")
+
         product_val = get_validate_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
         data['product'] = product_val['product']
 
-        if self.initial_data['shop']:
+        if 'shop' in self.initial_data and self.initial_data['shop']:
             seller_shop_val = get_validate_seller_shop(self.initial_data['shop'])
             if 'error' in seller_shop_val:
                 raise serializers.ValidationError(seller_shop_val['error'])
