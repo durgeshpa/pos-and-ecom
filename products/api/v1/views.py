@@ -1033,7 +1033,7 @@ class CityListView(GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
-class PincodeListView(GenericAPIView):
+class PinCodeListView(GenericAPIView):
     """
         Get Pincode List
     """
