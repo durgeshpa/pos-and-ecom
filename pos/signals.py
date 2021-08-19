@@ -8,6 +8,7 @@ from wms.models import PosInventory
 
 from .tasks import update_shop_retailer_product_es
 from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosGRNOrderProductMapping
+from wms.models import PosInventoryState
 
 
 def sku_generator(shop_id):
@@ -53,7 +54,7 @@ def update_product_status_on_inventory_update(sender, instance=None, created=Fal
     """
         update product status on inventory update
     """
-    if instance.product.sku_type == 4:
+    if instance.product.sku_type == 4 and instance.inventory_state.inventory_state == PosInventoryState.AVAILABLE:
         if instance.quantity == 0:
             instance.product.status = 'deactivated'
         else:

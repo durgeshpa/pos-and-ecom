@@ -150,7 +150,17 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
-        
+
+        if RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+
+        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'product_ean_code' in attrs and attrs['product_ean_code']:
+            if not attrs['product_ean_code'].isdigit():
+                raise serializers.ValidationError("Product Ean Code should be a number")
+
         image_count = 0
         if 'images' in attrs and attrs['images']:
             image_count = len(attrs['images'])
@@ -207,10 +217,15 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     """
         RetailerProduct data for BASIC cart
     """
+    is_discounted = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_is_discounted(obj):
+        return obj.sku_type == 4
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -219,8 +234,13 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
+    offer_price_applied = serializers.SerializerMethodField()
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
+
+    @staticmethod
+    def get_offer_price_applied(obj):
+        return obj.retailer_product.offer_price and obj.retailer_product.offer_start_date <= datetime.date.today() <= obj.retailer_product.offer_end_date
 
     def product_price_dt(self, obj):
         """
@@ -249,7 +269,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
