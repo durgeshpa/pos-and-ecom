@@ -2065,7 +2065,7 @@ def create_update_discounted_products(parent_product=None):
     cron_logger.info("Total Inventories " + str(inventory.count()))
     for i in inventory:
         if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
-            info_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
+            cron_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
             continue
         discounted_life_percent = i.sku.parent_product.discounted_life_percent
         s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
@@ -2074,7 +2074,7 @@ def create_update_discounted_products(parent_product=None):
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - today
         discounted_life = floor(product_life.days * discounted_life_percent / 100)
-        info_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
+        cron_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
                          ' product_life {}, remaining life {}, discounted_life {}'
                          .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
                                  discounted_life))
@@ -2087,20 +2087,20 @@ def create_update_discounted_products(parent_product=None):
                 with transaction.atomic():
                     #create discounted product
                     discounted_product = create_discounted_product(i.sku)
-                    info_logger.info('LB|Discounted product created|SKU {}'.format(discounted_product.product_sku))
+                    cron_logger.info('LB|Discounted product created|SKU {}'.format(discounted_product.product_sku))
                     #move inventory
                     move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date, i.quantity,
                                    state_total_available, type_normal,  tr_id, tr_type_added_as_discounted,
                                    tr_type_move_to_discounted)
-                    info_logger.info('LB|Inventory moved to discounted|Batch Id {}, quantity {}'
+                    cron_logger.info('LB|Inventory moved to discounted|Batch Id {}, quantity {}'
                                      .format(i.batch_id, i.quantity))
                     # Setting price
                     price = create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life, remaining_life)
-                    info_logger.info('LB|Discounted price created|SKU {}, price {}'
+                    cron_logger.info('LB|Discounted price created|SKU {}, price {}'
                                      .format(discounted_product.product_sku, price))
             except Exception as e:
-                info_logger.error(e)
-                info_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
+                cron_logger.error(e)
+                cron_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
                                  .format(i.batch_id, i.quantity))
 
 
