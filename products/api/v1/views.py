@@ -405,7 +405,8 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by', 'created_by') \
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL).\
+        select_related('parent_product', 'updated_by', 'created_by') \
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
                           'parent_product__product_parent_product__product_pro_image',
                           'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',

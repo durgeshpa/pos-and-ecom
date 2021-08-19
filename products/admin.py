@@ -15,7 +15,7 @@ from django.conf.urls import url
 from django.urls import reverse
 from django.utils.html import format_html
 
-from retailer_backend.admin import InputFilter, SelectInputFilter
+from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
@@ -57,7 +57,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload, 
+                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload,
                     get_discounted_product_price_sample_csv, franchise_po_fail_status)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
@@ -1763,7 +1763,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
     This class is used to create Slabbed Product Price of Discounted Product from admin panel
     """
     form = ProductPriceSlabForm
-    list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop', 
+    list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop',
                     'city', 'pincode', 'approval_status', 'selling_price'
                     ]
     autocomplete_fields = ['product']
@@ -1886,7 +1886,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_queryset(self, request):
         qs = super().get_queryset(request).filter(product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED)
         return qs
-    
+
     def product_images(self,obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.

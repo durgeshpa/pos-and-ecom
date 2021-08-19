@@ -153,7 +153,7 @@ class GetTopSKUListView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
-        
+
         shop_id = self.request.GET.get('shop_id')
         date = datetime.now()
 
