@@ -2397,6 +2397,7 @@ class UploadDiscountedProductPriceForm(forms.Form):
                     raise ValidationError('Invalid Selling Price')
         return self.cleaned_data['file']
 
+
 def only_int(value):
     if value.isdigit() is False:
         raise ValidationError('HSN can only be a numeric value.')

@@ -58,7 +58,7 @@ from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInvent
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 from pos.models import RetailerProduct
-from retailer_to_sp.common_function import create_po_franchise
+from pos.common_functions import create_po_franchise
 
 
 logger = logging.getLogger('django')

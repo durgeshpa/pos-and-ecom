@@ -879,7 +879,7 @@ def NameIDCSV(request):
 
 class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Product.objects.all()
+        qs = Product.objects.filter(product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
@@ -2034,7 +2034,6 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
-                           Q(product_gf_code__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
 
@@ -2726,6 +2725,19 @@ class HSNAutocomplete(autocomplete.Select2QuerySetView):
     """
     def get_queryset(self, *args, **kwargs):
         qs = hsn_queryset(self)
+        return qs
+
+
+class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Get discounted product
+    """
+    def get_queryset(self):
+        qs = Product.objects.filter(product_type=1)
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
         return qs
 
 

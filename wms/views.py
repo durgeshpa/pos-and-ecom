@@ -2060,25 +2060,28 @@ def create_update_discounted_products(parent_product=None):
                                             inventory_type=type_normal, quantity__gt=0,
                                             sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
                                     .prefetch_related('sku__parent_product') \
-                                    .prefetch_related(Prefetch('sku__ins',
-                                                                 queryset=In.objects.filter(in_type='GRN').order_by('-created_at'),
-                                                                 to_attr='latest_in'))
+                                    .prefetch_related('sku__ins')
     if parent_product:
         inventory = inventory.filter(sku__parent_product=parent_product)
     for i in inventory:
-        discounted_life_percent = i.sku.parent_product.discounted_life_percent
-        if len(i.sku.latest_in) == 0 :
+        if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
+            info_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
             continue
-        expiry_date = i.sku.latest_in[0].expiry_date
-        manufacturing_date = i.sku.latest_in[0].manufacturing_date
+        discounted_life_percent = i.sku.parent_product.discounted_life_percent
+        s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
+        expiry_date = s_in_entry.expiry_date
+        manufacturing_date = s_in_entry.manufacturing_date
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - today
         discounted_life = floor(product_life.days * discounted_life_percent / 100)
-
-        info_logger.info('LB|Discounted product created| SKU {},  expiry_date {}, manufacturing_date {},'
+        info_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
                          ' product_life {}, remaining life {}, discounted_life {}'
                          .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
                                  discounted_life))
+
+        if discounted_life <= 0 :
+            continue
+
         if discounted_life >= remaining_life.days:
             try:
                 with transaction.atomic():
@@ -2116,8 +2119,7 @@ def create_discounted_product(product):
                                                                 )
     if created:
         for i in product.product_pro_image.all():
-            ProductImage.objects.create(product=discounted_product, image_name=i.image_name,
-                                        image_alt_text=i.image_alt_text, image=i.image)
+            ProductImage.objects.create(product=discounted_product, image_name=i.image_name, image=i.image)
         product.discounted_sku = discounted_product
         product.save()
     return discounted_product

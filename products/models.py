@@ -239,7 +239,8 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
 
 
 class Product(BaseTimestampUserStatusModel):
-    PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'), (1, 'DISCOUNTED', 'discounted'))
+
+    PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'),(1, 'DISCOUNTED', 'discounted'))
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)

@@ -1890,7 +1890,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     def product_images(self,obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
-                             format(obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_alt_text,
+                             format(obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_name,
                                     obj.product_pro_image.last().image.url))
 
     product_images.short_description = 'Product Image'
@@ -1898,20 +1898,17 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     def products_image(self, obj):
         if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                obj.parent_product.parent_product_pro_image.last().image.url,
-                (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
+                obj.parent_product.parent_product_pro_image.last().image.url, obj.parent_product.parent_product_pro_image.last().image_name,
                 obj.parent_product.parent_product_pro_image.last().image.url
             ))
         elif not obj.use_parent_image and obj.product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                obj.product_pro_image.last().image.url,
-                (obj.product_pro_image.last().image_alt_text or obj.product_pro_image.last().image_name),
+                obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_name,
                 obj.product_pro_image.last().image.url
             ))
         elif not obj.use_parent_image and obj.child_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                obj.child_product_pro_image.last().image.url,
-                (obj.child_product_pro_image.last().image_alt_text or obj.child_product_pro_image.last().image_name),
+                obj.child_product_pro_image.last().image.url, obj.child_product_pro_image.last().image_name,
                 obj.child_product_pro_image.last().image.url
             ))
         return '-'

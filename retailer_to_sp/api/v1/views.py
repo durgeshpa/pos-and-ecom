@@ -83,7 +83,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
-                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls)
+                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP)
 
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -3564,15 +3564,25 @@ class OrderListCentral(GenericAPIView):
     def get_basic_order_list(self, request, *args, **kwargs):
         """
             Get Order
-            For Basic Cart
+            For Basic Cart as well as
+            Ecom Cart
+            Cart Type 1 - Basic Cart
+            Cart Type 2 - Ecom Cart
         """
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
-        if order_status:
-            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
-            qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
+        cart_type = self.request.GET.get('cart_type')
+        if int(cart_type) == 1:
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
+            if order_status:
+                order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+                qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
+        elif int(cart_type) == 2:
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM')
+            if order_status:
+                order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
+                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
