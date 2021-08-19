@@ -1306,6 +1306,8 @@ class ProductPriceSerializers(serializers.ModelSerializer):
     slab_price_applicable = serializers.BooleanField(required=False, read_only=True)
 
     def validate(self, data):
+        if not 'product_type' in self.initial_data or self.initial_data['product_type'] not in [0, 1]:
+            raise serializers.ValidationError("product_type is mandatory")
 
         if self.initial_data['product'] is None:
             raise serializers.ValidationError("please select product")
