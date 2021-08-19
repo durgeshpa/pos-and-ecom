@@ -89,3 +89,11 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
 def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
     product = instance.grn_order.order.ordered_cart.po_products.filter(product=instance.product)
     product.update(is_grn_done=True)
+
+@receiver(pre_save, sender=RetailerProduct)
+def set_online_price(sender, instance=None, created=False, **kwargs):
+    if instance.online_order:
+        if instance.sku_type == 1 and not instance.online_price:
+            instance.online_price = instance.selling_price
+    else:
+        instance.online_price = None
