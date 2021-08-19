@@ -148,14 +148,14 @@ class InOutLedgerForm(forms.Form):
     start_date = forms.DateTimeField(
     widget=DateTimePicker(
         options={
-            'format': 'YYYY-MM-DD H:mm:ss',
+            'format': 'YYYY-MM-DD HH:mm:ss',
             }
         ),
     )
     end_date = forms.DateTimeField(
         widget=DateTimePicker(
             options={
-            'format': 'YYYY-MM-DD H:mm:ss',
+            'format': 'YYYY-MM-DD HH:mm:ss',
             }
         ),
     )
