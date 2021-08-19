@@ -1316,6 +1316,9 @@ class ProductPriceSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(product_val['error'])
         data['product'] = product_val['product']
 
+        if not int(data['product'].product_type) == int(self.initial_data['product_type']):
+            raise serializers.ValidationError("product_type is mismatch")
+
         if product_val['product'] and product_val['product'].product_mrp:
             data['mrp'] = product_val['product'].product_mrp
 
