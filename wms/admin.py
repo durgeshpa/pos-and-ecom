@@ -22,6 +22,7 @@ from products.models import ProductVendorMapping
 from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
+from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
@@ -339,9 +340,9 @@ class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'inventory_type',
-                    'quantity_display', 'weight_in_kg', 'expiry_date')
+                    'quantity_display', 'weight_in_kg', 'manufacturing_date', 'expiry_date')
     readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'inventory_type',
-                       'quantity', 'expiry_date')
+                       'quantity', 'manufacturing_date', 'expiry_date')
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type',
                    ('expiry_date', DateRangeFilter)]
@@ -357,6 +358,24 @@ class InAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(InAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^in-out-ledger-report/$',
+               self.admin_site.admin_view(InOutLedgerReport.as_view()),
+               name="in-out-ledger-report"
+           ),
+           url(
+               r'^in-out-ledger-form/$',
+               self.admin_site.admin_view(InOutLedgerFormView.as_view()),
+               name="in-out-ledger-form"
+           )
+        ] + urls
+        return urls
 
 
 class PutAwayAdmin(admin.ModelAdmin):

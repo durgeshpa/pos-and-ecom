@@ -32,6 +32,7 @@ from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 
 from global_config.views import get_config
+from products.utils import deactivate_product
 from retailer_backend.common_function import bulk_create
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
@@ -50,7 +51,7 @@ from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBin
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice, Repackaging, ProductCategory, PriceSlab, ProductImage
+from products.models import Product, ProductPrice, Repackaging, ProductCategory, PriceSlab, ProductImage, ParentProduct
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -2047,7 +2048,7 @@ def iterate_data(product, product_list, expired_product_list, expiry_date):
     return product_temp
 
 
-def create_update_discounted_products():
+def create_update_discounted_products(parent_product=None):
     warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
     type_normal = InventoryType.objects.get(inventory_type='normal')
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
@@ -2056,23 +2057,31 @@ def create_update_discounted_products():
     today = datetime.today().date()
     tr_id = today.isoformat()
     inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
-                                            # sku__parent_product__parent_id='PPROBRI0396',
                                             inventory_type=type_normal, quantity__gt=0,
                                             sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
                                     .prefetch_related('sku__parent_product') \
-                                    .prefetch_related(Prefetch('sku__ins',
-                                                                 queryset=In.objects.all().order_by('-created_at'),
-                                                                 to_attr='latest_in'))
-
+                                    .prefetch_related('sku__ins')
+    if parent_product:
+        inventory = inventory.filter(sku__parent_product=parent_product)
     for i in inventory:
-        discounted_life_percent = i.sku.parent_product.discounted_life_percent
-        if len(i.sku.latest_in) == 0 :
+        if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
+            info_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
             continue
-        expiry_date = i.sku.latest_in[0].expiry_date
-        manufacturing_date = i.sku.latest_in[0].manufacturing_date
+        discounted_life_percent = i.sku.parent_product.discounted_life_percent
+        s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
+        expiry_date = s_in_entry.expiry_date
+        manufacturing_date = s_in_entry.manufacturing_date
         product_life = expiry_date - manufacturing_date
         remaining_life = expiry_date - today
         discounted_life = floor(product_life.days * discounted_life_percent / 100)
+        info_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
+                         ' product_life {}, remaining life {}, discounted_life {}'
+                         .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
+                                 discounted_life))
+
+        if discounted_life <= 0 :
+            continue
+
         if discounted_life >= remaining_life.days:
             try:
                 with transaction.atomic():
@@ -2110,8 +2119,7 @@ def create_discounted_product(product):
                                                                 )
     if created:
         for i in product.product_pro_image.all():
-            ProductImage.objects.create(product=discounted_product, image_name=i.image_name,
-                                        image_alt_text=i.image_alt_text, image=i.image)
+            ProductImage.objects.create(product=discounted_product, image_name=i.image_name, image=i.image)
         product.discounted_sku = discounted_product
         product.save()
     return discounted_product
@@ -2122,7 +2130,7 @@ def move_inventory(warehouse, discounted_product, original_product, bin, batch_i
 
     discounted_batch_id = batch_id
     available_stock = get_stock(warehouse, type_normal, [original_product.id])
-    available_qty = available_stock.get(original_product.id)
+    available_qty = available_stock.get(original_product.id, 0)
 
     if available_qty <= 0:
         raise Exception('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
@@ -2178,5 +2186,17 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
     return discounted_price
 
 
+@receiver(post_save, sender=ParentProduct)
+def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
+    if instance.discounted_life_percent > 0:
+        create_update_discounted_products(instance)
 
+
+@receiver(post_save, sender=WarehouseInventory)
+def deactivate_discounted_product(sender, instance=None, created=False, **kwargs):
+    if instance.sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED \
+        and instance.inventory_type.inventory_type == 'normal' \
+        and instance.inventory_state.inventory_state == 'total_available' \
+        and instance.quantity <= 0:
+        deactivate_product(instance.sku)
 

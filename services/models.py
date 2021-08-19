@@ -2,10 +2,9 @@ from django.db import models
 from datetime import datetime
 
 from model_utils import Choices
-from wms.models import RetailerProduct, PosInventoryState
 from products.models import Product
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, Bin
+from wms.models import InventoryType, InventoryState, Bin, PosInventoryState
 # Create your models here.
 
 class OrderDetailReports(models.Model):
@@ -339,7 +338,7 @@ class WarehouseInventoryHistoric(models.Model):
 
     
 class PosInventoryHistoric(models.Model):
-    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.IntegerField(default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField()
