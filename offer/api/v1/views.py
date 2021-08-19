@@ -20,7 +20,7 @@ from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
-from offer.services import offer_banner_offer_page_slot_search, offer_banner_position_search
+from offer.services import offer_banner_offer_page_slot_search, offer_banner_position_search, top_sku_search
 from offer.common_validators import validate_data_format
 from categories.models import Category
 from categories.services import category_search
@@ -454,7 +454,7 @@ class TopSKUView(GenericAPIView):
             offer_page = id_validation['data']
         else:
             """ GET TopSKU List """
-            self.queryset = self.top_sku_filter()
+            self.queryset = self.top_sku_search_filter()
             offer_page_total_count = self.queryset.count()
             offer_page = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(offer_page, many=True)
@@ -513,7 +513,7 @@ class TopSKUView(GenericAPIView):
             return get_response(f'please provide a valid top sku {off_id}', False)
         return get_response('top sku were deleted successfully!', True)
 
-    def top_sku_filter(self):
+    def top_sku_search_filter(self):
         seller_shop_id = self.request.GET.get('seller_shop_id')
         product_id = self.request.GET.get('product_id')
         status = self.request.GET.get('status')
@@ -521,6 +521,10 @@ class TopSKUView(GenericAPIView):
         start_date_range_to = self.request.GET.get('start_date_range_to')
         end_date_range_from = self.request.GET.get('end_date_range_from')
         end_date_range_to = self.request.GET.get('end_date_range_to')
+        search_text = self.request.GET.get('search_text')
+        # search using name based on criteria that matches
+        if search_text:
+            self.queryset = top_sku_search(self.queryset, search_text)
 
         if product_id is not None:
             self.queryset = self.queryset.filter(product_id=product_id)
