@@ -1195,7 +1195,8 @@ def validate_row(uploaded_data_list, header_list, category):
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'b2b', 'b2c' or 'both'!")
 
-            if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] != '':
+            if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row[
+                'discounted_life_percent'] != '':
                 if not re.match("^\d+[.]?[\d]{0,2}$", str(row['discounted_life_percent'])):
                     raise ValidationError(f"Row {row_num} | discounted_life_percent' can only be a numeric value.")
 
@@ -1287,11 +1288,13 @@ def validate_row(uploaded_data_list, header_list, category):
                               f"checking excel data from dictionary")
 
 
-def get_validate_slab_price(price_slabs, slab_price_applicable, data):
+def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, data):
     """ validate ids that belong to a Category model also
     checking category shouldn't repeat else through error """
-
-    fields = ["selling_price", "offer_price", "offer_price_start_date", "offer_price_end_date"]
+    if int(product_type) == 0:
+        fields = ["selling_price", "offer_price", "offer_price_start_date", "offer_price_end_date"]
+    else:
+        fields = ["selling_price", ]
     slab_price_applicable_fields = ["start_value", "end_value"] + fields
     if slab_price_applicable:
         if not len(price_slabs) == 2:
@@ -1326,7 +1329,7 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
             last_slab_end_value = price_slab['end_value']
 
         if price_slab['selling_price'] is None or price_slab['selling_price'] == 0 \
-                or price_slab['selling_price'] > data['mrp']*data['product'].product_inner_case_size:
+                or price_slab['selling_price'] > data['mrp'] * data['product'].product_inner_case_size:
             raise ValidationError('Invalid Selling Price')
 
         if cnt == 0 and data['product'].parent_product.is_ptr_applicable:
@@ -1341,7 +1344,7 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
             if data['product'].product_mrp and price_slab['selling_price'] > float(data['product'].product_mrp):
                 raise ValidationError("Invalid 'Selling Price' as the MRP is lesser than SP")
 
-        if price_slab['offer_price'] is not None:
+        if 'offer_price' in price_slab and price_slab['offer_price'] is not None:
             if price_slab['selling_price'] <= price_slab['offer_price']:
                 raise ValidationError('Invalid Offer Price')
             elif price_slab['offer_price_start_date'] is None:
@@ -1356,4 +1359,5 @@ def get_validate_slab_price(price_slabs, slab_price_applicable, data):
                 raise ValidationError('Offer Price End Date is invalid')
 
         last_slab_selling_price = price_slab['selling_price']
-        last_slab_offer_price = price_slab['offer_price']
+        if 'offer_price' in price_slab:
+            last_slab_offer_price = price_slab['offer_price']

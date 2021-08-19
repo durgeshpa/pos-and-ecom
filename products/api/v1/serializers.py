@@ -1346,7 +1346,7 @@ class ProductPriceSerializers(serializers.ModelSerializer):
 
         if not 'price_slabs' in self.initial_data or not self.initial_data['price_slabs']:
             raise serializers.ValidationError(_('price_slabs is required'))
-        get_validate_slab_price(self.initial_data['price_slabs'],
+        get_validate_slab_price(self.initial_data['price_slabs'], self.initial_data['product_type'],
                                 self.initial_data['slab_price_applicable'], data)
         data['price_slabs'] = self.initial_data['price_slabs']
 

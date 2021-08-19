@@ -2812,7 +2812,7 @@ class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.filter(product_type=1)
 
         if self.q:
-            qs = qs.filter(name__istartswith=self.q)
+            qs = qs.filter(product_name__icontains=self.q)
 
         return qs
 
