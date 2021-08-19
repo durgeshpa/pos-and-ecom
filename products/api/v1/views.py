@@ -4,6 +4,7 @@ from datetime import datetime
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
+from django.db.models import Q
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -404,7 +405,6 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL).\
         select_related('parent_product', 'updated_by', 'created_by') \
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
@@ -425,6 +425,12 @@ class ChildProductView(GenericAPIView):
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
+
         ch_product_total_count = self.queryset.count()
         info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
@@ -942,12 +948,17 @@ class ChildProductListView(GenericAPIView):
         Get Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination'],
-                                           product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL) \
+    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination']) \
         .values('id', 'product_name', 'product_sku', 'product_mrp')
     serializer_class = ProductSerializers
 
     def get(self, request):
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
+
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = child_product_search(self.queryset, search_text)
@@ -1244,7 +1255,20 @@ class SlabProductPriceView(GenericAPIView):
         """ GET API for Product Price """
 
         info_logger.info("Product Price GET api called.")
-        pro_vendor_count = self.queryset.count()
+
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+
+        self.queryset = self.queryset.filter(
+            id__in=self.queryset.filter(price_slabs__isnull=False, product__product_type=
+            int(request.GET.get('product_type'))).values_list('pk', flat=True))
+        if not (request.user.is_superuser or request.user.has_perm('products.change_productprice')):
+            self.queryset = self.queryset.filter(Q(seller_shop__related_users=request.user) |
+                                                 Q(seller_shop__shop_owner=request.user)).distinct()
+
+        slab_pro_count = self.queryset.count()
         if request.GET.get('id'):
             """ Get Product Price for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -1254,9 +1278,9 @@ class SlabProductPriceView(GenericAPIView):
         else:
             """ GET Product Price  List """
             self.queryset = self.search_filter_product_price()
-            pro_vendor_count = self.queryset.count()
+            slab_pro_count = self.queryset.count()
             product_slab_price = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        msg = f"total count {pro_vendor_count}" if product_slab_price else "no product price found"
+        msg = f"total count {slab_pro_count}" if product_slab_price else "no product price found"
         serializer = self.serializer_class(product_slab_price, many=True)
         return get_response(msg, serializer.data, True)
 

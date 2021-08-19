@@ -655,10 +655,10 @@ class ChildProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
-                  'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_pro_tax', 'destination_product_pro', 'product_images',
-                  'destination_product_repackaging', 'packing_product_rt', 'product_vendor_mapping',
-                  'child_product_logs')
+                  'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
+                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
+                  'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
+                  'packing_product_rt', 'product_vendor_mapping', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -1259,10 +1259,18 @@ class ShopsSerializer(serializers.ModelSerializer):
         return representation['service_partner']
 
 
-class ProductsSerializers(serializers.ModelSerializer):
+class DiscountedProductsSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',)
+        fields = ('id', 'product_sku', 'product_name', )
+
+
+class ProductsSerializers(serializers.ModelSerializer):
+    discounted_sku = DiscountedProductsSerializers()
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_sku')
 
 
 class PriceSlabSerializersData(serializers.ModelSerializer):

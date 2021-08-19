@@ -39,7 +39,7 @@ from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction, DatabaseError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
@@ -65,7 +65,6 @@ from barCodeGenerator import barcodeGen, merged_barcode_gen
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster, CronRunLog
 
 from .common_functions import get_expiry_date
-from datetime import date, timedelta
 from .send_email import send_mail_w_attachment
 from global_config.models import GlobalConfig
 

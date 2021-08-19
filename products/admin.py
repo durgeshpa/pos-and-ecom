@@ -1692,12 +1692,16 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
         qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
                        product__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).values_list('pk', flat=True),)
+
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
-        return qs.filter(
+
+        qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
         ).distinct()
+
+        return qs
 
     def get_urls(self):
         """
@@ -1786,8 +1790,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super(DiscountedProductSlabPriceAdmin, self).save_model(request, obj, form, change)
-        PriceSlab.objects.create(product_price=obj, start_value=1, end_value=0,
-                             selling_price=obj.selling_price)
+        PriceSlab.objects.create(product_price=obj, start_value=1, end_value=0, selling_price=obj.selling_price)
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super(DiscountedProductSlabPriceAdmin, self).get_fieldsets(request, obj)
@@ -1810,8 +1813,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
         if not request.user.is_superuser:
             return self.readonly_fields + (
                 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'selling_price')
-        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'selling_price')
-
+        return self.readonly_fields + ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'selling_price')
 
     def reference_product(self, obj):
         if obj.product.product_ref:
@@ -1833,11 +1835,10 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
             kwargs['form'] = ProductPriceSlabForm
         return super().get_form(request, obj, **kwargs)
 
-
     def get_queryset(self, request):
         qs = super(DiscountedProductSlabPriceAdmin, self).get_queryset(request)
         qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
-                                        product__product_type = Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).values_list('pk', flat=True))
+                                        product__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).values_list('pk', flat=True))
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1866,6 +1867,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
                ] + urls
         return urls
     change_list_template = 'admin/products/discountedproduct-slab-price-change-list.html'
+
 
 class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = DiscountedProductForm

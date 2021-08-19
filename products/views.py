@@ -2078,7 +2078,6 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
-                           Q(product_gf_code__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
 
