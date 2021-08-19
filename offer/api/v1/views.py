@@ -41,7 +41,7 @@ class GetSlotOfferBannerListView(APIView):
 
     def get(self, *args, **kwargs):
 
-        startdate = datetime.datetime.now()
+        startdate = datetime.now()
         position_name = self.kwargs.get('page_name')
         pos_name = self.kwargs.get('banner_slot')
         shop_id = self.request.GET.get('shop_id')
@@ -111,7 +111,7 @@ class GetPageBannerListView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
-        startdate = datetime.datetime.now()
+        startdate = datetime.now()
         pos_name = self.kwargs.get('page_name')
         if pos_name:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=pos_name,
@@ -177,9 +177,9 @@ class GetTopSKUListView(APIView):
 
     def get(self, *args, **kwargs):
 
-        startdate = datetime.datetime.now()
+        startdate = datetime.now()
         shop_id = self.request.GET.get('shop_id')
-        date = datetime.datetime.now()
+        date = datetime.now()
 
         if shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
