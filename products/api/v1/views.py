@@ -406,6 +406,7 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('parent_product', 'updated_by', 'created_by') \
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
                           'parent_product__product_parent_product__product_pro_image',
@@ -1389,28 +1390,27 @@ class DiscountProductView(GenericAPIView):
         Get Discount Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED). \
         select_related('parent_product', 'updated_by') \
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
-                          'parent_product__product_parent_product__product_pro_image',
-                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
-                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
-                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
-                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_pro_image', 'child_product_log',
+                          'child_product_log__updated_by', 'parent_product__parent_product_pro_category',
+                          'parent_product__parent_product_pro_category__category',
                           'parent_product__product_parent_product__product_vendor_mapping',
                           'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
-                          'parent_product__product_parent_product__product_vendor_mapping__vendor',
-                          'parent_product__product_hsn', 'product_vendor_mapping__vendor',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
                           'parent_product__product_parent_product__product_vendor_mapping',
-                          'parent_product__parent_brand', ).order_by('-id')
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax', ).order_by('-id')
 
     serializer_class = DiscountChildProductSerializers
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
 
-        ch_product_total_count = self.queryset.count()
+        d_ch_product_total_count = self.queryset.count()
         info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
@@ -1421,12 +1421,12 @@ class DiscountProductView(GenericAPIView):
         else:
             """ GET Child Product List """
             self.queryset = self.search_filter_product_list()
-            ch_product_total_count = self.queryset.count()
+            d_ch_product_total_count = self.queryset.count()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
 
-        msg = f"total count {ch_product_total_count}" if child_product else "no child product found"
+        msg = f"total count {d_ch_product_total_count}" if child_product else "no child product found"
         return get_response(msg, serializer.data, True)
 
     def put(self, request):
