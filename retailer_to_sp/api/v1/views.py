@@ -277,9 +277,14 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        body = dict()
+        filter_list = []
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            filter_list = [{"term": {"is_discounted": False}}]
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+            filter_list.append({"term": {"ean": ean_code}})
+        body = dict()
+        if filter_list:
+            body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
     def rp_normal_search(self, shop_id):
@@ -289,18 +294,24 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         body = dict()
+        query = dict()
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            query = {"bool": {"filter": [{"term": {"is_discounted": False}}]}}
+
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                body['query'] = {"query_string": {"query": keyword + "*", "fields": ["ean"]}}
+                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
             else:
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                body['query'] = {
-                    "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
+                query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"],
+                                         "minimum_should_match": 2}
+        if query:
+            body['query'] = query
         return self.process_rp(output_type, body, shop_id)
 
     @check_pos_shop
