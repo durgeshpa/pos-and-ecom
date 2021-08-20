@@ -50,7 +50,7 @@ class RetailerProductCls(object):
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
                                 product_ean_code, user, event_type, event_id=None, product_status='active',
-                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_order=True, online_price=None):
+                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
         """
             General Response For API
         """
@@ -60,7 +60,7 @@ class RetailerProductCls(object):
                                                  offer_price=offer_price, offer_start_date=offer_sd,
                                                  offer_end_date=offer_ed, description=description,
                                                  product_ean_code=product_ean_code, status=product_status,
-                                                 product_ref=product_ref, online_order=online_order, online_price=online_price)
+                                                 product_ref=product_ref, online_enabled=online_enabled, online_price=online_price)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)

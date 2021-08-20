@@ -54,7 +54,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
-    online_order = serializers.BooleanField(default = True)
+    online_enabled = serializers.BooleanField(default = True)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
 
     @staticmethod
@@ -155,7 +155,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
-    online_order = serializers.BooleanField(default = True)
+    online_enabled = serializers.BooleanField(default = True)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
 
 
