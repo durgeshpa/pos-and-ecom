@@ -6,7 +6,8 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     WeightView, WeightExportAsCSVView, ProductHSNView, HSNExportAsCSVView, ChildProductListView, VendorListView, \
     ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
     BuyerShopListView, CityListView, PinCodeListView, SlabProductPriceView, ProductPriceStatusListView, \
-    DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView
+    DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, \
+    DiscountProductListForManualPriceView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -49,5 +50,6 @@ urlpatterns = [
         name='export-slab-product-price-csv'),
     url(r'^product-price-status-list/', ProductPriceStatusListView.as_view(), name='product-price-status-list'),
     url(r'^product-list/', ProductListView.as_view(), name='product-list'),
+    url(r'^discounted-product-list/', DiscountProductListForManualPriceView.as_view(), name='discounted-product-list'),
 
 ]

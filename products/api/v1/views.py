@@ -405,7 +405,7 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL).\
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.NORMAL). \
         select_related('parent_product', 'updated_by', 'created_by') \
         .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
                           'parent_product__product_parent_product__product_pro_image',
@@ -1245,7 +1245,8 @@ class SlabProductPriceView(GenericAPIView):
     permission_classes = (AllowAny,)
 
     queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ) \
-        .prefetch_related('price_slabs', 'product__parent_product', 'product__product_ref', 'seller_shop__shop_type', 'buyer_shop__shop_type',
+        .prefetch_related('price_slabs', 'product__parent_product', 'product__product_ref', 'seller_shop__shop_type',
+                          'buyer_shop__shop_type',
                           'buyer_shop__shop_owner', 'seller_shop__shop_owner'). \
         only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', ).order_by(
         '-id')
@@ -1360,4 +1361,24 @@ class ProductListView(GenericAPIView):
         child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(child_product, many=True)
         msg = "" if child_product else "no product found"
+        return get_response(msg, serializer.data, True)
+
+
+class DiscountProductListForManualPriceView(GenericAPIView):
+    """
+        Get Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED,
+                                           is_manual_price_update=True) \
+        .values('id', 'product_name', 'product_sku', 'product_mrp')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no discounted product found"
         return get_response(msg, serializer.data, True)
