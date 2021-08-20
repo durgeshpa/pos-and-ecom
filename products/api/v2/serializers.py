@@ -706,7 +706,7 @@ class BulkDiscountedProductPriceSerializers(serializers.ModelSerializer):
                 continue
             if isBlankRow(row, len(first_row)):
                 continue
-            product = Product.objects.filter(product_sku=row[0]).last()
+            product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
             if not row[0] or product is None:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
             if int(product.product_type) != 1:

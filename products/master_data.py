@@ -1247,7 +1247,7 @@ def create_bulk_product_discounted_price(validated_data):
     try:
         for row_id, row in enumerate(reader):
             with transaction.atomic():
-                product = Product.objects.filter(product_sku=row[0]).last()
+                product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
                 seller_shop_id = int(row[2])
                 seller_shop = Shop.objects.filter(pk=seller_shop_id).last()
 
@@ -1291,7 +1291,7 @@ def create_bulk_product_discounted_price(validated_data):
 
                 # Create Price for discounted Product
                 discounted_product_price = PriceSlab(product_price=product_price, selling_price=selling_price,
-                                                     start_value=1, end_value=0)
+                                                     start_value=0, end_value=0)
                 discounted_product_price.save()
 
     except Exception as e:

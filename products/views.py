@@ -2583,7 +2583,7 @@ def discounted_product_price_csv_upload(request):
 
                         # Create Price for discounted Product
                         discounted_product_price = PriceSlab(product_price=product_price, selling_price=selling_price,
-                                                             start_value=1, end_value=0)
+                                                             start_value=0, end_value=0)
                         discounted_product_price.save()
 
             except Exception as e:
