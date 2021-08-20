@@ -810,19 +810,24 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
     child_product_id_list = serializers.ListField(
         child=serializers.IntegerField(required=True)
     )
+    product_type = serializers.PositiveSmallIntegerField(max_length=20, choices=Product.PRODUCT_TYPE_CHOICE,
+                                                    default=Product.PRODUCT_TYPE_CHOICE.NORMAL)
 
     class Meta:
         model = Product
-        fields = ('child_product_id_list',)
+        fields = ('child_product_id_list', 'product_type')
 
     def validate(self, data):
+        
+        if not 'product_type' in self.initial_data or self.initial_data['product_type'] not in [0, 1]:
+            raise serializers.ValidationError("product_type is mandatory")
 
         if len(data.get('child_product_id_list')) == 0:
             raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
 
         for id in data.get('child_product_id_list'):
             try:
-                Product.objects.get(id=id)
+                Product.objects.get(id=id, product_type=data.get('product_type'))
             except ObjectDoesNotExist:
                 raise serializers.ValidationError(f'child_product not found for id {id}')
 
