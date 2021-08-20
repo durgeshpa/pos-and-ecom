@@ -810,15 +810,14 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
     child_product_id_list = serializers.ListField(
         child=serializers.IntegerField(required=True)
     )
-    product_type = serializers.PositiveSmallIntegerField(max_length=20, choices=Product.PRODUCT_TYPE_CHOICE,
-                                                    default=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+    product_type = serializers.IntegerField(required=True)
 
     class Meta:
         model = Product
         fields = ('child_product_id_list', 'product_type')
 
     def validate(self, data):
-        
+
         if not 'product_type' in self.initial_data or self.initial_data['product_type'] not in [0, 1]:
             raise serializers.ValidationError("product_type is mandatory")
 
