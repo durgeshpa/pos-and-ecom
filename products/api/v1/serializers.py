@@ -1508,8 +1508,7 @@ class DiscountChildProductSerializers(serializers.ModelSerializer):
         try:
             # call super to save modified instance along with the validated data
             child_product_obj = super().update(instance, validated_data)
-            child_product = ProductCls.update_child_product(self.initial_data['parent_product'],
-                                                            child_product_obj)
+            child_product = ProductCls.update_child_product(child_product_obj)
             ProductCls.create_child_product_log(child_product, "updated")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
