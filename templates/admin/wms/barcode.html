@@ -10,7 +10,7 @@
         <div><img src="data:image/png;base64,{{value.code}}" height="180px"></div>
         {% if value.data is not None%}
             {% for key, value in  value.data.items %}
-                <div>{{key}}:{{value}}</div>
+                <div style="font-size:42px;">{{key}}:{{value}}</div>
             {% endfor %}
         {% endif %}
     {% endfor %}
