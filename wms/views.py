@@ -150,9 +150,6 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
         error_logger.error(e)
 
 
-from django import forms
-
-
 def bins_upload(request):
     if request.method == 'POST':
         info_logger.info("POST request while upload the .xls file for Bin generation.")
@@ -886,8 +883,8 @@ def pickup_entry_creation_with_cron():
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time)\
-                             .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
+                                     created_at__gt=start_time) \
+        .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
@@ -1357,31 +1354,34 @@ def shipment_out_inventory_change(shipment_list, final_status):
         else:
             pass
 
+
 def warehouse_data_generator(data, archive_entry):
     for row in data:
         yield WarehouseInventoryHistoric(archive_entry=archive_entry,
-                                                    warehouse=row.warehouse,
-                                                    sku=row.sku,
-                                                    inventory_type=row.inventory_type,
-                                                    inventory_state=row.inventory_state,
-                                                    quantity=row.quantity,
-                                                    in_stock=row.in_stock,
-                                                    visible=row.visible,
-                                                    created_at=row.created_at,
-                                                    modified_at=row.modified_at)
+                                         warehouse=row.warehouse,
+                                         sku=row.sku,
+                                         inventory_type=row.inventory_type,
+                                         inventory_state=row.inventory_state,
+                                         quantity=row.quantity,
+                                         in_stock=row.in_stock,
+                                         visible=row.visible,
+                                         created_at=row.created_at,
+                                         modified_at=row.modified_at)
+
 
 def bin_data_generator(data, archive_entry):
     for row in data:
         yield BinInventoryHistoric(archive_entry=archive_entry,
-                                              warehouse=row.warehouse,
-                                              sku=row.sku,
-                                              bin=row.bin,
-                                              batch_id=row.batch_id,
-                                              inventory_type=row.inventory_type,
-                                              quantity=row.quantity,
-                                              in_stock=row.in_stock,
-                                              created_at=row.created_at,
-                                              modified_at=row.modified_at)
+                                   warehouse=row.warehouse,
+                                   sku=row.sku,
+                                   bin=row.bin,
+                                   batch_id=row.batch_id,
+                                   inventory_type=row.inventory_type,
+                                   quantity=row.quantity,
+                                   in_stock=row.in_stock,
+                                   created_at=row.created_at,
+                                   modified_at=row.modified_at)
+
 
 def archive_inventory_cron():
     info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))
@@ -1923,7 +1923,7 @@ def auto_report_for_expired_product():
             'sku__product_sku', 'warehouse_id',
             'sku__product_name', 'quantity',
             'sku__parent_product__parent_id',
-            'sku__parent_product__name','to_be_picked_qty',
+            'sku__parent_product__name', 'to_be_picked_qty',
             'sku__parent_product__inner_case_size',
             'sku__product_ean_code', 'sku__product_mrp',
             'batch_id', 'bin__bin_id',
@@ -1969,7 +1969,6 @@ def auto_report_for_expired_product():
 
 
 def iterate_data(product, product_list, expired_product_list, expiry_date):
-
     batch_bin_key = product['batch_id'] + product['bin__bin_id']
     if batch_bin_key in product_list:
         product_temp = product_list[batch_bin_key]
@@ -2048,66 +2047,61 @@ def iterate_data(product, product_list, expired_product_list, expiry_date):
 
 
 def create_update_discounted_products(parent_product=None):
-    try:
-        warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
-        type_normal = InventoryType.objects.get(inventory_type='normal')
-        state_total_available = InventoryState.objects.get(inventory_state='total_available')
-        tr_type_move_to_discounted = 'moved_to_discounted'
-        tr_type_added_as_discounted = 'added_as_discounted'
-        today = datetime.today().date()
-        tr_id = today.isoformat()
-        inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
-                                                inventory_type=type_normal, quantity__gt=0,
-                                                sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
-                                        .prefetch_related('sku__parent_product') \
-                                        .prefetch_related('sku__ins')
-        if parent_product:
-            inventory = inventory.filter(sku__parent_product=parent_product)
-        cron_logger.info("Total Inventories " + str(inventory.count()))
-        for i in inventory:
-            if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
-                cron_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
-                continue
-            discounted_life_percent = i.sku.parent_product.discounted_life_percent
-            s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
-            expiry_date = s_in_entry.expiry_date
-            manufacturing_date = s_in_entry.manufacturing_date
-            cron_logger.info("manufacturing_date " + str(manufacturing_date))
-            cron_logger.info("expiry_date " + str(expiry_date))
-            product_life = expiry_date - manufacturing_date
-            remaining_life = expiry_date - today
-            discounted_life = floor(product_life.days * discounted_life_percent / 100)
-            cron_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
-                            ' product_life {}, remaining life {}, discounted_life {}'
-                            .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
-                                    discounted_life))
+    warehouse_list = get_config('LOOTBAZAR_WAREHOUSES', [600])
+    type_normal = InventoryType.objects.get(inventory_type='normal')
+    state_total_available = InventoryState.objects.get(inventory_state='total_available')
+    tr_type_move_to_discounted = 'moved_to_discounted'
+    tr_type_added_as_discounted = 'added_as_discounted'
+    today = datetime.today().date()
+    tr_id = today.isoformat()
+    inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
+                                            inventory_type=type_normal, quantity__gt=0,
+                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
+        .prefetch_related('sku__parent_product') \
+        .prefetch_related('sku__ins')
+    if parent_product:
+        inventory = inventory.filter(sku__parent_product=parent_product)
+    for i in inventory:
+        if i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).count() == 0:
+            info_logger.info('LB|Discounted product details| SKU {}, WMS IN not found'.format(i.sku_id))
+            continue
+        discounted_life_percent = i.sku.parent_product.discounted_life_percent
+        s_in_entry = i.sku.ins.filter(in_type='GRN', batch_id=i.batch_id).last()
+        expiry_date = s_in_entry.expiry_date
+        manufacturing_date = s_in_entry.manufacturing_date
+        product_life = expiry_date - manufacturing_date
+        remaining_life = expiry_date - today
+        discounted_life = floor(product_life.days * discounted_life_percent / 100)
+        info_logger.info('LB|Discounted product details| SKU {},  expiry_date {}, manufacturing_date {},'
+                         ' product_life {}, remaining life {}, discounted_life {}'
+                         .format(i.sku_id, expiry_date, manufacturing_date, product_life, remaining_life,
+                                 discounted_life))
 
-            if discounted_life <= 0 :
-                continue
+        if discounted_life <= 0:
+            continue
 
-            if discounted_life >= remaining_life.days:
-                try:
-                    with transaction.atomic():
-                        #create discounted product
-                        discounted_product = create_discounted_product(i.sku)
-                        cron_logger.info('LB|Discounted product created|SKU {}'.format(discounted_product.product_sku))
-                        #move inventory
-                        move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date, i.quantity,
-                                    state_total_available, type_normal,  tr_id, tr_type_added_as_discounted,
-                                    tr_type_move_to_discounted)
-                        cron_logger.info('LB|Inventory moved to discounted|Batch Id {}, quantity {}'
-                                        .format(i.batch_id, i.quantity))
-                        # Setting price
-                        price = create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life, remaining_life)
-                        cron_logger.info('LB|Discounted price created|SKU {}, price {}'
-                                        .format(discounted_product.product_sku, price))
-                except Exception as e:
-                    cron_logger.error(e)
-                    cron_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
-                                    .format(i.batch_id, i.quantity))
-    except Exception as e:
-        cron_logger.error(e)
-
+        if discounted_life >= remaining_life.days:
+            try:
+                with transaction.atomic():
+                    # create discounted product
+                    discounted_product = create_discounted_product(i.sku)
+                    info_logger.info('LB|Discounted product created|SKU {}'.format(discounted_product.product_sku))
+                    # move inventory
+                    move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date,
+                                   i.quantity,
+                                   state_total_available, type_normal, tr_id, tr_type_added_as_discounted,
+                                   tr_type_move_to_discounted)
+                    info_logger.info('LB|Inventory moved to discounted|Batch Id {}, quantity {}'
+                                     .format(i.batch_id, i.quantity))
+                    # Setting price
+                    price = create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life,
+                                                                remaining_life)
+                    info_logger.info('LB|Discounted price created|SKU {}, price {}'
+                                     .format(discounted_product.product_sku, price))
+            except Exception as e:
+                info_logger.error(e)
+                info_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
+                                 .format(i.batch_id, i.quantity))
 
 
 def create_discounted_product(product):
@@ -2133,7 +2127,6 @@ def create_discounted_product(product):
 
 def move_inventory(warehouse, discounted_product, original_product, bin, batch_id, manufacturing_date, quantity,
                    state_total_available, type_normal, tr_id, tr_type_added_as_discounted, tr_type_move_to_discounted):
-
     discounted_batch_id = batch_id
     available_stock = get_stock(warehouse, type_normal, [original_product.id])
     available_qty = available_stock.get(original_product.id, 0)
@@ -2150,20 +2143,23 @@ def move_inventory(warehouse, discounted_product, original_product, bin, batch_i
                                                                           type_normal, type_normal, -1 * quantity,
                                                                           True, tr_type_move_to_discounted, tr_id)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, original_product,
-                                                                                      type_normal, state_total_available,
+                                                                                      type_normal,
+                                                                                      state_total_available,
                                                                                       -1 * quantity,
                                                                                       tr_type_move_to_discounted, tr_id)
-    OutCommonFunctions.create_out(warehouse, tr_type_move_to_discounted, tr_id,original_product, batch_id, quantity,
+    OutCommonFunctions.create_out(warehouse, tr_type_move_to_discounted, tr_id, original_product, batch_id, quantity,
                                   type_normal)
     InCommonFunctions.create_in(warehouse, tr_type_added_as_discounted, tr_id, discounted_product, discounted_batch_id,
                                 quantity, quantity, type_normal, 0, manufacturing_date)
     CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product,
-                                                                          discounted_batch_id, type_normal,type_normal,
+                                                                          discounted_batch_id, type_normal, type_normal,
                                                                           quantity, True, tr_type_added_as_discounted,
                                                                           tr_id)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
-                                                                                      type_normal, state_total_available,
-                                                                                      quantity, tr_type_added_as_discounted,
+                                                                                      type_normal,
+                                                                                      state_total_available,
+                                                                                      quantity,
+                                                                                      tr_type_added_as_discounted,
                                                                                       tr_id)
 
 
@@ -2171,7 +2167,7 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
                                         discounted_life, remaining_life):
     half_life = (discounted_life - 2) / 2
     product_price = original_product.product_pro_price.filter(seller_shop=warehouse,
-                                                   approval_status=ProductPrice.APPROVED).last()
+                                                              approval_status=ProductPrice.APPROVED).last()
     base_price_slab = product_price.price_slabs.filter(end_value=0).last()
     base_price = base_price_slab.ptr
 
@@ -2201,8 +2197,7 @@ def create_discounted_product_on_parent_update(sender, instance=None, created=Fa
 @receiver(post_save, sender=WarehouseInventory)
 def deactivate_discounted_product(sender, instance=None, created=False, **kwargs):
     if instance.sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED \
-        and instance.inventory_type.inventory_type == 'normal' \
-        and instance.inventory_state.inventory_state == 'total_available' \
-        and instance.quantity <= 0:
+            and instance.inventory_type.inventory_type == 'normal' \
+            and instance.inventory_state.inventory_state == 'total_available' \
+            and instance.quantity <= 0:
         deactivate_product(instance.sku)
-
