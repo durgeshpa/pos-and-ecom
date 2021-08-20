@@ -1266,11 +1266,11 @@ class DiscountedProductsSerializers(serializers.ModelSerializer):
 
 
 class ProductsSerializers(serializers.ModelSerializer):
-    discounted_sku = DiscountedProductsSerializers()
+    product_ref = DiscountedProductsSerializers(read_only=True)
 
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_sku')
+        fields = ('id', 'product_sku', 'product_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'product_ref')
 
 
 class PriceSlabSerializersData(serializers.ModelSerializer):
@@ -1495,13 +1495,12 @@ class DiscountChildProductSerializers(serializers.ModelSerializer):
     parent_product = ParentProductSerializers(read_only=True)
     child_product_logs = LogSerializers(many=True, read_only=True)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
-    discounted_sku = DiscountedProductsSerializers(read_only=True)
 
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_type', 'is_manual_price_update',
-                  'discounted_sku', 'product_pro_image', 'parent_product', 'child_product_logs')
+                  'product_pro_image', 'parent_product', 'child_product_logs')
 
     @transaction.atomic
     def update(self, instance, validated_data):
