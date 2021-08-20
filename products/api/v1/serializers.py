@@ -1493,13 +1493,10 @@ class ProductSlabPriceExportAsCSVSerializers(serializers.ModelSerializer):
 class DiscountChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
-    product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_logs = LogSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
-    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
-                                           write_only=True)
     destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
     packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
     destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
@@ -1509,6 +1506,20 @@ class DiscountChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
-                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
-                  'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
-                  'packing_product_rt', 'product_vendor_mapping', 'child_product_logs')
+                  'is_manual_price_update', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
+                  'child_product_logs')
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Child Product's attribute."""
+        try:
+            # call super to save modified instance along with the validated data
+            child_product_obj = super().update(instance, validated_data)
+            child_product = ProductCls.update_child_product(self.initial_data['parent_product'],
+                                                            child_product_obj)
+            ProductCls.create_child_product_log(child_product, "updated")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return child_product
