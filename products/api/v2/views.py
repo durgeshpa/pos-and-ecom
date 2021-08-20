@@ -19,7 +19,6 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import bulk_log_search, category_search
 
-
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -31,7 +30,7 @@ class CategoryListView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name',)
+    queryset = Category.objects.values('id', 'category_name', )
     serializer_class = CategoryListSerializers
 
     def get(self, request):
@@ -46,7 +45,7 @@ class CategoryListView(GenericAPIView):
 
 class BulkCreateUpdateAttributesView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = BulkUploadForProductAttributes.objects.select_related('updated_by')\
+    queryset = BulkUploadForProductAttributes.objects.select_related('updated_by') \
         .only('id', 'file', 'upload_type', 'updated_by', 'created_at', 'updated_at').order_by('-id')
     serializer_class = UploadMasterDataSerializers
 
@@ -282,7 +281,7 @@ class DiscountedProductPriceSampleCSV(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request):
-        """ Get API for Download sample product slab price CSV """
+        """ Get API for Download sample discounted product price CSV """
 
         info_logger.info("product slab price ExportAsCSV GET api called.")
         filename = "discounted_product_price_sample_csv.csv"
@@ -317,12 +316,12 @@ class CreateBulkDiscountedProductPriceView(GenericAPIView):
     serializer_class = BulkDiscountedProductPriceSerializers
 
     def post(self, request):
-        """ POST API for Create Bulk Slab Product Price"""
+        """ POST API for Create Bulk Discounted Product Price"""
 
-        info_logger.info("BulkSlabProductPriceView POST api called.")
+        info_logger.info("CreateBulkDiscountedProductPriceView POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            info_logger.info("BulkSlabProductPriceView upload successfully")
-            return get_response("Slab Product Prices uploaded successfully !", True)
+            info_logger.info("CreateBulkDiscountedProductPriceView upload successfully")
+            return get_response("Discounted Product Prices uploaded successfully !", True)
         return get_response(serializer_error(serializer), False)

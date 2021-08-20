@@ -1367,7 +1367,7 @@ class ProductListView(GenericAPIView):
 
 class DiscountProductListForManualPriceView(GenericAPIView):
     """
-        Get Child List
+        Get Discount Child List
     """
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED,
@@ -1408,33 +1408,31 @@ class DiscountProductView(GenericAPIView):
     serializer_class = DiscountChildProductSerializers
 
     def get(self, request):
-        """ GET API for Child Product with Image Category & Tax """
+        """ GET API for Discount Child Product with Image Category & Tax """
 
         d_ch_product_total_count = self.queryset.count()
-        info_logger.info("Child Product GET api called.")
+        info_logger.info("Discount Child Product GET api called.")
         if request.GET.get('id'):
-            """ Get Child Product for specific ID """
+            """ Get Discount Child Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             child_product = id_validation['data']
         else:
-            """ GET Child Product List """
+            """ GET Discount Child Product List """
             self.queryset = self.search_filter_product_list()
             d_ch_product_total_count = self.queryset.count()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
 
-        msg = f"total count {d_ch_product_total_count}" if child_product else "no child product found"
+        msg = f"total count {d_ch_product_total_count}" if child_product else "no discount child product found"
         return get_response(msg, serializer.data, True)
 
     def put(self, request):
-        """ PUT API for Child Product Updation with Image """
+        """ PUT API for Discount Child Product Updation with Image """
 
-        info_logger.info("Child Product PUT api called.")
-
-        info_logger.info("Offer Banner Position PUT api called.")
+        info_logger.info("Discount Child Product PUT api called.")
         if 'id' not in request.data:
             return get_response('please provide id to update discount product', False)
 
@@ -1447,8 +1445,8 @@ class DiscountProductView(GenericAPIView):
         serializer = self.serializer_class(instance=child_product_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("Child Product Updated Successfully.")
-            return get_response('child product updated Successfully!', serializer.data)
+            info_logger.info("Discount Child Product Updated Successfully.")
+            return get_response('discount child product updated Successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def search_filter_product_list(self):
