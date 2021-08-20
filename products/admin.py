@@ -112,7 +112,7 @@ class CategorySearch(InputFilter):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        exclude_fields = ['created_at', 'modified_at']
+        exclude_fields = ['modified_at', 'created_at', 'updated_at', 'created_by', 'updated_by']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
         response = HttpResponse(content_type='text/csv')
