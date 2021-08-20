@@ -1385,7 +1385,7 @@ class ProductPriceSerializers(serializers.ModelSerializer):
                     price_slab['end_value'] = 0
                 PriceSlab.objects.create(product_price=product_price, **price_slab)
         else:
-            PriceSlab.objects.create(product_price=product_price, start_value=1,
+            PriceSlab.objects.create(product_price=product_price, start_value=0,
                                      end_value=0, selling_price=product_price.selling_price)
 
 

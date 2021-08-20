@@ -1790,7 +1790,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super(DiscountedProductSlabPriceAdmin, self).save_model(request, obj, form, change)
-        PriceSlab.objects.create(product_price=obj, start_value=1, end_value=0, selling_price=obj.selling_price)
+        PriceSlab.objects.create(product_price=obj, start_value=0, end_value=0, selling_price=obj.selling_price)
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super(DiscountedProductSlabPriceAdmin, self).get_fieldsets(request, obj)
