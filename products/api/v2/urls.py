@@ -2,7 +2,7 @@ from django.conf.urls import url
 from .views import BulkCreateUpdateAttributesView, BulkDownloadProductAttributes, ParentProductMultiImageUploadView, \
     ChildProductMultiImageUploadView, BulkChoiceView, BrandMultiImageUploadView, CategoryMultiImageUploadView, \
     CategoryListView, CreateProductVendorMappingSampleView, CreateProductVendorMappingView, SlabProductPriceSampleCSV, \
-    CreateBulkSlabProductPriceView
+    CreateBulkSlabProductPriceView, DiscountedProductPriceSampleCSV, CreateBulkDiscountedProductPriceView
 
 urlpatterns = [
     url(r'^upload_type/bulk-choice/', BulkChoiceView.as_view(),
@@ -27,6 +27,10 @@ urlpatterns = [
         name='upload/product-vendor-mapping'),
     url(r'^download/product-slab-price-sample/', SlabProductPriceSampleCSV.as_view(),
         name='download/product-slab-price-sample'),
+    url(r'^download/discounted-product-price-sample/', DiscountedProductPriceSampleCSV.as_view(),
+        name='download/discounted-product-price-sample'),
     url(r'^upload/bulk-product-slab-price/', CreateBulkSlabProductPriceView.as_view(),
         name='upload/bulk-product-slab-price'),
+    url(r'^upload/discounted-bulk-product-price/', CreateBulkDiscountedProductPriceView.as_view(),
+        name='upload/discounted-bulk-product-price'),
 ]

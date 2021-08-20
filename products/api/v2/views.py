@@ -11,7 +11,7 @@ from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
     CategoryListSerializers, DownloadProductVendorMappingSerializers, BulkProductVendorMappingSerializers, \
-    BulkSlabProductPriceSerializers
+    BulkSlabProductPriceSerializers, BulkDiscountedProductPriceSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -278,9 +278,43 @@ class SlabProductPriceSampleCSV(GenericAPIView):
         return HttpResponse(response, content_type='text/csv')
 
 
+class DiscountedProductPriceSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample product slab price CSV """
+
+        info_logger.info("product slab price ExportAsCSV GET api called.")
+        filename = "discounted_product_price_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "selling price"])
+        writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)",
+                         "123.00"])
+        info_logger.info("product slab price CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
 class CreateBulkSlabProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = BulkSlabProductPriceSerializers
+
+    def post(self, request):
+        """ POST API for Create Bulk Slab Product Price"""
+
+        info_logger.info("BulkSlabProductPriceView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("BulkSlabProductPriceView upload successfully")
+            return get_response("Slab Product Prices uploaded successfully !", True)
+        return get_response(serializer_error(serializer), False)
+
+
+class CreateBulkDiscountedProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkDiscountedProductPriceSerializers
 
     def post(self, request):
         """ POST API for Create Bulk Slab Product Price"""

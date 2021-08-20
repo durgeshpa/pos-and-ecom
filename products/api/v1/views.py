@@ -1248,8 +1248,7 @@ class SlabProductPriceView(GenericAPIView):
 
     queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ) \
         .prefetch_related('price_slabs', 'product__parent_product', 'product__product_ref', 'seller_shop__shop_type',
-                          'buyer_shop__shop_type',
-                          'buyer_shop__shop_owner', 'seller_shop__shop_owner'). \
+                          'buyer_shop__shop_type', 'buyer_shop__shop_owner', 'seller_shop__shop_owner'). \
         only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', ).order_by(
         '-id')
     serializer_class = ProductPriceSerializers

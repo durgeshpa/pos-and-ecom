@@ -3,7 +3,9 @@ import csv
 import datetime
 import io
 import logging
+import math
 
+from django.db import transaction
 from django.db.models import Q
 
 from brand.common_function import BrandCls
@@ -13,9 +15,12 @@ from categories.models import Category
 from products.common_function import ParentProductCls, ProductCls
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
     DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
-    SlabProductPrice, PriceSlab
+    SlabProductPrice, PriceSlab, DiscountedProductPrice, ProductPrice
 from products.utils import get_selling_price
 from retailer_backend.utils import getStrToDate
+from global_config.views import get_config
+from shops.models import Shop
+from wms.models import BinInventory, In
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -1230,6 +1235,65 @@ def create_bulk_product_slab_price(validated_data):
             price_slab_2.save()
         #
         # return validated_data
+    except Exception as e:
+        msg = "Unable to create price for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg
+
+
+def create_bulk_product_discounted_price(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            with transaction.atomic():
+                product = Product.objects.filter(product_sku=row[0]).last()
+                seller_shop_id = int(row[2])
+                seller_shop = Shop.objects.filter(pk=seller_shop_id).last()
+
+                if not product.is_manual_price_update:
+                    original_prod = product.product_ref
+                    bin_inventory = BinInventory.objects.filter(sku=product,
+                                                                inventory_type__inventory_type='normal',
+                                                                quantity__gt=0).last()
+                    latest_in = In.objects.filter(sku=bin_inventory.sku.product_ref,
+                                                  batch_id=bin_inventory.batch_id).order_by('-modified_at')
+                    expiry_date = latest_in[0].expiry_date
+                    manufacturing_date = latest_in[0].manufacturing_date
+                    product_life = expiry_date - manufacturing_date
+                    remaining_life = expiry_date - datetime.date.today()
+                    discounted_life = math.floor(
+                        product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+                    product_price = original_prod.product_pro_price.filter(seller_shop=seller_shop,
+                                                                           approval_status=ProductPrice.APPROVED).last()
+                    base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+                    base_price = base_price_slab.ptr
+
+                    half_life = (discounted_life - 2) / 2
+
+                    if remaining_life.days <= half_life:
+                        selling_price = round(
+                            base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+                    else:
+                        selling_price = round(
+                            base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+
+                else:
+                    selling_price = float(row[4])
+
+                # Create Product Price
+                product_price = DiscountedProductPrice(product=product, mrp=product.product_mrp,
+                                                       seller_shop_id=seller_shop_id,
+                                                       selling_price=selling_price,
+                                                       start_date=datetime.datetime.today(),
+                                                       approval_status=ProductPrice.APPROVED)
+                product_price.save()
+
+                # Create Price for discounted Product
+                discounted_product_price = PriceSlab(product_price=product_price, selling_price=selling_price,
+                                                     start_value=1, end_value=0)
+                discounted_product_price.save()
+
     except Exception as e:
         msg = "Unable to create price for row {}".format(row_id + 1)
         error_logger.info(msg)
