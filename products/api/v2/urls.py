@@ -27,7 +27,7 @@ urlpatterns = [
         name='upload/product-vendor-mapping'),
     url(r'^download/product-slab-price-sample/', SlabProductPriceSampleCSV.as_view(),
         name='download/product-slab-price-sample'),
-    url(r'^download/discounted-product-price-sample/', SlabProductPriceSampleCSV.as_view(),
+    url(r'^download/discounted-product-price-sample/', DiscountedProductPriceSampleCSV.as_view(),
         name='download/discounted-product-price-sample'),
     url(r'^upload/bulk-product-slab-price/', CreateBulkSlabProductPriceView.as_view(),
         name='upload/bulk-product-slab-price'),
