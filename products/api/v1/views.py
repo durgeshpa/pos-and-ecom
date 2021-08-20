@@ -1434,20 +1434,17 @@ class DiscountProductView(GenericAPIView):
 
         info_logger.info("Child Product PUT api called.")
 
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        if 'id' not in modified_data:
-            return get_response('please provide id to update child product', False)
+        info_logger.info("Offer Banner Position PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update discount product', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        id_instance = validate_id(self.queryset, int(request.data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        child_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=child_product_instance, data=modified_data)
+        child_product_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=child_product_instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Child Product Updated Successfully.")
