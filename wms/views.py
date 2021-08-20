@@ -2058,7 +2058,8 @@ def create_update_discounted_products(parent_product=None):
         tr_id = today.isoformat()
         inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
                                                 inventory_type=type_normal, quantity__gt=0,
-                                                sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
+                                                sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
+                                                sku__id=45496) \
                                         .prefetch_related('sku__parent_product') \
                                         .prefetch_related('sku__ins')
         if parent_product:
