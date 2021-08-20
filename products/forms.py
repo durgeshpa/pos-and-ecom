@@ -2321,6 +2321,10 @@ class UploadSlabProductPriceForm(forms.Form):
             product = Product.objects.filter(product_sku=row[0]).last()
             if not row[0] or product is None:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+
+            if int(product.product_type) != 0:
+                raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not normal"))
+
             is_ptr_applicable = product.parent_product.is_ptr_applicable
             case_size = product.parent_product.inner_case_size
             selling_price = float(row[6])
