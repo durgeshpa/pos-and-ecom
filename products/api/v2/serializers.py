@@ -699,34 +699,33 @@ class BulkDiscountedProductPriceSerializers(serializers.ModelSerializer):
         reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
-            for row_id, row in enumerate(reader):
-                if len(row) == 0:
-                    continue
-                if isBlankRow(row, len(first_row)):
-                    continue
-                product = Product.objects.filter(product_sku=row[0]).last()
-                if not row[0] or product is None:
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
-                if int(product.product_type) != 1:
-                    raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not discounted"))
-                if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
-                seller_shop = Shop.objects.filter(pk=int(row[2])).last()
-                manual_price_update = product.is_manual_price_update
-                selling_price = float(row[4])
-                if not manual_price_update:
-                    original_product = product.product_ref
-                    product_price = original_product.product_pro_price.all()
-                    shops = Shop.objects.filter(shop_product_price__in=product_price).distinct()
-                    if seller_shop not in shops:
-                        raise ValidationError(
-                            _(f"Row {row_id + 1} | No original product exist for this shop and no selling price is provided."))
-                if manual_price_update and not selling_price:
-                    raise ValidationError(_(f"Row {row_id + 1} | No 'Selling Price' in case of manual price update"))
-                if manual_price_update and selling_price:
-                    if selling_price == 0 \
-                            or selling_price > product.product_mrp:
-                        raise ValidationError('Invalid Selling Price')
+            if len(row) == 0:
+                continue
+            if isBlankRow(row, len(first_row)):
+                continue
+            product = Product.objects.filter(product_sku=row[0]).last()
+            if not row[0] or product is None:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+            if int(product.product_type) != 1:
+                raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not discounted"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
+            seller_shop = Shop.objects.filter(pk=int(row[2])).last()
+            manual_price_update = product.is_manual_price_update
+            selling_price = float(row[4])
+            if not manual_price_update:
+                original_product = product.product_ref
+                product_price = original_product.product_pro_price.all()
+                shops = Shop.objects.filter(shop_product_price__in=product_price).distinct()
+                if seller_shop not in shops:
+                    raise ValidationError(
+                        _(f"Row {row_id + 1} | No original product exist for this shop and no selling price is provided."))
+            if manual_price_update and not selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | No 'Selling Price' in case of manual price update"))
+            if manual_price_update and selling_price:
+                if selling_price == 0 \
+                        or selling_price > product.product_mrp:
+                    raise ValidationError('Invalid Selling Price')
         return data
 
     @transaction.atomic
