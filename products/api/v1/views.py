@@ -426,6 +426,7 @@ class ChildProductView(GenericAPIView):
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
+
         if not request.GET.get('product_type'):
             return get_response('product_type is mandatory', False)
         elif int(request.GET.get('product_type')) not in [0, 1]:
@@ -1459,6 +1460,7 @@ class DiscountProductView(GenericAPIView):
         # search using product_name & id based on criteria that matches
         if search_text:
             self.queryset = child_product_search(self.queryset, search_text.strip())
+
         # filter using parent_product_id exact match
         if parent_product_id is not None:
             self.queryset = self.queryset.filter(parent_product=parent_product_id)
