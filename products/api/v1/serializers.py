@@ -818,8 +818,8 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if not 'product_type' in self.initial_data or self.initial_data['product_type'] not in [0, 1]:
-            raise serializers.ValidationError("product_type is mandatory")
+        if self.initial_data['product_type'] not in [0, 1]:
+            raise serializers.ValidationError("incorrect product_type")
 
         if len(data.get('child_product_id_list')) == 0:
             raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
