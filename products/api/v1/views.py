@@ -1444,7 +1444,7 @@ class DiscountProductView(GenericAPIView):
             return get_response(id_instance['error'])
 
         child_product_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=child_product_instance, data=request.data)
+        serializer = self.serializer_class(instance=child_product_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Child Product Updated Successfully.")
