@@ -1488,3 +1488,27 @@ class ProductSlabPriceExportAsCSVSerializers(serializers.ModelSerializer):
             except Exception as exc:
                 info_logger.error(exc)
         return response
+
+
+class DiscountChildProductSerializers(serializers.ModelSerializer):
+    """ Handles creating, reading and updating child product items."""
+    parent_product = ParentProductSerializers(read_only=True)
+    product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
+    child_product_logs = LogSerializers(many=True, read_only=True)
+    product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
+    product_sku = serializers.CharField(required=False)
+    product_pro_image = ProductImageSerializers(many=True, read_only=True)
+    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
+                                           write_only=True)
+    destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
+    packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
+                                                                                   required=False)
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
+                  'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
+                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
+                  'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
+                  'packing_product_rt', 'product_vendor_mapping', 'child_product_logs')

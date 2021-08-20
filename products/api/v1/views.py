@@ -26,7 +26,8 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
-    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers
+    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
+    DiscountChildProductSerializers
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -1382,3 +1383,139 @@ class DiscountProductListForManualPriceView(GenericAPIView):
         serializer = self.serializer_class(product, many=True)
         msg = "" if product else "no discounted product found"
         return get_response(msg, serializer.data, True)
+
+
+class DiscountProductView(GenericAPIView):
+    """
+        Get Discount Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED). \
+        select_related('parent_product', 'updated_by', 'created_by', 'product_ref') \
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image',
+                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
+                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
+                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand').order_by('-id')
+
+    serializer_class = DiscountChildProductSerializers
+
+    def get(self, request):
+        """ GET API for Child Product with Image Category & Tax """
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
+
+        ch_product_total_count = self.queryset.count()
+        info_logger.info("Child Product GET api called.")
+        if request.GET.get('id'):
+            """ Get Child Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            child_product = id_validation['data']
+        else:
+            """ GET Child Product List """
+            self.queryset = self.search_filter_product_list()
+            ch_product_total_count = self.queryset.count()
+            child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(child_product, many=True)
+
+        msg = f"total count {ch_product_total_count}" if child_product else "no child product found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Child Product """
+
+        info_logger.info("Child Product POST api called.")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Child Product Created Successfully.")
+            return get_response('child product created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Child Product Updation with Image """
+
+        info_logger.info("Child Product PUT api called.")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update child product', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        child_product_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=child_product_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Child Product Updated Successfully.")
+            return get_response('child product updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Child Product with image """
+
+        info_logger.info("Child Product DELETE api called.")
+        if not request.data.get('child_product_id'):
+            return get_response('please select child product', False)
+        try:
+            for id in request.data.get('child_product_id'):
+                child_product_id = self.queryset.get(id=int(id))
+                try:
+                    child_product_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'child_product_id': child_product_id}
+                    info_logger.info("child_product deleted info ", dict_data)
+                except:
+                    return get_response(f'You can not delete child product {child_product_id.product_name}, '
+                                        f'because this child product is mapped with product price', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid child_product_id {id}', False)
+        return get_response('child product were deleted successfully!', True)
+
+    def search_filter_product_list(self):
+
+        category = self.request.GET.get('category')
+        brand = self.request.GET.get('brand')
+        product_status = self.request.GET.get('status')
+        parent_product_id = self.request.GET.get('parent_product_id')
+        search_text = self.request.GET.get('search_text')
+
+        # search using product_name & id based on criteria that matches
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text.strip())
+        # filter using brand_name, category & product_status exact match
+        if brand is not None:
+            self.queryset = self.queryset.filter(parent_product__parent_brand__id=brand)
+        if parent_product_id is not None:
+            self.queryset = self.queryset.filter(parent_product=parent_product_id)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(status=product_status)
+        if category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product__parent_product_pro_category__category__id=category)
+        return self.queryset
