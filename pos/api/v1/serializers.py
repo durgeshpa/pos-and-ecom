@@ -4,7 +4,7 @@ import calendar
 import re
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F, Func, Value, CharField
+from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField
 from django.db import transaction
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
@@ -16,12 +16,12 @@ from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
-from shops.models import Shop
+from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
@@ -42,9 +42,10 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator], max_length=100)
     mrp = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
     selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    add_offer_price = serializers.BooleanField(default=False)
     offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01)
-    offer_start_date = serializers.DateTimeField(required=False, default=None)
-    offer_end_date = serializers.DateTimeField(required=False, default=None)
+    offer_start_date = serializers.DateField(required=False, default=None)
+    offer_end_date = serializers.DateField(required=False, default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=100)
@@ -62,27 +63,36 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
             'linked_product_id'], attrs['product_ean_code']
-        offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
-        
-        if ((offer_sd is None and offer_ed is not None) or \
-            (offer_sd is not None and offer_ed is None)) :
-            raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-        elif offer_sd is not None and offer_ed is not None:
-            if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                raise serializers.ValidationError('Inavlid Offer Start and End date.')
+
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+            raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
         
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-        
-        if offer_price and offer_price > sp:
-            raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
 
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
-            raise serializers.ValidationError("Product already exists in catalog.")
-        
+        if attrs['add_offer_price']:
+            offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
+
+            if offer_price is None:
+                raise serializers.ValidationError('Please provide offer price')
+
+            if offer_price and offer_price > sp:
+                raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
+
+            if offer_sd is None:
+                raise serializers.ValidationError('Please provide offer start date')
+            if offer_ed is None:
+                raise serializers.ValidationError('Please provide offer end date')
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError('Offer end date should be greater than or equal to offer start date')
+            if offer_sd < datetime.date.today():
+                raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
+        else:
+            attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
+
         return attrs
 
 
@@ -126,8 +136,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                              min_value=0.01)
     offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01)
-    offer_start_date = serializers.DateTimeField(required=False, default=None)
-    offer_end_date = serializers.DateTimeField(required=False, default=None)
+    offer_start_date = serializers.DateField(required=False, default=None)
+    offer_end_date = serializers.DateField(required=False, default=None)
+    add_offer_price = serializers.BooleanField(default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
     stock_qty = serializers.IntegerField(required=False, default=0)
@@ -139,7 +150,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
 
-
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
 
@@ -150,7 +160,17 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
-        
+
+        if RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+
+        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
+
+        if 'product_ean_code' in attrs and attrs['product_ean_code']:
+            if not attrs['product_ean_code'].isdigit():
+                raise serializers.ValidationError("Product Ean Code should be a number")
+
         image_count = 0
         if 'images' in attrs and attrs['images']:
             image_count = len(attrs['images'])
@@ -159,37 +179,32 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if image_count > 3:
             raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
 
-        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
-            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-        
-        if 'offer_price' in attrs and attrs['offer_price'] and 'offer_start_date' in attrs and attrs['offer_start_date']\
-            and 'offer_end_date' in attrs and attrs['offer_end_date']:
-            offer_price = attrs['offer_price']
-            offer_sd = attrs['offer_start_date']
-            offer_ed = attrs['offer_end_date']
+        if attrs['add_offer_price']:
+            offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
 
-            if (attrs['offer_price'] or attrs['selling_price']) and offer_price and offer_price > sp:
+            if offer_price is None:
+                raise serializers.ValidationError('Please provide offer price')
+
+            if offer_price and offer_price > sp:
                 raise serializers.ValidationError("Offer Price should be equal to OR less than Selling Price")
 
-            if ((offer_sd is None and offer_ed is not None) or \
-                (offer_sd is not None and offer_ed is None)) :
-                raise serializers.ValidationError('Offer Start date and End date are combined mandatory.')
-            elif offer_sd is not None and offer_ed is not None:
-                if (offer_sd > offer_ed) or offer_sd < datetime.datetime.now():
-                    raise serializers.ValidationError('Inavlid Offer Start and End date.')
-        elif ('offer_price' in attrs and attrs['offer_price']) or ('offer_start_date' in attrs and attrs['offer_start_date'])\
-            or ('offer_end_date' in attrs and attrs['offer_end_date']):
-            raise serializers.ValidationError("Keys 'offer_price', 'offer_start_date', 'offer_end_date' are combined mandatory.")
-
-        if 'product_ean_code' in attrs and attrs['product_ean_code']:
-            if not attrs['product_ean_code'].isdigit():
-                raise serializers.ValidationError("Product Ean Code should be a number")
-
-        if RetailerProduct.objects.filter(~Q(sku_type=4), shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
-            raise serializers.ValidationError("Product already exists in catalog.")
+            if offer_sd is None:
+                raise serializers.ValidationError('Please provide offer start date')
+            if offer_ed is None:
+                raise serializers.ValidationError('Please provide offer end date')
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError('Offer end date should be greater than or equal to offer start date')
+            # if offer_sd < datetime.date.today():
+            #     raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
+        else:
+            attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
 
         is_discounted = attrs['is_discounted']
         if is_discounted:
+            # creating from discounted product
+            if product.sku_type == 4:
+                raise serializers.ValidationError("This product is already discounted. Further discounted product"
+                                                  " cannot be created.")
             if 'discounted_price' not in attrs:
                 raise serializers.ValidationError("Discounted price is required to create discounted product")
             elif 'discounted_stock' not in attrs:
@@ -207,10 +222,15 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     """
         RetailerProduct data for BASIC cart
     """
+    is_discounted = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_is_discounted(obj):
+        return obj.sku_type == 4
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -219,8 +239,13 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
+    offer_price_applied = serializers.SerializerMethodField()
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
+
+    @staticmethod
+    def get_offer_price_applied(obj):
+        return obj.retailer_product.offer_price and obj.retailer_product.offer_start_date <= datetime.date.today() <= obj.retailer_product.offer_end_date
 
     def product_price_dt(self, obj):
         """
@@ -249,7 +274,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -1093,14 +1118,19 @@ class CouponListSerializer(serializers.ModelSerializer):
 
 class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shop_id(obj):
-        return obj.id
+        return obj.shop.id
+
+    @staticmethod
+    def get_shop_name(obj):
+        return obj.shop.shop_name
 
     class Meta:
-        model = Shop
-        fields = ('shop_id', 'shop_name')
+        model = PosShopUserMapping
+        fields = ('shop_id', 'shop_name', 'user_type')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
@@ -1361,7 +1391,7 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
+        fields = ('id', 'return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
 
 
 class BasicOrderDetailSerializer(serializers.ModelSerializer):
@@ -1384,6 +1414,9 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
             'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
+        payment_obj = obj.rt_payment_retailer_order.all().last()
+        order_summary['payment_type'] = payment_obj.payment_type.type
+        order_summary['transaction_id'] = payment_obj.transaction_id
         return order_summary
 
     @staticmethod
@@ -1495,16 +1528,40 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
 
 class VendorSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+    alternate_phone_number = serializers.CharField(required=False, default=None, allow_null=True)
+
     class Meta:
         model = Vendor
         fields = ('id', 'company_name', 'vendor_name', 'contact_person_name', 'phone_number', 'alternate_phone_number',
                   'email', 'address', 'pincode', 'gst_number', 'retailer_shop', 'status')
 
     def validate(self, attrs):
+
         city = Pincode.objects.filter(pincode=attrs['pincode']).last()
         if not city:
             raise serializers.ValidationError("Invalid Pincode")
+
+        shop = self.context.get('shop')
+        if 'id' in attrs:
+            if not Vendor.objects.filter(retailer_shop=shop, id=attrs['id']).exists():
+                raise serializers.ValidationError("Invalid vendor id")
+
+        if attrs['alternate_phone_number'] and not re.match(r'^[6-9]\d{9}$', attrs['alternate_phone_number']):
+            raise serializers.ValidationError("Please provide a valid alternate phone number")
+
         return attrs
+
+    def update(self, vendor_id, validated_data):
+        vendor_obj = Vendor.objects.filter(id=vendor_id).last()
+        vendor_obj.company_name, vendor_obj.vendor_name = validated_data['company_name'], validated_data['vendor_name']
+        vendor_obj.contact_person_name = validated_data['contact_person_name']
+        vendor_obj.phone_number = validated_data['phone_number']
+        vendor_obj.alternate_phone_number = validated_data['alternate_phone_number']
+        vendor_obj.email, vendor_obj.address = validated_data['email'], validated_data['address']
+        vendor_obj.pincode, vendor_obj.gst_number = validated_data['pincode'], validated_data['gst_number']
+        vendor_obj.status = validated_data['status']
+        vendor_obj.save()
 
 
 class VendorListSerializer(serializers.ModelSerializer):
@@ -1525,10 +1582,11 @@ class POSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     vendor_id = serializers.IntegerField()
     products = POProductSerializer(many=True)
+    send_mail = serializers.BooleanField(required=False, default=0)
 
     class Meta:
         model = PosCart
-        fields = ('id', 'vendor_id', 'products')
+        fields = ('id', 'vendor_id', 'products', 'send_mail')
 
     def validate(self, attrs):
         # Validate vendor id
@@ -1554,8 +1612,11 @@ class POSerializer(serializers.ModelSerializer):
             products_updatable, products_given = [], attrs['products']
             for product in products_given:
                 mapping = PosCartProductMapping.objects.filter(cart=cart, product=product['product_id']).last()
-                if not mapping or not mapping.is_grn_done:
-                    products_updatable += [product]
+                if mapping and mapping.is_grn_done and (
+                        round(float(product['price']), 2) != round(float(mapping.price), 2) or int(
+                        product['qty']) != int(mapping.qty)):
+                    raise serializers.ValidationError("Cannot edit products whose grn is done.")
+                products_updatable += [product]
             attrs['products'] = products_updatable
         return attrs
 
@@ -1586,9 +1647,9 @@ class POSerializer(serializers.ModelSerializer):
             po_status = cart.status
             if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
                 po_status = PosCart.PARTIAL_DELIVERED
-            cart.vendor_id, cart.last_modified_by, cart.status = validated_data['vendor_id'], user, po_status
+            cart.last_modified_by, cart.status = user, po_status
             cart.save()
-            if self.context.get('send_mail', False):
+            if validated_data['send_mail']:
                 mail_to_vendor_on_po_creation.delay(cart.id)
 
 
@@ -1616,7 +1677,8 @@ class POProductGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history')
+        fields = ('product_id', 'product_name', 'mrp', 'price', 'qty', 'grned_qty', 'po_price_history',
+                  'is_grn_done')
 
 
 class POGetSerializer(serializers.ModelSerializer):
@@ -1627,7 +1689,8 @@ class POGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     class Meta:
         model = PosCart
@@ -1657,6 +1720,7 @@ class POProductInfoSerializer(serializers.ModelSerializer):
 
 
 class POListSerializer(serializers.ModelSerializer):
+    grn_id = serializers.SerializerMethodField()
     total_qty = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
@@ -1667,15 +1731,21 @@ class POListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        return obj.po_products.aggregate(Sum('price')).get('price__sum')
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     @staticmethod
     def get_date(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
+    @staticmethod
+    def get_grn_id(obj):
+        grn = PosGRNOrder.objects.filter(order=obj.pos_po_order).last()
+        return grn.id if grn else None
+
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'total_qty', 'total_price', 'status', 'date')
+        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_qty', 'total_price', 'status', 'date')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
@@ -1689,7 +1759,7 @@ class PosGrnProductSerializer(serializers.ModelSerializer):
 class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
     po_id = serializers.IntegerField()
     products = PosGrnProductSerializer(many=True)
-    invoice = serializers.FileField(required=False, allow_null=True, validators=[FileExtensionValidator(
+    invoice = serializers.FileField(required=True, validators=[FileExtensionValidator(
         allowed_extensions=['pdf'])])
     invoice_no = serializers.CharField(required=True, max_length=100)
     invoice_date = serializers.DateField(required=True)
@@ -1860,9 +1930,27 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
 
 
 class GrnListSerializer(serializers.ModelSerializer):
+    grn_total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_grn_total_price(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        total_price = None
+        if po_products:
+            total_price = 0
+            for po_pr in po_products:
+                if po_pr.product.id in grn_products:
+                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+            total_price = round(total_price, 2)
+        return total_price
+
     class Meta:
         model = PosGRNOrder
-        fields = ('id', 'po_no', 'vendor_name', 'po_status')
+        fields = ('id', 'po_no', 'vendor_name', 'po_status', 'grn_total_price')
 
 
 class GrnOrderProductGetSerializer(serializers.ModelSerializer):
@@ -1892,6 +1980,30 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
     pos_grn_invoice = GrnInvoiceSerializer()
     added_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
+    po_total_price = serializers.SerializerMethodField()
+    current_grn_total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_current_grn_total_price(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        total_price = None
+        if po_products:
+            total_price = 0
+            for po_pr in po_products:
+                if po_pr.product.id in grn_products:
+                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+            total_price = round(total_price, 2)
+        return total_price
+
+    @staticmethod
+    def get_po_total_price(obj):
+        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
+                                                                          output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
 
     @staticmethod
     def get_products(obj):
@@ -1911,4 +2023,27 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosGRNOrder
         fields = ('id', 'po_no', 'po_status', 'vendor_name', 'products', 'invoice_no', 'invoice_amount', 'invoice_date',
-                  'pos_grn_invoice', 'added_by', 'last_modified_by', 'created_at', 'modified_at')
+                  'pos_grn_invoice', 'po_total_price', 'current_grn_total_price', 'added_by', 'last_modified_by',
+                  'created_at', 'modified_at')
+
+
+class PosShopUserMappingListSerializer(serializers.ModelSerializer):
+    phone_number = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+
+    def get_phone_number(self, obj):
+        return obj.user.phone_number
+
+    def get_email(self, obj):
+        return obj.user.email
+
+    def get_name(self, obj):
+        first_name, last_name, name = obj.user.first_name, obj.user.last_name, '-'
+        if first_name:
+            name = first_name + ' ' + last_name if last_name else first_name
+        return name
+
+    class Meta:
+        model = PosShopUserMapping
+        fields = ('id', 'phone_number', 'name', 'email', 'user_type', 'status')
