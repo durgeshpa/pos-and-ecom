@@ -1949,13 +1949,13 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
 
-admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
 admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
+admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 # admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)

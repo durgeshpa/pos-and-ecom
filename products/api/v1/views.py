@@ -275,7 +275,7 @@ class ParentProductView(GenericAPIView):
             active_product_total_count = self.queryset.filter(status=True).count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"total count {product_total_count} and total active product count {active_product_total_count}" \
+        msg = f"TOTAL PARENT SKUS {product_total_count} TOTAL ACTIVE PARENT SKUS {active_product_total_count}" \
             if parent_product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
