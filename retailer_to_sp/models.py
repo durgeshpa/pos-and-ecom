@@ -40,7 +40,6 @@ from shops.models import Shop, ParentRetailerMapping
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
-from pos.models import RetailerProduct, PAYMENT_MODE_POS
 
 today = datetime.datetime.today()
 
@@ -752,7 +751,7 @@ class CartProductMapping(models.Model):
         on_delete=models.DO_NOTHING
     )
     retailer_product = models.ForeignKey(
-        RetailerProduct, related_name='rt_cart_retailer_product', null=True,
+        "pos.RetailerProduct", related_name='rt_cart_retailer_product', null=True,
         on_delete=models.DO_NOTHING
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
@@ -1902,7 +1901,7 @@ class OrderedProductMapping(models.Model):
         null=True, on_delete=models.DO_NOTHING
     )
     retailer_product = models.ForeignKey(
-        RetailerProduct, related_name='rt_retailer_product_order_product',
+        "pos.RetailerProduct", related_name='rt_retailer_product_order_product',
         null=True, on_delete=models.DO_NOTHING
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
@@ -2687,6 +2686,11 @@ class Feedback(models.Model):
 
 
 class OrderReturn(models.Model):
+    PAYMENT_MODE_POS = (
+        ('cash', 'Cash Payment'),
+        ('online', 'Online Payment'),
+        ('credit', 'Credit Payment')
+    )
     RETURN_STATUS = (
         ('created', "Created"),
         ('completed', "Completed")

@@ -3,7 +3,8 @@ import csv
 import datetime
 import json
 import re
-import collections
+import collections, decimal
+from django.db.models.query import InstanceCheckMeta
 
 from django.forms import BaseInlineFormSet
 from django.urls import reverse
@@ -13,7 +14,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
-from django.db.models import Value, Case, When, F, Q
+from django.db.models import Value, Case, When, F, Q, fields
 from django.db import transaction
 from model_utils import Choices
 from django.db.models.functions import Length
@@ -30,7 +31,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping, DiscountedProductPrice)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -547,6 +548,13 @@ class ProductForm(forms.ModelForm):
         return self.cleaned_data
 
 
+class DiscountedProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
+                  'product_ean_code', 'product_mrp', 'status', 'is_manual_price_update')
+
+    
 class ProductSourceMappingForm(forms.ModelForm):
     source_sku = forms.ModelChoiceField(
         queryset=Product.objects.filter(repackaging_type='source'),
@@ -2167,10 +2175,10 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
         required=False
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'], product_type = Product.PRODUCT_TYPE_CHOICE.NORMAL),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
-            url='product-autocomplete',
+            url='products-product-autocomplete',
             attrs={"onChange": 'getProductDetails()'},
             forward=(forward.Const(1, 'price-slab'), )
         )
@@ -2211,7 +2219,6 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
                 elif data.get('offer_price_end_date') is None \
                         or data.get('offer_price_end_date') < data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
-
         return data
 
 
@@ -2343,6 +2350,51 @@ class UploadSlabProductPriceForm(forms.Form):
                                   or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
                                   or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+        return self.cleaned_data['file']
+
+
+class UploadDiscountedProductPriceForm(forms.Form):
+    """
+    Upload SLab Product Prices Form
+    """
+    file = forms.FileField(label='Upload Discounted Product Prices')
+
+    class Meta:
+        model = DiscountedProductPrice
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if isBlankRow(row, len(first_row)):
+                continue
+            product = Product.objects.filter(product_sku=row[0]).last()
+            if not row[0] or product is None:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+            if int(product.product_type) != 1:
+                raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not discounted"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
+            seller_shop = Shop.objects.filter(pk = int(row[2])).last()
+            manual_price_update = product.is_manual_price_update
+            selling_price = float(row[4])
+            if not manual_price_update:
+                original_product = product.product_ref
+                product_price = original_product.product_pro_price.all()
+                shops = Shop.objects.filter(shop_product_price__in = product_price).distinct()
+                if seller_shop not in shops:
+                    raise ValidationError(_(f"Row {row_id + 1} | No original product exist for this shop and no selling price is provided."))
+            if manual_price_update and not selling_price:
+                raise ValidationError(_(f"Row {row_id + 1} | No 'Selling Price' in case of manual price update"))
+            if manual_price_update and selling_price:
+                if selling_price == 0 \
+                        or selling_price > product.product_mrp:
+                    raise ValidationError('Invalid Selling Price')
         return self.cleaned_data['file']
 
 
@@ -2627,3 +2679,74 @@ class UploadPackingSkuInventoryAdminForm(forms.Form):
                 " please re-verify at your end."))
 
         return form_data_list
+
+
+class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
+    """
+        This class is used to create Slab Product Price for a particular discounted product
+        """
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(
+            url='admin:seller_shop_autocomplete',
+            attrs={"onChange": 'getSellingPriceDetails()'},
+        )
+    )
+
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete',
+        ),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
+        required=False
+    )
+
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination'], product_type=1),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='discounted-product-price-autocomplete',
+            attrs={"onChange": 'getSellingPriceDetails()'},
+            forward=(forward.Const(0, 'price-slab'), )
+        )
+    )
+    mrp = forms.DecimalField(required=False)
+    selling_price = forms.DecimalField(min_value=0, decimal_places=2, required=False)
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['mrp'].disabled = True
+        if 'approval_status' in self.fields:
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
+    def clean(self):
+        data = self.cleaned_data
+        if not data.get('product'):
+            raise ValidationError(_('Invalid Product.'))
+        if data.get('product') and data['product'].product_mrp:
+            data['mrp'] = data['product'].product_mrp
+
+
+        if data.get('selling_price') is None or data.get('selling_price') == 0 \
+                or data.get('selling_price') > data['mrp']:
+            raise ValidationError('Invalid Selling Price')
+
+        return data
+

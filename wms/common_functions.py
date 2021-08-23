@@ -5,6 +5,8 @@ import logging
 import datetime
 from celery.task import task
 from decouple import config
+from rest_framework import status
+from rest_framework.response import Response
 
 # django imports
 from django import forms
@@ -158,7 +160,6 @@ class CommonBinInventoryFunctions(object):
     def update_bin_inventory_with_transaction_log(cls, warehouse, bin, sku, batch_id, initial_inventory_type,
                                                   final_inventory_time, quantity, in_stock, tr_type, tr_id):
         cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity, in_stock)
-
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
@@ -171,7 +172,6 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     @transaction.atomic
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-
         bin_inv_obj = BinInventory.objects.select_for_update().\
                                            filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
                                                   inventory_type=inventory_type, in_stock=in_stock).last()
@@ -450,7 +450,6 @@ def get_stock(shop, inventory_type, product_id_list=None):
             sku_qty_dict[item.sku.id] -= item.quantity
         elif inventory_state == 'to_be_picked':
             sku_qty_dict[item.sku.id] -= item.quantity
-    # sku_qty_dict = add_discounted_product_quantity(shop, inventory_type, sku_qty_dict)
     return sku_qty_dict
 
 
@@ -1504,7 +1503,8 @@ def get_expiry_date_db(batch_id):
     return expiry_date_db
 
 def get_manufacturing_date(batch_id):
-    return '2021-01-01'
+    in_entry = In.objects.filter(in_type='GRN', batch_id=batch_id).last()
+    return in_entry.manufacturing_date if in_entry else None
 
 def set_expiry_date(batch_id):
     """
@@ -2141,4 +2141,36 @@ def get_earliest_expiry_date(product, shop, inventory_type, is_discounted):
             earliest_expiry_date = exp_date
         elif exp_date < earliest_expiry_date:
             earliest_expiry_date = exp_date
-    return earliest_expiry_date
+    return earliest_expiry_date.strftime('%d-%m-%Y') if earliest_expiry_date is not None else None
+
+
+def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
+    """
+        General Response For API
+    """
+    if success:
+        result = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            result = {"is_success": True,
+                      "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            result = {"is_success": False, "message": msg, "response_data": []}
+
+    return Response(result, status=status_code)
+
+
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    return errors[0]

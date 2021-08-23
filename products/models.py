@@ -239,7 +239,8 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
 
 
 class Product(BaseTimestampUserStatusModel):
-    PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'), (1, 'DISCOUNTED', 'discounted'))
+
+    PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'),(1, 'DISCOUNTED', 'discounted'))
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
@@ -277,6 +278,7 @@ class Product(BaseTimestampUserStatusModel):
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
     product_type = models.PositiveSmallIntegerField(max_length=20, choices=PRODUCT_TYPE_CHOICE,default=PRODUCT_TYPE_CHOICE.NORMAL)
     discounted_sku = models.OneToOneField('self', related_name='product_ref', on_delete=models.CASCADE, null=True, blank=True)
+    is_manual_price_update = models.BooleanField(default=False)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='product_updated_by',
@@ -544,6 +546,7 @@ class ProductPrice(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
@@ -650,6 +653,11 @@ class ProductPrice(models.Model):
     #     return self.product.product_mrp
 
 class SlabProductPrice(ProductPrice):
+
+    class Meta:
+        proxy = True
+
+class DiscountedProductPrice(ProductPrice):
 
     class Meta:
         proxy = True

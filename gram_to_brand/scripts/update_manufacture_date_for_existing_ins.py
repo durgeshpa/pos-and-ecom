@@ -8,7 +8,6 @@ def run():
     update_existing_ins()
     print("Task completed")
 
-
 @transaction.atomic
 def update_existing_ins():
     """
@@ -18,7 +17,7 @@ def update_existing_ins():
     print("Working for In objects, Count: ", ins_objects.count())
     for cnt, ins_obj in enumerate(ins_objects):
         mapping = get_grn_order_product_mapping(ins_obj.in_type_id, ins_obj.sku, ins_obj.batch_id, ins_obj.quantity)
-        if mapping.manufacture_date:
+        if mapping is not None and mapping.manufacture_date:
             ins_obj.manufacturing_date = mapping.manufacture_date
             ins_obj.save()
             print(cnt, "Updated manufactured date:", mapping.manufacture_date, " for In id: ", ins_obj.id)

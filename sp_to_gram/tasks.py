@@ -1,5 +1,5 @@
 from celery.task import task
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError
 
 from shops.models import Shop
 

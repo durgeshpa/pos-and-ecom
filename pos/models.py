@@ -4,10 +4,14 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from addresses.models import City, State, Pincode
-from shops.models import Shop
+from shops.models import Shop, PosShopUserMapping
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from accounts.models import User
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
+                                   OrderedProductMapping)
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -74,7 +78,6 @@ class RetailerProduct(models.Model):
     def save(self, *args, **kwargs):
         super(RetailerProduct, self).save(*args, **kwargs)
 
-
     class Meta:
         verbose_name = 'Product'
 
@@ -120,7 +123,7 @@ class PaymentType(models.Model):
     class Meta:
         verbose_name = 'Payment Mode'
         verbose_name_plural = _("Payment Modes")
-    
+
     def __str__(self) -> str:
         return self.type
 
@@ -146,6 +149,7 @@ class DiscountedRetailerProduct(RetailerProduct):
         proxy = True
         verbose_name = 'Discounted Product'
         verbose_name_plural = 'Discounted Products'
+
 
 class Vendor(models.Model):
     company_name = models.CharField(max_length=255)
@@ -313,3 +317,82 @@ class ProductChangeFields(models.Model):
     column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
     old_value = models.CharField(max_length=255, null=True)
     new_value = models.CharField(max_length=255, null=True)
+
+
+class RetailerCouponRuleSet(CouponRuleSet):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon Ruleset'
+
+
+class RetailerRuleSetProductMapping(RuleSetProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon Ruleset Product Mapping'
+
+
+class RetailerCoupon(Coupon):
+    class Meta:
+        proxy = True
+        verbose_name = 'Coupon'
+
+
+class RetailerCart(Cart):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Cart'
+
+
+class RetailerCartProductMapping(CartProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Cart Product Mapping'
+
+
+class RetailerOrderedProduct(OrderedProduct):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Order'
+
+
+class RetailerOrderedProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Ordered Product Mapping'
+
+
+class RetailerOrderReturn(OrderReturn):
+    class Meta:
+        proxy = True
+        verbose_name = 'Buyer - Return'
+
+    @property
+    def order_no(self):
+        return self.order.order_no
+
+
+class RetailerReturnItems(ReturnItems):
+    class Meta:
+        proxy = True
+        verbose_name = 'Return Item'
+
+    def __str__(self):
+        return ''
+
+
+class InventoryStatePos(PosInventoryState):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory State'
+
+
+class InventoryPos(PosInventory):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory'
+
+
+class InventoryChangePos(PosInventoryChange):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inventory Change'
