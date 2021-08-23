@@ -275,7 +275,7 @@ class ParentProductView(GenericAPIView):
             active_product_total_count = self.queryset.filter(status=True).count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"TOTAL PARENT SKUS {product_total_count} TOTAL ACTIVE PARENT SKUS {active_product_total_count}" \
+        msg = f"TOTAL PARENT SKUS {product_total_count}  TOTAL ACTIVE PARENT SKUS {active_product_total_count}" \
             if parent_product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
@@ -438,6 +438,7 @@ class ChildProductView(GenericAPIView):
         self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
 
         ch_product_total_count = self.queryset.count()
+        ch_active_product_total_count = self.queryset.filter(status='active').count()
         info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
@@ -449,11 +450,13 @@ class ChildProductView(GenericAPIView):
             """ GET Child Product List """
             self.queryset = self.search_filter_product_list()
             ch_product_total_count = self.queryset.count()
+            ch_active_product_total_count = self.queryset.filter(status='active').count()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
 
-        msg = f"total count {ch_product_total_count}" if child_product else "no child product found"
+        msg = f"TOTAL CHILD SKUS {ch_product_total_count}  TOTAL ACTIVE CHILD SKUS " \
+              f"{ch_active_product_total_count}" if child_product else "no child product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
