@@ -22,6 +22,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import query, manager
 from django.utils import timezone
 from pos.models import RetailerProduct
+from categories.models import BaseTimestampUserStatusModel
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -574,3 +575,25 @@ class PosInventoryChange(models.Model):
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class Zone(BaseTimestampUserStatusModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
+    coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
+    putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='zone_uploaded_by', null=True, blank=True,
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        permissions = (
+            ("can_have_zone_warehouse_permission", "Can have Zone Warehouse Permission"),
+            ("can_have_zone_supervisor_permission", "Can have Zone Supervisor Permission"),
+            ("can_have_zone_coordinator_permission", "Can have Zone Coordinator Permission"),
+        )
+
+    # def __str__(self):
+    #     return self.pk
+

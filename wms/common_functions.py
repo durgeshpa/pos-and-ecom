@@ -18,7 +18,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out)
+                     Audit, Out, Zone)
 
 from shops.models import Shop
 from products.models import Product, ParentProduct, ProductPrice
@@ -2156,3 +2156,22 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+class ZoneCommonFunction(object):
+
+    @classmethod
+    def create_zone(cls, warehouse, supervisor, coordinator, putaway_users):
+        Zone.objects.create(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator,
+                            putaway_users=putaway_users)
+
+    @classmethod
+    def update_putaway_users(cls, zone, putaway_users):
+        """
+            Update Putaway users of the Shop
+        """
+        zone.putaway_users.clear()
+        if putaway_users:
+            for user in putaway_users:
+                zone.putaway_users.add(user)
+

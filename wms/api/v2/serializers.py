@@ -1,6 +1,8 @@
 import csv
 from itertools import chain
 
+from django.db import transaction
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum
 from django.http import HttpResponse
@@ -9,7 +11,11 @@ from rest_framework import serializers
 
 from products.models import Product
 from shops.models import Shop
-from wms.models import In, Out, InventoryType
+from wms.common_functions import ZoneCommonFunction
+from wms.models import In, Out, InventoryType, Zone
+from wms.common_validators import get_validate_putaway_users
+
+User = get_user_model()
 
 
 class InSerializer(serializers.ModelSerializer):
@@ -130,6 +136,125 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
                 writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
                                  obj.quantity])
         return response
+
+
+class UserSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number',)
+
+
+class WarehouseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['warehouse'] = {
+            'id': representation['id'],
+            'shop': representation['__str__']
+        }
+        return representation['warehouse']
+
+
+class ZoneCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    supervisor = UserSerializers(read_only=True)
+    coordinator = UserSerializers(read_only=True)
+    putaway_users = UserSerializers(read_only=True, many=True)
+
+    class Meta:
+        model = Zone
+        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'created_at', 'updated_at')
+
+    def validate(self, data):
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'supervisor' in self.initial_data and self.initial_data['supervisor']:
+            try:
+                supervisor = User.objects.get(id=self.initial_data['supervisor'])
+            except:
+                raise serializers.ValidationError("Invalid supervisor")
+            if supervisor.has_perm('wms.can_have_zone_supervisor_permission'):
+                data['supervisor'] = supervisor
+            else:
+                raise serializers.ValidationError("Supervisor does not have required permission.")
+        else:
+            raise serializers.ValidationError("'supervisor' | This is mandatory")
+
+        if 'coordinator' in self.initial_data and self.initial_data['coordinator']:
+            try:
+                coordinator = User.objects.get(id=self.initial_data['coordinator'])
+            except:
+                raise serializers.ValidationError("Invalid coordinator")
+            if coordinator.has_perm('wms.can_have_zone_coordinator_permission'):
+                data['coordinator'] = coordinator
+            else:
+                raise serializers.ValidationError("Coordinator does not have required permission.")
+        else:
+            raise serializers.ValidationError("'coordinator' | This is mandatory")
+
+        # if self.initial_data['warehouse'] and self.initial_data['supervisor'] and self.initial_data['coordinator']:
+        #     if Zone.objects.filter(warehouse=self.initial_data['warehouse'], supervisor=self.initial_data['supervisor'],
+        #                         coordinator=self.initial_data['coordinator']).exists():
+        #         raise serializers.ValidationError(
+        #             "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+
+        if 'putaway_users' in self.initial_data and self.initial_data['putaway_users']:
+            if len(self.initial_data['putaway_users']) > 2:
+                raise serializers.ValidationError("Maximum 2 putaway users are allowed.")
+            putaway_users = get_validate_putaway_users(self.initial_data['putaway_users'])
+            if 'error' in putaway_users:
+                raise serializers.ValidationError((putaway_users["error"]))
+            data['putaway_users'] = putaway_users['putaway_users']
+        else:
+            raise serializers.ValidationError("'putaway_users' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not Zone.objects.filter(id=self.initial_data['id'], warehouse=warehouse).exists():
+                raise serializers.ValidationError("Warehouse updation is not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Zone with Putaway Users"""
+        putaway_users = validated_data.pop('putaway_users', None)
+
+        try:
+            zone_instance = Zone.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        return zone_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update Zone with Putaway Users"""
+        putaway_users = validated_data.pop('putaway_users', None)
+
+        try:
+            zone_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        return zone_instance
+
+
 
 
 

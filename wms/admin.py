@@ -1,41 +1,36 @@
 # python imports
-import logging
 import csv
+import logging
 from io import StringIO
-from datetime import datetime
 
 from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
 from django.contrib.admin import AllValuesFieldListFilter
-from django.db.models import F, Q
 from django.http import HttpResponse
-from django.utils.html import format_html
 from django.urls import reverse
-from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
+from django.utils.html import format_html
+from django_admin_listfilter_dropdown.filters import DropdownFilter
+from import_export import resources
 from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
 from audit.models import AUDIT_LEVEL_CHOICES
-from retailer_to_sp.models import Invoice, Trip
+from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import ProductVendorMapping
-from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
+from retailer_to_sp.models import Invoice, Trip
 # app imports
 from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
-from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
-from import_export import resources
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
-                     PickupBinInventory,
-                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
-from barCodeGenerator import barcodeGen, merged_barcode_gen
-from gram_to_brand.models import GRNOrderProductMapping
+from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
+                     PickupBinInventory,
+                     WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
+                     ExpiredInventoryMovement)
+from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 
 # Logger
 info_logger = logging.getLogger('file-info')
