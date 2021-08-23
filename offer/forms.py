@@ -85,6 +85,7 @@ class TopSKUForm(forms.ModelForm):
                                          forward=('brand',)
                                      )
                                      )
+
     class Meta:
         model = TopSKU
         fields = '__all__'
