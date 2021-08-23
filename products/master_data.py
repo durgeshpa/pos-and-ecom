@@ -429,10 +429,10 @@ class UploadMasterData(object):
                                                                                        defaults=dest_obj)
                             ProductPackingMapping.objects.update_or_create(sku=child_pro.last(), defaults=pack_obj)
 
-                    child_pro.update(**child_obj)
-                    if 'repackaging_type' in row and row['repackaging_type']:
-                        if row['repackaging_type'] == 'packing_material':
-                            ProductCls.update_weight_inventory(child_pro.last())
+                        child_pro.update(**child_obj)
+                        if 'repackaging_type' in row and row['repackaging_type']:
+                            if row['repackaging_type'] == 'packing_material':
+                                ProductCls.update_weight_inventory(child_pro.last())
 
                     ProductCls.create_child_product_log(child_pro.last(), "updated")
 

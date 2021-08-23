@@ -244,6 +244,7 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
         'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
@@ -260,6 +261,7 @@ class ParentProductView(GenericAPIView):
 
         info_logger.info("Parent Product GET api called.")
         product_total_count = self.queryset.count()
+        active_product_total_count = self.queryset.filter(status=True).count()
         if request.GET.get('id'):
             """ Get Parent Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -270,9 +272,11 @@ class ParentProductView(GenericAPIView):
             """ GET Parent Product List """
             self.queryset = self.search_filter_parent_product()
             product_total_count = self.queryset.count()
+            active_product_total_count = self.queryset.filter(status=True).count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"total count {product_total_count}" if parent_product else "no parent product found"
+        msg = f"total count {product_total_count} and total active product count {active_product_total_count}" \
+            if parent_product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):

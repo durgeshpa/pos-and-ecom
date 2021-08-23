@@ -26,7 +26,7 @@ class OfferBanner(BaseTimestampUserStatusModel):
         (OFFER, "offer"),
     )
 
-    name = models.CharField(max_length=20,)
+    name = models.CharField(max_length=20, )
     image = models.FileField(upload_to='offer_banner_image', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -98,7 +98,7 @@ class OfferBannerPosition(SortableMixin):
 
     def __str__(self):
         return "%s-%s-%s" % (self.page.name, self.offerbannerslot.name, self.shop) if self.shop else "%s-%s" % (
-        self.page, self.offerbannerslot.name)
+            self.page, self.offerbannerslot.name)
 
     class Meta:
         ordering = ['offer_banner_position_order']
@@ -133,7 +133,8 @@ class TopSKU(BaseTimestampUserStatusModel):
 
 class OfferLog(models.Model):
     action = models.CharField(max_length=50, null=True, blank=True)
-    offer_page = models.ForeignKey(OfferPage, related_name='offer_page_log', blank=True, null=True, on_delete=models.CASCADE)
+    offer_page = models.ForeignKey(OfferPage, related_name='offer_page_log', blank=True, null=True,
+                                   on_delete=models.CASCADE)
     top_sku = models.ForeignKey(TopSKU, related_name='top_sku_log', blank=True, null=True, on_delete=models.CASCADE)
     offer_banner_slot = models.ForeignKey(OfferBannerSlot, related_name='offer_banner_slot_log', blank=True, null=True,
                                           on_delete=models.CASCADE)

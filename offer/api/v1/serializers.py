@@ -159,6 +159,12 @@ class OfferPageListSerializers(serializers.ModelSerializer):
         model = OfferPage
         fields = ('id', 'name',)
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
+
 
 class OfferBannerSlotSerializers(serializers.ModelSerializer):
     page = OfferPageListSerializers(read_only=True)
@@ -304,7 +310,7 @@ class OfferBannerListSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         return {
             "id": representation['id'],
-            "name": representation['name'],
+            "name": representation['name'].title(),
             "value": representation['__str__']
         }
 
