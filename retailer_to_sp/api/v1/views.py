@@ -2322,7 +2322,8 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Check if order exists
             try:
-                order = Order.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], order_status='ordered')
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
+                                                              order_status='ordered')
             except ObjectDoesNotExist:
                 return api_response('Order Not Found To Cancel!')
             # check input status validity
@@ -2512,17 +2513,17 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
-        # basic validations for inputs
-        initial_validation = self.post_basic_validate(shop)
-        if 'error' in initial_validation:
-            e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-            extra_params = {'error_code': e_code} if e_code else {}
-            return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
-        cart = initial_validation['cart']
-        payment_type = initial_validation['payment_type']
-        transaction_id = self.request.data.get('transaction_id', None)
-
         with transaction.atomic():
+            # basic validations for inputs
+            initial_validation = self.post_basic_validate(shop)
+            if 'error' in initial_validation:
+                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+                extra_params = {'error_code': e_code} if e_code else {}
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            cart = initial_validation['cart']
+            payment_type = initial_validation['payment_type']
+            transaction_id = self.request.data.get('transaction_id', None)
+
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             # Refresh redeem reward
@@ -2612,7 +2613,7 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+        cart = Cart.objects.select_for_update().filter(id=cart_id, seller_shop=shop).last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -4001,11 +4002,6 @@ class OrderReturnComplete(APIView):
                                       order_status__in=['ordered', Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return api_response("Order Does Not Exist / Still Open / Already Returned")
-        # check if return created
-        try:
-            order_return = OrderReturn.objects.get(order=order, status='created')
-        except ObjectDoesNotExist:
-            return api_response("Order Return Does Not Exist / Already Closed")
 
         # Check Payment Type
         try:
@@ -4015,6 +4011,11 @@ class OrderReturnComplete(APIView):
             return api_response("Invalid Refund Method")
 
         with transaction.atomic():
+            # check if return created
+            try:
+                order_return = OrderReturn.objects.select_for_update().get(order=order, status='created')
+            except ObjectDoesNotExist:
+                return api_response("Order Return Does Not Exist / Already Closed")
             # check partial or fully refunded order
             return_qty = ReturnItems.objects.filter(return_id__order=order).aggregate(return_qty=Sum('return_qty'))[
                 'return_qty']
