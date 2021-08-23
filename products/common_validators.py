@@ -498,24 +498,24 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         for row in uploaded_data_list:
             row_num += 1
             if 'parent_id' not in row.keys() or row['parent_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'parent_id' is a mandatory can't be empty")
+                raise ValidationError(f"Row {row_num} | 'parent_id' is a mandatory, can't be empty")
 
             if 'parent_name' not in row.keys() or row['parent_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'Parent_Name' is a mandatory can't be empty")
+                raise ValidationError(f"Row {row_num} | 'Parent_Name' is a mandatory, can't be empty")
 
             if row['parent_id'].strip() in parent_id_list:
                 raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
                                       f"'parent_id' getting repeated in csv file")
             parent_id_list.append(row['parent_id'].strip())
 
-            if ParentProduct.objects.filter(name__iexact=row['product_name'].strip(), status=True).exclude(
+            if ParentProduct.objects.filter(name__iexact=row['parent_name'].strip(), status=True).exclude(
                     parent_id=row['parent_id']).exists():
-                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                      f"'product_name' already exists")
-            elif row['product_name'].strip().lower() in product_name_list:
-                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                      f"'product_name' getting repeated in csv file")
-            product_name_list.append(row['product_name'].strip().lower())
+                raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
+                                      f"'parent_name' already exists")
+            elif row['parent_name'].strip().lower() in product_name_list:
+                raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
+                                      f"'parent_name' getting repeated in csv file")
+            product_name_list.append(row['parent_name'].strip().lower())
 
     if upload_master_data == "child_product_update":
         mandatory_columns = ['sku_id', 'sku_name']
