@@ -8,7 +8,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList
+                    PosShopUsersList, RetailerList, OrderCommunication
                     )
 
 router = routers.DefaultRouter()
@@ -21,16 +21,17 @@ urlpatterns = [
     url('^GRN/search/$', SearchProducts.as_view()),
     # CART
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
-    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
-    url('^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
+    url(r'^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
+    url(r'^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
     url('^user/$', UserView.as_view()),
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
-    url('^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
+    url(r'^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
     # ORDER
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
     url('^order/$', OrderCentral.as_view()),
-    url('^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
+    url(r'^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
+    url(r'^order-communication/(?P<type>[-\w]+)/(?P<pk>\d+)/$', OrderCommunication.as_view()),
     url('^order-list/$', OrderListCentral.as_view(), name='order_list'),
     url('^order-dashboard/$', OrderedItemCentralDashBoard.as_view()),
     # RETURNS
