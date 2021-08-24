@@ -1281,7 +1281,7 @@ def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, da
 
             elif datetime.strptime(price_slab['offer_price_start_date'], "%Y-%m-%d").date() < datetime.today().date():
                 raise ValidationError('Offer Price Start Date is invalid')
-            elif datetime.strptime(price_slab['offer_price_start_date'], "%Y-%m-%d").date() < \
+            elif datetime.strptime(price_slab['offer_price_start_date'], "%Y-%m-%d").date() > \
                     datetime.strptime(price_slab['offer_price_end_date'], "%Y-%m-%d").date():
                 raise ValidationError('Offer Price End Date is invalid')
 
