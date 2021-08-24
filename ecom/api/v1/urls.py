@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, CategoriesView, SubCategoriesView
+from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, CategoriesView, SubCategoriesView, TagView, TagProductView 
 
 urlpatterns = [
     url(r'^shop/', ShopView.as_view(), name='ecom-shop'),
@@ -11,4 +11,6 @@ urlpatterns = [
     url(r'^address-list/', AddressListView.as_view(), name='ecom-user-address-list'),
     url(r'^categories/', CategoriesView.as_view(), name='ecom-shop-categories'),
     url(r'^sub-categories/', SubCategoriesView.as_view(), name='ecom-shop-subcategories'),
+    url(r'^tags/', TagView.as_view(), name='ecom-tag'),
+    url(r'^tag-product/(?P<pk>\d+)/$', TagProductView.as_view(), name='ecom-tag-product')
 ]
