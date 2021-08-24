@@ -661,72 +661,49 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
         for row in uploaded_data_list:
             row_num += 1
-            if 'product_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'product_name' is a mandatory field")
-            if 'product_name' in row.keys() and row['product_name'] == '':
+            if 'product_name' not in row.keys() or row['product_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_name' can't be empty")
-            if 'product_name' in row.keys() and row['product_name']:
-                if ParentProduct.objects.filter(name__iexact=row['product_name'].strip(), status=True).exists():
-                    raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                          f"'product_name' already exists")
-                elif row['product_name'].strip().lower() in product_name_list:
-                    raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                          f"'product_name' getting repeated in csv file")
-                product_name_list.append(row['product_name'].strip().lower())
 
-            if 'product_type' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'product_type' is a mandatory field")
-            if 'product_type' in row.keys() and row['product_type'] == '':
+            if ParentProduct.objects.filter(name__iexact=row['product_name'].strip(), status=True).exists():
+                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
+                                      f"'product_name' already exists")
+            elif row['product_name'].strip().lower() in product_name_list:
+                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
+                                      f"'product_name' getting repeated in csv file")
+            product_name_list.append(row['product_name'].strip().lower())
+
+            if 'product_type' not in row.keys() or row['product_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_type' can't be empty")
 
-            if 'hsn' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'hsn' is a mandatory field")
-            if 'hsn' in row.keys() and row['hsn'] == '':
+            if 'hsn' not in row.keys() or row['hsn'] == '':
                 raise ValidationError(f"Row {row_num} | 'hsn' can't be empty")
 
-            if 'gst' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'gst' is a mandatory field")
-            if 'gst' in row.keys() and row['gst'] == '':
+            if 'gst' not in row.keys() or row['gst'] == '':
                 raise ValidationError(f"Row {row_num} | 'gst' can't be empty")
-
             if 'cess' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'cess' is a mandatory field")
             if 'surcharge' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'surcharge' is a mandatory field")
 
-            if 'inner_case_size' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'inner_case_size' is a mandatory field")
-            if 'inner_case_size' in row.keys() and row['inner_case_size'] == '':
+            if 'inner_case_size' not in row.keys() or row['inner_case_size'] == '':
                 raise ValidationError(f"Row {row_num} | 'inner_case_size' can't be empty")
 
-            if 'discounted_life_percent' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'discounted_life_percent' is a mandatory field")
-            if 'discounted_life_percent' in row.keys() and row['discounted_life_percent'] == '':
+            if 'discounted_life_percent' not in row.keys() or row['discounted_life_percent'] == '':
                 raise ValidationError(f"Row {row_num} | 'discounted_life_percent' can't be empty")
 
-            if 'brand_case_size' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_case_size' is a mandatory field")
-            if 'brand_case_size' in row.keys() and row['brand_case_size'] == '':
+            if 'brand_case_size' not in row.keys() or row['brand_case_size'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_case_size' can't be empty")
 
-            if 'brand_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_name' is a mandatory field")
-            if 'brand_name' in row.keys() and row['brand_name'] == '':
+            if 'brand_name' not in row.keys() or row['brand_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_name' can't be empty")
 
-            if 'brand_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_id' is a mandatory field")
-            if 'brand_id' in row.keys() and row['brand_id'] == '':
+            if 'brand_id' not in row.keys() or row['brand_id'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
 
-            if 'category_name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'category_name' is a mandatory field")
-            if 'category_name' in row.keys() and row['category_name'] == '':
+            if 'category_name' not in row.keys() or row['category_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_name' can't be empty")
 
-            if 'is_ptr_applicable' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' is a mandatory field")
-            if 'is_ptr_applicable' in row.keys() and row['is_ptr_applicable'] == '':
+            if 'is_ptr_applicable' not in row.keys() or row['is_ptr_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' can't be empty")
 
             if 'ptr_type' not in row.keys():
@@ -734,20 +711,15 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'ptr_percent' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'ptr_percent' is a mandatory field")
 
-            if 'is_ars_applicable' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'is_ars_applicable' is a mandatory field")
-            if 'is_ars_applicable' in row.keys() and row['is_ars_applicable'] == '':
+            if 'is_ars_applicable' not in row.keys() or row['is_ars_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ars_applicable' can't be empty")
 
-            if 'max_inventory_in_days' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' is a mandatory field")
-            if 'max_inventory_in_days' in row.keys() and row['max_inventory_in_days'] == '':
+            if 'max_inventory_in_days' not in row.keys() or row['max_inventory_in_days'] == '':
                 raise ValidationError(f"Row {row_num} | 'max_inventory_in_days' can't be empty")
 
-            if 'is_lead_time_applicable' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' is a mandatory field")
-            if 'is_lead_time_applicable' in row.keys() and row['is_lead_time_applicable'] == '':
+            if 'is_lead_time_applicable' not in row.keys() or row['is_lead_time_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_lead_time_applicable' can't be empty")
+
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
@@ -763,55 +735,39 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         product_name_list = []
         for row in uploaded_data_list:
             row_num += 1
-            if 'product_name' not in row.keys():
+            if 'product_name' not in row.keys() or row['product_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_name' is a mandatory field")
-            if 'product_name' in row.keys() and row['product_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'product_name' can't be empty")
-            if 'product_name' in row.keys() and row['product_name']:
-                if Product.objects.filter(product_name__iexact=row['product_name'].strip(), status="active").exists():
-                    raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                          f"'product_name' already exists")
-                elif row['product_name'].strip().lower() in product_name_list:
-                    raise ValidationError(f"Row {row_num} | {row['product_name']} | "
-                                          f"'product_name' getting repeated in csv file")
-                product_name_list.append(row['product_name'].strip().lower())
 
-            if 'parent_id' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'parent_id' is a mandatory field")
-            if 'parent_id' in row.keys() and row['parent_id'] == '':
+            if Product.objects.filter(product_name__iexact=row['product_name'].strip(), status="active").exists():
+                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
+                                      f"'product_name' already exists")
+            elif row['product_name'].strip().lower() in product_name_list:
+                raise ValidationError(f"Row {row_num} | {row['product_name']} | "
+                                      f"'product_name' getting repeated in csv file")
+            product_name_list.append(row['product_name'].strip().lower())
+
+            if 'parent_id' not in row.keys() or row['parent_id'] == '':
                 raise ValidationError(f"Row {row_num} | 'parent_id' can't be empty")
 
-            if 'reason_for_child_sku' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'reason_for_child_sku' is a mandatory field")
-            if 'reason_for_child_sku' in row.keys() and row['reason_for_child_sku'] == '':
+            if 'reason_for_child_sku' not in row.keys() or row['reason_for_child_sku'] == '':
                 raise ValidationError(f"Row {row_num} | 'reason_for_child_sku' can't be empty")
 
-            if 'ean' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'ean' is a mandatory field")
-            if 'ean' in row.keys() and row['ean'] == '':
+            if 'ean' not in row.keys() or row['ean'] == '':
                 raise ValidationError(f"Row {row_num} | 'ean' can't be empty")
 
-            if 'mrp' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'mrp' is a mandatory field")
-            if 'mrp' in row.keys() and row['mrp'] == '':
+            if 'mrp' not in row.keys() or row['mrp'] == '':
                 raise ValidationError(f"Row {row_num} | 'mrp' can't be empty")
 
-            if 'weight_unit' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'weight_unit' is a mandatory field")
-            if 'weight_unit' in row.keys() and row['weight_unit'] == '':
+            if 'weight_unit' not in row.keys() or row['weight_unit'] == '':
                 raise ValidationError(f"Row {row_num} | 'weight_unit' can't be empty")
 
-            if 'weight_value' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'weight_value' is a mandatory field")
-            if 'weight_value' in row.keys() and row['weight_value'] == '':
+            if 'weight_value' not in row.keys() or row['weight_value'] == '':
                 raise ValidationError(f"Row {row_num} | 'weight_value' can't be empty")
 
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
-            if 'repackaging_type' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'repackaging_type' is a mandatory field")
-            if 'repackaging_type' in row.keys() and row['repackaging_type'] == '':
+            if 'repackaging_type' not in row.keys() or row['repackaging_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'repackaging_type' can't be empty")
 
     if upload_master_data == "create_brand":
@@ -825,45 +781,38 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         brand_name_list = []
         for row in uploaded_data_list:
             row_num += 1
-            if 'name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
-            if 'name' in row.keys() and row['name'] == '':
+            if 'name' not in row.keys() or row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-            if 'name' in row.keys() and row['name']:
 
-                brand_obj = validate_brand_name(row['name'].strip(), None)
-                if brand_obj is not None and 'error' in brand_obj:
-                    raise ValidationError(f"Row {row_num} | {row['name']} | {brand_obj['error']}")
-                elif row['name'].strip().lower() in brand_name_list:
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'name' getting repeated in csv file")
-                brand_name_list.append(row['name'].strip().lower().lower())
+            brand_obj = validate_brand_name(row['name'].strip(), None)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise ValidationError(f"Row {row_num} | {row['name']} | {brand_obj['error']}")
+            elif row['name'].strip().lower() in brand_name_list:
+                raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                      f"'name' getting repeated in csv file")
+            brand_name_list.append(row['name'].strip().lower().lower())
 
-            if 'brand_code' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_code' is a mandatory field")
-            if 'brand_code' in row.keys() and row['brand_code'] == '':
+            if 'brand_code' not in row.keys() or row['brand_code'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_code' can't be empty")
-            if 'brand_code' in row.keys() and row['brand_code']:
-                brand_obj = validate_brand_code(row['brand_code'].strip(), None)
-                if brand_obj is not None and 'error' in brand_obj:
-                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | {brand_obj['error']} ")
-                elif row['brand_code'].strip().lower() in brand_code_list:
-                    raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
-                                          f"'brand_code' getting repeated in csv file")
-                brand_code_list.append(row['brand_code'].strip().lower())
+            brand_obj = validate_brand_code(row['brand_code'].strip(), None)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise ValidationError(f"Row {row_num} | {row['brand_code']} | {brand_obj['error']} ")
+            elif row['brand_code'].strip().lower() in brand_code_list:
+                raise ValidationError(f"Row {row_num} | {row['brand_code']} | "
+                                      f"'brand_code' getting repeated in csv file")
+            brand_code_list.append(row['brand_code'].strip().lower())
 
-            if 'brand_slug' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'brand_slug' is a mandatory field")
-            if 'brand_slug' in row.keys() and row['brand_slug'] == '':
+            if 'brand_slug' not in row.keys() or row['brand_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_slug' can't be empty")
-            if 'brand_slug' in row.keys() and row['brand_slug']:
-                brand_obj = validate_brand_slug(row['brand_slug'].strip(), None)
-                if brand_obj is not None and 'error' in brand_obj:
-                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | {brand_obj['error']}")
-                elif row['brand_slug'].strip().lower() in brand_slug_list:
-                    raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
-                                          f"'brand_slug' getting repeated in csv file")
-                brand_slug_list.append(row['brand_slug'].strip().lower())
+
+            brand_obj = validate_brand_slug(row['brand_slug'].strip(), None)
+            if brand_obj is not None and 'error' in brand_obj:
+                raise ValidationError(f"Row {row_num} | {row['brand_slug']} | {brand_obj['error']}")
+            elif row['brand_slug'].strip().lower() in brand_slug_list:
+                raise ValidationError(f"Row {row_num} | {row['brand_slug']} | "
+                                      f"'brand_slug' getting repeated in csv file")
+            brand_slug_list.append(row['brand_slug'].strip().lower())
+
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
@@ -878,46 +827,40 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
         category_name_list = []
         for row in uploaded_data_list:
             row_num += 1
-            if 'name' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'name' is a mandatory field")
-            if 'name' in row.keys() and row['name'] == '':
+            if 'name' not in row.keys() or row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-            if 'name' in row.keys() and row['name']:
-                cat_obj = validate_category_name(row['name'].strip(), None)
-                if cat_obj is not None and 'error' in cat_obj:
-                    raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
-                elif row['name'].strip().lower() in category_name_list:
-                    raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                          f"'name' getting repeated in csv file")
-                category_name_list.append(row['name'].strip().lower())
 
-            if 'category_slug' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'category_slug' is a mandatory field")
-            if 'category_slug' in row.keys() and row['category_slug'] == '':
+            cat_obj = validate_category_name(row['name'].strip(), None)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
+            elif row['name'].strip().lower() in category_name_list:
+                raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                      f"'name' getting repeated in csv file")
+            category_name_list.append(row['name'].strip().lower())
+
+            if 'category_slug' not in row.keys() or row['category_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
-            if 'category_slug' in row.keys() and row['category_slug']:
-                cat_obj = validate_category_slug(row['category_slug'].strip(), None)
-                if cat_obj is not None and 'error' in cat_obj:
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
 
-                elif row['category_slug'].strip().lower() in category_slug_list:
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                          f"'category_slug' getting repeated in csv file")
-                category_slug_list.append(row['category_slug'].strip().lower())
+            cat_obj = validate_category_slug(row['category_slug'].strip(), None)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
 
-            if 'category_sku_part' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'category_sku_part' is a mandatory field")
-            if 'category_sku_part' in row.keys() and row['category_sku_part'] == '':
+            elif row['category_slug'].strip().lower() in category_slug_list:
+                raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
+                                      f"'category_slug' getting repeated in csv file")
+            category_slug_list.append(row['category_slug'].strip().lower())
+
+            if 'category_sku_part' not in row.keys() or row['category_sku_part'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_sku_part' can't be empty")
-            if 'category_sku_part' in row.keys() and row['category_sku_part']:
-                cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), None)
-                if cat_obj is not None and 'error' in cat_obj:
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
 
-                elif row['category_sku_part'].strip().lower() in category_sku_part_list:
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                          f"'category_sku_part' getting repeated in csv file")
-                category_sku_part_list.append(row['category_sku_part'].strip().lower())
+            cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), None)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
+            elif row['category_sku_part'].strip().lower() in category_sku_part_list:
+                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
+                                      f"'category_sku_part' getting repeated in csv file")
+            category_sku_part_list.append(row['category_sku_part'].strip().lower())
+
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
