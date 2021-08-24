@@ -6,7 +6,7 @@ from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 
 from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
-from .models import Address
+from .models import Address, Tag, TagProductMapping
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -156,3 +156,32 @@ class EcomAddressAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+class TagProductMappingInline(admin.TabularInline):
+    model = TagProductMapping
+    fields = ('product',)
+    extra = 6
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_add_permission(self, request, obj=None):
+        return True
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    model = Tag
+    inlines = [TagProductMappingInline]
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_add_permission(self, request, obj=None):
+        return True
