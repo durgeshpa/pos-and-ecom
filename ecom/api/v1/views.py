@@ -160,14 +160,16 @@ class TagView(APIView):
 
     @check_ecom_user
     def get(self, *args, **kwargs):
-        data = [
-            {
-                'id':1,
-                'name':'BestSeller',
-                'position': 1,
-                'status': 'Active'
-            }
-        ]
+        data = {
+            'tags':[
+                {
+                    'id':1,
+                    'name':'BestSeller',
+                    'position': 1,
+                    'status': 'Active'
+                }
+            ]
+        }
         is_success = True
         return api_response('', data, status.HTTP_200_OK, is_success)
 
@@ -195,5 +197,5 @@ class TagProductView(APIView):
             }
         ]
         is_success = True
-        return api_response('', data, status.HTTP_200_OK, is_success)
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
