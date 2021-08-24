@@ -160,16 +160,14 @@ class TagView(APIView):
 
     @check_ecom_user
     def get(self, *args, **kwargs):
-        data = {
-            'tags':[
-                {
-                    'id':1,
-                    'name':'BestSeller',
-                    'position': 1,
-                    'status': 'Active'
-                }
-            ]
-        }
+        data = [
+            {
+                'id':1,
+                'name':'BestSeller',
+                'position': 1,
+                'status': 'Active'
+            }
+        ]
         is_success = True
         return api_response('', data, status.HTTP_200_OK, is_success)
 
@@ -179,23 +177,21 @@ class TagProductView(APIView):
 
     @check_ecom_user
     def get(self, request, pk):
-        data = [
-            {
-                'id': 1,
-                'name':'BestSeller',
-                'position': 1,
-                'status': 'Active',
-                'products': [
-                    {
-                        'id': 1,
-                        'name': 'Coco-Cola',
-                        'mrp': 60,
-                        'selling_price': 50,
-                        'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIhOKROaarc5SauOE0oL8r3KdTZq_rbJwl2w&usqp=CAU'
-                    }
-                ]
-            }
-        ]
+        data = {
+            'id': 1,
+            'name':'BestSeller',
+            'position': 1,
+            'status': 'Active',
+            'products': [
+                {
+                    'id': 1,
+                    'name': 'Coco-Cola',
+                    'mrp': 60,
+                    'selling_price': 50,
+                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIhOKROaarc5SauOE0oL8r3KdTZq_rbJwl2w&usqp=CAU'
+                }
+            ]
+        }
         is_success = True
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
