@@ -658,7 +658,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
                   'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
                   'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
-                  'packing_product_rt', 'child_product_log', 'product_vendor_mapping', )
+                  'packing_product_rt', 'product_vendor_mapping', 'child_product_log',)
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
