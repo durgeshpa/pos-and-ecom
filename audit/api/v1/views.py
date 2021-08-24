@@ -684,13 +684,13 @@ class AuditInventory(APIView):
 
     def get_sku_from_batch(self, batch_id):
         sku = None
-        bin_inventory = BinInventory.objects.filter(batch_id=batch_id).last()
-        if bin_inventory:
-            sku = bin_inventory.sku
-        else:
-            in_entry = In.objects.filter(batch_id=batch_id).last()
-            if in_entry:
-                sku = in_entry.sku
+        # bin_inventory = BinInventory.objects.filter(batch_id=batch_id).last()
+        # if bin_inventory:
+        #     sku = bin_inventory.sku
+        # else:
+        #     in_entry = In.objects.filter(batch_id=batch_id).last()
+        #     if in_entry:
+        #         sku = in_entry.sku
         if not sku:
             sku_id = batch_id[:-6]
             sku = Product.objects.filter(product_sku=sku_id).last()
