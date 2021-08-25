@@ -886,18 +886,18 @@ def pickup_entry_creation_with_cron():
                                      created_at__gt=start_time) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
 
-    if order_obj.count() == 0:
-        cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
-        return
+    # if order_obj.count() == 0:
+    #     cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+    #     return
 
-    if CronRunLog.objects.filter(cron_name=cron_name,
-                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-        cron_logger.info("{} already running".format(cron_name))
-        return
-
-    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    cron_logger.info("{} started, cron log entry-{}"
-                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    # if CronRunLog.objects.filter(cron_name=cron_name,
+    #                              status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+    #     cron_logger.info("{} already running".format(cron_name))
+    #     return
+    #
+    # cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    # cron_logger.info("{} started, cron log entry-{}"
+    #                  .format(cron_log_entry.cron_name, cron_log_entry.id))
     for order in order_obj:
         try:
             with transaction.atomic():
