@@ -889,11 +889,11 @@ def pickup_entry_creation_with_cron():
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
-    print("here")
-    if CronRunLog.objects.filter(cron_name=cron_name,
-                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-        cron_logger.info("{} already running".format(cron_name))
-        return
+
+    # if CronRunLog.objects.filter(cron_name=cron_name,
+    #                              status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+    #     cron_logger.info("{} already running".format(cron_name))
+    #     return
     print("CronRunLog here")
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
     print("CronRunLog here", cron_log_entry)
