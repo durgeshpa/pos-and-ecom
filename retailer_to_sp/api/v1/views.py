@@ -4404,7 +4404,7 @@ def pdf_generation(request, ordered_product):
             product_desc[m.product.product_short_description] = product_short_description
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": product_short_description,
+                "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
                 "product_mrp": product_pro_price_mrp,
