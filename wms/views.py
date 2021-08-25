@@ -894,11 +894,10 @@ def pickup_entry_creation_with_cron():
     #                              status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
     #     cron_logger.info("{} already running".format(cron_name))
     #     return
-    print("CronRunLog here")
-    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    print("CronRunLog here", cron_log_entry)
-    cron_logger.info("{} started, cron log entry-{}"
-                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    # cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    # print("CronRunLog here", cron_log_entry)
+    # cron_logger.info("{} started, cron log entry-{}"
+    #                  .format(cron_log_entry.cron_name, cron_log_entry.id))
     for order in order_obj:
         try:
             print("CronRunLog here", order)
