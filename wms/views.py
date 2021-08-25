@@ -885,18 +885,19 @@ def pickup_entry_creation_with_cron():
                                      created_at__lt=current_time,
                                      created_at__gt=start_time) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
-    if order_obj.count() == 0:
-        cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
-        return
 
-    if CronRunLog.objects.filter(cron_name=cron_name,
-                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-        cron_logger.info("{} already running".format(cron_name))
-        return
+    # if order_obj.count() == 0:
+    #     cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+    #     return
 
-    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    cron_logger.info("{} started, cron log entry-{}"
-                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    # if CronRunLog.objects.filter(cron_name=cron_name,
+    #                              status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+    #     cron_logger.info("{} already running".format(cron_name))
+    #     return
+    #
+    # cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    # cron_logger.info("{} started, cron log entry-{}"
+    #                  .format(cron_log_entry.cron_name, cron_log_entry.id))
     for order in order_obj:
         try:
             with transaction.atomic():
@@ -915,6 +916,7 @@ def pickup_entry_creation_with_cron():
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
             cron_logger.error(e)
+
     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
     cron_log_entry.completed_at = timezone.now()
     cron_logger.info("{} completed, cron log entry-{}"
@@ -2059,6 +2061,7 @@ def create_update_discounted_products(parent_product=None):
                                             sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
         .prefetch_related('sku__parent_product') \
         .prefetch_related('sku__ins')
+    print(inventory, warehouse_list)
     if parent_product:
         inventory = inventory.filter(sku__parent_product=parent_product)
     for i in inventory:
