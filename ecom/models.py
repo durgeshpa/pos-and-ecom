@@ -3,6 +3,7 @@ from django.db import models
 from retailer_backend.validators import (AddressNameValidator, MobileNumberValidator, PinCodeValidator)
 from accounts.models import User
 from retailer_to_sp.models import Order
+from pos.models import RetailerProduct
 from addresses.models import City, State, Pincode
 
 
@@ -62,3 +63,20 @@ class EcomOrderAddress(models.Model):
     state = models.ForeignKey(State, related_name='state_address_order', on_delete=models.CASCADE, blank=True, null=True)
     city = models.ForeignKey(City, related_name='city_address_order', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class Tag(models.Model):
+    name = models.CharField(max_length=255)
+    position = models.IntegerField()
+    status = models.BooleanField(default=1)
+
+    def __str__(self):
+        return self.name
+
+class TagProductMapping(models.Model):
+    tag = models.ForeignKey(Tag, related_name='tag_ecom', on_delete=models.CASCADE)
+    product = models.ForeignKey(RetailerProduct, related_name='product_tag_ecom', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.tag.name + '-' + self.product.name

@@ -153,3 +153,45 @@ class SubCategoriesView(APIView):
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
+class TagView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    @check_ecom_user
+    def get(self, *args, **kwargs):
+        data = [
+            {
+                'id':1,
+                'name':'BestSeller',
+                'position': 1,
+                'status': 'Active'
+            }
+        ]
+        is_success = True
+        return api_response('', data, status.HTTP_200_OK, is_success)
+
+class TagProductView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    @check_ecom_user
+    def get(self, request, pk):
+        data = {
+            'id': 1,
+            'name':'BestSeller',
+            'position': 1,
+            'status': 'Active',
+            'products': [
+                {
+                    'id': 1,
+                    'name': 'Coco-Cola',
+                    'mrp': 60,
+                    'selling_price': 50,
+                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIhOKROaarc5SauOE0oL8r3KdTZq_rbJwl2w&usqp=CAU'
+                }
+            ]
+        }
+        is_success = True
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+
