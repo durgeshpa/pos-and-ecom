@@ -160,7 +160,17 @@ table tr td,th,h4,span,address{
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
 									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
-								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
+								{% if m.product.product_type == 1 %}
+								{% set batch_id = OrderedProductBatch.objects.filter(ordered_product_mapping=m).last().batch_id %}
+								{% if len(batch_id) == 23 %}
+									{% set expiry_date = str(datetime.strptime(batch_id[17:19] + '-' + batch_id[19:21] + '-' + '20' + batch_id[21:23], "%d-%m-%Y")) %}
+								{% else %}
+									{% set expiry_date = str(datetime.strptime('30-' + batch_id[17:19] + '-20' + batch_id[19:21], "%d-%m-%Y")) %}
+								{% endif %}
+										<td class="text-center"><strong>{{ m.product.product_short_description}} Type: Discounted. Exp: {{expiry_date}}</strong></td>
+								{% else %}
+									<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
+								{% endif %}
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>
