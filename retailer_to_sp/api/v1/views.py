@@ -4489,6 +4489,7 @@ def pdf_generation(request, ordered_product):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        info_logger.info("PDF generating for product_desc" + str(product_desc))
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
