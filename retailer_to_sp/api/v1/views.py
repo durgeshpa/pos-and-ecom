@@ -4489,11 +4489,13 @@ def pdf_generation(request, ordered_product):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        info_logger.info("PDF generating for product_desc" + str(product_desc))
+
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
+            info_logger.info("PDF generating for filename" + str(filename))
+            info_logger.info(ordered_product.invoice.invoice_pdf.url)
         except Exception as e:
             error_logger.info("Error occured while upload pdf, Error msg: " + str(e))
             import traceback; traceback.print_exc()
