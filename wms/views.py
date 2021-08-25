@@ -890,17 +890,16 @@ def pickup_entry_creation_with_cron():
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
 
-    # if CronRunLog.objects.filter(cron_name=cron_name,
-    #                              status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-    #     cron_logger.info("{} already running".format(cron_name))
-    #     return
-    # cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    # print("CronRunLog here", cron_log_entry)
-    # cron_logger.info("{} started, cron log entry-{}"
-    #                  .format(cron_log_entry.cron_name, cron_log_entry.id))
+    if CronRunLog.objects.filter(cron_name=cron_name,
+                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        cron_logger.info("{} already running".format(cron_name))
+        return
+
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}"
+                     .format(cron_log_entry.cron_name, cron_log_entry.id))
     for order in order_obj:
         try:
-            print("CronRunLog here", order)
             with transaction.atomic():
                 pincode = "00"
                 if pickup_entry_exists_for_order(order.id):
