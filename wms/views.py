@@ -877,7 +877,6 @@ def pickup_entry_exists_for_order(order_id):
 
 
 def pickup_entry_creation_with_cron():
-    print("called")
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
@@ -887,16 +886,19 @@ def pickup_entry_creation_with_cron():
                                      created_at__gt=start_time,
                                      id=235716) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
-    print(order_obj)
+
     if order_obj.count() == 0:
+        print(order_obj.count())
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
 
     if CronRunLog.objects.filter(cron_name=cron_name,
                                  status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        print(CronRunLog.objects.filter(cron_name=cron_name,
+                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists())
         cron_logger.info("{} already running".format(cron_name))
         return
-    print(order_obj)
+
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
     cron_logger.info("{} started, cron log entry-{}"
                      .format(cron_log_entry.cron_name, cron_log_entry.id))
@@ -907,6 +909,7 @@ def pickup_entry_creation_with_cron():
                 if pickup_entry_exists_for_order(order.id):
                     cron_logger.info('pickup extry exists for order {}'.format(order.id))
                     continue
+                    print(order.id)
                 PickerDashboard.objects.create(order=order, picking_status="picking_pending",
                                                picklist_id=generate_picklist_id(pincode))
                 cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
