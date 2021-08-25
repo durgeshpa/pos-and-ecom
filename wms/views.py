@@ -896,7 +896,7 @@ def pickup_entry_creation_with_cron():
                                  status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
         cron_logger.info("{} already running".format(cron_name))
         return
-
+    print(order_obj)
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
     cron_logger.info("{} started, cron log entry-{}"
                      .format(cron_log_entry.cron_name, cron_log_entry.id))
@@ -914,12 +914,15 @@ def pickup_entry_creation_with_cron():
                 PicklistRefresh.create_picklist_by_order(order)
                 order.order_status = 'PICKUP_CREATED'
                 order.save()
+                print(pincode)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
             cron_logger.error(e)
+            print(Exception, e)
     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
     cron_log_entry.completed_at = timezone.now()
+    print(timezone.now())
     cron_logger.info("{} completed, cron log entry-{}"
                      .format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
