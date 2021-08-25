@@ -4226,11 +4226,12 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    try:
-        if ordered_product.invoice.invoice_pdf.url:
-            pass
-    except Exception as e:
-        logger.exception(e)
+    # try:
+    #     if ordered_product.invoice.invoice_pdf.url:
+    #         pass
+    # except Exception as e:
+    #     logger.exception(e)
+    if True:
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -4306,6 +4307,7 @@ def pdf_generation(request, ordered_product):
         pincode_gram = '-'
         cin = '-'
         list1 = []
+        product_desc = {}
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             dict1 = {}
             flag = 0
@@ -4399,7 +4401,7 @@ def pdf_generation(request, ordered_product):
                     expiry_date = str(datetime.strptime('30-' + batch_id[17:19] + '-20' + batch_id[19:21], "%d-%m-%Y"))
                 product_short_description = f"{m.product.product_short_description}.\n Type: Discounted. " \
                                             f"Exp: {expiry_date}"
-
+            product_desc[m.product.product_short_description] = product_short_description
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": product_short_description,
@@ -4470,7 +4472,7 @@ def pdf_generation(request, ordered_product):
         logger.info(template_name)
         logger.info(request.get_host())
 
-        data = {"shipment": ordered_product, "order": ordered_product.order,
+        data = {"shipment": ordered_product, "order": ordered_product.order, "product_desc": product_desc,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess": product_special_cess,
                 "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
