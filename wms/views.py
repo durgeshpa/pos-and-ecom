@@ -871,7 +871,6 @@ def release_blocking_with_cron():
 
 def pickup_entry_exists_for_order(order_id):
     pd_obj = PickerDashboard.objects.filter(order_id=order_id).exclude(picking_status='picking_cancelled')
-    print(pd_obj)
     if pd_obj.exists():
         return True
     return False
@@ -879,24 +878,21 @@ def pickup_entry_exists_for_order(order_id):
 
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
+    print(cron_name, CronRunLog.CRON_STATUS_CHOICES.STARTED)
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time,
-                                     id=235716) \
+                                     created_at__gt=start_time) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
 
     if order_obj.count() == 0:
-        print(order_obj.count())
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
 
     if CronRunLog.objects.filter(cron_name=cron_name,
                                  status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-        print(CronRunLog.objects.filter(cron_name=cron_name,
-                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists())
         cron_logger.info("{} already running".format(cron_name))
         return
 
@@ -907,11 +903,9 @@ def pickup_entry_creation_with_cron():
         try:
             with transaction.atomic():
                 pincode = "00"
-                print(order.id)
                 if pickup_entry_exists_for_order(order.id):
                     cron_logger.info('pickup extry exists for order {}'.format(order.id))
                     continue
-
                 PickerDashboard.objects.create(order=order, picking_status="picking_pending",
                                                picklist_id=generate_picklist_id(pincode))
                 cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
@@ -919,15 +913,13 @@ def pickup_entry_creation_with_cron():
                 PicklistRefresh.create_picklist_by_order(order)
                 order.order_status = 'PICKUP_CREATED'
                 order.save()
-                print(pincode)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
             cron_logger.error(e)
-            print(Exception, e)
+
     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
     cron_log_entry.completed_at = timezone.now()
-    print(timezone.now())
     cron_logger.info("{} completed, cron log entry-{}"
                      .format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
@@ -1746,7 +1738,6 @@ class PicklistRefresh:
 
     @staticmethod
     def create_picklist_by_order(order, inventory_type=None):
-        print("RefreshPicklist")
         info_logger.info('RefreshPicklist|create_picklist_by_order| order {}'.format(order.order_no))
         if inventory_type is None:
             inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
@@ -1758,7 +1749,6 @@ class PicklistRefresh:
                 CommonPickupFunctions.create_pickup_entry(shop, 'Order', order.order_no, order_product.cart_product,
                                                           order_product.no_of_pieces,
                                                           'pickup_creation', inventory_type)
-                print("RefreshPicklistRefreshPicklist")
                 info_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
                                  .format(order.id, order_product.cart_product, inventory_type))
             pu = Pickup.objects.filter(pickup_type_id=order.order_no, status='pickup_creation')
@@ -1854,7 +1844,6 @@ class PicklistRefresh:
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     shop, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
                     tr_type, tr_id)
-            print("RefreshPicklistRefreshPicklistRefreshPicklist")
             info_logger.info('RefreshPicklist|create_picklist_by_order| completed for order {}'
                              .format(order.order_no))
 
