@@ -877,14 +877,17 @@ def pickup_entry_exists_for_order(order_id):
 
 
 def pickup_entry_creation_with_cron():
+    print("called")
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time) \
+                                     created_at__gt=start_time,
+                                     id=235716) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
+    print(order_obj)
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
@@ -2056,8 +2059,7 @@ def create_update_discounted_products(parent_product=None):
     tr_id = today.isoformat()
     inventory = BinInventory.objects.filter(warehouse__id__in=warehouse_list,
                                             inventory_type=type_normal, quantity__gt=0,
-                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
-                                            sku__id=45500) \
+                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL) \
         .prefetch_related('sku__parent_product') \
         .prefetch_related('sku__ins')
     print(inventory, warehouse_list)
