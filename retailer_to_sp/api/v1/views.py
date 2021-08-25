@@ -4494,6 +4494,8 @@ def pdf_generation(request, ordered_product):
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
         except Exception as e:
+            error_logger.info("Error occured while upload pdf, Error msg: " + str(e))
+            import traceback; traceback.print_exc()
             logger.exception(e)
 
 
