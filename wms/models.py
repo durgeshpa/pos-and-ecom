@@ -1,28 +1,21 @@
-import math
-
-from django.db import models
-from model_utils import Choices
-
-import retailer_to_sp
-from products.models import Product
-from shops.models import Shop
-from common.common_utils import barcode_gen
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.utils.safestring import mark_safe
 import sys
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db import models
 from django.db.models import Sum, Q
-from django.contrib import messages
-from datetime import datetime, timedelta
-from django.db.models import Sum
+from django.db.models import query, manager
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.db.models import Sum, Q
-from django.contrib.auth import get_user_model
-from django.db.models import query, manager
 from django.utils import timezone
+from django.utils.safestring import mark_safe
+from model_utils import Choices
+
+from common.common_utils import barcode_gen
 from pos.models import RetailerProduct
-from categories.models import BaseTimestampUserStatusModel
+from products.models import Product, ParentProduct
+from shops.models import Shop
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -53,6 +46,26 @@ INVENTORY_STATE_CHOICES = (
     ('new', 'New'),
     ('repackaging', 'Repackaging')
 )
+
+
+class BaseTimestampUserModel(models.Model):
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name="%(app_label)s_%(class)s_created_by",
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Updated by",
+        related_name="%(app_label)s_%(class)s_updated_by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
 
 
 class BaseQuerySet(query.QuerySet):
@@ -577,15 +590,11 @@ class PosInventoryChange(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 
-class Zone(BaseTimestampUserStatusModel):
+class Zone(BaseTimestampUserModel):
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
     putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
-    updated_by = models.ForeignKey(
-        get_user_model(), related_name='zone_uploaded_by', null=True, blank=True,
-        on_delete=models.DO_NOTHING
-    )
 
     class Meta:
         permissions = (
@@ -594,6 +603,10 @@ class Zone(BaseTimestampUserStatusModel):
             ("can_have_zone_coordinator_permission", "Can have Zone Coordinator Permission"),
         )
 
-    # def __str__(self):
-    #     return self.pk
+
+class WarehouseAssortment(BaseTimestampUserModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
+
 

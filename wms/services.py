@@ -4,7 +4,7 @@ from wms.common_functions import get_response
 
 def zone_search(queryset, search_text):
     '''
-    search using shop_name & parent shop based on criteria that matches
+    search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
     '''
     queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
         supervisor__first_name__icontains=search_text) | Q(coordinator__first_name__icontains=search_text))
@@ -33,3 +33,13 @@ def check_warehouse_manager(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+def whc_assortment_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & parent product name & Zone mappings based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
+        product__name__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
+                               Q(zone__coordinator__first_name__icontains=search_text))
+    return queryset

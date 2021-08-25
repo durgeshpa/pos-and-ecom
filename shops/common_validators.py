@@ -804,6 +804,8 @@ def get_executive_shops(executive):
     if shops:
         shop_ids = [sp['id'] for sp in shops]
     return shop_ids
+
+
 def get_validate_shop(shop_id):
     try:
         shop = Shop.objects.get(id=shop_id)
