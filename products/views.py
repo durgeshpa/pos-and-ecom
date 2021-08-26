@@ -1918,7 +1918,6 @@ def FetchProductDdetails(request):
 def FetchDiscountedProductdetails(request):
     product_id = request.GET.get('product')
     seller_shop = request.GET.get('seller_shop')
-    print(product_id, seller_shop)
     data = {
         'found': 0,
     }
@@ -1939,7 +1938,6 @@ def FetchDiscountedProductdetails(request):
         original_prod = def_product.product_ref
         bin_inventory = BinInventory.objects.filter(sku=def_product,
                                                     inventory_type__inventory_type='normal', quantity__gt=0).last()
-        print(bin_inventory)
         if not bin_inventory:
             data = {
                 'error': True,
@@ -1977,7 +1975,6 @@ def FetchDiscountedProductdetails(request):
             'manual_update': def_product.is_manual_price_update
             # 'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
         }
-    print(data)
     return JsonResponse(data)
 
 

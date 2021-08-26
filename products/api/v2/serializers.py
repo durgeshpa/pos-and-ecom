@@ -568,7 +568,7 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
             if not str(row[0]).strip() or not Product.objects.filter(product_sku=str(row[0]).strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
 
-            if int(Product.objects.get(product_sku=str(row[0]).strip().product_type)) != 0:
+            if int(Product.objects.get(product_sku=str(row[0]).strip()).product_type) != 0:
                 raise ValidationError(_(f"Row {row_id + 1} | Product 'SKU' is not normal type"))
 
             if not str(row[2]).strip() or not Shop.objects.filter(id=int(row[2]), shop_type__shop_type__in=['sp']). \
