@@ -7,7 +7,7 @@ from addresses.models import Pincode
 from categories.models import Category
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
-from retailer_to_sp.models import Order, OrderedProductMapping
+from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct
 
 from ecom.models import Address, EcomOrderAddress, Tag, TagProductMapping
@@ -121,7 +121,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'category_image_png')
+        fields = ('id', 'category_name', 'category_image')
 
 
 class EcomOrderAddressSerializer(serializers.ModelSerializer):
@@ -296,3 +296,52 @@ class TagProductSerializer(serializers.ModelSerializer):
         product = self.context.get('product')
         data['products'] = ProductSerializer(product, many = True).data
         return data
+
+        
+class EcomShipmentProductSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField(min_value=1)
+    picked_qty = serializers.IntegerField(min_value=0)
+    product_type = serializers.ChoiceField(choices=[1, 0])
+
+
+class EcomShipmentSerializer(serializers.ModelSerializer):
+    products = EcomShipmentProductSerializer(many=True)
+    order_id = serializers.IntegerField(required=True)
+
+    def validate(self, attrs):
+        shop = self.context.get('shop')
+        # check if order exists
+        order_id = attrs['order_id']
+        order = Order.objects.filter(pk=order_id, seller_shop=shop, order_status='ordered',
+                                     ordered_cart__cart_type='ECOM').last()
+        if not order:
+            raise serializers.ValidationError("Invalid Order Id")
+
+        order_products = {str(i['retailer_product_id']) + "_" + str(i['product_type']): (
+            i['retailer_product_id'], i['qty'], i['selling_price'], i['product_type']) for i in
+            CartProductMapping.objects.filter(cart=order.ordered_cart)}
+
+        # validate given picked products info
+        products_info = attrs['products']
+        given_products = []
+        for item in products_info:
+            key = str(item['product_id']) + "_" + str(item['product_type'])
+            if key not in order_products:
+                raise serializers.ValidationError("{} Invalid product info")
+            if item['picked_qty'] > order_products[item['product_id']][1]:
+                raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
+
+            given_products += [key]
+            item['selling_price'] = order_products[item['product_id']][2]
+
+        for prod in order_products:
+            if prod not in given_products:
+                products_info.append({
+                    "product_id": int(order_products[prod][0]),
+                    "picked_qty": 0,
+                    "product_type": int(order_products[prod][3]),
+                    "selling_price": int(order_products[prod][2])
+                })
+
+        attrs['products'] = products_info
+        return attrs
