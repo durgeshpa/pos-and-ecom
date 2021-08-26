@@ -143,10 +143,14 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.shipping_address.city.city_name
 
     def get_assigned_time(self, obj):
-        return obj.picker_order.last().picker_assigned_date
+        try:
+            picking_assigned_date = obj.picker_order.last().picker_assigned_date
+            return picking_assigned_date.strftime('%b %d, %H:%M')
+        except:
+            return None
 
     def get_completed_time(self, obj):
-        return obj.pickup_completed_at
+        return obj.pickup_completed_at.strftime('%b %d, %H:%M') if obj.pickup_completed_at else None
 
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
