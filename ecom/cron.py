@@ -8,8 +8,9 @@ from django.db.models.signals import pre_delete
 # app imports
 from .models import Tag, TagProductMapping
 from pos.models import RetailerProduct
-from retailer_to_sp.models import Order, OrderedProductMapping
-from shops.models import Product, Shop
+from retailer_to_sp.models import Order, CartProductMapping, OrderedProductMapping
+from shops.models import Shop
+from global_config.views import get_config
 
 # logger configuration
 info_logger = logging.getLogger('file-info')
@@ -34,21 +35,24 @@ def bestseller_product():
     """
 
     # last 15 days
-    from_date = datetime.datetime.today() - datetime.timedelta(days=15)
+    days = get_config('ECOM_BESTSELLER_DAYS')
+    from_date = datetime.datetime.today() - datetime.timedelta(days=days)
     # Get all Franchise Shop
-    shops = Shop.objects.filter(shop_type__shop_type='f')
+    shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                               pos_enabled=True)
     # Get Tag
-    tag = Tag.objects.filter(name='BestSeller').last()
+    tag = Tag.objects.filter(key='best_seller').last()
     for shop in shops:
         count = 0
         tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = tag).order_by('-created_at')
         
         # Get online order product
         online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
-        online_ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__in = online_order)
-        online_product = RetailerProduct.objects.filter(rt_retailer_product_order_product__in = online_ordered_product)
+        online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
+        online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product)
         #Sort by max count
         product = online_product.annotate(prd_count=Count('id')).order_by('-prd_count')
+
         #Update Tagged Product
         count, tag_product = update_tag(tag, tag_product, 0, product, count)
 

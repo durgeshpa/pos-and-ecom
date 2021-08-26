@@ -255,7 +255,7 @@ class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'name', 'position', 'status',)
+        fields = ('id', 'key', 'name', 'position', 'status',)
 
 class ProductSerializer(serializers.ModelSerializer):
     """
@@ -289,7 +289,7 @@ class TagProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'name', 'position', 'status')
+        fields = ('id', 'key', 'name', 'position', 'status')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -297,7 +297,7 @@ class TagProductSerializer(serializers.ModelSerializer):
         data['products'] = ProductSerializer(product, many = True).data
         return data
 
-        
+
 class EcomShipmentProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(min_value=1)
     picked_qty = serializers.IntegerField(min_value=0)
