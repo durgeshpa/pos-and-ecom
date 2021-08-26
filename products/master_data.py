@@ -17,7 +17,7 @@ from products.models import Product, ParentProduct, ParentProductTaxMapping, Pro
     DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
     SlabProductPrice, PriceSlab, DiscountedProductPrice, ProductPrice
 from products.utils import get_selling_price
-from retailer_backend.utils import getStrToDate
+from retailer_backend.utils import getStrToDate, getStrToYearDate
 from global_config.views import get_config
 from shops.models import Shop
 from wms.models import BinInventory, In
@@ -1198,6 +1198,7 @@ def create_bulk_product_vendor_mapping(validated_data):
 def create_bulk_product_slab_price(validated_data):
     reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
     next(reader)
+    date_pattern = "%d-%m-%Y"
     try:
         for row_id, row in enumerate(reader):
             product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
@@ -1218,8 +1219,8 @@ def create_bulk_product_slab_price(validated_data):
                                      selling_price=selling_price)
             if row[7]:
                 price_slab_1.offer_price = float(row[7])
-                price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
-                price_slab_1.offer_price_end_date = getStrToDate(row[9], '%d-%m-%y').strftime('%Y-%m-%d')
+                price_slab_1.offer_price_start_date = getStrToYearDate(row[8], date_pattern).strftime('%Y-%m-%d')
+                price_slab_1.offer_price_end_date = getStrToYearDate(row[9], date_pattern).strftime('%Y-%m-%d')
             price_slab_1.save()
 
             # If slab 1 quantity is Zero then slab is not to be created
@@ -1230,8 +1231,8 @@ def create_bulk_product_slab_price(validated_data):
                                      selling_price=float(row[11]))
             if row[12]:
                 price_slab_2.offer_price = float(row[12])
-                price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
-                price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
+                price_slab_2.offer_price_start_date = getStrToYearDate(row[13], date_pattern).strftime('%Y-%m-%d')
+                price_slab_2.offer_price_end_date = getStrToYearDate(row[14], date_pattern).strftime('%Y-%m-%d')
             price_slab_2.save()
         #
         # return validated_data

@@ -1288,3 +1288,16 @@ def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, da
         last_slab_selling_price = price_slab['selling_price']
         if 'offer_price' in price_slab:
             last_slab_offer_price = price_slab['offer_price']
+
+
+def check_date_format(date_str, pattern="%d-%m-%y"):
+    try:
+        try:
+            datetime.strptime(date_str, pattern)
+        except:
+            date_new = datetime.strptime(date_str, "%d-%m-%Y")
+            date_str = date_new.strptime(pattern)
+        return True, date_str
+    except:
+        return False, "Invalid date format"
+

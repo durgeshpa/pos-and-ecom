@@ -20,8 +20,9 @@ from products.master_data import create_product_vendor_mapping_sample_file, crea
 from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
     ProductVendorMapping, ProductPrice
 from shops.models import Shop
-from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
+from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow, isDateYearValid, getStrToYearDate
 from retailer_backend.validators import *
+from products.common_validators import check_date_format
 
 logger = logging.getLogger(__name__)
 
@@ -559,6 +560,7 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
 
         reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
+        date_pattern = "%d-%m-%Y"
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
@@ -600,10 +602,10 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
 
                 if not str(row[8]).strip() or not str(row[9]).strip() or \
-                        not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y") \
-                        or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date() \
-                        or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date() \
-                        or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y"):
+                        not isDateYearValid(row[8], date_pattern) or not isDateYearValid(row[9], date_pattern) \
+                        or getStrToYearDate(row[8], date_pattern) < datetime.datetime.today().date() \
+                        or getStrToYearDate(row[9], date_pattern) < datetime.datetime.today().date() \
+                        or getStrToYearDate(row[8], date_pattern) > getStrToYearDate(row[9], date_pattern):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
 
             product = Product.objects.get(product_sku=str(row[0]).strip())
@@ -666,11 +668,13 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
                 if offer_price_2 and offer_price_2 >= selling_price_slab_2:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
 
-                if (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
-                        or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
-                        or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
-                        or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
-                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+                if str(row[12]):
+
+                    if (not isDateYearValid(row[13], date_pattern) or not isDateYearValid(row[14], date_pattern)
+                            or getStrToYearDate(row[13], date_pattern) < datetime.datetime.today().date()
+                            or getStrToYearDate(row[14], date_pattern) < datetime.datetime.today().date()
+                            or getStrToYearDate(row[13], date_pattern) > getStrToYearDate(row[14], date_pattern)):
+                        raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return data
 
     @transaction.atomic
