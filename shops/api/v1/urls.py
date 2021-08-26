@@ -51,6 +51,7 @@ urlpatterns = [
 
 # --------------------------------------------------POS APIs---------------------------------------------------
     path('pos-shop-user/', PosShopUserMappingView.as_view(), name='pos-shop-user', ),
+    url(r'^pos-shop-user/(?P<pk>\d+)/$', PosShopUserMappingView.as_view()),
     url('shop-list/', ShopListView.as_view(), name='shop-list'),
     url('pos-user-type-list/', UserTypeListView.as_view(), name='pos-user-type-list'),
 
