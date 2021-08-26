@@ -157,11 +157,10 @@ class EcomAddressAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-
-class TagProductMappingInline(admin.TabularInline):
+@admin.register(TagProductMapping)
+class TagProductMappingAdmin(admin.ModelAdmin):
     model = TagProductMapping
-    fields = ('product',)
-    extra = 6
+    list_display = ('tag', 'product', 'created_at', 'modified_at')
 
     def has_delete_permission(self, request, obj=None):
         return True
@@ -175,7 +174,11 @@ class TagProductMappingInline(admin.TabularInline):
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     model = Tag
-    inlines = [TagProductMappingInline]
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ('key',)
+        return self.readonly_fields
 
     def has_delete_permission(self, request, obj=None):
         return True
