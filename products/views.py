@@ -1001,11 +1001,7 @@ def parent_product_upload(request):
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
                         brand_case_size=int(row[7]),
                         inner_case_size=int(row[8]),
-<<<<<<< HEAD
-                        product_type=row[9],
-=======
                         product_type=row[9]
->>>>>>> 57072ec9e48e9431ecfec7d58d82e4379ddef2c5
                     )
                     parent_product.save()
                     parent_gst = gst_mapper(row[4])
