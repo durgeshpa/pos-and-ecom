@@ -1201,10 +1201,10 @@ def create_bulk_product_slab_price(validated_data):
     try:
         for row_id, row in enumerate(reader):
             product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
-            seller_shop_id = int(row[2])
+            seller_shop_id = Shop.objects.get(id=int(row[2]))
 
             # Create ProductPrice
-            product_price = SlabProductPrice(product=product, mrp=product.product_mrp, seller_shop_id=seller_shop_id)
+            product_price = SlabProductPrice(product=product, mrp=product.product_mrp, seller_shop=seller_shop_id)
             product_price.save()
 
             # Get selling price applicable for first price slab
