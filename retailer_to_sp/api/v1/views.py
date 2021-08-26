@@ -4226,12 +4226,11 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    # try:
-    #     if ordered_product.invoice.invoice_pdf.url:
-    #         pass
-    # except Exception as e:
-    #     logger.exception(e)
-    if True:
+    try:
+        if ordered_product.invoice.invoice_pdf.url:
+            pass
+    except Exception as e:
+        logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
