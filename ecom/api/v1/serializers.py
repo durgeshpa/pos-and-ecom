@@ -245,7 +245,6 @@ class TagSerializer(serializers.ModelSerializer):
     """
     Serializer for tags
     """
-    status = serializers.SerializerMethodField()
 
     def get_status(self, obj):
         if obj.status:
