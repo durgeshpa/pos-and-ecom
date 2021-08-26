@@ -10,7 +10,7 @@ from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct
 
-from ecom.models import Address, EcomOrderAddress, Tag, TagProductMapping
+from ecom.models import Address, EcomOrderAddress, Tag
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -137,7 +137,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_items(obj):
-        return obj.ordered_cart.aggregate(Sum('qty')).get('qty__sum')
+        return obj.ordered_cart.rt_cart_list.aggregate(Sum('qty')).get('qty__sum')
 
     @staticmethod
     def get_created_at(obj):
@@ -245,7 +245,6 @@ class TagSerializer(serializers.ModelSerializer):
     """
     Serializer for tags
     """
-    status = serializers.SerializerMethodField()
 
     def get_status(self, obj):
         if obj.status:
@@ -255,7 +254,8 @@ class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'key', 'name', 'position', 'status',)
+        fields = ('id', 'key', 'name', 'position')
+
 
 class ProductSerializer(serializers.ModelSerializer):
     """
@@ -271,11 +271,7 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.selling_price
 
     def get_image(self, obj):
-        product_image = obj.retailer_product_image.last()
-        if product_image:
-            return product_image.image.url
-        else:
-            return None
+        return obj.retailer_product_image.last().image.url if obj.retailer_product_image.last() else None
 
     class Meta:
         model = RetailerProduct
@@ -289,7 +285,7 @@ class TagProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'key', 'name', 'position', 'status')
+        fields = ('key', 'name')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
