@@ -159,12 +159,10 @@ table tr td,th,h4,span,address{
                     {% for m in shipment.rt_order_product_order_product_mapping.all %}
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
-									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
-<!--								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>-->
 									{% for key, value in product_desc.items %}
 										{% if key == m.product.product_short_description %}
 											<td class="text-center"><strong>{{ value }}</strong></td>
-										{% else %}
+										{% elif key != m.product.product_short_description %}
 											<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 										{% endif %}
 									{% endfor %}
