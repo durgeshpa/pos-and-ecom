@@ -10,7 +10,7 @@ from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct
 
-from ecom.models import Address, EcomOrderAddress, Tag, TagProductMapping
+from ecom.models import Address, EcomOrderAddress, Tag
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -255,7 +255,8 @@ class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'key', 'name', 'position', 'status',)
+        fields = ('id', 'key', 'name', 'position')
+
 
 class ProductSerializer(serializers.ModelSerializer):
     """
@@ -271,11 +272,7 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.selling_price
 
     def get_image(self, obj):
-        product_image = obj.retailer_product_image.last()
-        if product_image:
-            return product_image.image
-        else:
-            return None
+        return obj.retailer_product_image.last().image.url if obj.retailer_product_image.last() else None
 
     class Meta:
         model = RetailerProduct
@@ -289,7 +286,7 @@ class TagProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ('id', 'key', 'name', 'position', 'status')
+        fields = ('key', 'name')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
