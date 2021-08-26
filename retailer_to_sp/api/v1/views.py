@@ -4490,11 +4490,8 @@ def pdf_generation(request, ordered_product):
 
         try:
             create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.delete()
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
-            info_logger.info("PDF generating for filename" + str(filename))
-            info_logger.info(ordered_product.invoice.invoice_pdf.url)
         except Exception as e:
             logger.exception(e)
 
