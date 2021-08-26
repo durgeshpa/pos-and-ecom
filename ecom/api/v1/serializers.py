@@ -137,7 +137,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_items(obj):
-        return obj.ordered_cart.aggregate(Sum('qty')).get('qty__sum')
+        return obj.ordered_cart.rt_cart_list.aggregate(Sum('qty')).get('qty__sum')
 
     @staticmethod
     def get_created_at(obj):
