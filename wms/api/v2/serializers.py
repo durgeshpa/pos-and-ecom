@@ -205,11 +205,11 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("'coordinator' | This is mandatory")
 
-        # if self.initial_data['warehouse'] and self.initial_data['supervisor'] and self.initial_data['coordinator']:
-        #     if Zone.objects.filter(warehouse=self.initial_data['warehouse'], supervisor=self.initial_data['supervisor'],
-        #                         coordinator=self.initial_data['coordinator']).exists():
-        #         raise serializers.ValidationError(
-        #             "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        if self.initial_data['warehouse'] and self.initial_data['supervisor'] and self.initial_data['coordinator']:
+            if Zone.objects.filter(warehouse=self.initial_data['warehouse'], supervisor=self.initial_data['supervisor'],
+                                coordinator=self.initial_data['coordinator']).exists():
+                raise serializers.ValidationError(
+                    "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
         if 'putaway_users' in self.initial_data and self.initial_data['putaway_users']:
             if len(self.initial_data['putaway_users']) > 2:
