@@ -21,7 +21,7 @@ admin.site.register(OfferBannerPosition, OfferBannerPositionAdmin)
 
 class OfferBannerAdmin(admin.ModelAdmin):
     fields = ('name', 'image', 'offer_banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products',
-              'status', 'offer_banner_start_date', 'offer_banner_end_date', 'alt_text', 'text_below_image')
+              'status', 'offer_banner_start_date', 'offer_banner_end_date', )
     list_display = ('id', 'name', 'image', 'offer_banner_start_date', 'offer_banner_end_date', 'created_at', 'status')
     list_filter = ('name', 'image', 'created_at', 'updated_at')
     search_fields = ('name', 'created_at', 'updated_at')

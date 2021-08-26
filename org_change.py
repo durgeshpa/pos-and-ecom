@@ -17,6 +17,7 @@ from brand.models import BrandPosition, BrandData
 from sp_to_gram.models import OrderedProductMapping, StockAdjustmentMapping, StockAdjustment
 from offer.models import TopSKU, OfferBannerData, OfferBannerPosition, OfferBanner
 
+
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
     user_mapping_list = sp_shop.shop_user.all()
@@ -84,7 +85,8 @@ def set_shop_pricing(sp_shop, new_sp_shop):
         new_price.seller_shop = new_sp_shop
         new_price.save()
 
-def set_top_sku(sp_shop,new_sp_shop):
+
+def set_top_sku(sp_shop, new_sp_shop):
     TopSKU.objects.all().filter(shop=new_sp_shop).delete()
     sku_list = TopSKU.objects.all().filter(shop=sp_shop)
     for sku in sku_list:
@@ -93,7 +95,8 @@ def set_top_sku(sp_shop,new_sp_shop):
         new_sku.shop = new_sp_shop
         new_sku.save()
 
-def set_capping(sp_shop,new_sp_shop):
+
+def set_capping(sp_shop, new_sp_shop):
     ProductCapping.objects.all().filter(seller_shop=new_sp_shop).delete()
     capping_list = ProductCapping.objects.all().filter(seller_shop=sp_shop)
     for capping in capping_list:
@@ -103,10 +106,9 @@ def set_capping(sp_shop,new_sp_shop):
         new_capping.save()
     pass
 
+
 def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
     sp_shop.parrent_mapping.all().update(parent=new_sp_shop)
-
-
 
 
 def set_banner_brand_position(sp_shop, new_sp_shop):
@@ -125,7 +127,7 @@ def set_banner_brand_position(sp_shop, new_sp_shop):
             new_banner_data.pk = None
             new_banner_data.slot = new_banner_position
             new_banner_data.save()
-    brand_position=BrandPosition.objects.all().filter(shop=new_sp_shop)
+    brand_position = BrandPosition.objects.all().filter(shop=new_sp_shop)
     BrandData.objects.all().filter(slot__in=brand_position).delete()
     brand_position.delete()
     brand_position_list = BrandPosition.objects.all().filter(shop=sp_shop).all()
@@ -159,15 +161,16 @@ def set_banner_position_offer(sp_shop, new_sp_shop):
             new_offer_banner_data.slot = new_offer_banner_position
             new_offer_banner_data.save()
 
+
 def set_inventory(sp_shop, new_sp_shop):
     stock_adjustment = StockAdjustment.objects.create(shop=new_sp_shop)
-    delete_grn = OrderedProductMapping.objects.all().filter(grn_product__in = new_sp_shop,ordered_product=None)
+    delete_grn = OrderedProductMapping.objects.all().filter(grn_product__in=new_sp_shop, ordered_product=None)
     StockAdjustmentMapping.objects.all().filter(grn_product__in=delete_grn).delete()
     delete_grn.delete()
     grn_list = OrderedProductMapping.objects.distinct('product').filter(shop=sp_shop)
     manufacture_date = datetime.datetime.today()
     expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
-    count=0
+    count = 0
     for grn in grn_list:
         adjustment_grn = OrderedProductMapping.objects.create(
             product=grn.product,
@@ -184,7 +187,9 @@ def set_inventory(sp_shop, new_sp_shop):
             adjustment_qty=0
         )
         print(count)
-        count+=1
+        count += 1
+
+
 # get shop mapping
 shop_mapping_list = ShopMigrationMapp.objects.all()
 
@@ -210,22 +215,21 @@ for shop_mapping in shop_mapping_list:
     # set shop photos and documents
     set_photo_doc_address(gf_shop, new_sp_shop)
 
-    #set shop user mapping
-    set_shop_user_mappping(sp_shop,new_sp_shop)
+    # set shop user mapping
+    set_shop_user_mappping(sp_shop, new_sp_shop)
 
-    #For models other them shop
+    # For models other them shop
     set_shop_pricing(sp_shop, new_sp_shop)
 
-    #Change existing shop parent_cat_sku_code
-    set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
+    # Change existing shop parent_cat_sku_code
+    set_buyer_shop_new_retailer(sp_shop, new_sp_shop)
 
-    #Copy banner position
-    set_banner_brand_position(sp_shop,new_sp_shop)
-    #Copy Top Sku and offer banner
-    set_top_sku(sp_shop,new_sp_shop)
-    set_banner_position_offer(sp_shop,new_sp_shop)
-    #copy inventory
-    set_inventory(sp_shop,new_sp_shop)
-    #copy_capping
-    set_capping(sp_shop,new_sp_shop)
-
+    # Copy banner position
+    set_banner_brand_position(sp_shop, new_sp_shop)
+    # Copy Top Sku and offer banner
+    set_top_sku(sp_shop, new_sp_shop)
+    set_banner_position_offer(sp_shop, new_sp_shop)
+    # copy inventory
+    set_inventory(sp_shop, new_sp_shop)
+    # copy_capping
+    set_capping(sp_shop, new_sp_shop)

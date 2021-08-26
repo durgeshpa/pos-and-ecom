@@ -1,4 +1,5 @@
 import logging
+import csv
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -9,14 +10,14 @@ from categories.models import Category
 from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
-    CategoryListSerializers
+    CategoryListSerializers, DownloadProductVendorMappingSerializers, BulkProductVendorMappingSerializers, \
+    BulkSlabProductPriceSerializers, BulkDiscountedProductPriceSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format, validate_bulk_data_format
 from products.services import bulk_log_search, category_search
-
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -29,7 +30,7 @@ class CategoryListView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.values('id', 'category_name',)
+    queryset = Category.objects.values('id', 'category_name', )
     serializer_class = CategoryListSerializers
 
     def get(self, request):
@@ -44,7 +45,7 @@ class CategoryListView(GenericAPIView):
 
 class BulkCreateUpdateAttributesView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = BulkUploadForProductAttributes.objects.select_related('updated_by')\
+    queryset = BulkUploadForProductAttributes.objects.select_related('updated_by') \
         .only('id', 'file', 'upload_type', 'updated_by', 'created_at', 'updated_at').order_by('-id')
     serializer_class = UploadMasterDataSerializers
 
@@ -219,4 +220,108 @@ class BrandMultiImageUploadView(GenericAPIView):
             serializer.save(updated_by=request.user)
             info_logger.info("BrandMultiImageUploadView upload successfully")
             return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class CreateProductVendorMappingSampleView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = DownloadProductVendorMappingSerializers
+
+    def post(self, request):
+        """ POST API for Download Sample CreateProductVendorMapping """
+
+        info_logger.info("CreateProductVendorMappingSample POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("CreateProductVendorMapping Downloaded successfully")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class CreateProductVendorMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkProductVendorMappingSerializers
+
+    def post(self, request):
+        """ POST API for Create BulkProductVendorMapping """
+
+        info_logger.info("BulkProductVendorMappingView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("BulkProductVendorMappingView upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class SlabProductPriceSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample product slab price CSV """
+
+        info_logger.info("product slab price ExportAsCSV GET api called.")
+        filename = "slab_product_price_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                         "Offer Price 1", "Offer Price 1 Start Date(dd-mm-yy)", "Offer Price 1 End Date(dd-mm-yy)",
+                         "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date(dd-mm-yyyy)",
+                         "Offer Price 2 End Date(dd-mm-yyyy)"])
+        writer.writerow(["BDCHNKDOV00000001", "Dove CREAM BAR 100G shop", "600",
+                         "GFDN SERVICES PVT LTD (NOIDA) - 9319404555 - Rakesh Kumar - Service Partner", "47", "9", "46",
+                         "45.5", "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-2021", "30-04-2021"])
+        info_logger.info("product slab price CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
+class DiscountedProductPriceSampleCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample discounted product price CSV """
+
+        info_logger.info("product slab price ExportAsCSV GET api called.")
+        filename = "discounted_product_price_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "selling price"])
+        writer.writerow(["DRGRSNGDAW00000020", "Daawat Rozana Super, 5 KG", "600", "GFDN SERVICES PVT LTD (DELHI)",
+                         "123.00"])
+        info_logger.info("product slab price CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
+class CreateBulkSlabProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkSlabProductPriceSerializers
+
+    def post(self, request):
+        """ POST API for Create Bulk Slab Product Price"""
+
+        info_logger.info("BulkSlabProductPriceView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("BulkSlabProductPriceView upload successfully")
+            return get_response("Slab Product Prices uploaded successfully !", True)
+        return get_response(serializer_error(serializer), False)
+
+
+class CreateBulkDiscountedProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkDiscountedProductPriceSerializers
+
+    def post(self, request):
+        """ POST API for Create Bulk Discounted Product Price"""
+
+        info_logger.info("CreateBulkDiscountedProductPriceView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("CreateBulkDiscountedProductPriceView upload successfully")
+            return get_response("Discounted Product Prices uploaded successfully !", True)
         return get_response(serializer_error(serializer), False)

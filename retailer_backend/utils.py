@@ -57,6 +57,7 @@ def dhms_from_seconds(seconds):
     days, hours = divmod(hours, 24)
     return (days, hours, minutes, seconds)
 
+
 def isDateValid(date, pattern="%Y-%m-%d"):
     """
     Validates if given string is of date format provided
@@ -68,6 +69,27 @@ def isDateValid(date, pattern="%Y-%m-%d"):
 
 
 def getStrToDate(date, pattern="%Y-%m-%d"):
+    """
+    Converts string to date instance in the format provided
+    Returns false if string is not a valid date
+    """
+    try:
+        return datetime.strptime(date, pattern).date()
+    except ValueError:
+        return False
+
+
+def isDateYearValid(date, pattern="%y-%m-%d"):
+    """
+    Validates if given string is of date format provided
+    """
+    try:
+        return datetime.strptime(date, pattern)
+    except ValueError:
+        return False
+
+
+def getStrToYearDate(date, pattern="%y-%m-%d"):
     """
     Converts string to date instance in the format provided
     Returns false if string is not a valid date

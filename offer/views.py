@@ -9,11 +9,11 @@ from django.db.models import Q
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Brand.objects.filter(brand_parent=None)
-        category_id = self.forwarded.get('category', None)
-        if category_id:
-            qs = qs.filter(categories=category_id).order_by('brand_name')
-        else:
-            qs = qs
+        # category_id = self.forwarded.get('category', None)
+        # if category_id:
+        #     qs = qs.filter(categories=category_id).order_by('brand_name')
+        # else:
+        #     qs = qs
 
         if self.q:
             qs = qs.filter(brand_name__istartswith=self.q)
@@ -23,11 +23,11 @@ class BrandAutocomplete(autocomplete.Select2QuerySetView):
 class SubBrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Brand.objects.filter(brand_parent__isnull=False)
-        category_id = self.forwarded.get('category', None)
-        if category_id:
-            qs = qs.filter(categories=category_id).order_by('brand_name')
-        else:
-            qs = qs
+        # category_id = self.forwarded.get('category', None)
+        # if category_id:
+        #     qs = qs.filter(categories=category_id).order_by('brand_name')
+        # else:
+        #     qs = qs
 
         if self.q:
             qs = qs.filter(brand_name__istartswith=self.q)
@@ -55,11 +55,11 @@ class SubCategoryAutocomplete(autocomplete.Select2QuerySetView):
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Product.objects.all()
-        brand_id = self.forwarded.get('brand', None)
-        if brand_id:
-            qs = qs.filter(product_brand=brand_id).order_by('product_name')
-        else:
-            qs = qs
+        # brand_id = self.forwarded.get('brand', None)
+        # if brand_id:
+        #     qs = qs.filter(product_brand=brand_id).order_by('product_name')
+        # else:
+        #     qs = qs
 
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)

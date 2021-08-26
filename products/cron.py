@@ -11,7 +11,7 @@ from django.db.models import Prefetch
 
 # app imports
 from .models import PriceSlab, Product, ProductCapping, DiscountedProductPrice, ProductPrice
-from wms.models import Bin, WarehouseInventory, BinInventory, InventoryType,InventoryState, In
+from wms.models import Bin, WarehouseInventory, BinInventory, InventoryType, InventoryState, In
 from wms.common_functions import CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.models import GlobalConfig
 from global_config.views import get_config
@@ -62,7 +62,7 @@ def packing_sku_inventory_alert():
         sku_ids = w_invs.distinct('sku_id').values_list('sku_id', flat=True)
         warehouse_ids = w_invs.distinct('warehouse_id').values_list('warehouse_id', flat=True)
 
-        bin_inventories = BinInventory.objects.filter(sku_id__in=sku_ids, warehouse__id__in=warehouse_ids).\
+        bin_inventories = BinInventory.objects.filter(sku_id__in=sku_ids, warehouse__id__in=warehouse_ids). \
             order_by('warehouse_id', 'sku_id', 'bin_id', 'batch_id')
 
         if bin_inventories.exists():
@@ -70,7 +70,8 @@ def packing_sku_inventory_alert():
             writer = csv.writer(f)
 
             headings = [
-                'Warehouse ID', 'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
+                'Warehouse ID', 'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID',
+                'Bin Id', 'MRP',
                 'Normal Weight (Kg)', 'Damaged Weight (Kg)', 'Expired Weight (Kg)', 'Missing Weight (Kg)'
             ]
 
@@ -85,7 +86,8 @@ def packing_sku_inventory_alert():
                     sku = inv.sku
                     current_sku_batch = str(inv.warehouse_id) + str(inv.sku.id) + str(inv.bin_id) + str(inv.batch_id)
                     parent = inv.sku.parent_product
-                    row = [inv.warehouse_id, parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
+                    row = [inv.warehouse_id, parent.parent_id, parent.name, sku.product_sku, sku.product_name,
+                           sku.status, inv.batch_id,
                            inv.bin.bin_id, sku.product_mrp, 0, 0, 0, 0]
 
                 if inv.inventory_type.inventory_type == 'normal':
@@ -119,6 +121,7 @@ def packing_sku_inventory_alert():
         cron_logger.error(e)
         cron_logger.info('cron packing material inventory alert | exception')
 
+
 def update_price_discounted_product():
     """
     Update price of discounted product on the basis of remaining life
@@ -130,13 +133,14 @@ def update_price_discounted_product():
     state_total_available = InventoryState.objects.get(inventory_state='total_available')
     today = datetime.datetime.today().date()
     tr_id = today.isoformat()
-    inventory = BinInventory.objects.filter(sku__product_type = Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
-                                                            inventory_type__inventory_type='normal', quantity__gt=0) \
-                                                            .prefetch_related('sku__parent_product') \
-                                                            .prefetch_related('sku__product_ref') 
+    inventory = BinInventory.objects.filter(sku__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
+                                            inventory_type__inventory_type='normal', quantity__gt=0) \
+        .prefetch_related('sku__parent_product') \
+        .prefetch_related('sku__product_ref')
+    cron_logger.info("Total Inventories " + str(inventory.count()))
     for dis_prod in inventory:
         try:
-            latest_in = In.objects.filter(batch_id = dis_prod.batch_id)
+            latest_in = In.objects.filter(batch_id=dis_prod.batch_id)
             expiry_date = latest_in[0].expiry_date
             manufacturing_date = latest_in[0].manufacturing_date
             product_life = expiry_date - manufacturing_date
@@ -146,14 +150,15 @@ def update_price_discounted_product():
 
             # Calculate Base Price
             product_price = dis_prod.sku.product_ref.product_pro_price.filter(seller_shop=dis_prod.warehouse,
-                                                    approval_status=ProductPrice.APPROVED).last()
+                                                                              approval_status=ProductPrice.APPROVED).last()
             base_price_slab = product_price.price_slabs.filter(end_value=0).last()
             base_price = base_price_slab.ptr
             half_life_selling_price = base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100
             selling_price = None
 
-            #Active Discounted Product Price
-            dis_prod_price = DiscountedProductPrice.objects.filter(product = dis_prod.sku, approval_status=2, seller_shop = dis_prod.warehouse)
+            # Active Discounted Product Price
+            dis_prod_price = DiscountedProductPrice.objects.filter(product=dis_prod.sku, approval_status=2,
+                                                                   seller_shop=dis_prod.warehouse)
             expired_life_days = get_config('EXPIRED_LIFE_DAYS')
             cron_logger.info('SKU {},  expiry_date {}, manufacturing_date {}, product_life {}, remaining life {},'
                              'discounted_life {}, half life {}, expired_life_days {}'
@@ -161,54 +166,58 @@ def update_price_discounted_product():
                                      discounted_life, half_life, expired_life_days))
             if remaining_life.days <= expired_life_days:
                 move_inventory(dis_prod.warehouse, dis_prod.sku, dis_prod.bin, dis_prod.batch_id, dis_prod.quantity,
-                                state_total_available, type_normal, type_expired, tr_id, 'expired')
-                cron_logger.info(f'moved discounted product {dis_prod.sku} succcessfully to expired if remaining life is less than 2.')
+                               state_total_available, type_normal, type_expired, tr_id, 'expired')
+                cron_logger.info(
+                    f'moved discounted product {dis_prod.sku} successfully to expired if remaining life is less than 2.')
 
             elif remaining_life.days <= half_life:
                 if not dis_prod_price.last() or dis_prod_price.last().selling_price != half_life_selling_price and not dis_prod.sku.is_manual_price_update:
                     selling_price = half_life_selling_price
-                    cron_logger.info(f'update selling price of discounted product {dis_prod.sku} succcessfully if remaining life is less than or equal to half life and not updated.')
+                    cron_logger.info(
+                        f'update selling price of discounted product {dis_prod.sku} successfully if remaining life is less than or equal to half life and not updated.')
             else:
                 if not dis_prod_price.last():
                     selling_price = base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100
-                    cron_logger.info(f'update selling price of discounted product {dis_prod.sku} succcessfully if price doesnot exist.')
+                    cron_logger.info(
+                        f'update selling price of discounted product {dis_prod.sku} successfully if price doesnot exist.')
 
             if selling_price:
                 with transaction.atomic():
-                    discounted_price =  ProductPrice.objects.create(
-                                            product=dis_prod.sku,
-                                            mrp=dis_prod.product_mrp,
-                                            selling_price=selling_price,
-                                            seller_shop=dis_prod.warehouse,
-                                            start_date=datetime.datetime.today(),
-                                            approval_status=ProductPrice.APPROVED)
+                    discounted_price = ProductPrice.objects.create(
+                        product=dis_prod.sku,
+                        mrp=dis_prod.product_mrp,
+                        selling_price=selling_price,
+                        seller_shop=dis_prod.warehouse,
+                        start_date=datetime.datetime.today(),
+                        approval_status=ProductPrice.APPROVED)
                     PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
-                                                            selling_price=selling_price)
+                                             selling_price=selling_price)
                     cron_logger.info(f'Successfully created discounted price for {dis_prod.sku}')
 
         except Exception:
             cron_logger.error(f'update discounted product price | exception for sku {dis_prod.sku}')
-            
 
 
 def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
-                   state_total_available, type_normal,type_expired, tr_id, tr_type_expired):
-
+                   state_total_available, type_normal, type_expired, tr_id, tr_type_expired):
     discounted_batch_id = batch_id
     with transaction.atomic():
-        CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product, batch_id,
-                                                                          type_normal, type_normal, -1 * quantity,
-                                                                          True, tr_type_expired, tr_id)
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
-                                                                                        type_normal, state_total_available,
-                                                                                        -1 * quantity,
-                                                                                        tr_type_expired, tr_id)
         CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product,
-                                                                            discounted_batch_id, type_normal,type_expired,
-                                                                            quantity, True, tr_type_expired,
-                                                                            tr_id)
+                                                                              batch_id,
+                                                                              type_normal, type_normal, -1 * quantity,
+                                                                              True, tr_type_expired, tr_id)
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
-                                                                                        type_expired, state_total_available,
-                                                                                        quantity, tr_type_expired,
-                                                                                        tr_id)
-
+                                                                                          type_normal,
+                                                                                          state_total_available,
+                                                                                          -1 * quantity,
+                                                                                          tr_type_expired, tr_id)
+        CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, bin, discounted_product,
+                                                                              discounted_batch_id, type_normal,
+                                                                              type_expired,
+                                                                              quantity, True, tr_type_expired,
+                                                                              tr_id)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, discounted_product,
+                                                                                          type_expired,
+                                                                                          state_total_available,
+                                                                                          quantity, tr_type_expired,
+                                                                                          tr_id)

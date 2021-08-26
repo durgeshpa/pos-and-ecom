@@ -159,8 +159,7 @@ table tr td,th,h4,span,address{
                     {% for m in shipment.rt_order_product_order_product_mapping.all %}
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
-									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
-								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
+								<td class="text-center"><strong>{{ m.product.product_short_description }}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>

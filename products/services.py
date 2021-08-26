@@ -16,6 +16,26 @@ def child_product_search(queryset, search_text):
     return queryset
 
 
+# search using vendor_name & mobile based on criteria that matches
+def vendor_search(queryset, search_text):
+    queryset = queryset.filter(Q(vendor_name__icontains=search_text) | Q(mobile__icontains=search_text))
+    return queryset
+
+
+# search using product_name & vendor_name based on criteria that matches
+def product_vendor_search(queryset, search_text):
+    queryset = queryset.filter(Q(product__product_name__icontains=search_text) | Q(vendor__vendor_name__icontains=
+                                                                                   search_text))
+    return queryset
+
+
+# search using product_name & product_sku based on criteria that matches
+def product_price_search(queryset, search_text):
+    queryset = queryset.filter(Q(product__product_name__icontains=search_text) | Q(mrp__icontains=search_text) |
+                               Q(product__product_sku__icontains=search_text))
+    return queryset
+
+
 # search using product_hsn_code based on criteria that matches
 def product_hsn_search(queryset, search_text):
     queryset = queryset.filter(product_hsn_code__icontains=search_text)

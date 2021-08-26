@@ -9,8 +9,9 @@ from django.http import HttpResponse
 from django.db.models import Q
 
 from addresses.models import Address, City, State
+from .models import ProductHSN, ParentProduct
 from products.models import ProductVendorMapping, Product
-from .models import ProductHSN
+
 from django.db.models.functions import Length
 
 
@@ -258,6 +259,19 @@ def hsn_queryset(self):
                                                                                  product_hsn_code__icontains=self.q)
     return qs
 
+
+def get_selling_price(def_product):
+    selling_price = 0
+    ptr_percent = def_product.parent_product.ptr_percent
+    ptr_type = def_product.parent_product.ptr_type
+    if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+        selling_price = def_product.product_mrp / (1 + (ptr_percent / 100))
+    elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+        selling_price = def_product.product_mrp * (1 - (ptr_percent / 100))
+    return selling_price
+
+
 def deactivate_product(product):
     product.status = 'deactivated'
     product.save()
+
