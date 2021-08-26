@@ -164,6 +164,8 @@ table tr td,th,h4,span,address{
 									{% for key, value in product_desc.items %}
 										{% if key == m.product.product_short_description %}
 											<td class="text-center"><strong>{{ value }}</strong></td>
+										{% else %}
+											<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 										{% endif %}
 									{% endfor %}
 								<td class="text-center">{{ m.product.product_hsn}}</td>
