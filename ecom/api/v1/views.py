@@ -9,6 +9,7 @@ from categories.models import Category
 from marketing.models import RewardPoint
 from pos.common_functions import serializer_error, api_response
 from wms.models import PosInventory, PosInventoryState
+from pos.models import RetailerProduct
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
@@ -163,35 +164,66 @@ class TagView(APIView):
         data = [
             {
                 'id':1,
-                'name':'BestSeller',
-                'position': 1,
-                'status': 'Active'
+                'name':'Best Seller',
+                'position': 1
+            },
+            {
+                'id': 2,
+                'name': 'Freshly Arrived',
+                'position': 3
+            },
+            {
+                'id': 3,
+                'name': 'Best Deals',
+                'position': 2
             }
         ]
         is_success = True
         return api_response('', data, status.HTTP_200_OK, is_success)
 
+
 class TagProductView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
-    @check_ecom_user
-    def get(self, request, pk):
-        data = {
-            'id': 1,
-            'name':'BestSeller',
-            'position': 1,
-            'status': 'Active',
-            'products': [
-                {
-                    'id': 1,
-                    'name': 'Coco-Cola',
-                    'mrp': 60,
-                    'selling_price': 50,
-                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIhOKROaarc5SauOE0oL8r3KdTZq_rbJwl2w&usqp=CAU'
-                }
-            ]
-        }
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        data = dict()
+        data['products'] = []
+        if int(kwargs['pk']) == 1:
+            data['name'] = 'Best Seller'
+            products = RetailerProduct.objects.filter(shop=shop)[:6]
+            for prod in products:
+                data['products'].append({
+                    'id': prod.id,
+                    'name': prod.name,
+                    'mrp': prod.mrp,
+                    'selling_price': prod.selling_price,
+                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
+                })
+        elif int(kwargs['pk']) == 2:
+            data['name'] = 'Freshly Arrived'
+            products = RetailerProduct.objects.filter(shop=shop)[6:12]
+            for prod in products:
+                data['products'].append({
+                    'id': prod.id,
+                    'name': prod.name,
+                    'mrp': prod.mrp,
+                    'selling_price': prod.selling_price,
+                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
+                })
+        elif int(kwargs['pk']) == 3:
+            data['name'] = 'Best Deals'
+            products = RetailerProduct.objects.filter(shop=shop)[12:18]
+            for prod in products:
+                data['products'].append({
+                    'id': prod.id,
+                    'name': prod.name,
+                    'mrp': prod.mrp,
+                    'selling_price': prod.selling_price,
+                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
+                })
         is_success = True
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
