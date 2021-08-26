@@ -1470,8 +1470,8 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop,
-                                             cart_status='active')
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop,
+                                                                 cart_status='active')
         cart.save()
         return cart
 
