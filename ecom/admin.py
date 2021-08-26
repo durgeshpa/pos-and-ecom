@@ -161,7 +161,6 @@ class EcomAddressAdmin(admin.ModelAdmin):
 class TagProductMappingInline(admin.TabularInline):
     model = TagProductMapping
     fields = ('product',)
-    extra = 6
 
     def has_delete_permission(self, request, obj=None):
         return True

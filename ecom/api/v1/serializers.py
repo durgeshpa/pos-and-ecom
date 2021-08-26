@@ -8,8 +8,9 @@ from categories.models import Category
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping
+from pos.models import RetailerProduct
 
-from ecom.models import Address, EcomOrderAddress
+from ecom.models import Address, EcomOrderAddress, Tag, TagProductMapping
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -238,3 +239,60 @@ class EcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'products', 'order_amount', 'address')
+
+
+class TagSerializer(serializers.ModelSerializer):
+    """
+    Serializer for tags
+    """
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        if obj.status:
+            return "Active"
+        else:
+            return "Inactive"
+
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'position', 'status',)
+
+class ProductSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get product details
+    """
+    image = serializers.SerializerMethodField()
+    selling_price = serializers.SerializerMethodField()
+
+    def get_selling_price(self, obj):
+        if obj.online_price:
+            return obj.online_price
+        else:
+            return obj.selling_price
+
+    def get_image(self, obj):
+        product_image = obj.retailer_product_image.last()
+        if product_image:
+            return product_image.image
+        else:
+            return None
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name', 'mrp', 'selling_price', 'image')
+
+
+class TagProductSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get product by Tag
+    """
+
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'position', 'status')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        product = self.context.get('product')
+        data['products'] = ProductSerializer(product, many = True).data
+        return data
