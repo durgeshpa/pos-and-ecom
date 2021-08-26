@@ -20,9 +20,8 @@ from products.master_data import create_product_vendor_mapping_sample_file, crea
 from products.models import Product, ProductImage, ParentProduct, ParentProductImage, BulkUploadForProductAttributes, \
     ProductVendorMapping, ProductPrice
 from shops.models import Shop
-from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow, isDateYearValid, getStrToYearDate
+from retailer_backend.utils import isBlankRow, isDateYearValid, getStrToYearDate
 from retailer_backend.validators import *
-from products.common_validators import check_date_format
 
 logger = logging.getLogger(__name__)
 
@@ -668,8 +667,7 @@ class BulkSlabProductPriceSerializers(serializers.ModelSerializer):
                 if offer_price_2 and offer_price_2 >= selling_price_slab_2:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
 
-                if str(row[12]):
-
+                if row[12]:
                     if (not isDateYearValid(row[13], date_pattern) or not isDateYearValid(row[14], date_pattern)
                             or getStrToYearDate(row[13], date_pattern) < datetime.datetime.today().date()
                             or getStrToYearDate(row[14], date_pattern) < datetime.datetime.today().date()
