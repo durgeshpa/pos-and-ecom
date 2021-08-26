@@ -1,7 +1,6 @@
 # python imports
 import logging
 import datetime
-from os import stat
 
 from django.db.models import Count
 from django.db.models.signals import pre_delete
@@ -57,7 +56,7 @@ def bestseller_product():
                 online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
                 online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
                 online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product)
-                product = online_product.annotate(prd_count=Count('id')).order_by('-prd_count')
+                product = online_product.annotate(prd_count=Count('id')).order_by('-prd_count').distinct()
 
                 #Update Tagged Product
                 if product.exists():
@@ -69,10 +68,12 @@ def bestseller_product():
 
                 # Get offline order if product is less than 6
                 if count < 6:
+                    exclude_online_product = product.values('id')
                     offline_order = Order.objects.filter(ordered_cart__cart_type='BASIC', created_at__gte = from_date, seller_shop=shop)
                     offline_ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__in = offline_order)
-                    total_offline_product = RetailerProduct.objects.filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True)
-                    rem_offline_product = total_offline_product.annotate(prd_count=Count('id')).order_by('-prd_count')[:count]
+                    total_offline_product = RetailerProduct.objects.exclude(id__in = exclude_online_product).filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True)
+                    rem_offline_product = total_offline_product.annotate(prd_count=Count('id')).order_by('-prd_count').distinct()
+                    rem_offline_product = rem_offline_product[0:min(rem_offline_product.count(), count)]
 
                     #Update Tagged Product
                     if rem_offline_product.exists():
@@ -86,7 +87,7 @@ def bestseller_product():
                 if count < 6:
                     exclude_product_id = product.values('id') | rem_offline_product.values('id')
                     random_product = RetailerProduct.objects.exclude(id__in = exclude_product_id).filter(online_enabled = True)[:count]
-
+                    
                     # Update Tag product mapping
                     if random_product.exists():
                         cron_logger.info('Started Adding {} random product for shop {}'.format(random_product.count(), shop.id))

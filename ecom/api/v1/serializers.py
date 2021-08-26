@@ -273,7 +273,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         product_image = obj.retailer_product_image.last()
         if product_image:
-            return product_image.image
+            return product_image.image.url
         else:
             return None
 
