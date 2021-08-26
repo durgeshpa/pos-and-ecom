@@ -684,13 +684,13 @@ class AuditInventory(APIView):
 
     def get_sku_from_batch(self, batch_id):
         sku = None
-        bin_inventory = BinInventory.objects.filter(batch_id=batch_id).last()
-        if bin_inventory:
-            sku = bin_inventory.sku
-        else:
-            in_entry = In.objects.filter(batch_id=batch_id).last()
-            if in_entry:
-                sku = in_entry.sku
+        # bin_inventory = BinInventory.objects.filter(batch_id=batch_id).last()
+        # if bin_inventory:
+        #     sku = bin_inventory.sku
+        # else:
+        #     in_entry = In.objects.filter(batch_id=batch_id).last()
+        #     if in_entry:
+        #         sku = in_entry.sku
         if not sku:
             sku_id = batch_id[:-6]
             sku = Product.objects.filter(product_sku=sku_id).last()
@@ -855,7 +855,8 @@ class AuditInventory(APIView):
             info_logger.info('AuditInventory | update_inventory | OUT entry done ')
         elif tr_type == 'manual_audit_add':
             manufacturing_date = get_manufacturing_date(batch_id)
-            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type, manufacturing_date)
+            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type,
+                                             sku.weight_value, manufacturing_date)
             putaway_object = PutawayCommonFunctions.create_putaway(warehouse, tr_type, tr_type_id, sku, batch_id,
                                                                    qty, qty, inventory_type)
             PutawayBinInventory.objects.create(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin,

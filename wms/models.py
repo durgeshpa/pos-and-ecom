@@ -13,7 +13,6 @@ from django.utils.safestring import mark_safe
 from model_utils import Choices
 
 from common.common_utils import barcode_gen
-from pos.models import RetailerProduct
 from products.models import Product, ParentProduct
 from shops.models import Shop
 
@@ -556,7 +555,7 @@ class PosInventoryState(models.Model):
 
 
 class PosInventory(models.Model):
-    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.IntegerField(default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -579,7 +578,7 @@ class PosInventoryChange(models.Model):
         (GRN_ADD, 'GRN Add'),
         (GRN_UPDATE, 'GRN Update')
     )
-    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.IntegerField()
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
     transaction_id = models.CharField(max_length=25)
