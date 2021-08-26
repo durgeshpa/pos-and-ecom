@@ -9,6 +9,7 @@ from categories.models import Category
 from marketing.models import RewardPoint
 from pos.common_functions import serializer_error, api_response
 from wms.models import PosInventory, PosInventoryState
+from pos.models import RetailerProduct
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
@@ -168,6 +169,7 @@ class TagView(APIView):
         serializer = TagSerializer(tags, many = True)
         is_success = True
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
 
 class TagProductView(APIView):
     """
