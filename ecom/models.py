@@ -1,10 +1,14 @@
 from django.db import models
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.utils.text import slugify
 
 from retailer_backend.validators import (AddressNameValidator, MobileNumberValidator, PinCodeValidator)
 from accounts.models import User
 from retailer_to_sp.models import Order
 from pos.models import RetailerProduct
 from addresses.models import City, State, Pincode
+
 
 
 class Address(models.Model):
@@ -65,12 +69,29 @@ class EcomOrderAddress(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class Tag(models.Model):
+    key = models.CharField(max_length=20, unique=True, blank=True, null=True)
     name = models.CharField(max_length=255)
     position = models.IntegerField()
     status = models.BooleanField(default=1)
 
     def __str__(self):
         return self.name
+
+def generate_unique_key(instance):
+    origin_slug = slugify(instance.name)
+    updated_origin_slug = "-".join(origin_slug.split())
+    unique_slug = updated_origin_slug
+    numb = 1
+    while Tag.objects.filter(key=unique_slug).exists():
+        unique_slug = '%s-%d' % (origin_slug, numb)
+        numb += 1
+    return unique_slug
+
+@receiver(pre_save, sender=Tag)
+def pre_save_reciever(sender, instance, *args, **kwargs):
+    if not instance.key:
+        instance.key = generate_unique_key(instance)
+
 
 class TagProductMapping(models.Model):
     tag = models.ForeignKey(Tag, related_name='tag_ecom', on_delete=models.CASCADE)

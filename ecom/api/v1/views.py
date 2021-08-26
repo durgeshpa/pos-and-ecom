@@ -13,9 +13,10 @@ from pos.models import RetailerProduct
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
-from ecom.models import Address
-from .serializers import (AccountSerializer, RewardsSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer)
+from ecom.models import Address, Tag, TagProductMapping
+from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
+                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer)
+from pos.models import RetailerProduct
 
 
 class AccountView(APIView):
@@ -156,74 +157,37 @@ class SubCategoriesView(APIView):
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 class TagView(APIView):
+    """
+    Get list of all tags
+    """
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
     @check_ecom_user
     def get(self, *args, **kwargs):
-        data = [
-            {
-                'id':1,
-                'name':'Best Seller',
-                'position': 1
-            },
-            {
-                'id': 2,
-                'name': 'Freshly Arrived',
-                'position': 3
-            },
-            {
-                'id': 3,
-                'name': 'Best Deals',
-                'position': 2
-            }
-        ]
+        tags = Tag.objects.all()
+        serializer = TagSerializer(tags, many = True)
         is_success = True
-        return api_response('', data, status.HTTP_200_OK, is_success)
+        return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 
 class TagProductView(APIView):
+    """
+    Get Product by tag id
+    """
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
     @check_ecom_user_shop
-    def get(self, request, *args, **kwargs):
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            tag = Tag.objects.get(id = pk)
+        except Exception:
+            return api_response('Inavlid Tag Id')
         shop = kwargs['shop']
-        data = dict()
-        data['products'] = []
-        if int(kwargs['pk']) == 1:
-            data['name'] = 'Best Seller'
-            products = RetailerProduct.objects.filter(shop=shop)[:6]
-            for prod in products:
-                data['products'].append({
-                    'id': prod.id,
-                    'name': prod.name,
-                    'mrp': prod.mrp,
-                    'selling_price': prod.selling_price,
-                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
-                })
-        elif int(kwargs['pk']) == 2:
-            data['name'] = 'Freshly Arrived'
-            products = RetailerProduct.objects.filter(shop=shop)[6:12]
-            for prod in products:
-                data['products'].append({
-                    'id': prod.id,
-                    'name': prod.name,
-                    'mrp': prod.mrp,
-                    'selling_price': prod.selling_price,
-                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
-                })
-        elif int(kwargs['pk']) == 3:
-            data['name'] = 'Best Deals'
-            products = RetailerProduct.objects.filter(shop=shop)[12:18]
-            for prod in products:
-                data['products'].append({
-                    'id': prod.id,
-                    'name': prod.name,
-                    'mrp': prod.mrp,
-                    'selling_price': prod.selling_price,
-                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxk6SfyUi7EWTkC55BnorV3J4fliMceZv0Vw&usqp=CAU'
-                })
+        tagged_product = TagProductMapping.objects.filter(tag = tag, product__shop = shop)
+        product = RetailerProduct.objects.filter(product_tag_ecom__in=tagged_product)
+        serializer = TagProductSerializer(tag, context = {'product': product})
         is_success = True
-        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+        return api_response('Tag Found', serializer.data, status.HTTP_200_OK, is_success)
 

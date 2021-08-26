@@ -414,6 +414,7 @@ CRONJOBS = [
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
+    ('0 2 * * *', 'ecom.cron.bestseller_product'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
