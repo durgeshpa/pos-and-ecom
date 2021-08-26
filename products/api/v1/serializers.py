@@ -1381,17 +1381,13 @@ class ProductPriceSerializers(serializers.ModelSerializer):
         return product_price
 
     def create_price_slabs(self, product_price, price_slabs):
-        if product_price.product.product_type == 0:
-            for price_slab in price_slabs:
-                if 'start_value' not in price_slab:
-                    price_slab['start_value'] = 0
-                if 'end_value' not in price_slab:
-                    price_slab['end_value'] = 0
-                PriceSlab.objects.create(product_price=product_price, **price_slab)
-        else:
-            PriceSlab.objects.create(product_price=product_price, start_value=0,
-                                     end_value=0, selling_price=product_price.selling_price)
 
+        for price_slab in price_slabs:
+            if 'start_value' not in price_slab:
+                price_slab['start_value'] = 0
+            if 'end_value' not in price_slab:
+                price_slab['end_value'] = 0
+            PriceSlab.objects.create(product_price=product_price, **price_slab)
 
 class DisapproveSelectedProductPriceSerializers(serializers.ModelSerializer):
     approval_status = serializers.BooleanField(required=True)
