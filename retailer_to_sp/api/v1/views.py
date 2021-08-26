@@ -4399,8 +4399,7 @@ def pdf_generation(request, ordered_product):
                         batch_id[17:19] + '-' + batch_id[19:21] + '-' + '20' + batch_id[21:23], "%d-%m-%Y"))
                 else:
                     expiry_date = str(datetime.strptime('30-' + batch_id[17:19] + '-20' + batch_id[19:21], "%d-%m-%Y"))
-                product_short_description = f"{m.product.product_short_description}.<br> Type: Discounted. " \
-                                            f" <br> Exp: {expiry_date}"
+                product_short_description = f"{m.product.product_short_description}.\nType: Discounted.\nExp: {expiry_date}"
             product_desc[m.product.product_short_description] = product_short_description
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
