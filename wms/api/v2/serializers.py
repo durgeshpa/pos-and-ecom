@@ -1,5 +1,6 @@
 import codecs
 import csv
+import re
 from itertools import chain
 
 from django.db import transaction
@@ -10,10 +11,11 @@ from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
+from barCodeGenerator import merged_barcode_gen
 from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
-from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment
+from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -504,4 +506,222 @@ class WarehouseAssortmentUploadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return validated_data
+
+
+class BinCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+    class Meta:
+        model = Bin
+        fields = ('id', 'warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode_txt', 'bin_barcode', 'zone',
+                  'created_at', 'modified_at')
+
+    def bin_id_validation(self, bin_id, bin_type):
+        if not bin_id:
+            return False, "Bin ID must not be empty."
+
+        if not len(bin_id) == 16:
+            return False, 'Bin Id min and max char limit is 16.Example:-B2BZ01SR001-0001'
+
+        if not bin_id[0:3] in ['B2B', 'B2C']:
+            return False, 'First three letter should be start with either B2B and B2C.Example:-B2BZ01SR001-0001'
+
+        if not bin_id[3] in ['Z']:
+            return False, 'Zone should be start with char Z.Example:-B2BZ01SR001-0001'
+
+        if not bool(re.match('^[0-9]+$', bin_id[4:6]) and not bin_id[4:6] == '00'):
+            return False, 'Zone number should be start in between 01 to 99.Example:-B2BZ01SR001-0001'
+
+        if not bin_id[6:8] in ['SR', 'PA', 'HD']:
+            return False, 'Rack type should be start with either SR, PA and HD only.Example:-B2BZ01SR001-0001'
+
+        else:
+            if not bin_id[6:8] == bin_type:
+                return False, 'Type of Rack and Bin type should be same.'
+
+        if not bool(re.match('^[0-9]+$', bin_id[8:11]) and not bin_id[8:11] == '000'):
+            return False, 'Rack number should be start in between 000 to 999.Example:- B2BZ01SR001-0001'
+
+        if not bin_id[11] in ['-']:
+            return False, 'Only - allowed in between Rack number and Bin Number.Example:-B2BZ01SR001-0001'
+
+        if not bool(re.match('^[0-9]+$', bin_id[12:16]) and not bin_id[12:16] == '0000'):
+            return False, 'Bin number should be start in between 0000 to 9999. Example:-B2BZ01SR001-0001'
+
+        return True, "Bin Id validation successfully passed."
+
+    def validate(self, data):
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'bin_type' in self.initial_data and self.initial_data['bin_type']:
+            bin_type = self.initial_data['bin_type']
+            if not (any(bin_type in i for i in BIN_TYPE_CHOICES)):
+                raise serializers.ValidationError('Invalid bin_type')
+            data['bin_type'] = bin_type
+        else:
+            raise serializers.ValidationError("'bin_type' | This is mandatory")
+
+        if 'is_active' in self.initial_data and self.initial_data['is_active']:
+            is_active = self.initial_data['is_active']
+            if is_active not in [True, False]:
+                raise serializers.ValidationError('Invalid is_active')
+            data['is_active'] = is_active
+        else:
+            raise serializers.ValidationError("'is_active' | This is mandatory")
+
+        if 'bin_id' in self.initial_data and self.initial_data['bin_id']:
+            try:
+                bin_id = self.initial_data['bin_id']
+                bin_validation, message = self.bin_id_validation(bin_id, bin_type)
+                if not bin_validation:
+                    raise serializers.ValidationError(message)
+            except:
+                raise serializers.ValidationError("Invalid bin_id")
+            data['bin_id'] = bin_id
+        else:
+            raise serializers.ValidationError("'bin_id' | This is mandatory")
+
+        if 'zone' in self.initial_data and self.initial_data['zone']:
+            try:
+                zone = Zone.objects.get(id=self.initial_data['zone'])
+                if zone.warehouse != warehouse:
+                    raise serializers.ValidationError("Invalid zone for selected warehouse.")
+            except:
+                raise serializers.ValidationError("Invalid zone")
+            data['zone'] = zone
+        else:
+            raise serializers.ValidationError("'zone' | This is mandatory")
+
+        if Bin.objects.filter(warehouse=warehouse, bin_id=bin_id, zone=zone).exists():
+            raise serializers.ValidationError(
+                "Bin already exist for selected 'warehouse', 'bin' and 'zone'")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Bin"""
+
+        try:
+            bin_instance = Bin.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return bin_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update WarehouseAssortment"""
+
+        try:
+            bin_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return bin_instance
+
+
+class BinExportAsCSVSerializers(serializers.ModelSerializer):
+    bin_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Bin
+        fields = ('bin_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('bin_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one bin id must be selected '))
+
+        for c_id in data.get('bin_id_list'):
+            try:
+                Bin.objects.get(id=c_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'bin not found for id {c_id}')
+        return data
+
+    def create(self, validated_data):
+        meta = Bin._meta
+        field_names = ["Warehouse ID", "Warehouse", "Zone ID", "Zone Supervisor (Number - Name)",
+                       "Zone Coordinator (Number - Name)", "Bin ID", "Bin Type", "Bin Barcode Text", "Bin Barcode Url",
+                       "Active", "Created Datetime", "Updated Datetime"]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+
+        queryset = Bin.objects.filter(id__in=validated_data['bin_id_list']). \
+            select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                           'warehouse__shop_type__shop_sub_type',
+                           'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                           'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
+            prefetch_related('zone__putaway_users'). \
+            only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+                 'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+                 'warehouse__shop_type__shop_sub_type__retailer_type_name',
+                 'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+                 'warehouse__shop_owner__phone_number', 'zone__id', 'zone__warehouse__id', 'zone__warehouse__status',
+                 'zone__warehouse__shop_name', 'zone__warehouse__shop_type',
+                 'zone__warehouse__shop_type__shop_type', 'zone__warehouse__shop_type__shop_sub_type',
+                 'zone__warehouse__shop_type__shop_sub_type__retailer_type_name', 'zone__warehouse__shop_owner',
+                 'zone__warehouse__shop_owner__first_name', 'zone__warehouse__shop_owner__last_name',
+                 'zone__warehouse__shop_owner__phone_number', 'zone__supervisor__id', 'zone__supervisor__first_name',
+                 'zone__supervisor__last_name', 'zone__supervisor__phone_number', 'zone__coordinator__id',
+                 'zone__coordinator__first_name', 'zone__coordinator__last_name', 'zone__coordinator__phone_number',
+                 'bin_id', 'bin_type', 'is_active', 'bin_barcode_txt', 'bin_barcode', 'created_at', 'modified_at', ). \
+            order_by('-id')
+        for row in queryset:
+            writer.writerow([row.warehouse.id, row.warehouse, row.zone.id if row.zone else None, (str(
+                row.zone.supervisor.phone_number) + " - " + str(row.zone.supervisor.first_name)) if row.zone else None,
+                             (str(row.zone.coordinator.phone_number) + " - " + str(
+                                 row.zone.coordinator.first_name)) if row.zone else None,
+                             row.bin_id, row.bin_type, row.bin_barcode_txt, row.bin_barcode.url, row.is_active,
+                             row.created_at.strftime('%b %d,%Y %H:%M:%S'),
+                             row.modified_at.strftime('%b %d,%Y %H:%M:%S')])
+        return response
+
+
+class BinExportBarcodeSerializers(serializers.ModelSerializer):
+    bin_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Bin
+        fields = ('bin_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('bin_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one bin id must be selected '))
+
+        for c_id in data.get('bin_id_list'):
+            try:
+                Bin.objects.get(id=c_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'bin not found for id {c_id}')
+        return data
+
+    def create(self, validated_data):
+        bin_id_list = {}
+        for obj in validated_data['bin_id_list']:
+            bin_obj = Bin.objects.get(id=obj)
+            bin_barcode_txt = bin_obj.bin_barcode_txt
+            if bin_barcode_txt is None:
+                bin_barcode_txt = '1' + str(getattr(obj, 'id')).zfill(11)
+            bin_id_list[bin_barcode_txt] = {"qty": 1, "data": {"Bin": bin_obj.bin_id}}
+        return merged_barcode_gen(bin_id_list)
 

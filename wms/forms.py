@@ -6,7 +6,7 @@ import codecs
 from django import forms
 from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone
 from products.models import Product, ProductPrice
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -88,7 +88,7 @@ class BinForm(forms.ModelForm):
 
     class Meta:
         model = Bin
-        fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]
+        fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', 'zone']
 
     def clean_bin_id(self):
         bin_validation, message = bin_id_validation(self.cleaned_data['bin_id'], self.data['bin_type'])
@@ -98,7 +98,7 @@ class BinForm(forms.ModelForm):
             bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.cleaned_data['bin_id'])
         else:
             bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.instance.bin_id)
-        if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id = self.cleaned_data['bin_id']).exists():
+        if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.cleaned_data['bin_id']).exists():
             if bin_obj[0].bin_id == self.cleaned_data['bin_id']:
                 try:
                     if int(bin_obj[0].id) == int(self.instance.id):
@@ -108,7 +108,14 @@ class BinForm(forms.ModelForm):
                         _("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
             else:
                 raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
+
         return self.cleaned_data['bin_id']
+
+    def clean_zone(self):
+        if self.cleaned_data['zone']:
+            if int(self.cleaned_data['zone'].warehouse.id) != int(self.data['warehouse']):
+                raise ValidationError(_("Invalid zone for selected warehouse."))
+        return self.cleaned_data['zone']
 
     def __init__(self, *args, **kwargs):
         super(BinForm, self).__init__(*args, **kwargs)

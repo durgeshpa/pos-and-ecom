@@ -16,13 +16,14 @@ from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
 from wms.services import check_warehouse_manager
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
-    WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, \
-    WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer
+    WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
+    WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
+    BinExportBarcodeSerializers
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
-from wms.models import Zone, WarehouseAssortment
+from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES
 
 # Logger
-from wms.services import zone_search, user_search, whc_assortment_search
+from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -448,3 +449,157 @@ class WarehouseAssortmentUploadView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class BinTypeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ApprovalStatusList """
+        info_logger.info("ApprovalStatusList GET api called.")
+        fields = ['id', 'bin_type']
+        data = [dict(zip(fields, d)) for d in BIN_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class BinCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Bin.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type',
+                       'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                       'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
+        prefetch_related('zone__putaway_users'). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'zone__id', 'zone__warehouse__id', 'zone__warehouse__status',
+             'zone__warehouse__shop_name', 'zone__warehouse__shop_type',
+             'zone__warehouse__shop_type__shop_type', 'zone__warehouse__shop_type__shop_sub_type',
+             'zone__warehouse__shop_type__shop_sub_type__retailer_type_name', 'zone__warehouse__shop_owner',
+             'zone__warehouse__shop_owner__first_name', 'zone__warehouse__shop_owner__last_name',
+             'zone__warehouse__shop_owner__phone_number', 'zone__supervisor__id', 'zone__supervisor__first_name',
+             'zone__supervisor__last_name', 'zone__supervisor__phone_number', 'zone__coordinator__id',
+             'zone__coordinator__first_name', 'zone__coordinator__last_name', 'zone__coordinator__phone_number',
+             'bin_id', 'bin_type', 'is_active', 'bin_barcode_txt', 'bin_barcode', 'created_at', 'modified_at',). \
+        order_by('-id')
+    serializer_class = BinCrudSerializers
+
+    # @check_warehouse_manager
+    def get(self, request):
+        """ GET API for Bin """
+        info_logger.info("Bin GET api called.")
+        bin_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get Bin for specific ID """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            bins_data = id_validation['data']
+        else:
+            """ GET Bin List """
+            self.queryset = self.search_filter_bins_data()
+            bin_total_count = self.queryset.count()
+            bins_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(bins_data, many=True)
+        msg = f"total count {bin_total_count}" if bins_data else "no bin found"
+        return get_response(msg, serializer.data, True)
+
+    @check_warehouse_manager
+    def post(self, request):
+        """ POST API for Bin Creation """
+
+        info_logger.info("Bin POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("Bin Created Successfully.")
+            return get_response('Bin created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_warehouse_manager
+    def delete(self, request):
+        """ Delete Bin """
+
+        info_logger.info("Zone DELETE api called.")
+        if not request.data.get('bin_id'):
+            return get_response('please provide bin_id', False)
+        try:
+            for b_id in request.data.get('bin_id'):
+                bin_id = self.queryset.get(id=int(b_id))
+                try:
+                    bin_id.delete()
+                except:
+                    return get_response(f'can not delete bin | {bin_id.id} | getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid bin id {b_id}', False)
+        return get_response('bin were deleted successfully!', True)
+
+    def search_filter_bins_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        bin_type = self.request.GET.get('bin_type')
+        is_active = self.request.GET.get('is_active')
+        zone = self.request.GET.get('zone')
+
+        '''search using warehouse name, bin_type's name  and zone's coordination / supervisor firstname'''
+        if search_text:
+            self.queryset = bin_search(self.queryset, search_text)
+
+        '''Filters using warehouse, bin_type, is_active, zone'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if bin_type:
+            self.queryset = self.queryset.filter(bin_type=bin_type)
+
+        if is_active:
+            self.queryset = self.queryset.filter(is_active=is_active)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        return self.queryset.distinct('id')
+
+
+class BinExportAsCSVView(generics.CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BinExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Bins CSV """
+
+        info_logger.info("BinExportAsCSVView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Bins CSV exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class BinExportBarcodeView(generics.CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BinExportBarcodeSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Bins CSV """
+
+        info_logger.info("BinExportBarcodeView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Bins Barcode exported successfully ")
+            return response
+        return get_response(serializer_error(serializer), False)

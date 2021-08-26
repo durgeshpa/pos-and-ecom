@@ -43,3 +43,13 @@ def whc_assortment_search(queryset, search_text):
         product__name__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
                                Q(zone__coordinator__first_name__icontains=search_text))
     return queryset
+
+
+def bin_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & parent product name & Zone mappings based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
+        bin_id__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
+                               Q(zone__coordinator__first_name__icontains=search_text))
+    return queryset

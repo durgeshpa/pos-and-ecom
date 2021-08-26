@@ -67,6 +67,29 @@ class BaseTimestampUserModel(models.Model):
         abstract = True
 
 
+class Zone(BaseTimestampUserModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
+    coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
+    putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+
+    class Meta:
+        permissions = (
+            ("can_have_zone_warehouse_permission", "Can have Zone Warehouse Permission"),
+            ("can_have_zone_supervisor_permission", "Can have Zone Supervisor Permission"),
+            ("can_have_zone_coordinator_permission", "Can have Zone Coordinator Permission"),
+        )
+
+    def __str__(self):
+        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + " - " + str(self.warehouse)
+
+
+class WarehouseAssortment(BaseTimestampUserModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
+
+
 class BaseQuerySet(query.QuerySet):
 
     def update(self, **kwargs):
@@ -105,6 +128,7 @@ class Bin(models.Model):
     is_active = models.BooleanField()
     bin_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     bin_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+    zone = models.ForeignKey(Zone, null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -587,25 +611,5 @@ class PosInventoryChange(models.Model):
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-
-class Zone(BaseTimestampUserModel):
-    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
-    supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
-    coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
-    putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
-
-    class Meta:
-        permissions = (
-            ("can_have_zone_warehouse_permission", "Can have Zone Warehouse Permission"),
-            ("can_have_zone_supervisor_permission", "Can have Zone Supervisor Permission"),
-            ("can_have_zone_coordinator_permission", "Can have Zone Coordinator Permission"),
-        )
-
-
-class WarehouseAssortment(BaseTimestampUserModel):
-    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
-    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
-    zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
 
 
