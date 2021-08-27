@@ -1,12 +1,13 @@
 # python imports
 import logging
 import datetime
+from django.db.models import Count, F, Case, When, IntegerField
 
-from django.db.models import Count
-from django.db.models.signals import pre_delete
 # app imports
 from .models import Tag, TagProductMapping
 from pos.models import RetailerProduct
+from pos.common_functions import PosInventoryCls
+from wms.models import PosInventoryState
 from retailer_to_sp.models import Order, CartProductMapping, OrderedProductMapping
 from shops.models import Shop
 from global_config.views import get_config
@@ -30,6 +31,16 @@ def update_tag(tag, tag_product, start, product, count):
         return count, tag_product
     except Exception as e:
         print(e)
+
+def check_inventory(product):
+    exclude_product_id = []
+    for prd in product:
+        available_inventory = PosInventoryCls.get_available_inventory(prd.id, PosInventoryState.AVAILABLE)
+        if available_inventory < 1:
+            exclude_product_id.append(prd.id)
+    product = product.exclude(id__in = exclude_product_id)
+    return product
+
 
 def bestseller_product():
     """
@@ -55,9 +66,11 @@ def bestseller_product():
                 # Get online order product
                 online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
                 online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
-                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product)
+                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product, status = 'active')
+                # Inventory Check and exclude product whose inventory is not available
+                online_product = check_inventory(online_product)
+                #sort by max value
                 product = online_product.annotate(prd_count=Count('id')).order_by('-prd_count').distinct()
-
                 #Update Tagged Product
                 if product.exists():
                     cron_logger.info('Started Adding {} online best seller product for shop {}'.format(product.count(), shop.id))
@@ -71,10 +84,11 @@ def bestseller_product():
                     exclude_online_product = product.values('id')
                     offline_order = Order.objects.filter(ordered_cart__cart_type='BASIC', created_at__gte = from_date, seller_shop=shop)
                     offline_ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__in = offline_order)
-                    total_offline_product = RetailerProduct.objects.exclude(id__in = exclude_online_product).filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True)
+                    total_offline_product = RetailerProduct.objects.exclude(id__in = exclude_online_product, sku_type = RetailerProduct.PRODUCT_ORIGINS.DISCOUNTED).filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True, status = 'active')
+                    # Inventory Check and exclude product whose inventory is not available
+                    offline_product = check_inventory(offline_product)
+                    #Sort by max count
                     rem_offline_product = total_offline_product.annotate(prd_count=Count('id')).order_by('-prd_count').distinct()
-                    rem_offline_product = rem_offline_product[0:min(rem_offline_product.count(), count)]
-
                     #Update Tagged Product
                     if rem_offline_product.exists():
                         cron_logger.info('Started Adding {} offline best seller product for shop {}'.format(rem_offline_product.count(), shop.id))
@@ -86,8 +100,9 @@ def bestseller_product():
                 # add random product in case of no online and offline order
                 if count < 6:
                     exclude_product_id = product.values('id') | rem_offline_product.values('id')
-                    random_product = RetailerProduct.objects.exclude(id__in = exclude_product_id).filter(online_enabled = True)[:count]
-                    
+                    random_product = RetailerProduct.objects.exclude(id__in = exclude_product_id, sku_type = RetailerProduct.PRODUCT_ORIGINS.DISCOUNTED).filter(online_enabled = True, status = 'active')
+                    # Inventory Check and exclude product whose inventory is not available
+                    random_product = check_inventory(random_product)
                     # Update Tag product mapping
                     if random_product.exists():
                         cron_logger.info('Started Adding {} random product for shop {}'.format(random_product.count(), shop.id))

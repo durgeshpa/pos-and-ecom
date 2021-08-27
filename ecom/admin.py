@@ -160,7 +160,10 @@ class EcomAddressAdmin(admin.ModelAdmin):
 @admin.register(TagProductMapping)
 class TagProductMappingAdmin(admin.ModelAdmin):
     model = TagProductMapping
-    list_display = ('tag', 'product', 'created_at', 'modified_at')
+    list_display = ('tag', 'product', 'shops', 'created_at', 'modified_at')
+
+    def shops(self, obj):
+        return obj.product.shop
 
     def has_delete_permission(self, request, obj=None):
         return True
