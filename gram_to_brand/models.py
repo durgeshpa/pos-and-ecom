@@ -17,7 +17,8 @@ from brand.models import Brand, Vendor
 from addresses.models import Address, State
 from retailer_to_gram.models import (Cart as GramMapperRetailerCart, Order as GramMapperRetailerOrder)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
-from shops.models import Shop
+from shops.models import Shop, ParentRetailerMapping
+from wms.models import WarehouseAssortment
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -431,6 +432,15 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(
             Sum('delivered_qty')).get('delivered_qty__sum')
         return already_grn if already_grn else 0
+
+    @property
+    def zone(self):
+        gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
+        prm_obj = ParentRetailerMapping.objects.filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        whc_assrtment_obj = WarehouseAssortment.objects.filter(
+            warehouse=prm_obj.retailer, product=self.product.parent_product).last()
+        return str(whc_assrtment_obj.zone) if whc_assrtment_obj else "-"
 
     @property
     def already_returned_product(self):

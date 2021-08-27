@@ -81,13 +81,17 @@ class Zone(BaseTimestampUserModel):
         )
 
     def __str__(self):
-        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + " - " + str(self.warehouse)
+        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + \
+               " - " + str(self.warehouse.pk) + " - " + str(self.pk)
 
 
 class WarehouseAssortment(BaseTimestampUserModel):
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
     zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return str(self.product) + " - " + str(self.zone) + " - " + str(self.pk)
 
 
 class BaseQuerySet(query.QuerySet):
