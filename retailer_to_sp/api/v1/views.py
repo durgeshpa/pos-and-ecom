@@ -65,7 +65,7 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
     PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
     update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
@@ -433,7 +433,8 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('Product not found in GramFactory catalog. Please add new Product.', None, status.HTTP_200_OK)
+                return api_response('Product not found in GramFactory catalog. Please add new Product.', None,
+                                    status.HTTP_200_OK)
 
     def gf_exact_search(self):
         """
@@ -534,7 +535,7 @@ class SearchProducts(APIView):
                 {"range": {"available": {"gt": 0}}}
             ]
         if is_discounted:
-            filter_list.append({"term": {"is_discounted": is_discounted}},)
+            filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
@@ -975,7 +976,8 @@ class CartCentral(GenericAPIView):
             else:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def get_basic_cart(self, request, *args, **kwargs):
@@ -1011,7 +1013,9 @@ class CartCentral(GenericAPIView):
         """
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop=kwargs['shop'],
-                                                                                             cart_status__in=['active', 'pending']).order_by('-modified_at')
+                                                                                             cart_status__in=['active',
+                                                                                                              'pending']).order_by(
+            '-modified_at')
         if search_text:
             carts = carts.filter(Q(cart_no__icontains=search_text) |
                                  Q(buyer__first_name__icontains=search_text) |
@@ -1198,7 +1202,8 @@ class CartCentral(GenericAPIView):
             return api_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop),
                                 status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     @PosAddToCart.validate_request_body
@@ -1361,7 +1366,8 @@ class CartCentral(GenericAPIView):
         cart_mapping, created = CartProductMapping.objects.get_or_create(cart=cart,
                                                                          cart_product=product)
         cart_mapping.qty = qty
-        available_qty = shop_products_dict.get(int(product.id), 0) // int(cart_mapping.cart_product.product_inner_case_size)
+        available_qty = shop_products_dict.get(int(product.id), 0) // int(
+            cart_mapping.cart_product.product_inner_case_size)
         if int(qty) <= available_qty:
             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
             cart_mapping.capping_error_msg = ''
@@ -1526,7 +1532,8 @@ class CartUserView(APIView):
         cart = initial_validation['cart']
 
         # Create / update customer
-        customer = update_customer_pos_cart(self.request.GET.get('phone_number'), cart.seller_shop.id, self.request.user)
+        customer = update_customer_pos_cart(self.request.GET.get('phone_number'), cart.seller_shop.id,
+                                            self.request.user)
 
         # add customer to cart
         cart.buyer = customer
@@ -1559,7 +1566,8 @@ class CartUserView(APIView):
         # Create / update customer
         serializer_data = serializer.data
         customer = update_customer_pos_cart(serializer_data['phone_number'], cart.seller_shop.id, self.request.user,
-                                            None, None, None, serializer_data['is_mlm'], serializer_data['referral_code'])
+                                            None, None, None, serializer_data['is_mlm'],
+                                            serializer_data['referral_code'])
 
         # add customer to cart
         cart.buyer = customer
@@ -2418,7 +2426,8 @@ class OrderCentral(APIView):
             return api_response(['Order'], self.get_serialize_process_gf(order, parent_mapping), status.HTTP_200_OK,
                                 True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def get_basic_order(self, request, *args, **kwargs):
@@ -2504,7 +2513,8 @@ class OrderCentral(APIView):
                     return api_response(['Available Quantity Is None'], None, status.HTTP_200_OK)
         # Shop type neither sp nor gf
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     @check_pos_shop
     def post_basic_order(self, request, *args, **kwargs):
@@ -2894,7 +2904,8 @@ class OrderCentral(APIView):
         redeem_factor = order.ordered_cart.redeem_factor
         redeem_points = order.ordered_cart.redeem_points
         if redeem_points:
-            RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user, order.order_no)
+            RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
+                                             order.order_no)
         # Loyalty points credit
         shops_str = GlobalConfig.objects.get(key='pos_loyalty_shop_ids').value
         shops_str = str(shops_str) if shops_str else ''
@@ -2968,11 +2979,11 @@ class OrderCentral(APIView):
         if cart_products.filter(retailer_product__sku_type=4).exists():
             discounted_cart_products = cart_products.filter(retailer_product__sku_type=4)
             for cp in discounted_cart_products:
-                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id, PosInventoryState.AVAILABLE)
+                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id,
+                                                                              PosInventoryState.AVAILABLE)
                 if inventory_available < cp.no_of_pieces:
                     return False
         return True
-
 
 
 # class CreateOrder(APIView):
@@ -3219,7 +3230,8 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text))
             return api_response(['Order'], self.get_serialize_process_gf(qs, parent_mapping), status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None,
+                                status.HTTP_200_OK)
 
     def get_retail_validate(self):
         """
@@ -3548,13 +3560,15 @@ class OrderReturns(APIView):
                                     self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
                                 free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                              return_free_qty)
-                    new_cart_value += (ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
+                    new_cart_value += (
+                                                  ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
-                    new_cart_value += (ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
+                    new_cart_value += (
+                                                  ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
             # check if free product offered on order value is still valid
@@ -4382,6 +4396,7 @@ def pdf_generation(request, ordered_product):
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
+            
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
@@ -4469,6 +4484,7 @@ def pdf_generation(request, ordered_product):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
@@ -4640,15 +4656,13 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words
-        
-        
+
         # Total payable amount
         total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
         total_amount_int = round(total_amount)
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
-
 
         # Shop Details
         nick_name = '-'
@@ -4664,7 +4678,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         data = {
             "url": request.get_host(),
-            "scheme": request.is_secure()and"https"or"http",
+            "scheme": request.is_secure() and "https" or "http",
             "credit_note": credit_note_instance,
             "shipment": ordered_product,
             "order": ordered_product.order,
@@ -4691,7 +4705,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-                                                     save=True)
+                                                      save=True)
             order_number = order.order_no
             order_status = order.order_status
             phone_number = order.buyer.phone_number
@@ -5321,13 +5335,14 @@ class RetailerShopsList(APIView):
             return Response({"message": ["User is not exists"], "response_data": None, "is_success": False,
                              "is_user_mapped_with_same_sp": False})
 
+
 class RetailerList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all()\
+        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all() \
                                               .prefetch_related('employee_list').values('employee_list__employee_id'),
                                               shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
@@ -5350,7 +5365,7 @@ class RetailerList(generics.ListAPIView):
         params = request.query_params
         info_logger.info("RetailerList|query_params {}".format(request.query_params))
         if params.get('retailer_name') is not None:
-            queryset = queryset.filter(shop_name__icontains=params.get('retailer_name') )
+            queryset = queryset.filter(shop_name__icontains=params.get('retailer_name'))
 
         if queryset.exists():
             serializer = ShopSerializer(queryset, many=True)
@@ -5418,7 +5433,7 @@ class SellerOrderList(generics.ListAPIView):
                 queryset = queryset.filter(order_status__in=order_status_list)
 
         if params.get('retailer_id') is not None:
-            queryset = queryset.filter(buyer_shop_id=params.get('retailer_id') )
+            queryset = queryset.filter(buyer_shop_id=params.get('retailer_id'))
         elif params.get('retailer_name') is not None:
             queryset = queryset.filter(buyer_shop__shop_name__icontains=params.get('retailer_name'))
         if not queryset.exists():
@@ -5445,7 +5460,8 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if ShipmentRescheduling.objects.filter(shipment=request.data.get('shipment')).exists():
-            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once.'], 'response_data': None}
+            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once.'],
+                   'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():

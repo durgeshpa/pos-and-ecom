@@ -4,29 +4,36 @@ from datetime import datetime
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
+from django.db.models import Q
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice
 from categories.models import Category
-from brand.models import Brand
-
+from brand.models import Brand, Vendor
+from shops.models import Shop
+from shops.services import shop_search, search_city, search_pincode
 from retailer_backend.utils import SmallOffsetPagination
+from addresses.models import Pincode, City
 
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
-    ProductHSNCrudSerializers, HSNExportAsCSVSerializers
-
+    ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
+    ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
+    DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
+    DiscountChildProductSerializers
+from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
-    category_search, brand_search, parent_product_name_search
+    category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search, \
+    product_price_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -237,6 +244,7 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
         'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
@@ -245,7 +253,7 @@ class ParentProductView(GenericAPIView):
         .only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
               'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
               'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
-              'max_inventory', 'brand_case_size').order_by('-id')
+              'max_inventory', 'brand_case_size', 'discounted_life_percent').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -253,6 +261,7 @@ class ParentProductView(GenericAPIView):
 
         info_logger.info("Parent Product GET api called.")
         product_total_count = self.queryset.count()
+        active_product_total_count = self.queryset.filter(status=True).count()
         if request.GET.get('id'):
             """ Get Parent Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -263,9 +272,11 @@ class ParentProductView(GenericAPIView):
             """ GET Parent Product List """
             self.queryset = self.search_filter_parent_product()
             product_total_count = self.queryset.count()
+            active_product_total_count = self.queryset.filter(status=True).count()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        msg = f"total count {product_total_count}" if parent_product else "no parent product found"
+        msg = f"TOTAL PARENT SKUS {product_total_count}  TOTAL ACTIVE PARENT SKUS {active_product_total_count}" \
+            if parent_product else "no parent product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -419,7 +430,15 @@ class ChildProductView(GenericAPIView):
 
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
+
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
+
         ch_product_total_count = self.queryset.count()
+        ch_active_product_total_count = self.queryset.filter(status='active').count()
         info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
@@ -431,11 +450,13 @@ class ChildProductView(GenericAPIView):
             """ GET Child Product List """
             self.queryset = self.search_filter_product_list()
             ch_product_total_count = self.queryset.count()
+            ch_active_product_total_count = self.queryset.filter(status='active').count()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
 
-        msg = f"total count {ch_product_total_count}" if child_product else "no child product found"
+        msg = f"TOTAL CHILD SKUS {ch_product_total_count}  TOTAL ACTIVE CHILD SKUS " \
+              f"{ch_active_product_total_count}" if child_product else "no child product found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request):
@@ -661,7 +682,7 @@ class ProductCappingView(GenericAPIView):
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code').\
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code'). \
         order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
@@ -749,77 +770,6 @@ class ProductHSNView(GenericAPIView):
         if product_hsn_cd is not None:
             self.queryset = self.queryset.filter(id=int(product_hsn_cd))
 
-        return self.queryset
-
-
-class ProductVendorMappingView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
-    serializer_class = ProductVendorMappingSerializers
-
-    def get(self, request):
-        """ GET API for Product Vendor Mapping """
-
-        info_logger.info("Product Vendor Mapping GET api called.")
-        if request.GET.get('id'):
-            """ Get Product Vendor Mapping for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            product_vendor_map = id_validation['data']
-        else:
-            """ GET Product Vendor Mapping  List """
-            self.queryset = self.search_filter_product_vendor_map()
-            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(product_vendor_map, many=True)
-        return get_response('product vendor list!', serializer.data, True)
-
-    def post(self, request):
-        """ POST API for Product Vendor Mapping """
-
-        info_logger.info("Product Vendor Mapping POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('product vendor mapping created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def put(self, request):
-        """ PUT API for Product Vendor Mapping Updation """
-
-        info_logger.info("Product Vendor Mapping PUT api called.")
-        if not request.data.get('id'):
-            return get_response('please provide id to update product vendor mapping', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data.get('id')))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-        product_vendor_map_instance = id_instance['data'].last()
-
-        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('product vendor mapping updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-    def search_filter_product_vendor_map(self):
-
-        vendor_id = self.request.GET.get('vendor_id')
-        product_id = self.request.GET.get('product_id')
-        product_status = self.request.GET.get('product_status')
-        status = self.request.GET.get('status')
-
-        # filter using vendor_name, product_id, product_status & status exact match
-        if product_id is not None:
-            self.queryset = self.queryset.filter(product_id=product_id)
-        if vendor_id is not None:
-            self.queryset = self.queryset.filter(vendor_id=vendor_id)
-        if status is not None:
-            self.queryset = self.queryset.filter(status=status)
-        if product_status is not None:
-            self.queryset = self.queryset.filter(product__status=product_status)
         return self.queryset
 
 
@@ -964,3 +914,559 @@ class ParentProductExportAsCSVView(CreateAPIView):
             info_logger.info("Parent Product CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class ActiveChildProductListView(GenericAPIView):
+    """
+        Get Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(status="active").values('id', 'product_name', 'product_sku', 'product_mrp')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no child product found"
+        return get_response(msg, serializer.data, True)
+
+
+class VendorListView(GenericAPIView):
+    """
+        Get Vendor List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Vendor.objects.values('id', 'vendor_name', 'mobile')
+    serializer_class = VendorSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = vendor_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no vendor found"
+        return get_response(msg, serializer.data, True)
+
+
+class ChildProductListView(GenericAPIView):
+    """
+        Get Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(repackaging_type__in=['none', 'source', 'destination']) \
+        .values('id', 'product_name', 'product_sku', 'product_mrp')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
+
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no child product found"
+        return get_response(msg, serializer.data, True)
+
+
+class SellerShopListView(GenericAPIView):
+    """
+        Get SellerShop List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.select_related('shop_owner', 'shop_type', 'shop_type__shop_sub_type', ) \
+        .filter(shop_type__shop_type__in=['sp', ]) \
+        .only('id', 'shop_name', 'status', 'shop_type__shop_type', 'shop_type__shop_sub_type__retailer_type_name',
+              'shop_owner__first_name', 'shop_owner__last_name', 'shop_owner__phone_number', )
+    serializer_class = ShopsSerializer
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no seller shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class BuyerShopListView(GenericAPIView):
+    """
+        Get BuyerShop List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+    serializer_class = ShopsSerializer
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+        vendor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vendor, many=True)
+        msg = "" if vendor else "no buyer shop found"
+        return get_response(msg, serializer.data, True)
+
+
+class CityListView(GenericAPIView):
+    """
+        Get City List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = City.objects.only('id', 'city_name')
+    serializer_class = CitySerializer
+
+    def get(self, request):
+        """ GET API for City """
+        info_logger.info("City GET api called.")
+        shop_id = self.request.GET.get('shop_id', None)
+        if shop_id:
+            self.queryset = self.queryset.filter(city_address__shop_name__id=shop_id).distinct('id')
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_city(self.queryset, search_text)
+        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(city_data, many=True)
+        msg = "" if city_data else "no city found"
+        return get_response(msg, serializer.data, True)
+
+
+class PinCodeListView(GenericAPIView):
+    """
+        Get Pincode List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Pincode.objects.only('id', 'pincode')
+    serializer_class = PinCodeSerializer
+
+    def get(self, request):
+        """ GET API for PinCode """
+        info_logger.info("PinCode GET api called.")
+        shop_id = self.request.GET.get('shop_id', None)
+        if shop_id:
+            self.queryset = self.queryset.filter(pincode_address__shop_name__id=shop_id).distinct('pincode')
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = search_pincode(self.queryset, search_text)
+        pin_code_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pin_code_data, many=True)
+        msg = "" if pin_code_data else "no pincode found"
+        return get_response(msg, serializer.data, True)
+
+
+class ProductStatusListView(GenericAPIView):
+    """
+        Get Product Status List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for Product Status """
+
+        info_logger.info("Product Status GET api called.")
+        """ GET Status Choice List """
+        fields = ['product_status', 'status', ]
+        data = [dict(zip(fields, d)) for d in ChildProduct.STATUS_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ProductPriceStatusListView(GenericAPIView):
+    """
+        Get ProductPrice Status List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for ProductPrice Status """
+
+        info_logger.info("ProductPrice Status GET api called.")
+        """ GET Status Choice List """
+        fields = ['approval_status', 'approval_status_value']
+        data = [dict(zip(fields, d)) for d in ProductPrice.APPROVAL_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ProductVendorMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product').order_by('-id')
+    serializer_class = ProductVendorMappingSerializers
+
+    def get(self, request):
+        """ GET API for Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping GET api called.")
+        pro_vendor_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Product Vendor Mapping for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_vendor_map = id_validation['data']
+        else:
+            """ GET Product Vendor Mapping  List """
+            self.queryset = self.search_filter_product_vendor_map()
+            pro_vendor_count = self.queryset.count()
+            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {pro_vendor_count}" if product_vendor_map else "no product vendor mapping found"
+        serializer = self.serializer_class(product_vendor_map, many=True)
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('product vendor mapping created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Product Vendor Mapping Updation """
+
+        info_logger.info("Product Vendor Mapping PUT api called.")
+        if not request.data.get('id'):
+            return get_response('please provide id to update product vendor mapping', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        product_vendor_map_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=product_vendor_map_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('product vendor mapping updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_vendor_map(self):
+
+        vendor_id = self.request.GET.get('vendor_id')
+        product_id = self.request.GET.get('product_id')
+        product_status = self.request.GET.get('product_status')
+        status = self.request.GET.get('status')
+        search_text = self.request.GET.get('search_text')
+        # search using tax_name and tax_type based on criteria that matches
+        if search_text:
+            self.queryset = product_vendor_search(self.queryset, search_text.strip())
+
+        # filter using vendor_id, product_id, product_status & status exact match
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if vendor_id is not None:
+            self.queryset = self.queryset.filter(vendor_id=vendor_id)
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(product__status=product_status)
+        return self.queryset
+
+    def delete(self, request):
+        """ Delete Product Vendor Mapping """
+
+        info_logger.info("Product Vendor Mapping DELETE api called.")
+        if not request.data.get('product_vendor_map_ids'):
+            return get_response('please select product vendor mapping', False)
+        try:
+            for id in request.data.get('product_vendor_map_ids'):
+                product_vendor_map_id = self.queryset.get(id=int(id))
+                try:
+                    product_vendor_map_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'product_vendor_map_id': product_vendor_map_id}
+                    info_logger.info("product_vendor_mapping deleted info ", dict_data)
+                except Exception as er:
+                    return get_response(f'You can not delete product vendor mapping {product_vendor_map_id}, '
+                                        f'because this product vendor mapping is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product vendor mapping  id {id}', False)
+        return get_response('product vendor mapping were deleted successfully!', True)
+
+
+class ProductVendorMappingExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductVendorMappingExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product vendor mapping CSV """
+
+        info_logger.info("product vendor mapping ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product vendor mapping CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ProductSlabPriceExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ProductSlabPriceExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected product slab price CSV """
+
+        info_logger.info("product slab price ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("product slab price CSVExported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class DisapproveSelectedProductPriceView(UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    product_price_list = ProductPrice.objects.values('id', )
+    serializer_class = DisapproveSelectedProductPriceSerializers
+
+    def put(self, request):
+        """ PUT API to Disapproved Selected Slap Product Price """
+
+        info_logger.info("Product Price Disapproved PUT api called.")
+        serializer = self.serializer_class(instance=self.product_price_list.filter(
+            id__in=request.data['product_price_id_list']), data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Product price disapproved successfully!', True)
+        return get_response(serializer_error(serializer), None)
+
+
+class SlabProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    queryset = ProductPrice.objects.select_related('product', 'seller_shop', 'buyer_shop', 'city', 'pincode', ) \
+        .prefetch_related('price_slabs', 'product__parent_product', 'product__product_ref', 'seller_shop__shop_type',
+                          'buyer_shop__shop_type', 'buyer_shop__shop_owner', 'seller_shop__shop_owner'). \
+        only('id', 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', ).order_by(
+        '-id')
+    serializer_class = ProductPriceSerializers
+
+    def get(self, request):
+        """ GET API for Product Price """
+
+        info_logger.info("Product Price GET api called.")
+
+        if not request.GET.get('product_type'):
+            return get_response('product_type is mandatory', False)
+        elif int(request.GET.get('product_type')) not in [0, 1]:
+            return get_response('please select valid product_type')
+
+        self.queryset = self.queryset.filter(
+            id__in=self.queryset.filter(price_slabs__isnull=False, product__product_type=
+            int(request.GET.get('product_type'))).values_list('pk', flat=True))
+        if not (request.user.is_superuser or request.user.has_perm('products.change_productprice')):
+            self.queryset = self.queryset.filter(Q(seller_shop__related_users=request.user) |
+                                                 Q(seller_shop__shop_owner=request.user)).distinct()
+
+        slab_pro_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Product Price for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_slab_price = id_validation['data']
+        else:
+            """ GET Product Price  List """
+            self.queryset = self.search_filter_product_price()
+            slab_pro_count = self.queryset.count()
+            product_slab_price = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {slab_pro_count}" if product_slab_price else "no product price found"
+        serializer = self.serializer_class(product_slab_price, many=True)
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Product Price """
+
+        info_logger.info("Product Price POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product price created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_price(self):
+
+        seller_shop_id = self.request.GET.get('seller_shop_id')
+        product_id = self.request.GET.get('product_id')
+        product_sku = self.request.GET.get('product_sku')
+        category_id = self.request.GET.get('category_id')
+        approval_status = self.request.GET.get('approval_status')
+        mrp = self.request.GET.get('mrp')
+        search_text = self.request.GET.get('search_text')
+
+        # search using product name and product sku based on criteria that matches
+        if search_text:
+            self.queryset = product_price_search(self.queryset, search_text.strip())
+
+        # filter using seller_shop_id, product_id, product_status, mrp & status exact match
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if category_id is not None:
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_category__category_id=
+                                                 category_id)
+        if product_sku is not None:
+            self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
+        if seller_shop_id is not None:
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
+        if approval_status is not None:
+            self.queryset = self.queryset.filter(approval_status=int(approval_status))
+        if mrp is not None:
+            self.queryset = self.queryset.filter(mrp__icontains=mrp)
+        return self.queryset
+
+    def delete(self, request):
+        """ Delete Product Price """
+
+        info_logger.info("Product Price DELETE api called.")
+        if not request.data.get('product_price_ids'):
+            return get_response('please select product price', False)
+        try:
+            for id in request.data.get('product_price_ids'):
+                product_price_id = self.queryset.get(id=int(id))
+                try:
+                    product_price_id.delete()
+                    dict_data = {'deleted_by': request.user, 'deleted_at': datetime.now(),
+                                 'product_price_id': product_price_id}
+                    info_logger.info("product price deleted info ", dict_data)
+                except Exception as er:
+                    return get_response(f'You can not delete product price {product_price_id}, '
+                                        f'because this product price is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product price id {id}', False)
+        return get_response('product price were deleted successfully!', True)
+
+
+class ProductListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.prefetch_related('product_pro_image', ).order_by('-id')
+
+    serializer_class = ImageProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(child_product, many=True)
+        msg = "" if child_product else "no product found"
+        return get_response(msg, serializer.data, True)
+
+
+class DiscountProductListForManualPriceView(GenericAPIView):
+    """
+        Get Discount Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED,
+                                           is_manual_price_update=True) \
+        .values('id', 'product_name', 'product_sku', 'product_mrp')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no discounted product found"
+        return get_response(msg, serializer.data, True)
+
+
+class DiscountProductView(GenericAPIView):
+    """
+        Get Discount Child List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ChildProduct.objects.filter(product_type=ChildProduct.PRODUCT_TYPE_CHOICE.DISCOUNTED). \
+        select_related('parent_product', 'updated_by') \
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image', 'child_product_log',
+                          'child_product_log__updated_by', 'parent_product__parent_product_pro_category',
+                          'parent_product__parent_product_pro_category__category',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax', ).order_by('-id')
+
+    serializer_class = DiscountChildProductSerializers
+
+    def get(self, request):
+        """ GET API for Discount Child Product with Image Category & Tax """
+
+        d_ch_product_total_count = self.queryset.count()
+        info_logger.info("Discount Child Product GET api called.")
+        if request.GET.get('id'):
+            """ Get Discount Child Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            child_product = id_validation['data']
+        else:
+            """ GET Discount Child Product List """
+            self.queryset = self.search_filter_product_list()
+            d_ch_product_total_count = self.queryset.count()
+            child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(child_product, many=True)
+
+        msg = f"total count {d_ch_product_total_count}" if child_product else "no discount child product found"
+        return get_response(msg, serializer.data, True)
+
+    def put(self, request):
+        """ PUT API for Discount Child Product Updation with Image """
+
+        info_logger.info("Discount Child Product PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update discount product', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        child_product_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=child_product_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Discount Child Product Updated Successfully.")
+            return get_response('discount child product updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_list(self):
+
+        parent_product_id = self.request.GET.get('parent_product_id')
+        search_text = self.request.GET.get('search_text')
+
+        # search using product_name & id based on criteria that matches
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text.strip())
+
+        # filter using parent_product_id exact match
+        if parent_product_id is not None:
+            self.queryset = self.queryset.filter(parent_product=parent_product_id)
+
+        return self.queryset

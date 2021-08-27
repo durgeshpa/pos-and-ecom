@@ -7,6 +7,7 @@ from whc.views import process_auto_order
 
 cron_logger = logging.getLogger('cron_log')
 
+
 def initiate_auto_order_processing():
     cron_name = CronRunLog.CRON_CHOICE.AUTO_ORDER_PROCESSING_CRON
     if CronRunLog.objects.filter(cron_name=cron_name,

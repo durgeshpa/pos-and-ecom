@@ -12,13 +12,16 @@ class BrandSerializer(serializers.ModelSerializer):
         model = Brand
         fields = ('id', "brand_name")
 
+
 class BannerSerializer(serializers.ModelSerializer):
     brand = BrandSerializer(read_only=True)
     sub_brand = BrandSerializer(read_only=True)
 
     class Meta:
         model = Banner
-        fields = ('name','image','banner_type','category','sub_category','brand','sub_brand','products','status','banner_start_date','banner_end_date','alt_text','text_below_image')
+        fields = ('name', 'image', 'banner_type', 'category', 'sub_category', 'brand', 'sub_brand', 'products', 'status',
+                  'banner_start_date', 'banner_end_date',)
+
 
 class BannerPositionSerializer(serializers.ModelSerializer):
 
