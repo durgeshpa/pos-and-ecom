@@ -362,6 +362,13 @@ class GRNOrder(BaseShipment):  # Order Shipment
     def __str__(self):
         return str(self.grn_id)
 
+    @property
+    def warehouse(self):
+        gf_shop = self.order.ordered_cart.gf_shipping_address.shop_name
+        prm_obj = ParentRetailerMapping.objects.filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        return prm_obj.retailer if prm_obj else None
+
     def clean(self):
         super(GRNOrder, self).clean()
         today = datetime.date.today()
@@ -432,6 +439,22 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(
             Sum('delivered_qty')).get('delivered_qty__sum')
         return already_grn if already_grn else 0
+
+    @property
+    def warehouse(self):
+        gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
+        prm_obj = ParentRetailerMapping.objects.filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        return prm_obj.retailer if prm_obj else None
+
+    @property
+    def zone_id(self):
+        gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
+        prm_obj = ParentRetailerMapping.objects.filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        whc_assrtment_obj = WarehouseAssortment.objects.filter(
+            warehouse=prm_obj.retailer, product=self.product.parent_product).last()
+        return whc_assrtment_obj.zone if whc_assrtment_obj else None
 
     @property
     def zone(self):
