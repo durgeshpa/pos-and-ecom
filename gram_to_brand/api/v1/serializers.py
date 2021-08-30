@@ -1,10 +1,9 @@
 from rest_framework import serializers
-from django.db import transaction
 
 from gram_to_brand.models import GRNOrderProductMapping, GRNOrder
-from shops.models import Shop
 from products.models import Product
-from wms.api.v2.serializers import ZoneSerializer
+from shops.models import Shop
+from wms.models import Zone
 
 
 class WarehouseSerializer(serializers.ModelSerializer):
@@ -18,6 +17,13 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_name',)
+
+
+class ZoneSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Zone
+        fields = ('id',)
 
 
 class GRNOrderNonZoneProductsCrudSerializers(serializers.ModelSerializer):
@@ -47,7 +53,9 @@ class GRNOrderSerializers(serializers.ModelSerializer):
                     if 'grn_order_grn_order_product' not in response_data:
                         response_data['grn_order_grn_order_product'] = []
                     obj_needed = True
-                    response_data['grn_order_grn_order_product'].append(val)
+                    sub_val = val.copy()
+                    sub_val.pop('zone_id')
+                    response_data['grn_order_grn_order_product'].append(sub_val)
             if obj_needed:
                 response_data['id'] = representation['id']
                 response_data['warehouse'] = representation['warehouse']

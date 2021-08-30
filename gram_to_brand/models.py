@@ -365,8 +365,11 @@ class GRNOrder(BaseShipment):  # Order Shipment
     @property
     def warehouse(self):
         gf_shop = self.order.ordered_cart.gf_shipping_address.shop_name
-        prm_obj = ParentRetailerMapping.objects.filter(
-            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        prm_obj = ParentRetailerMapping.objects.select_related(
+            'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).\
+            only('id', 'parent', 'parent__shop_name', 'parent__shop_type', 'parent__status', 'retailer__shop_name',
+                 'retailer__status', 'retailer__shop_type', 'retailer__shop_type__shop_type', 'retailer__id').last()
         return prm_obj.retailer if prm_obj else None
 
     def clean(self):
@@ -443,25 +446,32 @@ class GRNOrderProductMapping(models.Model):
     @property
     def warehouse(self):
         gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
-        prm_obj = ParentRetailerMapping.objects.filter(
-            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        prm_obj = ParentRetailerMapping.objects.select_related(
+            'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True). \
+            only('id', 'parent', 'parent__shop_name', 'parent__shop_type', 'parent__status', 'retailer__shop_name',
+                 'retailer__status', 'retailer__shop_type', 'retailer__shop_type__shop_type', 'retailer__id').last()
         return prm_obj.retailer if prm_obj else None
 
     @property
     def zone_id(self):
         gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
-        prm_obj = ParentRetailerMapping.objects.filter(
-            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
-        whc_assrtment_obj = WarehouseAssortment.objects.filter(
-            warehouse=prm_obj.retailer, product=self.product.parent_product).last()
+        prm_obj = ParentRetailerMapping.objects.select_related(
+            'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True). \
+            only('id', 'parent', 'parent__shop_name', 'parent__shop_type', 'parent__status', 'retailer__shop_name',
+                 'retailer__status', 'retailer__shop_type', 'retailer__shop_type__shop_type', 'retailer__id').last()
+        whc_assrtment_obj = WarehouseAssortment.objects.select_related(
+            'warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'warehouse__shop_type__shop_sub_type',
+            'product', 'zone').filter(warehouse=prm_obj.retailer, product=self.product.parent_product).last()
         return whc_assrtment_obj.zone if whc_assrtment_obj else None
 
     @property
     def zone(self):
         gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
-        prm_obj = ParentRetailerMapping.objects.filter(
+        prm_obj = ParentRetailerMapping.objects.select_related('retailer', 'retailer__shop_type').filter(
             parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
-        whc_assrtment_obj = WarehouseAssortment.objects.filter(
+        whc_assrtment_obj = WarehouseAssortment.objects.select_related('product', 'warehouse').filter(
             warehouse=prm_obj.retailer, product=self.product.parent_product).last()
         return str(whc_assrtment_obj.zone) if whc_assrtment_obj else "-"
 

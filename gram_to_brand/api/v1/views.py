@@ -24,14 +24,12 @@ class GRNOrderNonZoneProductsCrudView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = GRNOrder.objects. \
         select_related('order', 'order__ordered_cart', 'order__ordered_cart__gf_shipping_address',
-                       'order__ordered_cart__gf_shipping_address__shop_name'). \
+                       'order__ordered_cart__gf_shipping_address__shop_name',
+                       'order__ordered_cart__gf_shipping_address__shop_name__shop_type'). \
         prefetch_related('grn_order_grn_order_product', 'grn_order_grn_order_product__product',
                          'grn_order_grn_order_product__product__parent_product'). \
-        only('id', 'order__id', 'order__ordered_cart__id', 'order__ordered_cart__gf_shipping_address__id',
-             'order__ordered_cart__gf_shipping_address__shop_name__id',
-             'order__ordered_cart__gf_shipping_address__shop_name__shop_name'). \
-        annotate(is_zone=Subquery(WarehouseAssortment.objects.filter(
-                warehouse=Subquery(ParentRetailerMapping.objects.filter(
+        annotate(is_zone=Subquery(WarehouseAssortment.objects.select_related('warehouse', 'product', 'zone').filter(
+                warehouse=Subquery(ParentRetailerMapping.objects.select_related('parent', 'retailer').filter(
                     parent=OuterRef(OuterRef('order__ordered_cart__gf_shipping_address__shop_name')), status=True,
                     retailer__shop_type__shop_type='sp', retailer__status=True).order_by('-id').values('retailer')[:1]),
                 product=OuterRef('grn_order_grn_order_product__product__parent_product')
