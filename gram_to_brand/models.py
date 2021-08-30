@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.utils import timezone
 from django.db import models, transaction
-from django.db.models import Sum
+from django.db.models import Sum, F
 from model_utils import Choices
 
 from products.models import Product, ProductVendorMapping, ParentProduct
