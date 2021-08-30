@@ -661,7 +661,8 @@ class AuditInventory(APIView):
                         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
                     elif qty > current_inventory[inv_type]:
                         add_on_qty = qty - current_inventory[inv_type]
-                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty)
+                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty,
+                                                           inventory_type)
                         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
 
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
@@ -815,8 +816,11 @@ class AuditInventory(APIView):
         """
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
-        pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, batch_id=batch_id, bin__bin_id=bin,
-                                                          pickup__status__in=['pickup_creation', 'picking_assigned']).order_by('id')
+        pickup_bin_qs = PickupBinInventory.objects.select_for_update()\
+                                                  .filter(warehouse=warehouse, batch_id=batch_id,
+                                                          bin__bin_id=bin,
+                                                          pickup__status__in=['pickup_creation',
+                                                                              'picking_assigned']).order_by('id')
 
         with transaction.atomic():
             for pb in pickup_bin_qs:
@@ -870,7 +874,7 @@ class AuditInventory(APIView):
             info_logger.info('AuditInventory | update_inventory | IN entry done ')
 
     @transaction.atomic
-    def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added):
+    def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added, inventory_type):
 
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | started ')
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
@@ -878,6 +882,7 @@ class AuditInventory(APIView):
 
         # Get all the pickup entries where picklist quantity is less than ordered quantity
         pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, pickup__sku=sku,
+                                                          pickup__inventory_type=inventory_type,
                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])\
                                                   .values('pickup_id', 'pickup__inventory_type_id', 'pickup__quantity')\
                                                   .annotate(pickup_bin_inventory_qty=Sum('quantity'))\
