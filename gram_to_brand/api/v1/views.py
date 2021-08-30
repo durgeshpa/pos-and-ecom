@@ -25,20 +25,19 @@ class GRNOrderNonZoneProductsCrudView(generics.GenericAPIView):
     queryset = GRNOrder.objects. \
         select_related('order', 'order__ordered_cart', 'order__ordered_cart__gf_shipping_address',
                        'order__ordered_cart__gf_shipping_address__shop_name'). \
-        prefetch_related('grn_order_grn_order_product', 'grn_order_grn_order_product__product',). \
+        prefetch_related('grn_order_grn_order_product', 'grn_order_grn_order_product__product',
+                         'grn_order_grn_order_product__product__parent_product'). \
         only('id', 'order__id', 'order__ordered_cart__id', 'order__ordered_cart__gf_shipping_address__id',
              'order__ordered_cart__gf_shipping_address__shop_name__id',
              'order__ordered_cart__gf_shipping_address__shop_name__shop_name'). \
         annotate(is_zone=Subquery(WarehouseAssortment.objects.filter(
                 warehouse=Subquery(ParentRetailerMapping.objects.filter(
                     parent=OuterRef(OuterRef('order__ordered_cart__gf_shipping_address__shop_name')), status=True,
-                    retailer__shop_type__shop_type='sp', retailer__status=True).order_by('-id').values('retailer')[:1],
-                                   product=OuterRef('grn_order_grn_order_product__product__parent_product')
-                                   )
-            ).order_by('-id').values('zone')[:1])). \
-        exclude(is_zone__isnull=True). \
-        order_by('-id')
-    print(queryset.query)
+                    retailer__shop_type__shop_type='sp', retailer__status=True).order_by('-id').values('retailer')[:1]),
+                product=OuterRef('grn_order_grn_order_product__product__parent_product')
+            ).order_by('-id').values('zone__id')[:1])). \
+        exclude(is_zone__isnull=False). \
+        order_by('-id').distinct('id')
 
     serializer_class = GRNOrderSerializers
 
@@ -53,13 +52,8 @@ class GRNOrderNonZoneProductsCrudView(generics.GenericAPIView):
             grn_products_data = id_validation['data']
         else:
             """ GET GRNOrderProductMapping List """
-            self.queryset = self.search_filter_grn_products_data()
+            # self.queryset = self.search_filter_grn_products_data()
             grn_products_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        for val in grn_products_data:
-            print(val.id, val.order.ordered_cart.gf_shipping_address.shop_name.id, val.grn_order_grn_order_product.all().count())
-            for x in val.grn_order_grn_order_product.all():
-                print(x.id)
 
         serializer = self.serializer_class(grn_products_data, many=True)
         msg = "" if grn_products_data else "no grn_products found"
