@@ -1147,6 +1147,9 @@ class BasicCartUserViewSerializer(serializers.Serializer):
         if not re.match(r'^[6-9]\d{9}$', phone_number):
             raise serializers.ValidationError("Please provide a valid phone number")
 
+        if phone_number == '9999999999' and attrs.get('is_mlm'):
+            raise serializers.ValidationError("Default Number (9999999999) cannot be registered for rewards!")
+
         user = User.objects.filter(phone_number=phone_number).last()
         if user and ReferralCode.is_marketing_user(user) and attrs.get('is_mlm'):
             raise serializers.ValidationError("User is already registered for rewards.")

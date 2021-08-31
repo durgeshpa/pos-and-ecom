@@ -2634,7 +2634,8 @@ class OrderCentral(APIView):
             return {'error': "Active Cart Doesn't Exist!"}
         # check buyer
         if not cart.buyer:
-            return {'error': "Buyer not found in cart!"}
+            if int(self.request.data.get('use_default_buyer', 0)) != 1:
+                return {'error': "Buyer not found in cart!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
@@ -2647,13 +2648,14 @@ class OrderCentral(APIView):
             payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
         except:
             return {'error': "Invalid Payment Type"}
-        
-        email = self.request.data.get('email')
-        if email:
-            try:
-                validators.validate_email(email)
-            except:
-                return {'error': "Please provide a valid customer email"}
+
+        if int(self.request.data.get('use_default_buyer', 0)) != 1:
+            email = self.request.data.get('email')
+            if email:
+                try:
+                    validators.validate_email(email)
+                except:
+                    return {'error': "Please provide a valid customer email"}
         return {'cart': cart, 'payment_type': payment_type}
 
     def retail_capping_check(self, cart, parent_mapping):
@@ -2714,10 +2716,15 @@ class OrderCentral(APIView):
             Update cart to ordered
             For basic cart
         """
+        if int(self.request.data.get('use_default_buyer', 0)) == 1 or cart.buyer.phone_number == '9999999999':
+            phone, email, name, is_whatsapp = '9999999999', None, None, None
+        else:
+            phone = cart.buyer.phone_number
+            email = self.request.data.get('email')
+            name = self.request.data.get('name')
+            is_whatsapp = self.request.data.get('is_whatsapp')
         # Check Customer - Update Or Create
-        customer = update_customer_pos_cart(cart.buyer.phone_number, cart.seller_shop.id, self.request.user,
-                                            self.request.data.get('email'), self.request.data.get('name'),
-                                            self.request.data.get('is_whatsapp'))
+        customer = update_customer_pos_cart(phone, cart.seller_shop.id, self.request.user, email, name, is_whatsapp)
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.cart_status = 'ordered'
