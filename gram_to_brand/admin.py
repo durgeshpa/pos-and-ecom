@@ -21,12 +21,15 @@ from retailer_backend.filters import (BrandFilter, SupplierStateFilter, Supplier
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from products.models import ProductVendorMapping, ParentProduct
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from shops.models import ParentRetailerMapping
 from .views import DownloadPurchaseOrder, GetMessage, DownloadPOItems
 from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
                      PickListItems, OrderedProductReserved, Po_Message, VendorShopMapping)
 from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
                     POGenerationAccountForm, POGenerationForm, DocumentForm, VendorShopMappingForm)
+from wms.models import WarehouseAssortment
+
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -227,7 +230,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
               'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
               'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
-              'download_batch_id_barcode', 'show_batch_id',)
+              'download_batch_id_barcode', 'show_batch_id', 'zone',)
     exclude = ('last_modified_by', 'available_qty',)
     readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0
@@ -237,7 +240,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return self.readonly_fields + ('product_mrp', 'po_product_quantity', 'po_product_price',
-                                           'already_grned_product', 'already_returned_product')
+                                           'already_grned_product', 'already_returned_product', 'zone')
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):

@@ -1,26 +1,20 @@
-import math
-
-from django.db import models
-from model_utils import Choices
-
-import retailer_to_sp
-from products.models import Product
-from shops.models import Shop
-from common.common_utils import barcode_gen
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.utils.safestring import mark_safe
 import sys
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db import models
 from django.db.models import Sum, Q
-from django.contrib import messages
-from datetime import datetime, timedelta
-from django.db.models import Sum
+from django.db.models import query, manager
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.db.models import Sum, Q
-from django.contrib.auth import get_user_model
-from django.db.models import query, manager
 from django.utils import timezone
+from django.utils.safestring import mark_safe
+from model_utils import Choices
+
+from common.common_utils import barcode_gen
+from products.models import Product, ParentProduct
+from shops.models import Shop
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -51,6 +45,53 @@ INVENTORY_STATE_CHOICES = (
     ('new', 'New'),
     ('repackaging', 'Repackaging')
 )
+
+
+class BaseTimestampUserModel(models.Model):
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name="%(app_label)s_%(class)s_created_by",
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Updated by",
+        related_name="%(app_label)s_%(class)s_updated_by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Zone(BaseTimestampUserModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
+    coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
+    putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+
+    class Meta:
+        permissions = (
+            ("can_have_zone_warehouse_permission", "Can have Zone Warehouse Permission"),
+            ("can_have_zone_supervisor_permission", "Can have Zone Supervisor Permission"),
+            ("can_have_zone_coordinator_permission", "Can have Zone Coordinator Permission"),
+        )
+
+    def __str__(self):
+        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + \
+               " - " + str(self.warehouse.pk) + " - " + str(self.pk)
+
+
+class WarehouseAssortment(BaseTimestampUserModel):
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return str(self.product) + " - " + str(self.zone) + " - " + str(self.pk)
 
 
 class BaseQuerySet(query.QuerySet):
@@ -91,6 +132,7 @@ class Bin(models.Model):
     is_active = models.BooleanField()
     bin_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     bin_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+    zone = models.ForeignKey(Zone, null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -573,3 +615,5 @@ class PosInventoryChange(models.Model):
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+

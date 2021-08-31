@@ -1,4 +1,6 @@
 # python imports
+import csv
+import codecs
 import functools
 import json
 import logging
@@ -18,7 +20,8 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out)
+                     Audit, Out, Zone, WarehouseAssortment)
+from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
 from products.models import Product, ParentProduct, ProductPrice
@@ -2157,3 +2160,46 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+class ZoneCommonFunction(object):
+
+    @classmethod
+    def create_zone(cls, warehouse, supervisor, coordinator, putaway_users):
+        Zone.objects.create(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator,
+                            putaway_users=putaway_users)
+
+    @classmethod
+    def update_putaway_users(cls, zone, putaway_users):
+        """
+            Update Putaway users of the Shop
+        """
+        zone.putaway_users.clear()
+        if putaway_users:
+            for user in putaway_users:
+                zone.putaway_users.add(user)
+
+
+class WarehouseAssortmentCommonFunction(object):
+
+    @classmethod
+    def create_warehouse_assortment(cls, validated_data):
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+        try:
+            info_logger.info('Method Start to create Beat Planning')
+            warehouse = Shop.objects.get(id=uploaded_data_by_user_list[0]['warehouse_id'])
+            for row in uploaded_data_by_user_list:
+                warehouse_assortment_object, created = WarehouseAssortment.objects.get_or_create(
+                    warehouse=warehouse, product_id=int(row['product_id']), zone_id=int(row['zone_id']))
+            info_logger.info("Method complete to create Warehouse Assortment from csv file")
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            error_logger.info(f"Something went wrong, while working with create Warehouse Assortment  "
+                              f" + {str(e)}")
+
+
+
