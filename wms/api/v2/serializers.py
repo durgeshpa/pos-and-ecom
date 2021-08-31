@@ -15,7 +15,8 @@ from barCodeGenerator import merged_barcode_gen
 from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
-from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES
+from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
+    ZonePutawayUserAssignmentMapping
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -725,3 +726,11 @@ class BinExportBarcodeSerializers(serializers.ModelSerializer):
             bin_id_list[bin_barcode_txt] = {"qty": 1, "data": {"Bin": bin_obj.bin_id}}
         return merged_barcode_gen(bin_id_list)
 
+
+class ZonePutawayAssignmentsCrudSerializers(serializers.ModelSerializer):
+    zone = ZoneSerializer(read_only=True)
+    user = UserSerializers(read_only=True)
+
+    class Meta:
+        model = ZonePutawayUserAssignmentMapping
+        fields = ('id', 'last_assigned_at', 'zone', 'user',)

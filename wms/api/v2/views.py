@@ -14,13 +14,14 @@ from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
-from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor
+from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, \
+    zone_putaway_assignments_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
-    BinExportBarcodeSerializers
+    BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
-from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES
+from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping
 
 # Logger
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
@@ -178,6 +179,9 @@ class ZoneCrudView(generics.GenericAPIView):
             for z_id in request.data.get('zone_id'):
                 zone_id = self.queryset.get(id=int(z_id))
                 try:
+                    mappings = ZonePutawayUserAssignmentMapping.objects.filter(zone=zone_id)
+                    if mappings:
+                        mappings.delete()
                     zone_id.delete()
                 except:
                     return get_response(f'can not delete zone | {zone_id.id} | getting used', False)
@@ -603,3 +607,70 @@ class BinExportBarcodeView(generics.CreateAPIView):
             info_logger.info("Bins Barcode exported successfully ")
             return response
         return get_response(serializer_error(serializer), False)
+
+
+class ZonePutawayAssignmentsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ZonePutawayUserAssignmentMapping.objects. \
+        select_related('user', 'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                       'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
+        prefetch_related('zone__putaway_users'). \
+        only('id', 'user', 'zone__id', 'zone__warehouse__id', 'zone__warehouse__status',
+             'zone__warehouse__shop_name', 'zone__warehouse__shop_type',
+             'zone__warehouse__shop_type__shop_type', 'zone__warehouse__shop_type__shop_sub_type',
+             'zone__warehouse__shop_type__shop_sub_type__retailer_type_name', 'zone__warehouse__shop_owner',
+             'zone__warehouse__shop_owner__first_name', 'zone__warehouse__shop_owner__last_name',
+             'zone__warehouse__shop_owner__phone_number', 'zone__supervisor__id', 'zone__supervisor__first_name',
+             'zone__supervisor__last_name', 'zone__supervisor__phone_number', 'zone__coordinator__id',
+             'zone__coordinator__first_name', 'zone__coordinator__last_name', 'zone__coordinator__phone_number',
+             'zone__putaway_users__id', 'zone__putaway_users__first_name', 'zone__putaway_users__last_name',
+             'zone__putaway_users__phone_number', 'last_assigned_at', 'created_at', 'updated_at', ). \
+        order_by('-id')
+    serializer_class = ZonePutawayAssignmentsCrudSerializers
+
+    def get(self, request):
+        """ GET API for Zone """
+        info_logger.info("Zone GET api called.")
+        if request.GET.get('id'):
+            """ Get Zone for specific ID """
+            zone_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            data = id_validation['data']
+        else:
+            """ GET Zone List """
+            self.queryset = self.search_filter_zone_putaway_assignments_data()
+            total_count = self.queryset.count()
+            data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(data, many=True)
+        msg = f"total count {total_count}" if data else "no zone putaway assignments found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_zone_putaway_assignments_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        supervisor = self.request.GET.get('supervisor')
+        coordinator = self.request.GET.get('coordinator')
+        user = self.request.GET.get('user')
+
+        '''search using warehouse name, supervisor's id  and coordinator's id, user's id'''
+        if search_text:
+            self.queryset = zone_putaway_assignments_search(self.queryset, search_text)
+
+        '''Filters using warehouse, supervisor, coordinator'''
+        if warehouse:
+            self.queryset = self.queryset.filter(zone__warehouse__id=warehouse)
+
+        if supervisor:
+            self.queryset = self.queryset.filter(zone__supervisor__id=supervisor)
+
+        if coordinator:
+            self.queryset = self.queryset.filter(zone__coordinator__id=coordinator)
+
+        if user:
+            self.queryset = self.queryset.filter(user__id=user)
+
+        return self.queryset.distinct('id')

@@ -84,6 +84,7 @@ class PutawayCommonFunctions(object):
                                            putaway_type=putaway_type, putaway=pu_obj,
                                            putaway_status=putaway_status,
                                            putaway_quantity=qty)
+
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
@@ -93,6 +94,17 @@ class PutawayCommonFunctions(object):
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
                                                  inventory_type=inventory_type)
+            return putaway_obj
+
+    @classmethod
+    def create_putaway_with_user(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity,
+                                 putaway_quantity, inventory_type, putaway_user=None):
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
+            putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
+                                                 putaway_type_id=putaway_type_id, sku=sku,
+                                                 batch_id=batch_id, quantity=quantity,
+                                                 putaway_quantity=putaway_quantity,
+                                                 inventory_type=inventory_type, putaway_user=putaway_user)
             return putaway_obj
 
     @classmethod
@@ -124,6 +136,31 @@ class InCommonFunctions(object):
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
                                                   in_obj.inventory_type)
+            return in_obj
+
+    @classmethod
+    def create_in_with_putaway_automation(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity,
+                                          putaway_quantity, inventory_type, weight=0, manufacturing_date=None):
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
+            in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
+                                       batch_id=batch_id, inventory_type=inventory_type,
+                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id), weight=weight,
+                                       manufacturing_date=manufacturing_date)
+            putaway_user = None
+            whc_assrt = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last()
+            if whc_assrt:
+                zone_putaway_assigned_users = whc_assrt.zone.zone_putaway_assigned_users.filter(last_assigned_at=None)
+                if not zone_putaway_assigned_users:
+                    zone_putaway_assigned_users = whc_assrt.zone.zone_putaway_assigned_users. \
+                        order_by('-last_assigned_at')
+                if zone_putaway_assigned_users.exists():
+                    last_obj = zone_putaway_assigned_users.last()
+                    putaway_user = last_obj.user
+                    last_obj.last_assigned_at = datetime.datetime.now()
+                    last_obj.save()
+            PutawayCommonFunctions.create_putaway_with_user(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
+                                                            in_obj.batch_id, in_obj.quantity, putaway_quantity,
+                                                            in_obj.inventory_type, putaway_user)
             return in_obj
 
     @classmethod
@@ -2178,6 +2215,7 @@ class ZoneCommonFunction(object):
         if putaway_users:
             for user in putaway_users:
                 zone.putaway_users.add(user)
+        zone.save()
 
 
 class WarehouseAssortmentCommonFunction(object):
