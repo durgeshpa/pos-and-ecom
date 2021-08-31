@@ -114,7 +114,7 @@ class ShopCls(object):
                     date = datetime.strptime(str(row['date']).strip(), '%d/%m/%Y').strftime("%Y-%m-%d")
                 day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
                     beat_plan=beat_plan_object[0], shop_id=int(row['shop_id']),
-                    beat_plan_date=date, shop_category=str(row['category']).strip(),
+                    beat_plan_date=date, shop_category=str(row['priority']).strip(),
                     next_plan_date=date)
 
             info_logger.info("Method complete to create Beat Planning from csv file")

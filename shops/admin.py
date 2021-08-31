@@ -566,7 +566,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         writer = csv.writer(f)
         # set the header name
         writer.writerow(["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
-                         "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yyyy)", "Status"])
+                         "Contact Number", "Address", "Pin Code", "Priority", "Date (dd/mm/yyyy)", "Status"])
 
         for query in queryset:
             # get day beat plan queryset
@@ -574,10 +574,11 @@ class BeatPlanningAdmin(admin.ModelAdmin):
             # get object from queryset
             for plan_obj in day_beat_plan_query_set:
                 # write data into csv file
+                address = plan_obj.shop.shop_name_address_mapping.last()
                 writer.writerow([plan_obj.beat_plan.executive, plan_obj.beat_plan.manager,
-                                 plan_obj.shop_id, plan_obj.shop.shipping_address.address_contact_number,
-                                 plan_obj.shop.shipping_address.address_line1,
-                                 plan_obj.shop.shipping_address.pincode,
+                                 plan_obj.shop_id, address.address_contact_number,
+                                 address.address_line1,
+                                 address.pincode,
                                  plan_obj.shop_category,
                                  plan_obj.beat_plan_date.strftime("%d/%m/%y"),
                                  'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
