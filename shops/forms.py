@@ -409,7 +409,7 @@ class BeatUserMappingCsvViewForm(forms.Form):
 
             # validation for category name
             if not row[6] in ['P1', 'P2', 'P3']:
-                raise ValidationError(_('INVALID Category at Row number [%(value)s]. It should be only P1, P2 and P3.'),
+                raise ValidationError(_('INVALID Priority at Row number [%(value)s]. It should be only P1, P2 and P3.'),
                                       params={'value': row_id+1},)
 
             # validation to check that date is not empty
