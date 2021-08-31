@@ -6,6 +6,7 @@ import sys
 import requests
 from io import BytesIO
 from copy import deepcopy
+import calendar
 
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -660,7 +661,7 @@ class SalesReport(GenericAPIView):
 
         # Filter Orders for sales
         # Shop Filter
-        qss = Order.objects.filter(seller_shop=shop)
+        qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
         # Date Filter
         qss = qss.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
@@ -681,37 +682,31 @@ class SalesReport(GenericAPIView):
         returns_data = qsr.values('returns', 'created_at__date')
 
         # Merge sales and returns
-        result_set = dict()
+        result_set = self.get_default_result_set(limit, end_date)
         for sale in sales_data:
             key = str(sale['created_at__date'])
             sale['date'] = sale['created_at__date'].strftime("%b %d, %Y")
             del sale['created_at__date']
             result_set[key] = sale
-            result_set[key]['returns'] = 0
         for ret in returns_data:
             key = str(ret['created_at__date'])
             ret['date'] = ret['created_at__date'].strftime("%b %d, %Y")
             del ret['created_at__date']
-            if key in result_set:
-                result_set[key].update(ret)
-                result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
-            else:
-                result_set[key] = dict()
-                result_set[key] = ret
-                result_set[key]['sale'] = 0
-                result_set[key]['order_count'] = 0
-                result_set[key]['effective_sale'] = 0
+            result_set[key].update(ret)
+            result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+        report_type = report_type.capitalize()
+        msg = report_type + ' Sales Report Fetched Successfully!'
+        return api_response(msg, result_set.values(), status.HTTP_200_OK, True)
+
+    @staticmethod
+    def get_default_result_set(limit, end_date):
+        result_set = dict()
         for i in range(0, limit):
             date = end_date - datetime.timedelta(days=i)
             date = date.date()
-            if str(date) not in result_set:
-                result_set[str(date)] = {'sale': 0, 'order_count': 0, 'effective_sale': 0, 'returns': 0,
-                                         'date': date.strftime("%b %d, %Y")}
-
-        result_set = dict(reversed(sorted(result_set.items()))).values()
-        report_type = report_type.capitalize()
-        msg = report_type + ' Sales Report Fetched Successfully!'
-        return api_response(msg, result_set, status.HTTP_200_OK, True)
+            result_set[str(date)] = {'sale': 0, 'order_count': 0, 'effective_sale': 0, 'returns': 0,
+                                     'date': date.strftime("%b %d, %Y")}
+        return result_set
 
     def daily_report_prev(self, shop, report_type, request_data):
         # Shop Filter
@@ -1156,3 +1151,72 @@ class PaymentTypeDetailView(GenericAPIView):
         serializer = self.serializer_class(payment_type, many=True)
         msg = "" if payment_type else "No payment found"
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
+class IncentiveView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        # Get start date and end date based on offset and limit
+        offset, limit = int(self.request.GET.get('offset', 0)), min(5, int(self.request.GET.get('limit', 5)))
+        date_today = datetime.datetime.today()
+        month, year = date_today.month, date_today.year
+        month_range = calendar.monthrange(year, month)[1]
+        end_date = date_today - datetime.timedelta(days=offset * month_range)
+        start_date = end_date - datetime.timedelta(days=(limit - 1) * month_range)
+        start_month, start_year, end_month, end_year = start_date.month, start_date.year, end_date.month, end_date.year
+
+        # Default result set
+        result_set = self.get_default_result_set(limit, month_range, end_date)
+
+        # SALES
+        shop = kwargs['shop']
+        qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
+        qss = self.filter_by_date(qss, start_month, start_year, end_month, end_year)
+        qss = qss.values('created_at__month', 'created_at__year').annotate(sale=Sum('order_amount'))
+        sales_data = qss.values('sale', 'created_at__month', 'created_at__year', effective_sale=F('sale')).order_by(
+            '-created_at__month', '-created_at__year')
+
+        # RETURNS
+        qsr = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
+        qsr = self.filter_by_date(qsr, start_month, start_year, end_month, end_year)
+        qsr = qsr.values('created_at__month', 'created_at__year').annotate(
+            returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
+        returns_data = qsr.values('returns', 'created_at__month', 'created_at__year')
+
+        # MERGE sales and returns
+        for sale in sales_data:
+            result_set[str(sale['created_at__month']) + '_' + str(sale['created_at__year'])] = sale
+        for ret in returns_data:
+            key = str(ret['created_at__month']) + '_' + str(ret['created_at__year'])
+            if key in result_set:
+                result_set[key].update(ret)
+                result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+
+        # Incentive cal
+        for key in result_set:
+            result_set[key]['incentive'] = round(0.001 * result_set[key]['effective_sale'], 2)
+
+        return api_response('Incentive for shop', result_set.values(), status.HTTP_200_OK, True)
+
+    @staticmethod
+    def get_default_result_set(limit, month_range, end_date):
+        result_set = dict()
+        for i in range(0, limit):
+            date = end_date - datetime.timedelta(days=i * month_range)
+            month, year = date.month, date.year
+            result_set[str(month) + '_' + str(year)] = {"created_at__month": int(month), "created_at__year": int(year),
+                                                        "sale": 0, "effective_sale": 0, "returns": 0, "incentive": 0}
+        return result_set
+
+    @staticmethod
+    def filter_by_date(qs, start_month, start_year, end_month, end_year):
+        if start_year != end_year:
+            qs = qs.filter(Q(created_at__month__gte=start_month, created_at__year=start_year) |
+                           Q(created_at__month__lte=end_month, created_at__year=end_year))
+        else:
+            qs = qs.filter(created_at__month__gte=start_month, created_at__month__lte=end_month,
+                           created_at__year=start_year)
+        return qs
+
