@@ -38,13 +38,6 @@ def validate_id_and_warehouse(queryset, id, warehouse):
     return {'data': queryset.filter(id=id, warehouse=warehouse)}
 
 
-def validate_warehouse(id):
-    """ validation only ids that belong to a selected related model """
-    if not Shop.filter(id=id).exists():
-        return {'error': 'please provide a valid id'}
-    return {'data': Shop.filter(id=id).last()}
-
-
 def validate_data_format(request):
     """ Validate shop data  """
     try:

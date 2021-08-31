@@ -35,6 +35,23 @@ def check_warehouse_manager(view_func):
     return _wrapped_view_func
 
 
+def check_whc_manager_coordinator_supervisor(view_func):
+    """
+        Decorator to validate request from warehouse manager / Coordinator / Supervisor
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('wms.can_have_zone_warehouse_permission') or \
+                user.has_perm('wms.can_have_zone_supervisor_permission') or \
+                user.has_perm('wms.can_have_zone_coordinator_permission'):
+            return view_func(self, request, *args, **kwargs)
+        return get_response("Logged In user does not have required permission to perform this action.")
+
+    return _wrapped_view_func
+
+
 def whc_assortment_search(queryset, search_text):
     '''
     search using warehouse shop_name & parent product name & Zone mappings based on criteria that matches
@@ -47,7 +64,7 @@ def whc_assortment_search(queryset, search_text):
 
 def bin_search(queryset, search_text):
     '''
-    search using warehouse shop_name & parent product name & Zone mappings based on criteria that matches
+    search using warehouse shop_name & bin id & Zone mappings based on criteria that matches
     '''
     queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
         bin_id__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |

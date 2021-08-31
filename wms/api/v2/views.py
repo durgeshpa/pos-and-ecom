@@ -14,7 +14,7 @@ from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
-from wms.services import check_warehouse_manager
+from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
@@ -487,7 +487,7 @@ class BinCrudView(generics.GenericAPIView):
         order_by('-id')
     serializer_class = BinCrudSerializers
 
-    # @check_warehouse_manager
+    @check_whc_manager_coordinator_supervisor
     def get(self, request):
         """ GET API for Bin """
         info_logger.info("Bin GET api called.")
@@ -511,7 +511,7 @@ class BinCrudView(generics.GenericAPIView):
         msg = f"total count {bin_total_count}" if bins_data else "no bin found"
         return get_response(msg, serializer.data, True)
 
-    @check_warehouse_manager
+    @check_whc_manager_coordinator_supervisor
     def post(self, request):
         """ POST API for Bin Creation """
 
@@ -527,7 +527,7 @@ class BinCrudView(generics.GenericAPIView):
             return get_response('Bin created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    @check_warehouse_manager
+    @check_whc_manager_coordinator_supervisor
     def delete(self, request):
         """ Delete Bin """
 

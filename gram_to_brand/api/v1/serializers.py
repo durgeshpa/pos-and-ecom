@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from gram_to_brand.models import GRNOrderProductMapping, GRNOrder
-from products.models import Product
+from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.models import Zone
 
@@ -15,20 +15,20 @@ class WarehouseSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Product
-        fields = ('id', 'product_name',)
+        model = ParentProduct
+        fields = ('id', 'parent_id', 'name',)
 
 
-class ZoneSerializer(serializers.ModelSerializer):
+class ProductSerializer(serializers.ModelSerializer):
+    parent_product = ProductSerializer(read_only=True)
 
     class Meta:
-        model = Zone
-        fields = ('id',)
+        model = Product
+        fields = ('id', 'product_name', 'parent_product')
 
 
 class GRNOrderNonZoneProductsCrudSerializers(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-    zone_id = ZoneSerializer(read_only=True)
 
     class Meta:
         model = GRNOrderProductMapping
@@ -49,7 +49,7 @@ class GRNOrderSerializers(serializers.ModelSerializer):
         if representation['grn_order_grn_order_product']:
             obj_needed = False
             for val in representation['grn_order_grn_order_product']:
-                if val['zone_id'] is None:
+                if 'zone_id' in val and val['zone_id'] is None:
                     if 'grn_order_grn_order_product' not in response_data:
                         response_data['grn_order_grn_order_product'] = []
                     obj_needed = True
@@ -59,6 +59,4 @@ class GRNOrderSerializers(serializers.ModelSerializer):
             if obj_needed:
                 response_data['id'] = representation['id']
                 response_data['warehouse'] = representation['warehouse']
-            else:
-                pass
         return response_data

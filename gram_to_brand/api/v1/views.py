@@ -50,7 +50,7 @@ class GRNOrderNonZoneProductsCrudView(generics.GenericAPIView):
             grn_products_data = id_validation['data']
         else:
             """ GET GRNOrderProductMapping List """
-            # self.queryset = self.search_filter_grn_products_data()
+            self.queryset = self.search_filter_grn_products_data()
             grn_products_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(grn_products_data, many=True)
@@ -58,17 +58,33 @@ class GRNOrderNonZoneProductsCrudView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def search_filter_grn_products_data(self):
-        search_text = self.request.GET.get('search_text')
         product = self.request.GET.get('product')
-
-        '''search using warehouse name, product's name  and zone's coordination / supervisor firstname'''
-        if search_text:
-            pass
-            # self.queryset = grn_products_search(self.queryset, search_text)
+        parent_id = self.request.GET.get('parent_id')
+        parent_product_id = self.request.GET.get('parent_product_id')
+        parent_product_name = self.request.GET.get('parent_product_name')
+        warehouse = self.request.GET.get('warehouse')
 
         '''Filters using warehouse, product, zone'''
         if product:
-            self.queryset = self.queryset.filter(product__id=product)
+            self.queryset = self.queryset.filter(grn_order_grn_order_product__product__id=product)
+
+        if parent_id:
+            self.queryset = self.queryset.filter(grn_order_grn_order_product__product__parent_product__id=parent_id)
+
+        if parent_product_id:
+            self.queryset = self.queryset.filter(
+                grn_order_grn_order_product__product__parent_product__parent_id=parent_product_id)
+
+        if parent_product_name:
+            self.queryset = self.queryset.filter(
+                grn_order_grn_order_product__product__parent_product__name__icontains=parent_product_name)
+
+        if warehouse:
+            pm_obj = ParentRetailerMapping.objects.select_related(
+                'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+                retailer_id=warehouse, status=True, parent__shop_type__shop_type='gf', parent__status=True).last()
+            self.queryset = self.queryset.filter(
+                grn_order__order__ordered_cart__gf_shipping_address__shop_name=pm_obj.parent)
 
         return self.queryset.distinct('id')
 
