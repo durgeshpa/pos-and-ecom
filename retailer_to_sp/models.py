@@ -2733,13 +2733,11 @@ class OrderReturn(models.Model):
 
 class CreditNote(models.Model):
     credit_note_id = models.CharField(max_length=30)
-    order_return = models.ForeignKey(OrderReturn, related_name="credit_note_order_return_mapping", \
-        on_delete=models.DO_NOTHING)
+    order_return = models.ForeignKey(OrderReturn, related_name="credit_note_order_return_mapping",
+                                     on_delete=models.DO_NOTHING, unique=True)
     credit_note_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-
 
 
 class ReturnItems(models.Model):

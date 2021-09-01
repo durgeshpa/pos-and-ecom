@@ -126,10 +126,12 @@ class OrderSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
     order_create_date = serializers.SerializerMethodField()
     delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
+    picking_completed_time = serializers.SerializerMethodField('get_completed_time')
     
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location')
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time', 'picking_completed_time')
 
     def picker_status_dt(self, obj):
         return str(obj.order_status).lower()
@@ -140,6 +142,15 @@ class OrderSerializer(serializers.ModelSerializer):
     def m_delivery_location(self, obj):
         return obj.shipping_address.city.city_name
 
+    def get_assigned_time(self, obj):
+        try:
+            picking_assigned_date = obj.picker_order.last().picker_assigned_date
+            return picking_assigned_date.strftime('%b %d, %H:%M')
+        except:
+            return None
+
+    def get_completed_time(self, obj):
+        return obj.pickup_completed_at.strftime('%b %d, %H:%M') if obj.pickup_completed_at else None
 
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()

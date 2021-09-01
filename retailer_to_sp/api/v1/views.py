@@ -88,6 +88,12 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
+    PosInventoryChange
+from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
+
 from pos.offers import BasicCartOffers
 
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
@@ -321,9 +327,14 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        body = dict()
+        filter_list = []
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            filter_list = [{"term": {"is_discounted": False}}]
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+            filter_list.append({"term": {"ean": ean_code}})
+        body = dict()
+        if filter_list:
+            body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
     def rp_normal_search(self, shop_id, app_type=None):
@@ -333,28 +344,38 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        query = {"bool": {"filter": []}}
+        filter_list = []
         if app_type == '3':
-            query["bool"] = {"filter": [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]}
+            filter_list = [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]
+        query = dict()
+        query_string = dict()
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            filter_list.append({"term": {"is_discounted": False}})
+
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
+                query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
+                tokens = keyword.split()
+                keyword = ""
+                for word in tokens:
+                    keyword += "*" + word + "* "
+                keyword = keyword.strip()
+                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
 
-                # tokens = keyword.split()
-                # keyword = ""
-                # for word in tokens:
-                #     keyword += "*" + word + "* "
-                # keyword = keyword.strip()
-                # query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
-
-                query["bool"]["must"] = [{"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"],
-                                                          "type": "cross_fields"}}]
         if category_ids:
             category = category_ids.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            query["bool"]["filter"].append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
+        if filter_list and query_string:
+            query = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
+        elif query_string:
+            query = {"query_string": query_string}
+        elif filter_list:
+            query = {"bool": {"filter": filter_list}}
+
         return self.process_rp(output_type, {"query": query}, shop_id, app_type)
 
     @check_pos_shop
@@ -618,7 +639,7 @@ class SearchProducts(APIView):
                 {"range": {"available": {"gt": 0}}}
             ]
         if is_discounted:
-            filter_list.append({"term": {"is_discounted": is_discounted}},)
+            filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
@@ -2584,7 +2605,8 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Check if order exists
             try:
-                order = Order.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], order_status='ordered')
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
+                                                              order_status='ordered')
             except ObjectDoesNotExist:
                 return api_response('Order Not Found To Cancel!')
             # check input status validity
@@ -2791,17 +2813,17 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
-        # basic validations for inputs
-        initial_validation = self.post_basic_validate(shop)
-        if 'error' in initial_validation:
-            e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-            extra_params = {'error_code': e_code} if e_code else {}
-            return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
-        cart = initial_validation['cart']
-        payment_type = initial_validation['payment_type']
-        transaction_id = self.request.data.get('transaction_id', None)
-
         with transaction.atomic():
+            # basic validations for inputs
+            initial_validation = self.post_basic_validate(shop)
+            if 'error' in initial_validation:
+                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+                extra_params = {'error_code': e_code} if e_code else {}
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            cart = initial_validation['cart']
+            payment_type = initial_validation['payment_type']
+            transaction_id = self.request.data.get('transaction_id', None)
+
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             # Refresh redeem reward
@@ -2922,7 +2944,7 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
+        cart = Cart.objects.select_for_update().filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -3288,11 +3310,11 @@ class OrderCentral(APIView):
         if cart_products.filter(retailer_product__sku_type=4).exists():
             discounted_cart_products = cart_products.filter(retailer_product__sku_type=4)
             for cp in discounted_cart_products:
-                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id, PosInventoryState.AVAILABLE)
+                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id,
+                                                                              PosInventoryState.AVAILABLE)
                 if inventory_available < cp.no_of_pieces:
                     return False
         return True
-
 
 
 # class CreateOrder(APIView):
@@ -4385,11 +4407,6 @@ class OrderReturnComplete(APIView):
                                       order_status__in=['ordered', Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return api_response("Order Does Not Exist / Still Open / Already Returned")
-        # check if return created
-        try:
-            order_return = OrderReturn.objects.get(order=order, status='created')
-        except ObjectDoesNotExist:
-            return api_response("Order Return Does Not Exist / Already Closed")
 
         # Check Payment Type
         try:
@@ -4399,6 +4416,11 @@ class OrderReturnComplete(APIView):
             return api_response("Invalid Refund Method")
 
         with transaction.atomic():
+            # check if return created
+            try:
+                order_return = OrderReturn.objects.select_for_update().get(order=order, status='created')
+            except ObjectDoesNotExist:
+                return api_response("Order Return Does Not Exist / Already Closed")
             # check partial or fully refunded order
             return_qty = ReturnItems.objects.filter(return_id__order=order).aggregate(return_qty=Sum('return_qty'))[
                 'return_qty']
@@ -4765,6 +4787,7 @@ def pdf_generation(request, ordered_product):
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
+            
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
@@ -4852,6 +4875,7 @@ def pdf_generation(request, ordered_product):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
@@ -5023,15 +5047,13 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words
-        
-        
+
         # Total payable amount
         total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
         total_amount_int = round(total_amount)
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
-
 
         # Shop Details
         nick_name = '-'
@@ -5047,7 +5069,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         data = {
             "url": request.get_host(),
-            "scheme": request.is_secure()and"https"or"http",
+            "scheme": request.is_secure() and "https" or "http",
             "credit_note": credit_note_instance,
             "shipment": ordered_product,
             "order": ordered_product.order,
@@ -5074,7 +5096,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-                                                     save=True)
+                                                      save=True)
             order_number = order.order_no
             order_status = order.order_status
             phone_number = order.buyer.phone_number

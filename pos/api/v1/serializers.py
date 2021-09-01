@@ -1678,9 +1678,13 @@ class POSerializer(serializers.ModelSerializer):
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
                 product_id__in=updated_pid).delete()
-            po_status = cart.status
-            if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
-                po_status = PosCart.PARTIAL_DELIVERED
+            # status po
+            total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=cart.pos_po_order).aggregate(
+                Sum('received_qty')).get('received_qty__sum')
+            total_grn_qty = total_grn_qty if total_grn_qty else 0
+            po_status = PosCart.PARTIAL_DELIVERED if total_grn_qty > 0 else PosCart.OPEN
+            total_po_qty = PosCartProductMapping.objects.filter(cart=cart).aggregate(Sum('qty')).get('qty__sum')
+            po_status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             cart.last_modified_by, cart.status = user, po_status
             cart.save()
             if validated_data['send_mail']:
