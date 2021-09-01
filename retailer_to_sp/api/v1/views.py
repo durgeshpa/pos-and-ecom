@@ -2863,7 +2863,8 @@ class OrderCentral(APIView):
             payments = [
                 {
                     "payment_type": PaymentType.objects.get(type='cash').id,
-                    "amount": order.order_amount
+                    "amount": order.order_amount,
+                    "transaction_id": ""
                 }
             ]
             self.auto_process_order(order, payments, 'ecom')
