@@ -245,6 +245,8 @@ class In(models.Model):
 
 
 class Putaway(models.Model):
+    PUTAWAY_STATUS_CHOICE = Choices((0,'NEW', 'New'), (1, 'ASSIGNED', 'Assigned'), (2, 'INITIATED', 'Initiated'),
+                                    (3, 'COMPLETED', 'Completed'), (4, 'CANCELLED', 'Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
                                      on_delete=models.DO_NOTHING)
@@ -255,6 +257,7 @@ class Putaway(models.Model):
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     putaway_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
+    status = models.CharField(choices=PUTAWAY_STATUS_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
