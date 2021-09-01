@@ -1007,13 +1007,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'invoice_no', 'seller_shop','buyer_shop_id', 'buyer_shop_type',
-                    'buyer_shop_with_mobile',
-                    'pincode', 'city', 'total_final_amount', 'order_status', 'buyer', 'created_at',
-                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
-                    'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
-                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    'order_no', 'download_pick_list', 'invoice_no', 'seller_shop', 'buyer_shop_id', 'buyer_shop_type',
+                    'buyer_shop_with_mobile', 'pincode', 'city', 'total_final_amount', 'order_status', 'ordered_by',
+                    'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
+                    'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected', 'picking_status',
+                    'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'pickup_completed_at',
+                    'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
