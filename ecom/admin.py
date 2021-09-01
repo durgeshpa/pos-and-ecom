@@ -7,6 +7,7 @@ from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 
 from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
 from .models import Address, Tag, TagProductMapping
+from .forms import TagProductForm
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -159,6 +160,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
 
 @admin.register(TagProductMapping)
 class TagProductMappingAdmin(admin.ModelAdmin):
+    form = TagProductForm
     model = TagProductMapping
     list_display = ('tag', 'product', 'shops', 'created_at', 'modified_at')
 
@@ -173,6 +175,12 @@ class TagProductMappingAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
+    
+    def get_fields (self, request, obj=None, **kwargs):
+        fields = super().get_fields(request, obj, **kwargs)
+        fields.remove('product')
+        fields.append('product')
+        return fields
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
