@@ -475,7 +475,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('payment_type', 'transaction_id',)
+        fields = ('payment_type', 'transaction_id', 'amount')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
@@ -493,9 +493,9 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.filter(payment_type__enabled=True).exists():
+        if not obj.rt_payment_retailer_order.exists():
             return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.filter(payment_type__enabled=True).last()).data
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
     class Meta:
         model = Order
@@ -1175,6 +1175,9 @@ class BasicCartUserViewSerializer(serializers.Serializer):
         if not re.match(r'^[6-9]\d{9}$', phone_number):
             raise serializers.ValidationError("Please provide a valid phone number")
 
+        if phone_number == '9999999999' and attrs.get('is_mlm'):
+            raise serializers.ValidationError("Default Number (9999999999) cannot be registered for rewards!")
+
         user = User.objects.filter(phone_number=phone_number).last()
         if user and ReferralCode.is_marketing_user(user) and attrs.get('is_mlm'):
             raise serializers.ValidationError("User is already registered for rewards.")
@@ -1442,9 +1445,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
             'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
-        payment_obj = obj.rt_payment_retailer_order.all().last()
-        order_summary['payment_type'] = payment_obj.payment_type.type
-        order_summary['transaction_id'] = payment_obj.transaction_id
+        order_summary['payments'] = PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
         return order_summary
 
     @staticmethod

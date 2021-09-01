@@ -2821,7 +2821,7 @@ class OrderCentral(APIView):
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
             cart = initial_validation['cart']
-            payment_type = initial_validation['payment_type']
+            payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
 
             # Update Cart To Ordered
@@ -2829,7 +2829,7 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_type, 'pos', transaction_id)
+            self.auto_process_order(order, payments, 'pos', transaction_id)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2955,7 +2955,8 @@ class OrderCentral(APIView):
             return {'error': "Active Cart Doesn't Exist!"}
         # check buyer
         if not cart.buyer:
-            return {'error': "Buyer not found in cart!"}
+            if int(self.request.data.get('use_default_buyer', 0)) != 1:
+                return {'error': "Buyer not found in cart!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
@@ -2963,19 +2964,39 @@ class OrderCentral(APIView):
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
-        # Check Payment Type
-        try:
-            payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
-        except:
-            return {'error': "Invalid Payment Type"}
 
-        email = self.request.data.get('email')
-        if email:
+        # Check Payment Types
+        payments = self.request.data.get('payment')
+        if type(payments) != list:
+            return {'error': "Invalid payment format"}
+        amount = 0
+        for payment_method in payments:
+            if 'payment_type' not in payment_method or 'amount' not in payment_method:
+                return {'error': "Invalid payment format"}
             try:
-                validators.validate_email(email)
+                PaymentType.objects.get(id=payment_method['payment_type'])
             except:
-                return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_type': payment_type}
+                return {'error': "Invalid Payment Type"}
+            try:
+                curr_amount = float(payment_method['amount'])
+                if curr_amount <= 0:
+                    return {'error': "Payment Amount should be greater than zero"}
+                amount += curr_amount
+            except:
+                return {'error': "Invalid Payment Amount"}
+            if "transaction_id" not in payment_method:
+                payment_method['transaction_id'] = ""
+        if round(amount, 2) != cart.order_amount:
+            return {'error': "Total payment amount should be equal to order amount"}
+
+        if int(self.request.data.get('use_default_buyer', 0)) != 1:
+            email = self.request.data.get('email')
+            if email:
+                try:
+                    validators.validate_email(email)
+                except:
+                    return {'error': "Please provide a valid customer email"}
+        return {'cart': cart, 'payments': payments}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -3035,10 +3056,15 @@ class OrderCentral(APIView):
             Update cart to ordered
             For basic cart
         """
+        if int(self.request.data.get('use_default_buyer', 0)) == 1 or cart.buyer.phone_number == '9999999999':
+            phone, email, name, is_whatsapp = '9999999999', None, None, None
+        else:
+            phone = cart.buyer.phone_number
+            email = self.request.data.get('email')
+            name = self.request.data.get('name')
+            is_whatsapp = self.request.data.get('is_whatsapp')
         # Check Customer - Update Or Create
-        customer = update_customer_pos_cart(cart.buyer.phone_number, cart.seller_shop.id, self.request.user,
-                                            self.request.data.get('email'), self.request.data.get('name'),
-                                            self.request.data.get('is_whatsapp'))
+        customer = update_customer_pos_cart(phone, cart.seller_shop.id, self.request.user, email, name, is_whatsapp)
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.cart_status = 'ordered'
@@ -3227,7 +3253,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_type, app_type='pos', transaction_id=''):
+    def auto_process_order(self, order, payments, app_type='pos', transaction_id=''):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -3269,13 +3295,15 @@ class OrderCentral(APIView):
                 cart_map.no_of_pieces = product_qty_map[product_id]
                 cart_map.save()
         # Create payment
-        PosPayment.objects.create(
-            order=order,
-            payment_type=payment_type,
-            transaction_id=transaction_id,
-            paid_by=order.buyer,
-            processed_by=self.request.user
-        )
+        for payment in payments:
+            PosPayment.objects.create(
+                order=order,
+                payment_type_id=payment['payment_type'],
+                transaction_id=payment['transaction_id'],
+                paid_by=order.buyer,
+                processed_by=self.request.user,
+                amount=payment['amount']
+            )
         # Create shipment
         shipment = OrderedProduct(order=order)
         shipment.save()
