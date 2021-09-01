@@ -2860,7 +2860,13 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             payment_type = PaymentType.objects.get(type='cash')
-            self.auto_process_order(order, payment_type, 'ecom')
+            payments = [
+                {
+                    "payment_type": PaymentType.objects.get(type='cash').id,
+                    "amount": order.order_amount
+                }
+            ]
+            self.auto_process_order(order, payments, 'ecom')
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
