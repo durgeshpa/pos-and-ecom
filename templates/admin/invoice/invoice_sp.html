@@ -139,9 +139,8 @@ table tr td,th,h4,span,address{
 
 												<!-- <td class="text-center"><strong>GF Code</strong></td> -->
         							<td class="text-center"><strong>Description of Goods</strong></td>
-
         							<td class="text-center"><strong>HSN/SAC</strong></td>
-
+									<td class="text-center"><strong>EAN Code</strong></td>
 									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
 										<td class="text-center"><strong>Specific Cess Amount (per unit)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
@@ -161,6 +160,7 @@ table tr td,th,h4,span,address{
 								<td><strong>{{forloop.counter}}</strong></td>
 								<td class="text-center"><strong>{{ m.product.product_short_description }}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
+									<td class="text-center">{{ m.product.product_ean_code}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>
 								<td class="text-center"><strong>{{ m.mrp}}</strong></td>
