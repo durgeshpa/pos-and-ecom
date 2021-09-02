@@ -3629,7 +3629,7 @@ class OrderListCentral(GenericAPIView):
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        cart_type = self.request.GET.get('cart_type')
+        cart_type = self.request.GET.get('cart_type', 1)
         if int(cart_type) == 1:
             qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
             if order_status:
@@ -3640,6 +3640,8 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+        else:
+            return api_response("Invalid cart type")
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
