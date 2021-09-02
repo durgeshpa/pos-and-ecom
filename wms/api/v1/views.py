@@ -432,7 +432,8 @@ class BinIDList(APIView):
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no) \
-                                                   .exclude(pickup__status='picking_cancelled')
+                                                   .exclude(pickup__status='picking_cancelled').\
+            order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 
