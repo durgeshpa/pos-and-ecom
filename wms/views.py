@@ -2228,6 +2228,6 @@ def assign_putaway_users_to_new_putways():
             zone_putaway_assigned_user.save()
             reflected_putaways = objs.filter(grn_id=x['grn_id'], zone=x['zone'])
             reflected_list = list(reflected_putaways.values_list('id', flat=True))
-            reflected_putaways.update(putaway_user=putaway_user)
+            reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
             cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for GRN Id: " + str(x['grn_id']) +
                              ", Zone Id: " + str(x['zone']) + ", Putaway ids reflected: " + str(reflected_list) + ".")

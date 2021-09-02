@@ -89,11 +89,20 @@ class PutawayCommonFunctions(object):
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
+            if putaway_quantity == 0:
+                putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.NEW
+            elif putaway_quantity == quantity:
+                putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+            else:
+                putaway_status = None
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
                                                  inventory_type=inventory_type)
+            if putaway_status is not None:
+                putaway_obj.status = putaway_status
+                putaway_obj.save()
             return putaway_obj
 
     @classmethod
