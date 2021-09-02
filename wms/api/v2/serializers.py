@@ -16,21 +16,19 @@ from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping
+    ZonePutawayUserAssignmentMapping, Putaway
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
 
 
 class InSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = In
         fields = ('sku', 'in_type', 'in_type_id', 'warehouse', 'quantity', 'created_at')
 
 
 class OutSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Out
         fields = ('sku', 'out_type', 'out_type_id', 'warehouse', 'quantity', 'created_at')
@@ -111,12 +109,12 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
         ins_count_list = ['TOTAL IN QUANTITY']
         outs_count_list = ['TOTAL OUT QUANTITY']
         for i in range(len(inventory_types_qs)):
-            if i+1 in in_type_ids:
-                ins_count_list.append(in_type_ids[i+1])
+            if i + 1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i + 1])
             else:
                 ins_count_list.append('0')
-            if i+1 in out_type_ids:
-                outs_count_list.append(out_type_ids[i+1])
+            if i + 1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i + 1])
             else:
                 outs_count_list.append('0')
 
@@ -149,7 +147,6 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class WarehouseSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Shop
         fields = ('id', '__str__')
@@ -210,7 +207,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 
         if self.initial_data['warehouse'] and self.initial_data['supervisor'] and self.initial_data['coordinator']:
             if Zone.objects.filter(warehouse=self.initial_data['warehouse'], supervisor=self.initial_data['supervisor'],
-                                coordinator=self.initial_data['coordinator']).exists():
+                                   coordinator=self.initial_data['coordinator']).exists():
                 raise serializers.ValidationError(
                     "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
@@ -734,3 +731,49 @@ class ZonePutawayAssignmentsCrudSerializers(serializers.ModelSerializer):
     class Meta:
         model = ZonePutawayUserAssignmentMapping
         fields = ('id', 'last_assigned_at', 'zone', 'user',)
+
+
+class PutawayModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Putaway
+        fields = "__all__"
+
+
+class InventoryTypeSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = InventoryType
+        fields = ('id', 'inventory_type',)
+
+
+class StatusSerializer(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'status': self._choices[int(obj)]}
+
+
+class CancelPutawayCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    putaway_user = UserSerializers(read_only=True)
+    inventory_type = InventoryTypeSerializers(read_only=True)
+    status = StatusSerializer(choices=Putaway.PUTAWAY_STATUS_CHOICE, required=True)
+
+    class Meta:
+        model = Putaway
+        fields = ('id', 'warehouse', 'putaway_user', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id',
+                  'inventory_type', 'quantity', 'putaway_quantity', 'status', 'created_at', 'modified_at',)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Cancel Putaway"""
+        try:
+            validated_data["status"] = Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED
+            validated_data["putaway_user"] = None
+            putaway_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return putaway_instance
