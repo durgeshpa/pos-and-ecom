@@ -186,6 +186,8 @@ class TagProductView(APIView):
             return api_response('Inavlid Tag Id')
         shop = kwargs['shop']
         tagged_product = TagProductMapping.objects.filter(tag = tag, product__shop = shop)
+        if tagged_product.count < 3:
+            return api_response('Product is less than 3')
         product = RetailerProduct.objects.filter(product_tag_ecom__in=tagged_product)
         serializer = TagProductSerializer(tag, context = {'product': product})
         is_success = True
