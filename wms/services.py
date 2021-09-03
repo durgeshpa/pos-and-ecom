@@ -71,6 +71,21 @@ def check_whc_manager_coordinator_supervisor(view_func):
     return _wrapped_view_func
 
 
+def check_putaway_user(view_func):
+    """
+        Decorator to validate putaway user request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.groups.filter(name='Putaway').exists():
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def whc_assortment_search(queryset, search_text):
     '''
     search using warehouse shop_name & parent product name & Zone mappings based on criteria that matches
@@ -88,4 +103,12 @@ def bin_search(queryset, search_text):
     queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
         bin_id__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
                                Q(zone__coordinator__first_name__icontains=search_text))
+    return queryset
+
+
+def putaway_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & product name
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(sku__name__icontains=search_text))
     return queryset
