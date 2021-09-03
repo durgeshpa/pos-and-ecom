@@ -48,6 +48,9 @@ INVENTORY_STATE_CHOICES = (
 
 
 class BaseTimestampModel(models.Model):
+    """
+        Abstract Model to have helper fields of created_at and updated_at
+    """
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
 
@@ -56,6 +59,9 @@ class BaseTimestampModel(models.Model):
 
 
 class BaseTimestampUserModel(models.Model):
+    """
+        Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
+    """
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
     created_by = models.ForeignKey(
@@ -76,6 +82,9 @@ class BaseTimestampUserModel(models.Model):
 
 
 class Zone(BaseTimestampUserModel):
+    """
+        Mapping model of warehouse, supervisor, coordinator and putaway users
+    """
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
@@ -94,6 +103,9 @@ class Zone(BaseTimestampUserModel):
 
 
 class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
+    """
+        Mapping model of zone and putaway user where we maintain the last assigned user for next assignment
+    """
     zone = models.ForeignKey(Zone, related_name="zone_putaway_assigned_users", on_delete=models.DO_NOTHING)
     user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
     last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
@@ -103,6 +115,9 @@ class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
 
 
 class WarehouseAssortment(BaseTimestampUserModel):
+    """
+        Mapping model of warehouse, product and zone
+    """
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
     zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)

@@ -652,6 +652,11 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def search_filter_zone_putaway_assignments_data(self):
+        """
+        :- Search using warehouse name, supervisor's id  and coordinator's id, user's id
+        :- Filters using warehouse, supervisor, coordinator
+        @return: queryset
+        """
         search_text = self.request.GET.get('search_text')
         warehouse = self.request.GET.get('warehouse')
         supervisor = self.request.GET.get('supervisor')
@@ -664,15 +669,27 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
 
         '''Filters using warehouse, supervisor, coordinator'''
         if warehouse:
+            """
+                Filter queryset with warehouse id
+            """
             self.queryset = self.queryset.filter(zone__warehouse__id=warehouse)
 
         if supervisor:
+            """
+                Filter queryset with upervisor id
+            """
             self.queryset = self.queryset.filter(zone__supervisor__id=supervisor)
 
         if coordinator:
+            """
+                Filter queryset with coordinator id
+            """
             self.queryset = self.queryset.filter(zone__coordinator__id=coordinator)
 
         if user:
+            """
+                Filter queryset with user id
+            """
             self.queryset = self.queryset.filter(user__id=user)
 
         return self.queryset.distinct('id')
