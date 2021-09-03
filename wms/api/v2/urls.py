@@ -2,7 +2,8 @@ from django.conf.urls import include, url
 from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsView, ZoneCoordinatorsView, \
     ZonePutawaysView, WarehouseAssortmentCrudView, WarehouseAssortmentExportAsCSVView, BinTypeView, \
     WarehouseAssortmentSampleCSV, WarehouseAssortmentUploadView, BinCrudView, BinExportAsCSVView, \
-    BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView
+    BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
+    GroupedByGRNPutawaysView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -21,5 +22,7 @@ urlpatterns = [
     url('export-bins-barcode/', BinExportBarcodeView.as_view(), name='export-bins-barcode'),
     url('bins/', BinCrudView.as_view(), name='bins'),
     url('cancel-putaway/', CancelPutawayCrudView.as_view(), name='cancel-putaway'),
-    url('assign-zone-cancelled-putaway/', UpdateZoneForCancelledPutawayView.as_view(), name='assign-zone-cancelled-putaway'),
+    url('assign-zone-cancelled-putaway/', UpdateZoneForCancelledPutawayView.as_view(),
+        name='assign-zone-cancelled-putaway'),
+    url('grouped-putaways/', GroupedByGRNPutawaysView.as_view(), name='grouped-putaways'),
 ]

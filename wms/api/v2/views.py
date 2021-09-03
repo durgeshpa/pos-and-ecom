@@ -1,7 +1,9 @@
 import logging
 
 from dal import autocomplete
-from django.db.models import Q
+from django.db import models
+from django.db.models import Q, OuterRef, Subquery, Count
+from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication
 from rest_framework import generics
@@ -21,9 +23,9 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
-    PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers
+    PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
-from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway
+from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In
 
 # Logger
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
@@ -823,3 +825,47 @@ class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
             info_logger.info("Zone assigned for Cancelled Putaways Successfully.")
             return get_response('Zone assigned for Cancelled Putaways Successfully!', resp.data)
         return get_response(serializer_error(serializer), False)
+
+
+class GroupedByGRNPutawaysView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Putaway.objects.filter(putaway_type='GRN'). \
+        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
+                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
+                                 order_by('-in_type_id').values('in_type_id')[:1]),
+                 zone=Subquery(WarehouseAssortment.objects.filter(
+                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                 ). \
+        exclude(putaway_user=None).exclude(zone__isnull=True). \
+        values('grn_id', 'zone', 'putaway_user').annotate(total_items=Count('grn_id')).order_by('-grn_id')
+    serializer_class = GroupedByGRNPutawaysSerializers
+
+    # @check_whc_manager_coordinator_supervisor
+    def get(self, request):
+        """ GET API for Putaways grouped by GRN """
+        info_logger.info("Putaway GET api called.")
+        """ GET Putaway List """
+        self.queryset = self.filter_grouped_putaways_data()
+        putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(putaways_data, many=True)
+        msg = "" if putaways_data else "no putaway found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_grouped_putaways_data(self):
+        grn_id = self.request.GET.get('grn_id')
+        zone = self.request.GET.get('zone')
+        putaway_user = self.request.GET.get('putaway_user')
+
+        '''Filters using grn_id, zone, putaway_user'''
+        if grn_id:
+            self.queryset = self.queryset.filter(grn_id=grn_id)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone=zone)
+
+        if putaway_user:
+            self.queryset = self.queryset.filter(putaway_user=putaway_user)
+
+        return self.queryset

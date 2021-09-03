@@ -13,6 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
+from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
@@ -871,4 +872,22 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         if putaway_instances.exists():
             putaway_instances.update(status=Putaway.PUTAWAY_STATUS_CHOICE.NEW)
         return resp
+
+
+class GRNOrderSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = GRNOrder
+        fields = ('id',)
+
+
+class GroupedByGRNPutawaysSerializers(serializers.Serializer):
+    grn_id = serializers.CharField()
+    zone = serializers.IntegerField()
+    total_items = serializers.IntegerField()
+    putaway_user = serializers.SerializerMethodField()
+
+    def get_putaway_user(self, obj):
+        return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+
 
