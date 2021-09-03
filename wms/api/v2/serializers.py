@@ -1,4 +1,5 @@
 import codecs
+import copy
 import csv
 import re
 from itertools import chain
@@ -15,21 +16,20 @@ from barCodeGenerator import merged_barcode_gen
 from products.models import Product, ParentProduct
 from shops.models import Shop
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
-from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES
+from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
+    ZonePutawayUserAssignmentMapping, Putaway
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
 
 
 class InSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = In
         fields = ('sku', 'in_type', 'in_type_id', 'warehouse', 'quantity', 'created_at')
 
 
 class OutSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Out
         fields = ('sku', 'out_type', 'out_type_id', 'warehouse', 'quantity', 'created_at')
@@ -110,12 +110,12 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
         ins_count_list = ['TOTAL IN QUANTITY']
         outs_count_list = ['TOTAL OUT QUANTITY']
         for i in range(len(inventory_types_qs)):
-            if i+1 in in_type_ids:
-                ins_count_list.append(in_type_ids[i+1])
+            if i + 1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i + 1])
             else:
                 ins_count_list.append('0')
-            if i+1 in out_type_ids:
-                outs_count_list.append(out_type_ids[i+1])
+            if i + 1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i + 1])
             else:
                 outs_count_list.append('0')
 
@@ -148,7 +148,6 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class WarehouseSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Shop
         fields = ('id', '__str__')
@@ -209,7 +208,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 
         if self.initial_data['warehouse'] and self.initial_data['supervisor'] and self.initial_data['coordinator']:
             if Zone.objects.filter(warehouse=self.initial_data['warehouse'], supervisor=self.initial_data['supervisor'],
-                                coordinator=self.initial_data['coordinator']).exists():
+                                   coordinator=self.initial_data['coordinator']).exists():
                 raise serializers.ValidationError(
                     "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
@@ -724,4 +723,152 @@ class BinExportBarcodeSerializers(serializers.ModelSerializer):
                 bin_barcode_txt = '1' + str(getattr(obj, 'id')).zfill(11)
             bin_id_list[bin_barcode_txt] = {"qty": 1, "data": {"Bin": bin_obj.bin_id}}
         return merged_barcode_gen(bin_id_list)
+
+
+class ZonePutawayAssignmentsCrudSerializers(serializers.ModelSerializer):
+    zone = ZoneSerializer(read_only=True)
+    user = UserSerializers(read_only=True)
+
+    class Meta:
+        model = ZonePutawayUserAssignmentMapping
+        fields = ('id', 'last_assigned_at', 'zone', 'user',)
+
+
+class PutawayModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Putaway
+        fields = "__all__"
+
+
+class InventoryTypeSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = InventoryType
+        fields = ('id', 'inventory_type',)
+
+
+class StatusSerializer(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'status': self._choices[int(obj)]}
+
+
+class CancelPutawayCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    putaway_user = UserSerializers(read_only=True)
+    inventory_type = InventoryTypeSerializers(read_only=True)
+    status = StatusSerializer(choices=Putaway.PUTAWAY_STATUS_CHOICE, required=True)
+
+    class Meta:
+        model = Putaway
+        fields = ('id', 'warehouse', 'putaway_user', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id',
+                  'inventory_type', 'quantity', 'putaway_quantity', 'status', 'created_at', 'modified_at',)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Cancel Putaway"""
+        try:
+            validated_data["status"] = Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED
+            validated_data["putaway_user"] = None
+            putaway_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return putaway_instance
+
+
+class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
+    putaway = PutawayModelSerializer(read_only=True)
+    warehouse = WarehouseSerializer(read_only=True)
+    product = ProductSerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+    def validate(self, data):
+
+        if 'putaway' in self.initial_data and self.initial_data['putaway']:
+            try:
+                putaway = Putaway.objects.get(
+                    id=self.initial_data['putaway'], status=Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED)
+                data['putaway'] = putaway
+            except:
+                raise serializers.ValidationError("Invalid putaway")
+        else:
+            raise serializers.ValidationError("'putaway' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'sku' in self.initial_data and self.initial_data['sku']:
+            try:
+                sku = Product.objects.get(product_sku=self.initial_data['sku'])
+            except:
+                raise serializers.ValidationError("Invalid sku")
+            data['sku'] = sku
+            data['product'] = sku.parent_product
+        else:
+            raise serializers.ValidationError("'sku' | This is mandatory")
+
+        if 'zone' in self.initial_data and self.initial_data['zone']:
+            try:
+                zone = Zone.objects.get(id=self.initial_data['zone'])
+                if zone.warehouse != warehouse:
+                    raise serializers.ValidationError("Invalid zone for selected warehouse.")
+            except:
+                raise serializers.ValidationError("Invalid zone")
+            data['zone'] = zone
+        else:
+            raise serializers.ValidationError("'zone' | This is mandatory")
+
+        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
+            raise serializers.ValidationError(
+                "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        @param instance: WarehouseAssortment model instance
+        @param validated_data: dict object
+        @return: PutawayModelSerializer serializer object
+
+        Reason: Update zone in WarehouseAssortment for selected warehouse and product and update status to NEW
+                for mapped cancelled putaways
+        """
+        putaway = validated_data.pop('putaway')
+        sku = validated_data.pop('sku')
+        zone = validated_data.pop('zone')
+        try:
+            instance.zone = zone
+            instance.save()
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return PutawayModelSerializer(
+            self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
+
+    def update_all_existing_cancelled_putaways(self, warehouse, product):
+        """
+        @param warehouse: Shop model instance
+        @param product: Product model instance
+        @return: Putaway model instances
+
+        Reason: update status to NEW for filtered putaways
+        """
+        putaway_instances = Putaway.objects.filter(
+            warehouse=warehouse, sku=product.product_sku, status=Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED)
+        resp = copy.copy(putaway_instances)
+        if putaway_instances.exists():
+            putaway_instances.update(status=Putaway.PUTAWAY_STATUS_CHOICE.NEW)
+        return resp
 

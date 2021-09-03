@@ -47,6 +47,14 @@ INVENTORY_STATE_CHOICES = (
 )
 
 
+class BaseTimestampModel(models.Model):
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
 class BaseTimestampUserModel(models.Model):
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
@@ -83,6 +91,15 @@ class Zone(BaseTimestampUserModel):
     def __str__(self):
         return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + \
                " - " + str(self.warehouse.pk) + " - " + str(self.pk)
+
+
+class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
+    zone = models.ForeignKey(Zone, related_name="zone_putaway_assigned_users", on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.zone) + " - " + str(self.user)
 
 
 class WarehouseAssortment(BaseTimestampUserModel):
@@ -228,7 +245,7 @@ class In(models.Model):
 
 
 class Putaway(models.Model):
-    PUTAWAY_STATUS_CHOICE = Choices((0,'NEW', 'New'), (1, 'ASSIGNED', 'Assigned'), (2, 'INITIATED', 'Initiated'),
+    PUTAWAY_STATUS_CHOICE = Choices((0, 'NEW', 'New'), (1, 'ASSIGNED', 'Assigned'), (2, 'INITIATED', 'Initiated'),
                                     (3, 'COMPLETED', 'Completed'), (4, 'CANCELLED', 'Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
@@ -240,7 +257,7 @@ class Putaway(models.Model):
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     putaway_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
-    status = models.CharField(choices=PUTAWAY_STATUS_CHOICE, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=PUTAWAY_STATUS_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

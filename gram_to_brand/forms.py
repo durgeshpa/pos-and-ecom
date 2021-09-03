@@ -322,7 +322,7 @@ class GRNOrderProductForm(forms.ModelForm):
     expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE, )
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE, )
-    zone = forms.CharField()
+    zone = forms.CharField(required=False)
 
     class Meta:
         model = GRNOrderProductMapping

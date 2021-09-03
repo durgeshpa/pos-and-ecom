@@ -11,6 +11,25 @@ def zone_search(queryset, search_text):
     return queryset
 
 
+def zone_putaway_assignments_search(queryset, search_text):
+    """
+    search using warehouse shop_name & supervisor name & coordinator name & user name based on criteria that matches
+    """
+    queryset = queryset.filter(Q(zone__warehouse__shop_name__icontains=search_text) | Q(
+        zone__supervisor__first_name__icontains=search_text) | Q(zone__coordinator__first_name__icontains=search_text)
+                               | Q(user__first_name__icontains=search_text))
+    return queryset
+
+
+def putaway_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
+        putaway_user__first_name__icontains=search_text) | Q(putaway_user__phone_number__icontains=search_text))
+    return queryset
+
+
 # search using user name & phone number based on criteria that matches
 def user_search(queryset, search_string):
     sts_list = search_string.split(' ')
