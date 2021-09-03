@@ -457,14 +457,14 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
-                # coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
-                #                                                   ["coupon_code", "coupon_type", "purchased_product"])
+                coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
+                                                                  ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
                     if cart_check:
                         p = self.modify_rp_cart_product_es(cart, cart_products, p)
-                    # for coupon in coupons:
-                    #     if int(coupon['purchased_product']) == int(p["_source"]['id']):
-                    #         p['_source']['coupons'] = [coupon]
+                    for coupon in coupons:
+                        if int(coupon['purchased_product']) == int(p["_source"]['id']):
+                            p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
@@ -475,15 +475,15 @@ class SearchProducts(APIView):
         for c_p in cart_products:
             if c_p.retailer_product_id != p["_source"]["id"]:
                 continue
-            # if cart.offers:
-            #     cart_offers = cart.offers
-            #     combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
-            #     for offer in combo_offers:
-            #         if offer['item_id'] == c_p.retailer_product_id:
-            #             p["_source"]["free_product_text"] = 'Free - ' + str(
-            #                 offer['free_item_qty_added']) + ' items of ' + str(
-            #                 offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
-            #                 offer['free_item_qty'])
+            if cart.offers:
+                cart_offers = cart.offers
+                combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
+                for offer in combo_offers:
+                    if offer['item_id'] == c_p.retailer_product_id:
+                        p["_source"]["free_product_text"] = 'Free - ' + str(
+                            offer['free_item_qty_added']) + ' items of ' + str(
+                            offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
+                            offer['free_item_qty'])
             p["_source"]["cart_qty"] = c_p.qty or 0
         return p
 
