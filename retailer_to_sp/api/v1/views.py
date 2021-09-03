@@ -136,6 +136,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
+from ecom.models import Address as EcomAddress, EcomOrderAddress
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -2840,6 +2841,13 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+
+        if not self.request.data.get('address_id'):
+            return api_response("Please select an address to place order")
+        try:
+            address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
         try:
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
         except ObjectDoesNotExist:
@@ -2858,7 +2866,7 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop)
+            order = self.create_basic_order(cart, shop, address)
             payment_type = PaymentType.objects.get(type='cash')
             payments = [
                 {
@@ -3123,7 +3131,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop):
+    def create_basic_order(self, cart, shop, address=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3132,6 +3140,12 @@ class OrderCentral(APIView):
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
+
+        if address:
+            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
+                                            contact_number=address.contact_number, latitude=address.latitude,
+                                            longitude=address.longitude, pincode=address.pincode,
+                                            state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -3652,6 +3666,10 @@ class OrderListCentral(GenericAPIView):
     def get_ecom_order_list(self, request, *args, **kwargs):
         # Search, Paginate, Return Orders
         qs = Order.objects.filter(ordered_cart__cart_type='ECOM', buyer=self.request.user)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            qs = qs.filter(Q(order_no__icontains=search_text) |
+                           Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
 
     def get_serialize_process_sp(self, order, parent_mapping):
