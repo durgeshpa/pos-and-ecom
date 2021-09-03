@@ -181,15 +181,14 @@ class TagProductView(APIView):
     @check_ecom_user_shop
     def get(self, request, pk, *args, **kwargs):
         try:
-            tag = Tag.objects.get(id = pk)
-        except Exception:
-            return api_response('Inavlid Tag Id')
+            tag = Tag.objects.get(id=pk)
+        except:
+            return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        tagged_product = TagProductMapping.objects.filter(tag = tag, product__shop = shop)
-        if tagged_product.count < 3:
-            return api_response('Product is less than 3')
-        product = RetailerProduct.objects.filter(product_tag_ecom__in=tagged_product)
-        serializer = TagProductSerializer(tag, context = {'product': product})
-        is_success = True
-        return api_response('Tag Found', serializer.data, status.HTTP_200_OK, is_success)
-
+        tagged_product = TagProductMapping.objects.filter(tag=tag, product__shop=shop)
+        is_success, data = False, []
+        if tagged_product.count() >= 3:
+            product = RetailerProduct.objects.filter(product_tag_ecom__in=tagged_product)
+            serializer = TagProductSerializer(tag, context={'product': product})
+            is_success, data = True, serializer.data
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
