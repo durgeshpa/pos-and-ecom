@@ -41,6 +41,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer)
+from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1198,8 +1199,13 @@ class IncentiveView(GenericAPIView):
                 result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
 
         # Incentive cal
+        incentive_rate = int(get_config('pos_retailer_incentive_rate', 1))
         for key in result_set:
-            result_set[key]['incentive'] = round(0.001 * result_set[key]['effective_sale'], 2)
+            result_set[key]['month'] = calendar.month_name[result_set[key]['created_at__month']] + ', ' + str(result_set[key]['created_at__year'])
+            del result_set[key]['created_at__month']
+            del result_set[key]['created_at__year']
+            result_set[key]['incentive_rate'] = str(incentive_rate) + '%'
+            result_set[key]['incentive'] = round((incentive_rate / 100) * result_set[key]['effective_sale'], 2)
 
         return api_response('Incentive for shop', result_set.values(), status.HTTP_200_OK, True)
 
