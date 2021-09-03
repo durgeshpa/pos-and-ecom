@@ -760,8 +760,10 @@ class PosAddToCart(object):
                 return api_response("Product Not Found!")
 
             # Inventory check
-            cart_product = CartProductMapping.objects.filter(cart__cart_type='ECOM', buyer=self.request.user,
-                                                             retailer_product=product, product_type=1).last()
+            cart_product = CartProductMapping.objects.filter(cart__cart_type='ECOM', cart__buyer=self.request.user,
+                                                             retailer_product=product, product_type=1,
+                                                             cart__seller_shop=kwargs['shop'],
+                                                             cart__cart_status='active').last()
             existing_cart_qty = 0
             if cart_product:
                 existing_cart_qty = cart_product.qty
