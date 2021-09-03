@@ -764,8 +764,6 @@ class PutawayItemsCrudView(generics.GenericAPIView):
         putaway_total_count = self.queryset.count()
         if not request.GET.get('warehouse'):
             return get_response("'warehouse' | This is mandatory.")
-        if not request.GET.get('zone'):
-            return get_response("'zone' | This is mandatory.")
         if not request.GET.get('putaway_type'):
             return get_response("'putaway type' | This is mandatory.")
         if not request.GET.get('putaway_type_id'):
