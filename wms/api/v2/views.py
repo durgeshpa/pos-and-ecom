@@ -22,7 +22,7 @@ from wms.services import check_warehouse_manager, check_whc_manager_coordinator_
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
-    BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, PutawayItemsGetSerializer, \
+    BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, PutawayItemsCrudSerializer, \
     CancelPutawayCrudSerializers, PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In
@@ -757,7 +757,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
              'sku__parent_product__id', 'sku__parent_product__name', 'created_at', 'modified_at'). \
         order_by('-id')
 
-    serializer_class = PutawayItemsGetSerializer
+    serializer_class = PutawayItemsCrudSerializer
 
     def get(self, request):
         """ GET API for Putaway """
@@ -854,7 +854,6 @@ class PutawayItemsCrudView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
-
 class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -888,4 +887,3 @@ class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
             info_logger.info("Zone assigned for Cancelled Putaways Successfully.")
             return get_response('Zone assigned for Cancelled Putaways Successfully!', resp.data)
         return get_response(serializer_error(serializer), False)
-

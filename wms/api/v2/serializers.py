@@ -890,7 +890,7 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         return resp
 
 
-class PutawayItemsGetSerializer(serializers.ModelSerializer):
+class PutawayItemsCrudSerializer(serializers.ModelSerializer):
     """ Serializer for Putaway CRUD API"""
     warehouse = WarehouseSerializer(read_only=True)
     sku = ChildProductSerializer(read_only=True)
