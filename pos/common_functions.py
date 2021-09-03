@@ -760,9 +760,17 @@ class PosAddToCart(object):
                 return api_response("Product Not Found!")
 
             # Inventory check
-            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
-            if available_inventory < qty:
-                return api_response("You cannot add more than {} quantities of {}".format(available_inventory, product.name))
+            cart_product = CartProductMapping.objects.filter(cart__cart_type='ECOM', cart__buyer=self.request.user,
+                                                             retailer_product=product, product_type=1,
+                                                             cart__seller_shop=kwargs['shop'],
+                                                             cart__cart_status='active').last()
+            existing_cart_qty = 0
+            if cart_product:
+                existing_cart_qty = cart_product.qty
+            if qty > existing_cart_qty:
+                available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+                if available_inventory < qty:
+                    return api_response("You cannot add any more than quantities for this product!")
 
             # Return with objects
             kwargs['product'] = product
