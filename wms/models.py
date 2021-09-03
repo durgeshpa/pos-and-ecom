@@ -258,10 +258,10 @@ class In(models.Model):
             self.weight = 0
         super(In, self).save(*args, **kwargs)
 
-
 class Putaway(models.Model):
-    PUTAWAY_STATUS_CHOICE = Choices((0, 'NEW', 'New'), (1, 'ASSIGNED', 'Assigned'), (2, 'INITIATED', 'Initiated'),
-                                    (3, 'COMPLETED', 'Completed'), (4, 'CANCELLED', 'Cancelled'))
+    NEW, ASSIGNED, INITIATED, COMPLETED, CANCELLED = 'NEW', 'ASSIGNED', 'INITIATED', 'COMPLETED', 'CANCELLED'
+    PUTAWAY_STATUS_CHOICE = Choices((NEW, 'New'), (ASSIGNED, 'Assigned'), (INITIATED, 'Initiated'),
+                                    (COMPLETED, 'Completed'), (CANCELLED, 'Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
                                      on_delete=models.DO_NOTHING)

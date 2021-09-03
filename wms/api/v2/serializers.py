@@ -7,18 +7,19 @@ from itertools import chain
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct
+from products.models import Product, ParentProduct, ProductImage
 from shops.models import Shop
-from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction
+
+from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -160,6 +161,22 @@ class WarehouseSerializer(serializers.ModelSerializer):
             'shop': representation['__str__']
         }
         return representation['warehouse']
+
+
+class ChildProductSerializer(serializers.ModelSerializer):
+    """ Serializer for Product"""
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        if ProductImage.objects.filter(product=obj).exists():
+            product_image = ProductImage.objects.filter(product=obj)[0].image.url
+            return product_image
+        else:
+            return None
+
+    class Meta:
+        model = Product
+        fields = ('product_sku', 'product_name', 'product_image')
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -753,7 +770,7 @@ class StatusSerializer(serializers.ChoiceField):
     def to_representation(self, obj):
         if obj == '' and self.allow_blank:
             return obj
-        return {'id': obj, 'status': self._choices[int(obj)]}
+        return {'id': obj, 'status': self._choices[obj]}
 
 
 class CancelPutawayCrudSerializers(serializers.ModelSerializer):
@@ -855,8 +872,8 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return PutawayModelSerializer(
-            self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
+        return PutawayModelSerializer(self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
+
 
     def update_all_existing_cancelled_putaways(self, warehouse, product):
         """
@@ -874,13 +891,6 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         return resp
 
 
-class GRNOrderSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = GRNOrder
-        fields = ('id',)
-
-
 class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     grn_id = serializers.CharField()
     zone = serializers.IntegerField()
@@ -890,4 +900,87 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     def get_putaway_user(self, obj):
         return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
 
+
+class PutawayItemsCrudSerializer(serializers.ModelSerializer):
+    """ Serializer for Putaway CRUD API"""
+    warehouse = WarehouseSerializer(read_only=True)
+    sku = ChildProductSerializer(read_only=True)
+    quantity = serializers.IntegerField(required=False)
+    putaway_quantity = serializers.IntegerField(required=False)
+    batch_id = serializers.CharField(required=False)
+    status = serializers.CharField(required=False)
+    suggested_bins = serializers.SerializerMethodField()
+    putaway_done = serializers.SerializerMethodField()
+
+    def get_suggested_bins(self, obj):
+        """ Returns the suggested bins for a pending Putaway"""
+        if obj.status in ['ASSIGNED', 'INITIATED']:
+            return PutawayCommonFunctions.get_suggested_bins_for_putaway(obj.warehouse, obj.sku, obj.batch_id,
+                                                                         obj.inventory_type)
+
+    def get_putaway_done(self, obj):
+        """ Returns Putaway bins along with respective quantity"""
+        if obj.status in ['INITIATED', 'COMPLETED']:
+            return PutawayBinInventory.objects.filter(putaway=obj)\
+                .annotate(putaway_bin=F('bin__bin__bin_id')).values('putaway_bin', 'putaway_quantity')
+
+    class Meta:
+        model = Putaway
+        fields = ('id', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'quantity', 'putaway_quantity', 'status',
+                  'suggested_bins', 'putaway_done', 'created_at', 'modified_at')
+
+    def validate(self, data):
+        """Validates the Putaway requests"""
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if 'status' in self.initial_data and self.initial_data['status']:
+                try:
+                    putaway = Putaway.objects.get(id=self.initial_data['id'])
+                    putaway_status = putaway.status
+                    putaway_quantity = putaway.putaway_quantity
+                    quantity = putaway.quantity
+                except Exception as e:
+                    raise serializers.ValidationError("Invalid Putaway")
+                status = self.initial_data['status']
+                if status == putaway_status:
+                    raise serializers.ValidationError(f'Putaway already {status}')
+                elif status in [Putaway.PUTAWAY_STATUS_CHOICE.NEW, Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED,
+                                Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED] \
+                        or (status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED
+                            and putaway_status != Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)\
+                        or (status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+                            and putaway_status != Putaway.PUTAWAY_STATUS_CHOICE.INITIATED):
+                    raise serializers.ValidationError(f'Invalid status | {putaway_status}-->{status} not allowed')
+                elif status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED \
+                    and putaway_status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED \
+                        and putaway_quantity != quantity:
+                    raise serializers.ValidationError(f'Putaway cannot be completed. '
+                                                      f'Remaining putaway_quantity-{quantity-putaway_quantity}')
+                data['status'] = status
+            else:
+                raise serializers.ValidationError("Only status update is allowed")
+        else:
+            raise serializers.ValidationError("Putaway creation is not allowed.")
+
+        return data
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            putaway_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return putaway_instance
 

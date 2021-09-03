@@ -2,7 +2,7 @@ import logging
 
 from dal import autocomplete
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count
+from django.db.models import Q, OuterRef, Subquery, Count, CharField
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication
@@ -17,13 +17,15 @@ from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
-from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, \
+
+from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user,\
     zone_putaway_assignments_search, putaway_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
-    PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers
+    PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
+    PutawayItemsCrudSerializer
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In
 
@@ -713,33 +715,8 @@ class CancelPutawayCrudView(generics.GenericAPIView):
     serializer_class = CancelPutawayCrudSerializers
 
     @check_whc_manager_coordinator_supervisor
-    def get(self, request):
-        """ GET API for Putaway """
-        info_logger.info("Putaway GET api called.")
-        putaway_total_count = self.queryset.count()
-        # if not request.GET.get('warehouse'):
-        #     return get_response("'warehouse' | This is mandatory.")
-        if request.GET.get('id'):
-            """ Get Putaway for specific ID """
-            id_validation = validate_id(
-                self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            putaways_data = id_validation['data']
-        else:
-            """ GET Putaway List """
-            # self.queryset = self.search_filter_putaways_data()
-            putaway_total_count = self.queryset.count()
-            putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(putaways_data, many=True)
-        msg = f"total count {putaway_total_count}" if putaways_data else "no putaway found"
-        return get_response(msg, serializer.data, True)
-
-    @check_whc_manager_coordinator_supervisor
     def put(self, request):
         """ PUT API for Putaway Updation """
-
         info_logger.info("Putaway PUT api called.")
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
@@ -753,7 +730,6 @@ class CancelPutawayCrudView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         putaway_instance = id_validation['data'].last()
-
         if putaway_instance.status == str(Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED):
             return get_response("Putaway already cancelled for id: " + str(putaway_instance.pk))
 
@@ -765,31 +741,119 @@ class CancelPutawayCrudView(generics.GenericAPIView):
             return get_response('putaway cancelled successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def search_filter_putaways_data(self):
+
+class PutawayItemsCrudView(generics.GenericAPIView):
+    """API view for Putaway"""
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURN']). \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'putaway_user',
+                       'sku', 'sku__parent_product').\
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'putaway_user__id', 'putaway_user__first_name',
+             'putaway_user__last_name', 'putaway_user__phone_number', 'sku__product_sku', 'sku__product_name',
+             'sku__parent_product__id', 'sku__parent_product__name', 'created_at', 'modified_at'). \
+        order_by('-id')
+
+    serializer_class = PutawayItemsCrudSerializer
+
+    def get(self, request):
+        """ GET API for Putaway """
+        putaway_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if not request.GET.get('putaway_type'):
+            return get_response("'putaway type' | This is mandatory.")
+        if not request.GET.get('putaway_type_id'):
+            return get_response("'putaway_type_id' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get Putaways for specific warehouse """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            putaway_data = id_validation['data']
+
+        else:
+            """ GET Putaway List """
+            self.queryset = self.search_filter_putaway_data()
+            putaway_total_count = self.queryset.count()
+            putaway_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(putaway_data, many=True)
+        msg = f"total count {putaway_total_count}" if putaway_data else "no putaway found"
+        return get_response(msg, serializer.data, True)
+
+    @check_putaway_user
+    def put(self, request):
+        """ Updates the given Putaway"""
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update putaway', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        putaway_instance = id_validation['data'].last()
+        serializer = self.serializer_class(instance=putaway_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Putaway Updated Successfully.")
+            return get_response('Putaway updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_putaway_data(self):
+        """ Filters the Putaway data based on request"""
         search_text = self.request.GET.get('search_text')
         warehouse = self.request.GET.get('warehouse')
-        putaway_user = self.request.GET.get('putaway_user')
-        inventory_type = self.request.GET.get('inventory_type')
+        zone = self.request.GET.get('zone')
+        product = self.request.GET.get('product')
+        date = self.request.GET.get('date')
         status = self.request.GET.get('status')
+        putaway_type = self.request.GET.get('putaway_type')
+        putaway_type_id = self.request.GET.get('putaway_type_id')
+        is_zone_not_assigned = self.request.GET.get('is_zone_not_assigned')
 
-        '''search using warehouse name, putaway_user's firstname and putaway_user's phone number'''
+        '''search using warehouse name, product's name'''
         if search_text:
             self.queryset = putaway_search(self.queryset, search_text)
 
-        '''Filters using warehouse, putaway_user, inventory_type, status'''
+        '''Filters using warehouse, product, zone, date, status, putaway_type_id'''
         if warehouse:
             self.queryset = self.queryset.filter(warehouse__id=warehouse)
 
-        if putaway_user:
-            self.queryset = self.queryset.filter(putaway_user__id=putaway_user)
+        if product:
+            self.queryset = self.queryset.filter(sku__id=product)
 
-        if inventory_type:
-            self.queryset = self.queryset.filter(inventory_type__id=inventory_type)
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if zone:
+            zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
+            self.queryset = self.queryset.filter(sku__parent_product__id__in=zone_product_ids)
+
+        elif is_zone_not_assigned:
+            no_zone_product_ids = WarehouseAssortment.objects.filter(zone__isnull=True).values_list('product_id', flat=True)
+            self.queryset = self.queryset.filter(sku__parent_product__id__in=no_zone_product_ids)
 
         if status:
             self.queryset = self.queryset.filter(status=status)
 
-        return self.queryset
+        if putaway_type_id:
+            self.queryset = self.queryset.filter(putaway_type=putaway_type,
+                                                 putaway_type_id__in=In.objects.filter(in_type=putaway_type,
+                                                                                       in_type_id=putaway_type_id)
+                                                 .annotate(id_key=Cast('id', CharField()))
+                                                 .values_list('id_key', flat=True))
+        return self.queryset.distinct('id')
 
 
 class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
