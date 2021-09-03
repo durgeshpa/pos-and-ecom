@@ -163,20 +163,19 @@ class WarehouseSerializer(serializers.ModelSerializer):
         return representation['warehouse']
 
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ('id', 'image_name', 'image', 'status',)
+
+
 class ChildProductSerializer(serializers.ModelSerializer):
     """ Serializer for Product"""
-    product_image = serializers.SerializerMethodField()
-
-    def get_product_image(self, obj):
-        if ProductImage.objects.filter(product=obj).exists():
-            product_image = ProductImage.objects.filter(product=obj)[0].image.url
-            return product_image
-        else:
-            return None
+    product_pro_image = ProductImageSerializer(read_only=True, many=True)
 
     class Meta:
         model = Product
-        fields = ('product_sku', 'product_name', 'product_image')
+        fields = ('product_sku', 'product_name', 'product_pro_image')
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -798,8 +797,24 @@ class CancelPutawayCrudSerializers(serializers.ModelSerializer):
         return putaway_instance
 
 
+class PutawaySerializers(serializers.ModelSerializer):
+    """ Serializer for Putaway Model"""
+    warehouse = WarehouseSerializer(read_only=True)
+    putaway_user = UserSerializers(read_only=True)
+    sku = ChildProductSerializer(read_only=True)
+    inventory_type = InventoryTypeSerializers(read_only=True)
+    status = StatusSerializer(choices=Putaway.PUTAWAY_STATUS_CHOICE, required=True)
+    grn_id = serializers.CharField(required=False)
+    zone_id = serializers.CharField(required=False)
+
+    class Meta:
+        model = Putaway
+        fields = ('id', 'grn_id', 'zone_id', 'putaway_user', 'status', 'putaway_type', 'putaway_type_id', 'warehouse',
+                  'sku', 'batch_id', 'inventory_type', 'quantity', 'putaway_quantity', 'created_at', 'modified_at',)
+
+
 class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
-    putaway = PutawayModelSerializer(read_only=True)
+    putaway = PutawaySerializers(read_only=True)
     warehouse = WarehouseSerializer(read_only=True)
     product = ProductSerializer(read_only=True)
     zone = ZoneSerializer(read_only=True)
@@ -857,7 +872,7 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         """
         @param instance: WarehouseAssortment model instance
         @param validated_data: dict object
-        @return: PutawayModelSerializer serializer object
+        @return: PutawaySerializers serializer object
 
         Reason: Update zone in WarehouseAssortment for selected warehouse and product and update status to NEW
                 for mapped cancelled putaways
@@ -872,7 +887,7 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return PutawayModelSerializer(self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
+        return PutawaySerializers(self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
 
 
     def update_all_existing_cancelled_putaways(self, warehouse, product):
