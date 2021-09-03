@@ -23,10 +23,11 @@ def zone_putaway_assignments_search(queryset, search_text):
 
 def putaway_search(queryset, search_text):
     '''
-    search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
+    search using warehouse shop_name & product name & supervisor name & coordinator name based on criteria that matches
     '''
-    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
-        putaway_user__first_name__icontains=search_text) | Q(putaway_user__phone_number__icontains=search_text))
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(sku__name__icontains=search_text) |
+                               Q(putaway_user__first_name__icontains=search_text) |
+                               Q(putaway_user__phone_number__icontains=search_text))
     return queryset
 
 
@@ -103,12 +104,4 @@ def bin_search(queryset, search_text):
     queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
         bin_id__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
                                Q(zone__coordinator__first_name__icontains=search_text))
-    return queryset
-
-
-def putaway_search(queryset, search_text):
-    '''
-    search using warehouse shop_name & product name
-    '''
-    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(sku__name__icontains=search_text))
     return queryset

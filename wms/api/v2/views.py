@@ -713,30 +713,6 @@ class CancelPutawayCrudView(generics.GenericAPIView):
     serializer_class = CancelPutawayCrudSerializers
 
     @check_whc_manager_coordinator_supervisor
-    def get(self, request):
-        """ GET API for Putaway """
-        info_logger.info("Putaway GET api called.")
-        putaway_total_count = self.queryset.count()
-        # if not request.GET.get('warehouse'):
-        #     return get_response("'warehouse' | This is mandatory.")
-        if request.GET.get('id'):
-            """ Get Putaway for specific ID """
-            id_validation = validate_id(
-                self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            putaways_data = id_validation['data']
-        else:
-            """ GET Putaway List """
-            # self.queryset = self.search_filter_putaways_data()
-            putaway_total_count = self.queryset.count()
-            putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(putaways_data, many=True)
-        msg = f"total count {putaway_total_count}" if putaways_data else "no putaway found"
-        return get_response(msg, serializer.data, True)
-
-    @check_whc_manager_coordinator_supervisor
     def put(self, request):
         """ PUT API for Putaway Updation """
         info_logger.info("Putaway PUT api called.")
@@ -762,32 +738,6 @@ class CancelPutawayCrudView(generics.GenericAPIView):
             info_logger.info("Putaway Updated Successfully.")
             return get_response('putaway cancelled successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
-
-    def search_filter_putaways_data(self):
-        search_text = self.request.GET.get('search_text')
-        warehouse = self.request.GET.get('warehouse')
-        putaway_user = self.request.GET.get('putaway_user')
-        inventory_type = self.request.GET.get('inventory_type')
-        status = self.request.GET.get('status')
-
-        '''search using warehouse name, putaway_user's firstname and putaway_user's phone number'''
-        if search_text:
-            self.queryset = putaway_search(self.queryset, search_text)
-
-        '''Filters using warehouse, putaway_user, inventory_type, status'''
-        if warehouse:
-            self.queryset = self.queryset.filter(warehouse__id=warehouse)
-
-        if putaway_user:
-            self.queryset = self.queryset.filter(putaway_user__id=putaway_user)
-
-        if inventory_type:
-            self.queryset = self.queryset.filter(inventory_type__id=inventory_type)
-
-        if status:
-            self.queryset = self.queryset.filter(status=status)
-
-        return self.queryset
 
 
 class PutawayItemsCrudView(generics.GenericAPIView):
