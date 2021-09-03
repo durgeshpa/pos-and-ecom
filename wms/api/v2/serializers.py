@@ -1,4 +1,5 @@
 import codecs
+import copy
 import csv
 import re
 from itertools import chain
@@ -777,3 +778,97 @@ class CancelPutawayCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return putaway_instance
+
+
+class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
+    putaway = PutawayModelSerializer(read_only=True)
+    warehouse = WarehouseSerializer(read_only=True)
+    product = ProductSerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+    def validate(self, data):
+
+        if 'putaway' in self.initial_data and self.initial_data['putaway']:
+            try:
+                putaway = Putaway.objects.get(
+                    id=self.initial_data['putaway'], status=Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED)
+                data['putaway'] = putaway
+            except:
+                raise serializers.ValidationError("Invalid putaway")
+        else:
+            raise serializers.ValidationError("'putaway' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'sku' in self.initial_data and self.initial_data['sku']:
+            try:
+                sku = Product.objects.get(product_sku=self.initial_data['sku'])
+            except:
+                raise serializers.ValidationError("Invalid sku")
+            data['sku'] = sku
+            data['product'] = sku.parent_product
+        else:
+            raise serializers.ValidationError("'sku' | This is mandatory")
+
+        if 'zone' in self.initial_data and self.initial_data['zone']:
+            try:
+                zone = Zone.objects.get(id=self.initial_data['zone'])
+                if zone.warehouse != warehouse:
+                    raise serializers.ValidationError("Invalid zone for selected warehouse.")
+            except:
+                raise serializers.ValidationError("Invalid zone")
+            data['zone'] = zone
+        else:
+            raise serializers.ValidationError("'zone' | This is mandatory")
+
+        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
+            raise serializers.ValidationError(
+                "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        @param instance: WarehouseAssortment model instance
+        @param validated_data: dict object
+        @return: PutawayModelSerializer serializer object
+
+        Reason: Update zone in WarehouseAssortment for selected warehouse and product and update status to NEW
+                for mapped cancelled putaways
+        """
+        putaway = validated_data.pop('putaway')
+        sku = validated_data.pop('sku')
+        zone = validated_data.pop('zone')
+        try:
+            instance.zone = zone
+            instance.save()
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return PutawayModelSerializer(
+            self.update_all_existing_cancelled_putaways(instance.warehouse, sku), many=True)
+
+    def update_all_existing_cancelled_putaways(self, warehouse, product):
+        """
+        @param warehouse: Shop model instance
+        @param product: Product model instance
+        @return: Putaway model instances
+
+        Reason: update status to NEW for filtered putaways
+        """
+        putaway_instances = Putaway.objects.filter(
+            warehouse=warehouse, sku=product.product_sku, status=Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED)
+        resp = copy.copy(putaway_instances)
+        if putaway_instances.exists():
+            putaway_instances.update(status=Putaway.PUTAWAY_STATUS_CHOICE.NEW)
+        return resp
+

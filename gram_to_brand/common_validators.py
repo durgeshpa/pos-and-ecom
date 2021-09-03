@@ -2,7 +2,7 @@ import logging
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from shops.models import Shop
-from products.models import ParentProduct
+from products.models import ParentProduct, Product
 from wms.models import Zone, WarehouseAssortment
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,17 @@ def validate_warehouse(id):
     if not Shop.filter(id=id).exists():
         return {'error': 'please provide a valid id'}
     return {'data': Shop.filter(id=id).last()}
+
+
+def validate_assortment_against_warehouse_and_product(warehouse_id, sku):
+    """validation warehouse assortment for the selected warehouse and product"""
+    product = Product.objects.filter(product_sku=sku).last()
+    if not product:
+        return {'error': 'please provide a valid sku.'}
+    if not WarehouseAssortment.objects.filter(warehouse_id=warehouse_id, product=product.parent_product).exists():
+        return {'error': 'please provide a valid warehouse_id.'}
+    return {'data': WarehouseAssortment.objects.filter(warehouse_id=warehouse_id, product=product.parent_product).last()}
+
 
 
 

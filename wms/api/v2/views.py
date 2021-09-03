@@ -10,6 +10,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
 
+from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
@@ -20,7 +21,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
-    PutawayModelSerializer
+    PutawayModelSerializer, UpdateZoneForCancelledPutawaySerializers
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, validate_id_and_warehouse
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway
 
@@ -770,3 +771,38 @@ class CancelPutawayCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         return self.queryset
+
+
+class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UpdateZoneForCancelledPutawaySerializers
+
+    @check_whc_manager_coordinator_supervisor
+    def put(self, request):
+        """ PUT API for Update Zone For Cancelled Putaways """
+
+        info_logger.info("WarehouseAssortment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if not ('warehouse' in modified_data and modified_data['warehouse']) or \
+                not ('sku' in modified_data and modified_data['sku']) or \
+                not ('zone' in modified_data and modified_data['zone']):
+            return get_response(
+                'please provide warehouse, sku and zone to update zone for cancelled putaways', False)
+
+        # validations for input warehouse, sku
+        id_validation = validate_assortment_against_warehouse_and_product(
+            int(modified_data['warehouse']), modified_data['sku'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        whc_assortment_instance = id_validation['data']
+
+        serializer = self.serializer_class(instance=whc_assortment_instance, data=modified_data)
+        if serializer.is_valid():
+            resp = serializer.save(updated_by=request.user)
+            info_logger.info("Zone assigned for Cancelled Putaways Successfully.")
+            return get_response('Zone assigned for Cancelled Putaways Successfully!', resp.data)
+        return get_response(serializer_error(serializer), False)
