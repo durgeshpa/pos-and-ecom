@@ -17,7 +17,7 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
-from wms.common_functions import get_response, serializer_error
+from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In
@@ -905,11 +905,12 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         values('grn_id', 'zone', 'putaway_user').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
-    # @check_whc_manager_coordinator_supervisor
+    @check_whc_manager_coordinator_supervisor
     def get(self, request):
         """ GET API for Putaways grouped by GRN """
         info_logger.info("Putaway GET api called.")
         """ GET Putaway List """
+        self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_grouped_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -1005,8 +1006,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         putaways_reflected = copy.copy(putaway_instances)
         if putaway_instances.last().putaway_user == putaway_user:
             return get_response("Selected putaway user already assigned.")
-        putaway_instance_inc = putaway_instances.update(putaway_user=putaway_user)
-        putaway_instance_inc.save()
+        putaway_instances.update(putaway_user=putaway_user)
         serializer = self.serializer_class(putaways_reflected, many=True)
         info_logger.info("Putaways Updated Successfully.")
         return get_response('putaways updated successfully!', serializer.data)

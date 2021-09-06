@@ -2188,6 +2188,21 @@ def serializer_error(serializer):
     return errors[0]
 
 
+def get_logged_user_wise_query_set(user, queryset):
+    '''
+        GET Logged-in user wise queryset for grouped puaways based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        pass
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Putaway').exists():
+        queryset = queryset.filter(putaway_user=user)
+    return queryset
+
+
 class ZoneCommonFunction(object):
 
     @classmethod
