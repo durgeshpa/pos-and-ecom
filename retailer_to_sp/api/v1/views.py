@@ -131,6 +131,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
+from ecom.models import Address as EcomAddress, EcomOrderAddress
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -458,14 +459,14 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
-                # coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
-                #                                                   ["coupon_code", "coupon_type", "purchased_product"])
+                coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
+                                                                  ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
                     if cart_check:
                         p = self.modify_rp_cart_product_es(cart, cart_products, p)
-                    # for coupon in coupons:
-                    #     if int(coupon['purchased_product']) == int(p["_source"]['id']):
-                    #         p['_source']['coupons'] = [coupon]
+                    for coupon in coupons:
+                        if int(coupon['purchased_product']) == int(p["_source"]['id']):
+                            p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
@@ -476,15 +477,15 @@ class SearchProducts(APIView):
         for c_p in cart_products:
             if c_p.retailer_product_id != p["_source"]["id"]:
                 continue
-            # if cart.offers:
-            #     cart_offers = cart.offers
-            #     combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
-            #     for offer in combo_offers:
-            #         if offer['item_id'] == c_p.retailer_product_id:
-            #             p["_source"]["free_product_text"] = 'Free - ' + str(
-            #                 offer['free_item_qty_added']) + ' items of ' + str(
-            #                 offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
-            #                 offer['free_item_qty'])
+            if cart.offers:
+                cart_offers = cart.offers
+                combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
+                for offer in combo_offers:
+                    if offer['item_id'] == c_p.retailer_product_id:
+                        p["_source"]["free_product_text"] = 'Free - ' + str(
+                            offer['free_item_qty_added']) + ' items of ' + str(
+                            offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
+                            offer['free_item_qty'])
             p["_source"]["cart_qty"] = c_p.qty or 0
         return p
 
@@ -1479,8 +1480,8 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop,
-                                             cart_status='active')
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop,
+                                                                 cart_status='active')
         cart.save()
         return cart
 
@@ -2895,6 +2896,13 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+
+        if not self.request.data.get('address_id'):
+            return api_response("Please select an address to place order")
+        try:
+            address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
         try:
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
         except ObjectDoesNotExist:
@@ -2913,7 +2921,7 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop)
+            order = self.create_basic_order(cart, shop, address)
             payment_type = PaymentType.objects.get(type='cash')
             self.auto_process_order(order, payment_type, 'ecom')
             self.auto_process_ecom_order(order)
@@ -3146,7 +3154,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop):
+    def create_basic_order(self, cart, shop, address=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3155,6 +3163,12 @@ class OrderCentral(APIView):
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
+
+        if address:
+            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
+                                            contact_number=address.contact_number, latitude=address.latitude,
+                                            longitude=address.longitude, pincode=address.pincode,
+                                            state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -3695,9 +3709,14 @@ class OrderListCentral(GenericAPIView):
         # Search, Paginate, Return Orders
         order_status = self.request.GET.get('order_status')
         qs = Order.objects.filter(ordered_cart__cart_type='ECOM', buyer=self.request.user)
+
         if order_status:
             order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
             qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            qs = qs.filter(Q(order_no__icontains=search_text) |
+                           Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
 
     def get_serialize_process_sp(self, order, parent_mapping):

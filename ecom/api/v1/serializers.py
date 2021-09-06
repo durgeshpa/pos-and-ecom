@@ -10,7 +10,7 @@ from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct
 
-from ecom.models import Address, EcomOrderAddress
+from ecom.models import Address, EcomOrderAddress, Tag
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -146,6 +146,152 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at')
+
+
+class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
+    """
+        Get single ordered product detail
+    """
+    product_name = serializers.SerializerMethodField()
+    product_id = serializers.SerializerMethodField()
+    product_mrp = serializers.SerializerMethodField()
+    qty = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_id(obj):
+        return obj.retailer_product.id
+
+    @staticmethod
+    def get_product_mrp(obj):
+        return obj.retailer_product.mrp
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.retailer_product.name
+
+    @staticmethod
+    def get_qty(obj):
+        """
+            qty purchased
+        """
+        return obj.shipped_qty
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('product_name', 'mrp', 'selling_price', 'qty')
+
+
+class EcomOrderDetailSerializer(serializers.ModelSerializer):
+    """
+        ECom Order detail
+    """
+    products = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
+
+    def get_products(self, obj):
+        """
+            Get ordered products details
+        """
+        qs = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
+
+        products = EcomOrderDetailSerializer(qs, many=True).data
+        # cart offers - map free product to purchased
+        product_offer_map = {}
+        cart_free_product = {}
+        for offer in obj.ordered_cart.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {
+                    'cart_free_product': 1,
+                    'id': offer['free_item_id'],
+                    'mrp': offer['free_item_mrp'],
+                    'name': offer['free_item_name'],
+                    'qty': offer['free_item_qty'],
+                    'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip('0').rstrip('.')
+                }
+
+        for product in products:
+            product['display_text'] = ''
+            # map purchased product with free product
+            if product['product_id'] in product_offer_map:
+                free_prod_info = self.get_free_product_text(product_offer_map, product)
+                if free_prod_info:
+                    product.update(free_prod_info)
+
+        if cart_free_product:
+            products.append(cart_free_product)
+        return products
+
+    @staticmethod
+    def get_free_product_text(product_offer_map, product):
+        offer = product_offer_map[product['product_id']]
+        display_text = 'Free - ' + str(offer['free_item_qty_added']) + ' items of ' + str(
+            offer['free_item_name']) + ' on purchase of ' + str(product['qty']) + ' items | Buy ' + str(
+            offer['item_qty']) + ' Get ' + str(offer['free_item_qty'])
+        return {'free_product': 1, 'display_text': display_text}
+
+    @staticmethod
+    def get_address(obj):
+        address = obj.ecom_address_order
+        return EcomOrderAddressSerializer(address)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'products', 'order_amount', 'address')
+
+
+class TagSerializer(serializers.ModelSerializer):
+    """
+    Serializer for tags
+    """
+
+    def get_status(self, obj):
+        if obj.status:
+            return "Active"
+        else:
+            return "Inactive"
+
+    class Meta:
+        model = Tag
+        fields = ('id', 'key', 'name', 'position')
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get product details
+    """
+    image = serializers.SerializerMethodField()
+    selling_price = serializers.SerializerMethodField()
+
+    def get_selling_price(self, obj):
+        if obj.online_price:
+            return obj.online_price
+        else:
+            return obj.selling_price
+
+    def get_image(self, obj):
+        return obj.retailer_product_image.last().image.url if obj.retailer_product_image.last() else None
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name', 'mrp', 'selling_price', 'image')
+
+
+class TagProductSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get product by Tag
+    """
+
+    class Meta:
+        model = Tag
+        fields = ('key', 'name')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        product = self.context.get('product')
+        data['products'] = ProductSerializer(product, many = True).data
+        return data
 
 
 class EcomShipmentProductSerializer(serializers.Serializer):

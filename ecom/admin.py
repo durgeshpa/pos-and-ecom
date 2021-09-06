@@ -7,6 +7,7 @@ from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 
 from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
 from .models import Address, Tag, TagProductMapping
+from .forms import TagProductForm
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -157,11 +158,14 @@ class EcomAddressAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-
-class TagProductMappingInline(admin.TabularInline):
+@admin.register(TagProductMapping)
+class TagProductMappingAdmin(admin.ModelAdmin):
+    form = TagProductForm
     model = TagProductMapping
-    fields = ('product',)
-    extra = 6
+    list_display = ('tag', 'product', 'shops', 'created_at', 'modified_at')
+
+    def shops(self, obj):
+        return obj.product.shop
 
     def has_delete_permission(self, request, obj=None):
         return True
@@ -171,11 +175,21 @@ class TagProductMappingInline(admin.TabularInline):
 
     def has_add_permission(self, request, obj=None):
         return True
+    
+    def get_fields (self, request, obj=None, **kwargs):
+        fields = super().get_fields(request, obj, **kwargs)
+        fields.remove('product')
+        fields.append('product')
+        return fields
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     model = Tag
-    inlines = [TagProductMappingInline]
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ('key',)
+        return self.readonly_fields
 
     def has_delete_permission(self, request, obj=None):
         return True

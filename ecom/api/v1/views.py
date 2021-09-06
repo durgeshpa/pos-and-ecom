@@ -9,12 +9,15 @@ from categories.models import Category
 from marketing.models import RewardPoint
 from pos.common_functions import serializer_error, api_response
 from wms.models import PosInventory, PosInventoryState
+from pos.models import RetailerProduct
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
-from ecom.models import Address
-from .serializers import (AccountSerializer, RewardsSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer)
+from ecom.models import Address, Tag, TagProductMapping
+from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
+                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer)
+from pos.models import RetailerProduct
+from retailer_backend.utils import SmallOffsetPagination
 
 
 class AccountView(APIView):
@@ -101,6 +104,12 @@ class AddressView(APIView):
         else:
             return api_response(serializer_error(serializer))
 
+    @validate_address_id
+    @check_ecom_user
+    def delete(self, request, pk):
+        Address.objects.filter(user=self.request.user, id=pk).delete()
+        return api_response('Address removed successfully!', None, status.HTTP_200_OK, True)
+
 
 class AddressListView(ListAPIView):
     permission_classes = (IsAuthenticated,)
@@ -154,44 +163,41 @@ class SubCategoriesView(APIView):
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
+
 class TagView(APIView):
+    """
+    Get list of all tags
+    """
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
     @check_ecom_user
     def get(self, *args, **kwargs):
-        data = [
-            {
-                'id':1,
-                'name':'BestSeller',
-                'position': 1,
-                'status': 'Active'
-            }
-        ]
+        tags = Tag.objects.all()
+        serializer = TagSerializer(tags, many = True)
         is_success = True
-        return api_response('', data, status.HTTP_200_OK, is_success)
+        return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
 
 class TagProductView(APIView):
+    """
+    Get Product by tag id
+    """
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
+    pagination_class = SmallOffsetPagination
 
-    @check_ecom_user
-    def get(self, request, pk):
-        data = {
-            'id': 1,
-            'name':'BestSeller',
-            'position': 1,
-            'status': 'Active',
-            'products': [
-                {
-                    'id': 1,
-                    'name': 'Coco-Cola',
-                    'mrp': 60,
-                    'selling_price': 50,
-                    'image': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIhOKROaarc5SauOE0oL8r3KdTZq_rbJwl2w&usqp=CAU'
-                }
-            ]
-        }
-        is_success = True
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            tag = Tag.objects.get(id=pk)
+        except:
+            return api_response('Invalid Tag Id')
+        shop = kwargs['shop']
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop)
+        is_success, data = False, []
+        if products.count() >= 3:
+            products = self.pagination_class().paginate_queryset(products, self.request)
+            serializer = TagProductSerializer(tag, context={'product': products})
+            is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
-
