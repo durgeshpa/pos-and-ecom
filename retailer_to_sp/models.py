@@ -886,6 +886,8 @@ class Order(models.Model):
     PICKUP_CREATED = 'PICKUP_CREATED'
     PARTIALLY_RETURNED = 'partially_returned'
     FULLY_RETURNED = 'fully_returned'
+    PICKED = 'picked'
+    OUT_FOR_DELIVERY = 'out_for_delivery'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
@@ -915,7 +917,9 @@ class Order(models.Model):
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
         (PARTIALLY_RETURNED, 'Partially Returned'),
-        (FULLY_RETURNED, 'Fully Returned')
+        (FULLY_RETURNED, 'Fully Returned'),
+        (PICKED, 'Picked'),
+        (OUT_FOR_DELIVERY, 'Out For Delivery')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1449,6 +1453,7 @@ class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
+    DELIVERED = "DELIVERED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -1466,6 +1471,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
+        (DELIVERED, 'Delivered')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -2773,7 +2779,7 @@ def update_full_part_order_status(shipment):
 @task
 def assign_update_picker_to_shipment(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
-    if shipment.shipment_status == "SHIPMENT_CREATED":
+    if shipment.shipment_status == "SHIPMENT_CREATED" and shipment.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated
         if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
@@ -2978,7 +2984,7 @@ def populate_data_on_qc_pass(order):
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False:
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
@@ -2986,7 +2992,7 @@ def create_putaway(sender, created=False, instance=None, *args, **kwargs):
 def return_putaway(sender, created=False, instance=None, *args, **kwargs):
     complete_shipment_status = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
                                 'FULLY_DELIVERED_AND_VERIFIED']
-    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status:
+    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         add_to_putaway_on_return(instance.ordered_product_mapping.ordered_product.id)
 
 

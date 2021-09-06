@@ -26,7 +26,7 @@ from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
-                                  check_pos_shop, ProductChangeLogs)
+                                  check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop
 
 from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
@@ -64,6 +64,7 @@ class PosProductView(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         """
             Create Product
@@ -105,6 +106,7 @@ class PosProductView(GenericAPIView):
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         """
             Update product
@@ -276,6 +278,7 @@ class CouponOfferCreation(GenericAPIView):
             return self.get_offers_list(request, shop.id)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         """
             Create Any Offer
@@ -287,6 +290,7 @@ class CouponOfferCreation(GenericAPIView):
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         """
            Update Any Offer
@@ -949,6 +953,7 @@ class VendorView(GenericAPIView):
             return api_response("Vendor not found")
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         data = request.data
         data['retailer_shop'] = kwargs['shop'].id
@@ -960,6 +965,7 @@ class VendorView(GenericAPIView):
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         data = request.data
         data['id'] = kwargs['pk']
@@ -1016,6 +1022,7 @@ class POView(GenericAPIView):
             return api_response("Purchase Order not found")
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data,
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
@@ -1026,6 +1033,7 @@ class POView(GenericAPIView):
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         data = request.data
         data['id'] = kwargs['pk']
@@ -1094,6 +1102,7 @@ class GrnOrderView(GenericAPIView):
             return api_response("GRN Order not found")
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         try:
             data = json.loads(self.request.data["data"])
@@ -1111,6 +1120,7 @@ class GrnOrderView(GenericAPIView):
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         try:
             data = json.loads(self.request.data["data"])
