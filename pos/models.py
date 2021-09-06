@@ -76,6 +76,14 @@ class RetailerProduct(models.Model):
         return self.selling_price
 
     def save(self, *args, **kwargs):
+        # Discounted
+        if self.sku_type != 4 and hasattr(self, 'discounted_product'):
+            discounted = self.discounted_product
+            discounted.name = self.name
+            discounted.description = self.description
+            discounted.product_ean_code = self.product_ean_code
+            discounted.mrp = self.mrp
+            discounted.save()
         super(RetailerProduct, self).save(*args, **kwargs)
 
     class Meta:

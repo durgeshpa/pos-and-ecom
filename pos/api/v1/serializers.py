@@ -167,7 +167,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
         if attrs['ean_not_available']:
             attrs['product_ean_code'] = None
-        elif attrs['product_ean_code'] is not None:
+        elif attrs['ean_not_available'] is not None and not attrs['product_ean_code']:
             raise serializers.ValidationError("Please provide EAN Code")
 
         product = RetailerProduct.objects.filter(id=pid, shop_id=shop_id).last()
