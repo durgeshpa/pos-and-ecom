@@ -149,6 +149,12 @@ class UserSerializers(serializers.ModelSerializer):
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
+class GRNOrderSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = GRNOrder
+        fields = ('id', 'grn_id', 'created_at',)
+
+
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
@@ -914,6 +920,9 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
 
     def get_putaway_user(self, obj):
         return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+
+    def get_grn_id(self, obj):
+        return GRNOrderSerializers(GRNOrder.objects.get(id=obj['grn_id']), read_only=True).data
 
 
 class PutawayItemsCrudSerializer(serializers.ModelSerializer):
