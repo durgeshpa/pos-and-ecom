@@ -911,27 +911,21 @@ class ProductChangeAdmin(admin.ModelAdmin):
 
 class PosReturnItemsAdmin(admin.TabularInline):
     model = PosReturnItems
-    fields = ('grn_return_id', 'product', 'return_qty')
+    fields = ('grn_return_id', 'product', 'return_qty',)
     autocomplete_fields = ('product',)
 
     def has_delete_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request, obj=None):
         return False
 
 
 @admin.register(PosReturnGRNOrder)
 class PosReturnGRNOrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'pr_number',  'status', 'last_modified_by', 'created_at', 'modified_at')
-    fields = ('pr_number',  'status', 'last_modified_by', )
+    fields = ('pr_number',  'status', )
     list_per_page = 10
     inlines = [PosReturnItemsAdmin]
 
     def has_delete_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request, obj=None):
         return False
 
 

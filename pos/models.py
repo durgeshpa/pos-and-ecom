@@ -402,7 +402,8 @@ class InventoryChangePos(PosInventoryChange):
 
 
 class PosReturnGRNOrder(models.Model):
-    RETURN_STATUS = Choices((0, 'RETURNED', 'Returned'), (1, 'CANCELLED', 'Cancelled'))
+    RETURNED, CANCELLED = 'RETURNED', 'CANCELLED'
+    RETURN_STATUS = Choices((RETURNED, 'Returned'), (CANCELLED, 'Cancelled'))
     pr_number = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
     grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=False,

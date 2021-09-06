@@ -1236,15 +1236,10 @@ class GetGrnOrderListView(ListAPIView):
         # search using PO number, GRN invoice number and product name on criteria that matches
         if search_text:
             grn_order = grn_product_search(grn_order, search_text.strip())
-
         if grn_order:
             return api_response('', self.serializer_class(grn_order, many=True).data, status.HTTP_200_OK, True)
         else:
             return api_response("GRN Order not found")
-
-    def search_filter_grn_order(self):
-
-        return self.queryset
 
 
 class GrnReturnOrderView(GenericAPIView):
@@ -1253,11 +1248,11 @@ class GrnReturnOrderView(GenericAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
-        grn_order = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop']).\
+        grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop']).\
             prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
             select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
-        if grn_order:
-            serializer = ReturnGrnOrderSerializer(grn_order, many=True)
+        if grn_return:
+            serializer = ReturnGrnOrderSerializer(grn_return, many=True)
             return api_response('', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response("Return GRN Order not found")
@@ -1265,23 +1260,28 @@ class GrnReturnOrderView(GenericAPIView):
     @check_pos_shop
     def post(self, request, *args, **kwargs):
         serializer = ReturnGrnOrderSerializer(data=request.data,
-                                              context={'user': self.request.user, 'shop': kwargs['shop']})
+                                              context={'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.save()
-            return api_response('GRN returned successfully!', None, status.HTTP_200_OK, True)
+            serializer.save(last_modified_by=request.user)
+            return api_response('GRN returned successfully!', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
+        info_logger.info("Return Order Product PUT api called.")
+        if 'id' not in request.data:
+            return api_response('please provide id to update return order product', False)
+
+        # validations for input id
         try:
-            data = json.loads(self.request.data["data"])
+            id_instance = PosReturnGRNOrder.objects.get(id=int(request.data['id']))
         except:
-            return api_response("Invalid Data Format")
-        serializer = PosGrnOrderUpdateSerializer(data=request.data,
-                                                 context={'user': self.request.user, 'shop': kwargs['shop']})
+            return api_response('please provide a valid id')
+        serializer = ReturnGrnOrderSerializer(instance=id_instance, data=request.data,
+                                              context={'shop': kwargs['shop']})
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(last_modified_by=request.user)
             return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
