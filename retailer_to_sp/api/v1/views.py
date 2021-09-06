@@ -305,6 +305,9 @@ class SearchProducts(APIView):
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+        must_not = dict()
+        if int(self.request.GET.get('ean_not_available', '0')) == 1:
+            must_not = {"exists": {"field": "ean"}}
 
         if keyword:
             keyword = keyword.strip()
@@ -320,9 +323,14 @@ class SearchProducts(APIView):
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
         elif query_string:
-            body['query'] = {"query_string": query_string}
+            body['query'] = {"bool": {"must": {"query_string": query_string}}}
         elif filter_list:
             body['query'] = {"bool": {"filter": filter_list}}
+        if must_not:
+            if body and body['query']:
+                body['query']['bool']['must_not'] = must_not
+            else:
+                body['query'] = {"bool": {"must_not": must_not}}
         return self.process_rp(output_type, body, shop_id)
 
     @check_pos_shop
