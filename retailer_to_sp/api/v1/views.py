@@ -301,24 +301,28 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         body = dict()
-        query = dict()
+        filter_list = []
+        query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            query = {"bool": {"filter": [{"term": {"is_discounted": False}}]}}
+            filter_list = [{"term": {"is_discounted": False}}]
 
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
+                query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"],
-                                         "minimum_should_match": 2}
-        if query:
-            body['query'] = query
+                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+        if filter_list and query_string:
+            body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
+        elif query_string:
+            body['query'] = {"query_string": query_string}
+        elif filter_list:
+            body['query'] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
     @check_pos_shop
