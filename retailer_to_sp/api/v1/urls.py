@@ -8,7 +8,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication
+                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
+                    ShipmentView
                     )
 
 router = routers.DefaultRouter()
@@ -49,6 +50,8 @@ urlpatterns = [
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
+    # Shipment
+    url(r'^ecom-shipment/', ShipmentView.as_view(), name='ecom-shipment'),
     # OTHERS
     url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoiceSP.as_view(), name='download_invoice_sp'),
     url('^customer-care-form/$', CustomerCareApi.as_view(), name='customer_care_form'),

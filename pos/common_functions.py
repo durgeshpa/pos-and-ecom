@@ -36,8 +36,19 @@ ORDER_STATUS_MAP = {
 
 ONLINE_ORDER_STATUS_MAP = {
     1: [Order.ORDERED],
-    2: [Order.PICKING_COMPLETE, Order.DISPATCHED],
+    2: [Order.OUT_FOR_DELIVERY, Order.PICKUP_CREATED, Order.PICKUP_CREATED],
     3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED],
+    4: [Order.CANCELLED]
+}
+
+ECOM_ORDER_STATUS_MAP = {
+    1: [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKUP_CREATED],
+    2: [Order.OUT_FOR_DELIVERY],
+    3: [Order.DELIVERED],
+    4: [Order.PARTIALLY_RETURNED],
+    5: [Order.FULLY_RETURNED],
+    6: [Order.CLOSED],
+    7: [Order.CANCELLED]
 }
 
 # Logger
@@ -599,6 +610,17 @@ def pos_check_permission(view_func):
     return _wrapped_view_func
 
 
+def pos_check_permission_delivery_person(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type__in=['manager', 'cashier']).exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
@@ -642,7 +664,7 @@ class PosAddToCart(object):
             # Check if existing or new cart
             cart = None
             if cart_id:
-                cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+                cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
                 if not cart:
                     return api_response("Cart Doesn't Exist")
                 elif cart.cart_status == Cart.ORDERED:
@@ -755,7 +777,7 @@ class PosAddToCart(object):
             # Product check
             try:
                 product = RetailerProduct.objects.get(id=request.data.get('product_id'), status='active',
-                                                      shop=kwargs['shop'])
+                                                      shop=kwargs['shop'], online_enabled=True)
             except ObjectDoesNotExist:
                 return api_response("Product Not Found!")
 

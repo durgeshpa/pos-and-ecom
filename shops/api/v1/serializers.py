@@ -670,10 +670,11 @@ class PosShopUserMappingCreateSerializer(serializers.ModelSerializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = serializers.CharField(validators=[phone_regex], max_length=10, required=True)
     user_type = ChoiceField(choices=USER_TYPE_CHOICES)
+    is_delivery_person = serializers.BooleanField()
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('phone_number', 'user_type')
+        fields = ('phone_number', 'user_type', 'is_delivery_person')
 
     def validate(self, attrs):
         try:
@@ -689,17 +690,19 @@ class PosShopUserMappingCreateSerializer(serializers.ModelSerializer):
         user = User.objects.get(phone_number=validated_data['phone_number'])
         return PosShopUserMapping.objects.create(shop=self.context.get('shop'), user=user,
                                                  user_type=validated_data['user_type'],
-                                                 created_by=self.context.get('created_by'))
+                                                 created_by=self.context.get('created_by'),
+                                                 is_delivery_person=validated_data['is_delivery_person'])
 
 
 class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField()
     user_type = serializers.ChoiceField(choices=['cashier', 'manager'], required=False)
     status = serializers.BooleanField(required=False)
+    is_delivery_person = serializers.BooleanField(required=False)
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('id', 'user_type', 'status')
+        fields = ('id', 'user_type', 'status', 'is_delivery_person')
 
     def validate(self, attrs):
         if not PosShopUserMapping.objects.filter(id=attrs['id'], shop=self.context.get('shop')).exists():
@@ -711,5 +714,6 @@ class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
         mapping = PosShopUserMapping.objects.get(id=instance_id)
         mapping.user_type = validated_data['user_type'] if 'user_type' in validated_data else mapping.user_type
         mapping.status = validated_data['status'] if 'status' in validated_data else mapping.status
+        mapping.is_delivery_person = validated_data['is_delivery_person'] if 'is_delivery_person' in validated_data else mapping.is_delivery_person
         mapping.save()
 

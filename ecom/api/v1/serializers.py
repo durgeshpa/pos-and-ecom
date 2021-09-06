@@ -297,47 +297,81 @@ class TagProductSerializer(serializers.ModelSerializer):
 class EcomShipmentProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(min_value=1)
     picked_qty = serializers.IntegerField(min_value=0)
-    product_type = serializers.ChoiceField(choices=[1, 0])
 
 
-class EcomShipmentSerializer(serializers.ModelSerializer):
-    products = EcomShipmentProductSerializer(many=True)
+class EcomShipmentSerializer(serializers.Serializer):
     order_id = serializers.IntegerField(required=True)
+    products = EcomShipmentProductSerializer(many=True)
 
     def validate(self, attrs):
         shop = self.context.get('shop')
         # check if order exists
         order_id = attrs['order_id']
-        order = Order.objects.filter(pk=order_id, seller_shop=shop, order_status='ordered',
+        order = Order.objects.filter(pk=order_id, seller_shop=shop, order_status__in=['ordered', 'PICKUP_CREATED'],
                                      ordered_cart__cart_type='ECOM').last()
         if not order:
-            raise serializers.ValidationError("Invalid Order Id")
+            raise serializers.ValidationError("Order already picked/invalid")
 
-        order_products = {str(i['retailer_product_id']) + "_" + str(i['product_type']): (
-            i['retailer_product_id'], i['qty'], i['selling_price'], i['product_type']) for i in
-            CartProductMapping.objects.filter(cart=order.ordered_cart)}
+        order_products = {str(i.retailer_product_id): (
+            i.retailer_product_id, i.qty, i.selling_price) for i in
+            CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1)}
 
         # validate given picked products info
         products_info = attrs['products']
         given_products = []
         for item in products_info:
-            key = str(item['product_id']) + "_" + str(item['product_type'])
+            key = str(item['product_id'])
             if key not in order_products:
                 raise serializers.ValidationError("{} Invalid product info")
-            if item['picked_qty'] > order_products[item['product_id']][1]:
+            if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
 
             given_products += [key]
-            item['selling_price'] = order_products[item['product_id']][2]
+            item['selling_price'] = order_products[key][2]
+            item['product_type'] = 1
 
+        offers = order.ordered_cart.offers
+        product_combo_map = {}
+        cart_free_product = {}
+        if offers:
+            for offer in offers:
+                if offer['type'] == 'combo':
+                    product_combo_map[int(offer['item_id'])] = product_combo_map[int(offer['item_id'])] + [offer] \
+                        if int(offer['item_id']) in product_combo_map else [offer]
+                if offer['type'] == 'free_product':
+                    cart_free_product = offer
+
+        total_price = 0
         for prod in order_products:
             if prod not in given_products:
                 products_info.append({
                     "product_id": int(order_products[prod][0]),
                     "picked_qty": 0,
-                    "product_type": int(order_products[prod][3]),
-                    "selling_price": int(order_products[prod][2])
+                    "selling_price": int(order_products[prod][2]),
+                    "product_type": 1
                 })
+
+        for product in products_info:
+            if product['product_id'] in product_combo_map:
+                for offer in product_combo_map[product['product_id']]:
+                    purchased_product_multiple = int(int(product['picked_qty']) / int(offer['item_qty']))
+                    picked_free_item_qty = int(purchased_product_multiple * int(offer['free_item_qty']))
+                    products_info.append({
+                        "product_id": int(offer['free_item_id']),
+                        "picked_qty": picked_free_item_qty,
+                        "selling_price": 0,
+                        "product_type": 0
+                    })
+            total_price += product['selling_price'] * product['picked_qty']
+
+        if cart_free_product:
+            qty = cart_free_product['free_item_qty'] if cart_free_product['cart_minimum_value'] <= total_price else 0
+            products_info.append({
+                "product_id": int(cart_free_product['free_item_id']),
+                "picked_qty": qty,
+                "selling_price": 0,
+                "product_type": 0
+            })
 
         attrs['products'] = products_info
         return attrs
