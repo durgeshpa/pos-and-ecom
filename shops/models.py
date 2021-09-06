@@ -542,6 +542,7 @@ class PosShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='pos_shop', on_delete=models.CASCADE)
     user = models.ForeignKey(get_user_model(), related_name='pos_shop_user', on_delete=models.CASCADE)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default="cashier")
+    is_delivery_person = models.BooleanField(default=False)
     status = models.BooleanField(default=True)
     created_by = models.ForeignKey(get_user_model(), related_name='pos_shop_created_by', null=True, blank=True,
                                    on_delete=models.DO_NOTHING)

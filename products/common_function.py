@@ -256,6 +256,20 @@ class ProductCls(object):
 
         return weight_log
 
+    @classmethod
+    def create_product_vendor_map_log(cls, log_obj, action):
+        """
+            Create Product Vendor Mapping Log
+        """
+        action, create_updated_by = created_updated_by(log_obj, action)
+        product_vendor_map_log = CentralLog.objects.create(product_vendor_map=log_obj, updated_by=create_updated_by,
+                                                           action=action)
+        dict_data = {'updated_by': product_vendor_map_log.updated_by, 'update_at': product_vendor_map_log.update_at,
+                     'product_vendor_map': log_obj}
+        info_logger.info("product vendor mapping update info ", dict_data)
+
+        return product_vendor_map_log
+
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
     """

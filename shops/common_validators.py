@@ -347,17 +347,20 @@ def validate_pin_code(queryset, id):
 
 def get_validate_state_id(id):
     """ validate id that belong to State model """
-    state = State.objects.get(id=id)
-    if not state:
+    try:
+        state = State.objects.get(id=id)
+    except:
         return {'error': 'please provide a valid state id'}
     return {'data': state}
 
 
 def get_validate_city_id(id):
     """ validate id that belong to State model """
-    city = City.objects.get(id=id)
-    if not city:
+    try:
+        city = City.objects.get(id=id)
+    except:
         return {'error': 'please provide a valid city id'}
+
     return {'data': city}
 
 
@@ -370,8 +373,9 @@ def get_validate_address_type(add_type):
 
 def get_validate_pin_code(id):
     """ validate id that belong to State model """
-    pincode = Pincode.objects.get(id=id)
-    if not pincode:
+    try:
+        pincode = Pincode.objects.get(id=id)
+    except:
         return {'error': 'please provide a valid pincode id'}
     return {'data': pincode}
 
@@ -381,6 +385,39 @@ def validate_shop_owner_id(queryset, id):
     if not queryset.filter(shop_owner__id=id).exists():
         return {'error': 'please provide a valid shop_owner id'}
     return {'data': queryset.filter(shop_owner__id=id)}
+
+
+def validate_psu_id(queryset, id):
+    """ validation only ids that belong to a selected related model """
+    try:
+        return {'data': queryset.get(id=id)}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_psu_put(data):
+    """ validation only ids that belong to a selected related model """
+    try:
+        instance = PosShopUserMapping.objects.get(id=data['id'])
+        if 'shop' in data:
+            if not instance.shop.id == data['shop']:
+                return {'error': 'Invalid shop for mapped id.'}
+        if 'user' in data:
+            if not instance.user.id == data['user']:
+                return {'error': 'Invalid user for mapped id.'}
+        return {'data': instance}
+    except:
+        return {'error': 'please provide a valid id'}
+
+
+def validate_data_format_without_json(request):
+    """ Validate shop data  """
+    try:
+        data = request.data["data"]
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    return data
 
 
 def get_validate_user(user_id):
@@ -705,7 +742,7 @@ def read_beat_planning_file(executive, csv_file, upload_type):
     csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
     if upload_type == "beat_planning":
         required_header_list = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number', 'address_line1',
-                                'pincode', 'category', 'date']
+                                'pincode', 'priority', 'date']
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
@@ -728,7 +765,7 @@ def check_beat_planning_mandatory_columns(executive, uploaded_data_list, header_
     row_num = 1
     if upload_type == "beat_planning":
         mandatory_columns = ['employee_phone_number',
-                             'shop_id', 'category', 'date']
+                             'shop_id', 'priority', 'date']
         for ele in mandatory_columns:
             if ele not in header_list:
                 raise ValidationError(
@@ -748,11 +785,11 @@ def check_beat_planning_mandatory_columns(executive, uploaded_data_list, header_
                 raise ValidationError(
                     f"Row {row_num} | {row['shop_id']} | Shop not mapped to the selected Sales executive")
 
-            if 'category' not in row.keys() or str(row['category']).strip() == '':
+            if 'priority' not in row.keys() or str(row['priority']).strip() == '':
                 raise ValidationError(
-                    f"Row {row_num} | 'category' can't be empty")
-            if not (any(str(row['category']).strip() in i for i in DayBeatPlanning.shop_category_choice)):
-                raise ValidationError(f"Row {row_num} | {row['category']} | 'category' doesn't exist in the "
+                    f"Row {row_num} | 'priority' can't be empty")
+            if not (any(str(row['priority']).strip() in i for i in DayBeatPlanning.shop_category_choice)):
+                raise ValidationError(f"Row {row_num} | {row['priority']} | 'priority' doesn't exist in the "
                                       f"system.")
 
             if 'date' not in row.keys() or row['date'] == '':
@@ -773,6 +810,8 @@ def get_executive_shops(executive):
     if shops:
         shop_ids = [sp['id'] for sp in shops]
     return shop_ids
+
+
 def get_validate_shop(shop_id):
     try:
         shop = Shop.objects.get(id=shop_id)
@@ -786,6 +825,7 @@ def get_validate_user_type(user_type):
     if not (any(user_type in i for i in USER_TYPE_CHOICES)):
         return {'error': 'please provide a valid User Type'}
     return {'data': user_type}
+
 
 def validate_mapping(data, shop):
     if 'user' in data and data['user'] and \

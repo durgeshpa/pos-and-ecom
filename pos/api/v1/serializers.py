@@ -476,7 +476,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('payment_type', 'transaction_id',)
+        fields = ('payment_type', 'transaction_id', 'amount')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
@@ -499,9 +499,9 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return ordered_product.invoice_amount if ordered_product else obj.order_amount
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.filter(payment_type__enabled=True).exists():
+        if not obj.rt_payment_retailer_order.exists():
             return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.filter(payment_type__enabled=True).last()).data
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
     class Meta:
         model = Order
@@ -1181,6 +1181,9 @@ class BasicCartUserViewSerializer(serializers.Serializer):
         if not re.match(r'^[6-9]\d{9}$', phone_number):
             raise serializers.ValidationError("Please provide a valid phone number")
 
+        if phone_number == '9999999999' and attrs.get('is_mlm'):
+            raise serializers.ValidationError("Default Number (9999999999) cannot be registered for rewards!")
+
         user = User.objects.filter(phone_number=phone_number).last()
         if user and ReferralCode.is_marketing_user(user) and attrs.get('is_mlm'):
             raise serializers.ValidationError("User is already registered for rewards.")
@@ -1448,9 +1451,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
             'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
-        payment_obj = obj.rt_payment_retailer_order.all().last()
-        order_summary['payment_type'] = payment_obj.payment_type.type
-        order_summary['transaction_id'] = payment_obj.transaction_id
+        order_summary['payments'] = PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
         return order_summary
 
     @staticmethod
@@ -1558,7 +1559,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
+        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
+                  'delivery_person')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -1684,9 +1686,13 @@ class POSerializer(serializers.ModelSerializer):
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
                 product_id__in=updated_pid).delete()
-            po_status = cart.status
-            if PosCartProductMapping.objects.filter(cart=cart, is_grn_done=True).exists() and updated_pid:
-                po_status = PosCart.PARTIAL_DELIVERED
+            # status po
+            total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=cart.pos_po_order).aggregate(
+                Sum('received_qty')).get('received_qty__sum')
+            total_grn_qty = total_grn_qty if total_grn_qty else 0
+            po_status = PosCart.PARTIAL_DELIVERED if total_grn_qty > 0 else PosCart.OPEN
+            total_po_qty = PosCartProductMapping.objects.filter(cart=cart).aggregate(Sum('qty')).get('qty__sum')
+            po_status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             cart.last_modified_by, cart.status = user, po_status
             cart.save()
             if validated_data['send_mail']:
@@ -2086,7 +2092,7 @@ class PosShopUserMappingListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('id', 'phone_number', 'name', 'email', 'user_type', 'status')
+        fields = ('id', 'user_id', 'phone_number', 'name', 'email', 'user_type', 'status')
 
 
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -2284,8 +2290,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_address(obj):
-        address = obj.ecom_address_order.last()
-        return EcomOrderAddressSerializer(address)
+        if obj.ordered_cart.cart_type == 'ECOM' and hasattr(obj, 'ecom_address_order'):
+            return EcomOrderAddressSerializer(obj.ecom_address_order)
+        return None
 
     class Meta:
         model = Order

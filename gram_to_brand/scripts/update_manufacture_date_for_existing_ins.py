@@ -22,7 +22,7 @@ def update_existing_ins():
             ins_obj.save()
             print(cnt, "Updated manufactured date:", mapping.manufacture_date, " for In id: ", ins_obj.id)
         else:
-            print(cnt, "No manufacture_date exist for GRN id: ", mapping.id)
+            print(cnt, "No manufacture_date exist for GRN id: ", mapping)
 
 def get_all_non_manufacturing_date_ins(in_type):
     """

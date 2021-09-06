@@ -1,17 +1,26 @@
-import logging
-import io
-import datetime
+import codecs
 import csv
+import datetime
+import io
+import logging
+import math
+
+from django.db import transaction
 from django.db.models import Q
 
-from brand.models import Brand
-from categories.models import Category
-from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    Repackaging, DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping
-
-from products.common_function import ParentProductCls, ProductCls
-from categories.common_function import CategoryCls
 from brand.common_function import BrandCls
+from brand.models import Brand
+from categories.common_function import CategoryCls
+from categories.models import Category
+from products.common_function import ParentProductCls, ProductCls
+from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
+    DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
+    SlabProductPrice, PriceSlab, DiscountedProductPrice, ProductPrice
+from products.utils import get_selling_price
+from retailer_backend.utils import getStrToDate, getStrToYearDate
+from global_config.views import get_config
+from shops.models import Shop
+from wms.models import BinInventory, In
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -227,7 +236,7 @@ class UploadMasterData(object):
                     fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
                               'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
-                              'max_inventory_in_days', 'is_lead_time_applicable']
+                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
 
                     available_fields = []
                     for col in fields:
@@ -287,6 +296,11 @@ class UploadMasterData(object):
                         if col == 'is_ars_applicable':
                             parent_product.update(
                                 is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False)
+
+                        if col == 'discounted_life_percent':
+                            parent_product.update(
+                                discounted_life_percent=float(row['discounted_life_percent']) if not
+                                row['discounted_life_percent'] is None else 0.0)
 
                         if col == 'max_inventory_in_days':
                             parent_product.update(max_inventory=int(row['max_inventory_in_days']))
@@ -359,16 +373,14 @@ class UploadMasterData(object):
                     if 'weight_value' in row and row['weight_value']:
                         child_obj['weight_value'] = float(row['weight_value'])
 
-                    if 'repackaging_type' in row and row['repackaging_type']:
-                        child_obj['repackaging_type'] = row['repackaging_type']
-
                     if 'product_special_cess' in row and row['product_special_cess']:
                         child_obj['product_special_cess'] = float(row['product_special_cess']) if row[
                             'product_special_cess'] else None
 
                     if 'repackaging_type' in row and row['repackaging_type']:
                         child_obj['repackaging_type'] = row['repackaging_type']
-                        if row['repackaging_type'] ==    'destination':
+
+                        if row['repackaging_type'] == 'destination':
                             if 'raw_material' in row and row['raw_material']:
                                 dest_obj['raw_material'] = float(row['raw_material'])
 
@@ -418,7 +430,11 @@ class UploadMasterData(object):
                             ProductPackingMapping.objects.update_or_create(sku=child_pro.last(), defaults=pack_obj)
 
                         child_pro.update(**child_obj)
-                        ProductCls.create_child_product_log(child_pro.last(), "updated")
+                        if 'repackaging_type' in row and row['repackaging_type']:
+                            if row['repackaging_type'] == 'packing_material':
+                                ProductCls.update_weight_inventory(child_pro.last())
+
+                    ProductCls.create_child_product_log(child_pro.last(), "updated")
 
                 except Exception as e:
                     set_child.append(str(row_num))
@@ -539,10 +555,11 @@ class UploadMasterData(object):
                     product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
-                    ptr_type=(None if not row[
-                                              'is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                    ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
                     ptr_percent=(None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent']),
+                    discounted_life_percent=(0.0 if not row['discounted_life_percent'] else
+                                             float(row['discounted_life_percent'])),
                     is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False,
                     max_inventory=int(row['max_inventory_in_days']),
                     brand_case_size=int(row['brand_case_size']),
@@ -551,7 +568,6 @@ class UploadMasterData(object):
                     created_by=user
                 )
                 ParentProductCls.create_parent_product_log(parent_product, "created")
-
                 parent_gst = int(row['gst'])
                 ParentProductTaxMapping.objects.create(
                     parent_product=parent_product,
@@ -612,6 +628,9 @@ class UploadMasterData(object):
                         None if str(row['product_special_cess']).strip() == '' else float(row['product_special_cess'])))
 
                 ProductCls.create_child_product_log(child_product, "created")
+
+                if row['repackaging_type'] == 'packing_material':
+                    ProductCls.update_weight_inventory(child_product)
 
                 if row['repackaging_type'] == 'destination':
                     source_map = []
@@ -832,14 +851,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge",
-                   "inner_case_size",
-                   "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
-                   "is_ars_applicable", "max_inventory_in_days", "is_lead_time_applicable", "status"]
+                   "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                   "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
+                   "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "deactivated"],
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "123456", "18", "12", "100",
-                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "yes", "active"]]
+                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -984,8 +1003,8 @@ class DownloadMasterData(object):
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                    'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-                   'is_ptr_applicable', 'ptr_type',
-                   'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', ]
+                   'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                   'is_lead_time_applicable', 'discounted_life_percent']
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
@@ -1007,7 +1026,8 @@ class DownloadMasterData(object):
                                                                'parent_product__ptr_percent',
                                                                'parent_product__is_ars_applicable',
                                                                'parent_product__max_inventory',
-                                                               'parent_product__is_lead_time_applicable').filter(
+                                                               'parent_product__is_lead_time_applicable',
+                                                               'parent_product__discounted_life_percent',).filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
 
         for product in parent_products:
@@ -1052,7 +1072,7 @@ class DownloadMasterData(object):
                 row.append(product['category__category_parent_id'])
                 row.append(product['category__category_parent__category_name'])
 
-            if product['parent_product__status'] == True:
+            if product['parent_product__status']:
                 row.append("active")
             else:
                 row.append("deactivated")
@@ -1062,6 +1082,7 @@ class DownloadMasterData(object):
             row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
             row.append(product['parent_product__max_inventory'])
             row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
+            row.append(product['parent_product__discounted_life_percent'])
 
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
@@ -1106,3 +1127,176 @@ class DownloadMasterData(object):
         info_logger.info("Update Brand Sample CSVExported successfully ")
         response.seek(0)
         return response
+
+
+def create_product_vendor_mapping_sample_file(validated_data, req_type):
+    response, writer = DownloadMasterData.response_workbook("create_product_vendor_mapping_sample")
+    columns = ['id', 'product_name', 'product_sku', 'brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size']
+    writer.writerow(columns)
+
+    pro_vendor_map = ProductVendorMapping.objects.filter(vendor=validated_data['vendor_id'])
+    products_vendors = pro_vendor_map.only('product', 'vendor', 'brand_to_gram_price_unit', 'product_price',
+                                           'product_price_pack', 'case_size')
+    if req_type == 0:
+        for product_vendor in products_vendors:
+            if product_vendor.status:
+                if product_vendor.brand_to_gram_price_unit == "Per Piece":
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                     product_vendor.product.product_sku, product_vendor.brand_to_gram_price_unit,
+                                     product_vendor.product_price, product_vendor.case_size])
+                else:
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name,
+                                     product_vendor.product.product_sku, product_vendor.brand_to_gram_price_unit,
+                                     product_vendor.product_price_pack, product_vendor.case_size])
+    else:
+        if products_vendors:
+            product_id = pro_vendor_map.values('product')
+            products = Product.objects.filter(status="active").exclude(id__in=product_id).only('id', 'product_name',
+                                                                                               'product_sku')
+            for product in products:
+                writer.writerow([product.id, product.product_name, product.product_sku, '', '',
+                                 product.product_case_size])
+        else:
+            products = Product.objects.filter(status="active").only('id', 'product_name', 'product_sku', 'product_mrp')
+            for product in products:
+                writer.writerow([product.id, product.product_name, product.product_sku, '', '',
+                                 product.product_case_size])
+    info_logger.info("Create Product Vendor Mapping Sample CSVExported successfully ")
+    response.seek(0)
+    return response
+
+
+def create_bulk_product_vendor_mapping(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            if row[3].lower() == "per piece":
+                product_vendor = ProductVendorMapping.objects.create(
+                    vendor=validated_data['vendor_id'],
+                    product=Product.objects.get(id=int(row[0])),
+                    product_mrp=Product.objects.get(id=int(row[0])).product_mrp,
+                    brand_to_gram_price_unit=row[3].title(),
+                    product_price=row[4],
+                    case_size=row[5],
+                )
+            else:
+                product_vendor = ProductVendorMapping.objects.create(
+                    vendor=validated_data['vendor_id'],
+                    product=Product.objects.get(id=int(row[0])),
+                    product_mrp=Product.objects.get(id=int(row[0])).product_mrp,
+                    brand_to_gram_price_unit=row[3].title(),
+                    product_price_pack=row[4],
+                    case_size=row[5],
+                )
+            product_vendor.save()
+    except Exception as e:
+        error_logger.info(f"Something went wrong, while working with create Product Vendor Mapping "
+                          f" + {str(e)}")
+
+
+def create_bulk_product_slab_price(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    date_pattern = "%d-%m-%Y"
+    try:
+        for row_id, row in enumerate(reader):
+            product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
+            seller_shop_id = Shop.objects.get(id=int(row[2]))
+
+            # Create ProductPrice
+            product_price = SlabProductPrice(product=product, mrp=product.product_mrp, seller_shop=seller_shop_id)
+            product_price.save()
+
+            # Get selling price applicable for first price slab
+            if product.parent_product.is_ptr_applicable:
+                selling_price = get_selling_price(product)
+            else:
+                selling_price = float(row[6])
+
+            # Create Price Slab 1
+            price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
+                                     selling_price=selling_price)
+            if row[7]:
+                price_slab_1.offer_price = float(row[7])
+                price_slab_1.offer_price_start_date = getStrToYearDate(row[8], date_pattern).strftime('%Y-%m-%d')
+                price_slab_1.offer_price_end_date = getStrToYearDate(row[9], date_pattern).strftime('%Y-%m-%d')
+            price_slab_1.save()
+
+            # If slab 1 quantity is Zero then slab is not to be created
+            if int(row[5]) == 0:
+                continue
+            # Create Price Slab 2
+            price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
+                                     selling_price=float(row[11]))
+            if row[12]:
+                price_slab_2.offer_price = float(row[12])
+                price_slab_2.offer_price_start_date = getStrToYearDate(row[13], date_pattern).strftime('%Y-%m-%d')
+                price_slab_2.offer_price_end_date = getStrToYearDate(row[14], date_pattern).strftime('%Y-%m-%d')
+            price_slab_2.save()
+        #
+        # return validated_data
+    except Exception as e:
+        msg = "Unable to create price for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg
+
+
+def create_bulk_product_discounted_price(validated_data):
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            with transaction.atomic():
+                product = Product.objects.filter(product_sku=str(row[0]).strip()).last()
+                seller_shop_id = int(row[2])
+                seller_shop = Shop.objects.filter(pk=seller_shop_id).last()
+
+                if not product.is_manual_price_update:
+                    original_prod = product.product_ref
+                    bin_inventory = BinInventory.objects.filter(sku=product,
+                                                                inventory_type__inventory_type='normal',
+                                                                quantity__gt=0).last()
+                    latest_in = In.objects.filter(sku=bin_inventory.sku.product_ref,
+                                                  batch_id=bin_inventory.batch_id).order_by('-modified_at')
+                    expiry_date = latest_in[0].expiry_date
+                    manufacturing_date = latest_in[0].manufacturing_date
+                    product_life = expiry_date - manufacturing_date
+                    remaining_life = expiry_date - datetime.date.today()
+                    discounted_life = math.floor(
+                        product_life.days * original_prod.parent_product.discounted_life_percent / 100)
+                    product_price = original_prod.product_pro_price.filter(seller_shop=seller_shop,
+                                                                           approval_status=ProductPrice.APPROVED).last()
+                    base_price_slab = product_price.price_slabs.filter(end_value=0).last()
+                    base_price = base_price_slab.ptr
+
+                    half_life = (discounted_life - 2) / 2
+
+                    if remaining_life.days <= half_life:
+                        selling_price = round(
+                            base_price * int(get_config('DISCOUNTED_HALF_LIFE_PRICE_PERCENT', 50)) / 100, 2)
+                    else:
+                        selling_price = round(
+                            base_price * int(get_config('DISCOUNTED_PRICE_PERCENT', 75)) / 100, 2)
+
+                else:
+                    selling_price = float(row[4])
+
+                # Create Product Price
+                product_price = DiscountedProductPrice(product=product, mrp=product.product_mrp,
+                                                       seller_shop_id=seller_shop_id,
+                                                       selling_price=selling_price,
+                                                       start_date=datetime.datetime.today(),
+                                                       approval_status=ProductPrice.APPROVED)
+                product_price.save()
+
+                # Create Price for discounted Product
+                discounted_product_price = PriceSlab(product_price=product_price, selling_price=selling_price,
+                                                     start_value=0, end_value=0)
+                discounted_product_price.save()
+
+    except Exception as e:
+        msg = "Unable to create price for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg
+

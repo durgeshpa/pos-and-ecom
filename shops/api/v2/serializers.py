@@ -167,8 +167,7 @@ class ShopDocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopDocument
-        fields = ('id', 'shop_document_type',
-                  'shop_document_number', 'shop_document_photo',)
+        fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo',)
 
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
@@ -1069,7 +1068,7 @@ class BeatPlanningSampleCSVSerializer(serializers.ModelSerializer):
 
         meta = ShopUserMapping._meta
         field_names = ['employee_phone_number', 'employee_first_name', 'shop_name', 'shop_id', 'address_contact_number',
-                       'address_line1', 'pincode', 'category', 'date (dd/mm/yyyy)']
+                       'address_line1', 'pincode', 'priority', 'date (dd/mm/yyyy)']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1105,7 +1104,7 @@ class BeatPlanningExportAsCSVSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         meta = BeatPlanning._meta
         field_names = ["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
-                       "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yyyy)", "Status"]
+                       "Contact Number", "Address", "Pin Code", "Priority", "Date (dd/mm/yyyy)", "Status"]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
@@ -1166,8 +1165,7 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
         if csv_file_data:
             read_beat_planning_file(executive, csv_file_data, "beat_planning")
         else:
-            raise serializers.ValidationError(
-                "CSV File cannot be empty.Please add some data to upload it!")
+            raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
 
         return data
 

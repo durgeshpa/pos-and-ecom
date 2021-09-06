@@ -137,6 +137,7 @@ class Payment(models.Model):
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,
                                      on_delete=models.DO_NOTHING)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

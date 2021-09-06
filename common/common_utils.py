@@ -12,6 +12,7 @@ from io import BytesIO
 from decouple import config
 
 # django imports
+from django.utils.http import urlencode
 from django.http import HttpResponse
 from celery.task import task
 
@@ -187,6 +188,8 @@ def whatsapp_opt_in(phone_number, shop_name, media_url, file_name):
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
@@ -215,11 +218,13 @@ def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Thank you for shopping at " +shop_name+"! Please find your invoice."
-        data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&caption=" + caption
+        caption = urlencode({"caption": "Thank you for shopping at " +shop_name+"! Please find your invoice."})
+        data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&" + caption
         invoice_send_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(invoice_send_api)
         if json.loads(response.text)['response']['status'] == 'success':
@@ -240,11 +245,13 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, 
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
-        caption = "Hi! Your Order " +order_number+" has been cancelled. Please shop again at "+shop_name+"."
-        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
+        caption = urlencode({"msg":"Hi! Your Order " +order_number+" has been cancelled. Please shop again at "+shop_name+"."})
+        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&" + caption
         cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(cancel_order_api)
         if json.loads(response.text)['response']['status'] == 'success':
@@ -293,6 +300,8 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         order_status = order_status.replace('_', ' ')
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID

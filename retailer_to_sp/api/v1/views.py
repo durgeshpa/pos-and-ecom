@@ -29,6 +29,8 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
@@ -78,7 +80,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
-                                    RetailerProductResponseSerializer)
+                                    RetailerProductResponseSerializer, PosShopUserMappingListSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -87,6 +89,12 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
+    PosInventoryChange
+from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
+
 from pos.offers import BasicCartOffers
 
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
@@ -115,7 +123,6 @@ from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProdu
                                    CreditNote)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
 
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 
@@ -323,9 +330,14 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        body = dict()
+        filter_list = []
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            filter_list = [{"term": {"is_discounted": False}}]
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+            filter_list.append({"term": {"ean": ean_code}})
+        body = dict()
+        if filter_list:
+            body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
     def rp_normal_search(self, shop_id, app_type=None):
@@ -335,28 +347,38 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        query = {"bool": {"filter": []}}
+        filter_list = []
         if app_type == '3':
-            query["bool"] = {"filter": [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]}
+            filter_list = [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]
+        query = dict()
+        query_string = dict()
+        if int(self.request.GET.get('include_discounted', '1')) == 0:
+            filter_list.append({"term": {"is_discounted": False}})
+
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
+                query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
+                tokens = keyword.split()
+                keyword = ""
+                for word in tokens:
+                    keyword += "*" + word + "* "
+                keyword = keyword.strip()
+                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
 
-                # tokens = keyword.split()
-                # keyword = ""
-                # for word in tokens:
-                #     keyword += "*" + word + "* "
-                # keyword = keyword.strip()
-                # query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
-
-                query["bool"]["must"] = [{"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"],
-                                                          "type": "cross_fields"}}]
         if category_ids:
             category = category_ids.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            query["bool"]["filter"].append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
+        if filter_list and query_string:
+            query = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
+        elif query_string:
+            query = {"query_string": query_string}
+        elif filter_list:
+            query = {"bool": {"filter": filter_list}}
+
         return self.process_rp(output_type, {"query": query}, shop_id, app_type)
 
     @check_pos_shop
@@ -620,7 +642,7 @@ class SearchProducts(APIView):
                 {"range": {"available": {"gt": 0}}}
             ]
         if is_discounted:
-            filter_list.append({"term": {"is_discounted": is_discounted}},)
+            filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
@@ -2594,7 +2616,7 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Check if order exists
             try:
-                order = Order.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
                                           ordered_cart__cart_type__in=['BASIC', 'ECOM'])
             except ObjectDoesNotExist:
                 return api_response('Order Not Found!')
@@ -2659,7 +2681,12 @@ class OrderCentral(APIView):
                     return api_response("Invalid action")
                 if order.order_status != Order.PICKED:
                     return api_response("This order is not picked yet or is already out for delivery")
+                try:
+                    delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
+                except:
+                    return api_response("Please select a delivery person")
                 order.order_status = Order.OUT_FOR_DELIVERY
+                order.delivery_person = delivery_person
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
@@ -2868,23 +2895,23 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
-        # basic validations for inputs
-        initial_validation = self.post_basic_validate(shop)
-        if 'error' in initial_validation:
-            e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-            extra_params = {'error_code': e_code} if e_code else {}
-            return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
-        cart = initial_validation['cart']
-        payment_type = initial_validation['payment_type']
-        transaction_id = self.request.data.get('transaction_id', None)
-
         with transaction.atomic():
+            # basic validations for inputs
+            initial_validation = self.post_basic_validate(shop)
+            if 'error' in initial_validation:
+                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+                extra_params = {'error_code': e_code} if e_code else {}
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            cart = initial_validation['cart']
+            payments = initial_validation['payments']
+            transaction_id = self.request.data.get('transaction_id', None)
+
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_type, 'pos', transaction_id)
+            self.auto_process_order(order, payments, 'pos', transaction_id)
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -2923,7 +2950,14 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop, address)
             payment_type = PaymentType.objects.get(type='cash')
-            self.auto_process_order(order, payment_type, 'ecom')
+            payments = [
+                {
+                    "payment_type": PaymentType.objects.get(type='cash').id,
+                    "amount": order.order_amount,
+                    "transaction_id": ""
+                }
+            ]
+            self.auto_process_order(order, payments, 'ecom')
             self.auto_process_ecom_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -3008,7 +3042,7 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
+        cart = Cart.objects.select_for_update().filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -3019,7 +3053,8 @@ class OrderCentral(APIView):
             return {'error': "Active Cart Doesn't Exist!"}
         # check buyer
         if not cart.buyer:
-            return {'error': "Buyer not found in cart!"}
+            if int(self.request.data.get('use_default_buyer', 0)) != 1:
+                return {'error': "Buyer not found in cart!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
@@ -3027,19 +3062,39 @@ class OrderCentral(APIView):
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
-        # Check Payment Type
-        try:
-            payment_type = PaymentType.objects.get(id=self.request.data.get('payment_type'))
-        except:
-            return {'error': "Invalid Payment Type"}
 
-        email = self.request.data.get('email')
-        if email:
+        # Check Payment Types
+        payments = self.request.data.get('payment')
+        if type(payments) != list:
+            return {'error': "Invalid payment format"}
+        amount = 0
+        for payment_method in payments:
+            if 'payment_type' not in payment_method or 'amount' not in payment_method:
+                return {'error': "Invalid payment format"}
             try:
-                validators.validate_email(email)
+                PaymentType.objects.get(id=payment_method['payment_type'])
             except:
-                return {'error': "Please provide a valid customer email"}
-        return {'cart': cart, 'payment_type': payment_type}
+                return {'error': "Invalid Payment Type"}
+            try:
+                curr_amount = float(payment_method['amount'])
+                if curr_amount <= 0:
+                    return {'error': "Payment Amount should be greater than zero"}
+                amount += curr_amount
+            except:
+                return {'error': "Invalid Payment Amount"}
+            if "transaction_id" not in payment_method:
+                payment_method['transaction_id'] = ""
+        if round(amount, 2) != cart.order_amount:
+            return {'error': "Total payment amount should be equal to order amount"}
+
+        if int(self.request.data.get('use_default_buyer', 0)) != 1:
+            email = self.request.data.get('email')
+            if email:
+                try:
+                    validators.validate_email(email)
+                except:
+                    return {'error': "Please provide a valid customer email"}
+        return {'cart': cart, 'payments': payments}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -3099,10 +3154,15 @@ class OrderCentral(APIView):
             Update cart to ordered
             For basic cart
         """
+        if int(self.request.data.get('use_default_buyer', 0)) == 1 or cart.buyer.phone_number == '9999999999':
+            phone, email, name, is_whatsapp = '9999999999', None, None, None
+        else:
+            phone = cart.buyer.phone_number
+            email = self.request.data.get('email')
+            name = self.request.data.get('name')
+            is_whatsapp = self.request.data.get('is_whatsapp')
         # Check Customer - Update Or Create
-        customer = update_customer_pos_cart(cart.buyer.phone_number, cart.seller_shop.id, self.request.user,
-                                            self.request.data.get('email'), self.request.data.get('name'),
-                                            self.request.data.get('is_whatsapp'))
+        customer = update_customer_pos_cart(phone, cart.seller_shop.id, self.request.user, email, name, is_whatsapp)
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.cart_status = 'ordered'
@@ -3306,7 +3366,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payment_type, app_type='pos', transaction_id=''):
+    def auto_process_order(self, order, payments, app_type='pos', transaction_id=''):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -3348,16 +3408,17 @@ class OrderCentral(APIView):
                 cart_map.no_of_pieces = product_qty_map[product_id]
                 cart_map.save()
         # Create payment
-        PosPayment.objects.create(
-            order=order,
-            payment_type=payment_type,
-            transaction_id=transaction_id,
-            paid_by=order.buyer,
-            processed_by=self.request.user
-        )
+        for payment in payments:
+            PosPayment.objects.create(
+                order=order,
+                payment_type_id=payment['payment_type'],
+                transaction_id=payment['transaction_id'],
+                paid_by=order.buyer,
+                processed_by=self.request.user,
+                amount=payment['amount']
+            )
 
     def auto_process_pos_order(self, order):
-
         # Create shipment
         shipment = OrderedProduct(order=order)
         shipment.save()
@@ -3403,11 +3464,11 @@ class OrderCentral(APIView):
         if cart_products.filter(retailer_product__sku_type=4).exists():
             discounted_cart_products = cart_products.filter(retailer_product__sku_type=4)
             for cp in discounted_cart_products:
-                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id, PosInventoryState.AVAILABLE)
+                inventory_available = PosInventoryCls.get_available_inventory(cp.retailer_product_id,
+                                                                              PosInventoryState.AVAILABLE)
                 if inventory_available < cp.no_of_pieces:
                     return False
         return True
-
 
 
 # class CreateOrder(APIView):
@@ -3698,6 +3759,8 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+        else:
+            return api_response("Invalid cart type")
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
@@ -4512,11 +4575,6 @@ class OrderReturnComplete(APIView):
                                       order_status__in=['ordered', Order.PARTIALLY_RETURNED, 'delivered'])
         except ObjectDoesNotExist:
             return api_response("Order Does Not Exist / Still Open / Already Returned")
-        # check if return created
-        try:
-            order_return = OrderReturn.objects.get(order=order, status='created')
-        except ObjectDoesNotExist:
-            return api_response("Order Return Does Not Exist / Already Closed")
 
         # Check Payment Type
         try:
@@ -4526,6 +4584,11 @@ class OrderReturnComplete(APIView):
             return api_response("Invalid Refund Method")
 
         with transaction.atomic():
+            # check if return created
+            try:
+                order_return = OrderReturn.objects.select_for_update().get(order=order, status='created')
+            except ObjectDoesNotExist:
+                return api_response("Order Return Does Not Exist / Already Closed")
             # check partial or fully refunded order
             return_qty = ReturnItems.objects.filter(return_id__order=order).aggregate(return_qty=Sum('return_qty'))[
                 'return_qty']
@@ -4895,6 +4958,7 @@ def pdf_generation(request, ordered_product):
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
+                "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
                 "product_mrp": product_pro_price_mrp,
@@ -4979,6 +5043,7 @@ def pdf_generation(request, ordered_product):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
@@ -5150,15 +5215,13 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total discount
         discount = order_return.discount_adjusted if order_return.discount_adjusted > 0 else 0
         # Total payable amount in words
-        
-        
+
         # Total payable amount
         total_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
         total_amount_int = round(total_amount)
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
-
 
         # Shop Details
         nick_name = '-'
@@ -5174,7 +5237,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         data = {
             "url": request.get_host(),
-            "scheme": request.is_secure()and"https"or"http",
+            "scheme": request.is_secure() and "https" or "http",
             "credit_note": credit_note_instance,
             "shipment": ordered_product,
             "order": ordered_product.order,
@@ -5201,7 +5264,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-                                                     save=True)
+                                                      save=True)
             order_number = order.order_no
             order_status = order.order_status
             phone_number = order.buyer.phone_number
@@ -6098,7 +6161,10 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-status')
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False)
+        if self.request.GET.get('is_delivery_person', False):
+            pos_shop_users = pos_shop_users.filter(Q(user_type='delivery_person') | Q(is_delivery_person=True))
+        pos_shop_users = pos_shop_users.order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)

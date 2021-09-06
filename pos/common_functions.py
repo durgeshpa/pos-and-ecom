@@ -44,9 +44,11 @@ ONLINE_ORDER_STATUS_MAP = {
 ECOM_ORDER_STATUS_MAP = {
     1: [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKUP_CREATED],
     2: [Order.OUT_FOR_DELIVERY],
-    3: [Order.DELIVERED, Order.CLOSED],
-    4: [Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED],
-    5: [Order.CANCELLED]
+    3: [Order.DELIVERED],
+    4: [Order.PARTIALLY_RETURNED],
+    5: [Order.FULLY_RETURNED],
+    6: [Order.CLOSED],
+    7: [Order.CANCELLED]
 }
 
 # Logger
