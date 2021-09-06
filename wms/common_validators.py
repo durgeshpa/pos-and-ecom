@@ -186,3 +186,9 @@ def validate_putaway_user_by_zone(zone, putaway_user_id):
         return {'data': User.objects.get(id=putaway_user_id)}
     return {'error': 'Invalid putaway user!'}
 
+
+def validate_zone(zone):
+    if Zone.objects.filter(id=zone).exists():
+        return {'data': Zone.objects.filter(id=zone).last()}
+    return {'error': 'Invalid zone!'}
+

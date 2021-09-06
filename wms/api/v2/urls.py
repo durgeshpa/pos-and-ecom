@@ -3,7 +3,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     ZonePutawaysView, WarehouseAssortmentCrudView, WarehouseAssortmentExportAsCSVView, BinTypeView, \
     WarehouseAssortmentSampleCSV, WarehouseAssortmentUploadView, BinCrudView, BinExportAsCSVView, \
     BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
-    GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView
+    GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -28,4 +28,5 @@ urlpatterns = [
         name='assign-putaway-user-by-grn-zone'),
     url('grouped-putaways/', GroupedByGRNPutawaysView.as_view(), name='grouped-putaways'),
     url('putaway-items/', PutawayItemsCrudView.as_view(), name='putaway-items'),
+    url('putaway-users-under-zone/', PutawayUsersListView.as_view(), name='putaway-users-under-zone'),
 ]

@@ -19,7 +19,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
-    validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone
+    validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone, validate_zone
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_putaway_assignments_search, putaway_search
@@ -1010,3 +1010,33 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         serializer = self.serializer_class(putaways_reflected, many=True)
         info_logger.info("Putaways Updated Successfully.")
         return get_response('putaways updated successfully!', serializer.data)
+
+
+class PutawayUsersListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("Zone Putaway users api called.")
+        """ GET Zone Putaway users List """
+
+        if not request.GET.get('zone'):
+            return get_response("'zone' | This is mandatory.")
+        zone_validation = validate_zone(request.GET.get('zone'))
+        if 'error' in zone_validation:
+            return get_response(zone_validation['error'])
+        zone = zone_validation['data']
+
+        group = Group.objects.get(name='Putaway')
+        self.queryset = self.queryset.filter(groups=group)
+        self.queryset = self.queryset. \
+            filter(putaway_zone_users__id=zone.id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        zone_putaway_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_putaway_users, many=True)
+        msg = "" if zone_putaway_users else "no putaway users found"
+        return get_response(msg, serializer.data, True)
