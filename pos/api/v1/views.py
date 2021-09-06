@@ -127,11 +127,13 @@ class PosProductView(GenericAPIView):
                 'mrp'], data['selling_price'], data['description'], data['stock_qty']
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
+            ean_not_available = data['ean_not_available']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
                 # Update product
-                product.product_ean_code = ean if ean else product.product_ean_code
+                if ean_not_available is not None:
+                    product.product_ean_code = ean
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
