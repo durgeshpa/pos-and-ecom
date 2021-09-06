@@ -357,10 +357,14 @@ class SearchProducts(APIView):
         filter_list = []
         if app_type == '3':
             filter_list = [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]
-        query = dict()
+        body = dict()
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+
+        must_not = dict()
+        if int(self.request.GET.get('ean_not_available', '0')) == 1:
+            must_not = {"exists": {"field": "ean"}}
 
         if keyword:
             keyword = keyword.strip()
@@ -380,13 +384,17 @@ class SearchProducts(APIView):
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if filter_list and query_string:
-            query = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
+            body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
         elif query_string:
-            query = {"query_string": query_string}
+            body['query'] = {"bool": {"must": {"query_string": query_string}}}
         elif filter_list:
-            query = {"bool": {"filter": filter_list}}
-
-        return self.process_rp(output_type, {"query": query}, shop_id, app_type)
+            body['query'] = {"bool": {"filter": filter_list}}
+        if must_not:
+            if body and body['query']:
+                body['query']['bool']['must_not'] = must_not
+            else:
+                body['query'] = {"bool": {"must_not": must_not}}
+        return self.process_rp(output_type, body, shop_id)
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
