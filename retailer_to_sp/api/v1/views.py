@@ -280,10 +280,17 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+        must_not = dict()
+        if int(self.request.GET.get('ean_not_available', '0')) == 1:
+            must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
         body = dict()
-        if filter_list:
+        if filter_list and must_not:
+            body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
+        elif must_not:
+            body['query'] = {"bool": {"must_not": must_not}}
+        elif filter_list:
             body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 

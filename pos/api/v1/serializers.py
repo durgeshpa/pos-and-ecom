@@ -48,11 +48,12 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     offer_end_date = serializers.DateField(required=False, default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
-    product_ean_code = serializers.CharField(required=True, max_length=100)
+    product_ean_code = serializers.CharField(required=False, default=None, max_length=100, allow_null=True)
     stock_qty = serializers.IntegerField(min_value=0, default=0)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
+    ean_not_available = serializers.BooleanField(default=False)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -61,17 +62,19 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
+        if attrs['ean_not_available']:
+            attrs['product_ean_code'] = None
+        elif not attrs['product_ean_code']:
+            raise serializers.ValidationError("Please provide EAN Code")
+
         sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
             'linked_product_id'], attrs['product_ean_code']
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+        if ean and RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
             raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
         
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-
-        if not attrs['product_ean_code'].isdigit():
-            raise serializers.ValidationError("Product Ean Code should be a number")
 
         if attrs['add_offer_price']:
             offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
@@ -149,9 +152,14 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.IntegerField(required=False)
+    ean_not_available = serializers.BooleanField(default=None)
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
+        if attrs['ean_not_available']:
+            attrs['product_ean_code'] = None
+        elif attrs['product_ean_code'] is not None:
+            raise serializers.ValidationError("Please provide EAN Code")
 
         product = RetailerProduct.objects.filter(id=pid, shop_id=shop_id).last()
         if not product:
@@ -161,15 +169,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
             raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
-
-        if 'product_ean_code' in attrs and attrs['product_ean_code']:
-            if not attrs['product_ean_code'].isdigit():
-                raise serializers.ValidationError("Product Ean Code should be a number")
 
         image_count = 0
         if 'images' in attrs and attrs['images']:
