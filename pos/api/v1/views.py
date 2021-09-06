@@ -25,10 +25,12 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType, \
+    PosReturnGRNOrder
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop
+from pos.services import grn_product_search
 
 from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
@@ -40,7 +42,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
-                          GrnOrderGetSerializer)
+                          GrnOrderGetSerializer, ReturnGrnOrderSerializer, GrnOrderGetListSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1220,3 +1222,66 @@ class IncentiveView(GenericAPIView):
                            created_at__year=start_year)
         return qs
 
+
+class GetGrnOrderListView(ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = GrnOrderGetListSerializer
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'])
+        search_text = self.request.GET.get('search_text')
+        # search using PO number, GRN invoice number and product name on criteria that matches
+        if search_text:
+            grn_order = grn_product_search(grn_order, search_text.strip())
+
+        if grn_order:
+            return api_response('', self.serializer_class(grn_order, many=True).data, status.HTTP_200_OK, True)
+        else:
+            return api_response("GRN Order not found")
+
+    def search_filter_grn_order(self):
+
+        return self.queryset
+
+
+class GrnReturnOrderView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        grn_order = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop']).\
+            prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
+            select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
+        if grn_order:
+            serializer = ReturnGrnOrderSerializer(grn_order, many=True)
+            return api_response('', serializer.data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Return GRN Order not found")
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        serializer = ReturnGrnOrderSerializer(data=request.data,
+                                              context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('GRN returned successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
+        try:
+            data = json.loads(self.request.data["data"])
+        except:
+            return api_response("Invalid Data Format")
+        serializer = PosGrnOrderUpdateSerializer(data=request.data,
+                                                 context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save()
+            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))

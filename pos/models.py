@@ -2,6 +2,7 @@ from django.utils.safestring import mark_safe
 from django.db import models
 
 from django.utils.translation import gettext_lazy as _
+from model_utils import Choices
 
 from addresses.models import City, State, Pincode
 from shops.models import Shop, PosShopUserMapping
@@ -398,3 +399,33 @@ class InventoryChangePos(PosInventoryChange):
     class Meta:
         proxy = True
         verbose_name = 'Inventory Change'
+
+
+class PosReturnGRNOrder(models.Model):
+    RETURN_STATUS = Choices((0, 'RETURNED', 'Returned'), (1, 'CANCELLED', 'Cancelled'))
+    pr_number = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
+    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=False,
+                                       on_delete=models.DO_NOTHING)
+    last_modified_by = models.ForeignKey(User, related_name='grn_return_last_modified_user', null=True, blank=True,
+                                         on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Store - GRN - Return"
+
+    @property
+    def po_no(self):
+        return self.grn_ordered_id.order.ordered_cart.po_no
+
+
+class PosReturnItems(models.Model):
+    grn_return_id = models.ForeignKey(PosReturnGRNOrder, related_name='grn_order_return', on_delete=models.CASCADE)
+    product = models.ForeignKey(RetailerProduct, related_name='grn_product_return', on_delete=models.CASCADE)
+    return_qty = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Store - GRN - Return items"

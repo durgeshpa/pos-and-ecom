@@ -11,7 +11,7 @@ from django.core.validators import FileExtensionValidator
 
 from addresses.models import Pincode
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping, Payment, PaymentType, Document
+    PosGRNOrderProductMapping, Payment, PaymentType, Document, PosReturnGRNOrder, PosReturnItems
 from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
@@ -2052,3 +2052,122 @@ class PosShopUserMappingListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosShopUserMapping
         fields = ('id', 'phone_number', 'name', 'email', 'user_type', 'status')
+
+
+class ChoiceField(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'value': self._choices[int(obj)]}
+
+
+class RetailerProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name',)
+
+
+class PosReturnItemsSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PosReturnItems
+        fields = ('id', 'product', 'return_qty')
+
+    @staticmethod
+    def get_product(obj):
+        po_products = RetailerProduct.objects.filter(id=obj.product.id)
+        po_products_data = RetailerProductSerializer(po_products, many=True).data
+        return po_products_data
+
+
+class ReturnGrnOrderSerializer(serializers.ModelSerializer):
+    grn_ordered_id = serializers.SerializerMethodField()
+    status = ChoiceField(choices=PosReturnGRNOrder.RETURN_STATUS)
+
+    class Meta:
+        model = PosReturnGRNOrder
+        fields = ('id', 'pr_number', 'po_no', 'grn_ordered_id', 'status', 'last_modified_by')
+
+    def validate(self, data):
+        shop = self.context.get('shop')
+        if not PosGRNOrder.objects.filter(id=self.initial_data['grn_ordered_id']).exists():
+            raise serializers.ValidationError("GRN doesn't exist")
+        grn_ordered = PosGRNOrder.objects.filter(id=self.initial_data['grn_ordered_id']).last()
+        data['grn_ordered_id'] = grn_ordered
+        data['grn_product_return'] = self.initial_data['grn_product_return']
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create product price mapping """
+        grn_products_return = validated_data.pop('grn_product_return', None)
+        try:
+            grn_return_id = PosReturnGRNOrder.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if grn_products_return:
+            self.create_return_items(grn_return_id, grn_products_return)
+
+        return grn_return_id
+
+    def create_return_items(self, grn_return_id, grn_products_return):
+        for grn_product_return in grn_products_return:
+            PosReturnItems.objects.create(grn_return_id=grn_return_id, **grn_product_return)
+
+    def get_grn_ordered_id(self, obj):
+        po_return_products = PosReturnItems.objects.filter(grn_return_id=obj.id)
+        po_products_data = PosReturnItemsSerializer(po_return_products, many=True).data
+        return po_products_data
+
+
+class GrnOrderGetListSerializer(serializers.ModelSerializer):
+    products = serializers.SerializerMethodField()
+    po_total_price = serializers.SerializerMethodField()
+    current_grn_total_price = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_current_grn_total_price(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        total_price = None
+        if po_products:
+            total_price = 0
+            for po_pr in po_products:
+                if po_pr.product.id in grn_products:
+                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+            total_price = round(total_price, 2)
+        return total_price
+
+    @staticmethod
+    def get_po_total_price(obj):
+        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
+                                                                          output_field=FloatField()))['total_price']
+        return round(tp, 2) if tp else tp
+
+    @staticmethod
+    def get_products(obj):
+        po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
+        po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        for po_pr in po_products_data:
+            po_pr['curr_grn_received_qty'] = 0
+            if po_pr['product_id'] in grn_products:
+                po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']]
+
+        return po_products_data
+
+    class Meta:
+        model = PosGRNOrder
+        fields = ('id', 'grn_id', 'po_no', 'po_status', 'invoice_no', 'invoice_amount',
+                  'po_total_price', 'current_grn_total_price', 'products',)
