@@ -1005,8 +1005,8 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         putaways_reflected = copy.copy(putaway_instances)
         if putaway_instances.last().putaway_user == putaway_user:
             return get_response("Selected putaway user already assigned.")
-        putaway_instances.update(putaway_user=putaway_user)
-
+        putaway_instance_inc = putaway_instances.update(putaway_user=putaway_user)
+        putaway_instance_inc.save()
         serializer = self.serializer_class(putaways_reflected, many=True)
         info_logger.info("Putaways Updated Successfully.")
         return get_response('putaways updated successfully!', serializer.data)
