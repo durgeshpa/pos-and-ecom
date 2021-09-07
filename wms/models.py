@@ -119,7 +119,7 @@ class WarehouseAssortment(BaseTimestampUserModel):
         Mapping model of warehouse, product and zone
     """
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
-    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(ParentProduct, related_name='product_zones', on_delete=models.DO_NOTHING)
     zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
 
     def __str__(self):
@@ -259,8 +259,9 @@ class In(models.Model):
         super(In, self).save(*args, **kwargs)
 
 class Putaway(models.Model):
-    PUTAWAY_STATUS_CHOICE = Choices(('NEW', 'New'), ('ASSIGNED', 'Assigned'), ('INITIATED', 'Initiated'),
-                                    ('COMPLETED', 'Completed'), ('CANCELLED', 'Cancelled'))
+    NEW, ASSIGNED, INITIATED, COMPLETED, CANCELLED = 'NEW', 'ASSIGNED', 'INITIATED', 'COMPLETED', 'CANCELLED'
+    PUTAWAY_STATUS_CHOICE = Choices((NEW, 'New'), (ASSIGNED, 'Assigned'), (INITIATED, 'Initiated'),
+                                    (COMPLETED, 'Completed'), (CANCELLED, 'Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
                                      on_delete=models.DO_NOTHING)

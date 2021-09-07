@@ -143,19 +143,19 @@ class InOutLedgerForm(forms.Form):
     )
     warehouse = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
-        widget=autocomplete.ModelSelect2(url='warehouse-autocomplete', ),
+        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete', ),
     )
     start_date = forms.DateTimeField(
-    widget=DateTimePicker(
-        options={
-            'format': 'YYYY-MM-DD HH:mm:ss',
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
             }
         ),
     )
     end_date = forms.DateTimeField(
         widget=DateTimePicker(
             options={
-            'format': 'YYYY-MM-DD HH:mm:ss',
+                'format': 'YYYY-MM-DD HH:mm:ss',
             }
         ),
     )
