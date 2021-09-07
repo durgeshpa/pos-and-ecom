@@ -917,6 +917,7 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     zone = serializers.IntegerField()
     total_items = serializers.IntegerField()
     putaway_user = serializers.SerializerMethodField()
+    status = serializers.CharField()
 
     def get_putaway_user(self, obj):
         return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data

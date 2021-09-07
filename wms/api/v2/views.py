@@ -1,5 +1,6 @@
 import copy
 import logging
+from datetime import datetime
 
 from dal import autocomplete
 from django.contrib.auth import get_user_model
@@ -14,6 +15,7 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
+from gram_to_brand.models import GRNOrder
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
@@ -902,7 +904,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
         exclude(putaway_user=None).exclude(zone__isnull=True). \
-        values('grn_id', 'zone', 'putaway_user').annotate(total_items=Count('grn_id')).order_by('-grn_id')
+        values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
     @check_whc_manager_coordinator_supervisor
@@ -922,6 +924,8 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         grn_id = self.request.GET.get('grn_id')
         zone = self.request.GET.get('zone')
         putaway_user = self.request.GET.get('putaway_user')
+        status = self.request.GET.get('status')
+        created_at = self.request.GET.get('created_at')
 
         '''Filters using grn_id, zone, putaway_user'''
         if grn_id:
@@ -932,6 +936,18 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 
         if putaway_user:
             self.queryset = self.queryset.filter(putaway_user=putaway_user)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if created_at:
+            try:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(
+                    grn_id=Subquery(GRNOrder.objects.filter(
+                        created_at__date=created_at.date()).order_by('-grn_id').values('grn_id')[:1]))
+            except Exception as e:
+                error_logger.error(e)
 
         return self.queryset
 
