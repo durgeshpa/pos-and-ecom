@@ -148,7 +148,7 @@ class ShopForm(forms.ModelForm):
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
-            'pos_enabled')
+            'pos_enabled', 'online_inventory_enabled')
 
     @classmethod
     def get_shop_type(cls, data):

@@ -70,7 +70,7 @@ class UserLocationSerializer(serializers.Serializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'online_inventory_enabled')
 
 
 class AddressSerializer(serializers.ModelSerializer):

@@ -102,6 +102,7 @@ class Shop(models.Model):
     pos_enabled = models.BooleanField(default=False, verbose_name='Enabled For POS')
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
+    online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)

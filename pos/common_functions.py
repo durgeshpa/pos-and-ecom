@@ -770,6 +770,7 @@ class PosAddToCart(object):
 
         @wraps(view_func)
         def _wrapped_view_func(self, request, *args, **kwargs):
+            shop = kwargs['shop']
             # Quantity check
             qty = request.data.get('qty')
             if qty is None or not str(qty).isdigit() or qty < 0:
@@ -790,10 +791,10 @@ class PosAddToCart(object):
             existing_cart_qty = 0
             if cart_product:
                 existing_cart_qty = cart_product.qty
-            if qty > existing_cart_qty:
+            if qty > existing_cart_qty and shop.online_inventory_enabled:
                 available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
                 if available_inventory < qty:
-                    return api_response("You cannot add any more than quantities for this product!")
+                    return api_response("You cannot add any more quantities for this product!")
 
             # Return with objects
             kwargs['product'] = product
