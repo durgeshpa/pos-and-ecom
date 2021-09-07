@@ -119,7 +119,7 @@ class WarehouseAssortment(BaseTimestampUserModel):
         Mapping model of warehouse, product and zone
     """
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
-    product = models.ForeignKey(ParentProduct, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(ParentProduct, related_name='product_zones', on_delete=models.DO_NOTHING)
     zone = models.ForeignKey(Zone, on_delete=models.DO_NOTHING)
 
     def __str__(self):

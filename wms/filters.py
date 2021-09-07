@@ -101,10 +101,15 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
             return Zone.objects.none()
         qs = Zone.objects.all()
 
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
         if self.q:
             qs = qs.filter(Q(id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q) | Q(
                 supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
-                coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q))
+                coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q) | Q(
+                warehouse__id__icontains=self.q))
         return qs
 
 
