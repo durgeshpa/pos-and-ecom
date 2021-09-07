@@ -359,6 +359,7 @@ class PosCartCls(object):
                     CartProductMapping.objects.filter(id=cart_product.id).delete()
                 else:
                     out_of_stock_items += [{
+                        "id": product.id,
                         "name": product.name,
                         "qty": cart_product.qty,
                         "available_qty": available_inventory,
