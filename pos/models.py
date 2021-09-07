@@ -424,9 +424,10 @@ class PosReturnGRNOrder(models.Model):
 class PosReturnItems(models.Model):
     grn_return_id = models.ForeignKey(PosReturnGRNOrder, related_name='grn_order_return', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, related_name='grn_product_return', on_delete=models.CASCADE)
-    return_qty = models.PositiveIntegerField()
+    return_qty = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Store - GRN - Return items"
+        unique_together = ('grn_return_id', 'product')
