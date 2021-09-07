@@ -12,9 +12,9 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission, Group
 
 from accounts.models import User
-from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone
-from products.models import Product, ProductPrice
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment
+from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
@@ -1236,3 +1236,15 @@ class ZoneForm(forms.ModelForm):
         else:
             self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
                 id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
+
+
+class WarehouseAssortmentForm(forms.ModelForm):
+    info_logger.info("WarehouseAssortment Form has been called.")
+    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True)
+    product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True)
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True)
+
+    class Meta:
+        model = WarehouseAssortment
+        fields = ['warehouse', 'product', 'zone']

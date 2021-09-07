@@ -24,12 +24,12 @@ from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm, ZoneForm)
+                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement, Zone)
+                     ExpiredInventoryMovement, Zone, WarehouseAssortment)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 
 # Logger
@@ -998,13 +998,34 @@ class ZoneAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change:
             obj.created_by = request.user
-        else:
-            obj.putaway_users
         obj.updated_by = request.user
         super(ZoneAdmin, self).save_model(request, obj, form, change)
 
     class Media:
         pass
+
+
+# class WarehouseAssortmentAdmin(admin.ModelAdmin):
+#     form = WarehouseAssortmentForm
+#     list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
+#                     'updated_by',)
+#     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+#     list_filter = [Warehouse,
+#                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+#     list_per_page = 50
+#     date_hierarchy = 'created_at'
+#
+#     def save_model(self, request, obj, form, change):
+#         if not change:
+#             obj.created_by = request.user
+#         obj.updated_by = request.user
+#         super(WarehouseAssortmentAdmin, self).save_model(request, obj, form, change)
+#
+#     class Media:
+#         pass
+
+class WarehouseAssortmentAdmin(admin.ModelAdmin):
+    pass
 
 
 admin.site.register(Bin, BinAdmin)
@@ -1025,4 +1046,6 @@ admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
 admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
+admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
+
