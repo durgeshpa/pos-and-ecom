@@ -7,9 +7,13 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer 
+from categories.models import Category
+from brand.models import Brand
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, SubCategorySerializer, BrandSerializer, SubBrandSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
+from ...utils import api_response
+from banner.models import Banner
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -626,3 +630,84 @@ class PageVersionDetailView(APIView):
         }
         cache.set(page_key, message)
         return Response(message)
+
+
+class CategoryListView(APIView):
+    """
+    View to get list of all categories
+    """
+    
+    def get(self, request, format = None):
+        is_success = False
+        message = "Category Not Found"
+        category = Category.objects.filter(category_parent = None, status = True)
+        serializer = CategorySerializer(category, many = True)
+        if category:
+            is_success = True
+            message = "Category Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)
+
+class SubCategoryListView(APIView):
+    """
+    Get List of Subcategory having banner
+    """
+
+    def get(self, request, format = None):
+        is_success = False
+        message = "No Subcategory with banner"
+        print(request.GET.get('category_id'))
+        try:
+            category = Category.objects.get(id = request.GET.get('category_id'))
+        except Exception:
+            raise ValidationError('No such category')
+        subcategory = category.cat_parent.filter(status = True).prefetch_related('banner_subcategory')
+        subcategory_with_banner = []
+        for subcat in subcategory:
+            if subcat.banner_subcategory.filter(status=True).exists():
+                subcategory_with_banner.append(subcat)
+        serializer = SubCategorySerializer(subcategory_with_banner, many = True)
+        if subcategory_with_banner:
+            is_success = True
+            message = "Subcategory with Banner Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
+
+
+class BrandListView(APIView):
+    """
+    View to get list of all brands
+    """
+    
+    def get(self, request, format = None):
+        is_success = False
+        message = "Brand Not Found"
+        brand = Brand.objects.filter(brand_parent = None)
+        serializer = BrandSerializer(brand, many = True)
+        if brand:
+            is_success = True
+            message = "Brand Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)
+
+class SubBrandListView(APIView):
+    """
+    Get List of SubBrand having banner
+    """
+
+    def get(self, request, format = None):
+        is_success = False
+        message = "No SubBrand with banner"
+        print(request.GET.get('brand_id'))
+        try:
+            brand = Brand.objects.get(id = request.GET.get('brand_id'))
+        except Exception:
+            raise ValidationError('No such brand')
+        subbrands = brand.brand_child.all().prefetch_related('banner_subbrand')
+        subbrand_with_banner = []
+        for subbrand in subbrands:
+            if subbrand.banner_subbrand.filter(status=True).exists():
+                subbrand_with_banner.append(subbrand)
+        serializer = SubBrandSerializer(subbrand_with_banner, many = True)
+        if subbrand_with_banner:
+            is_success = True
+            message = "SubBrand with Banner Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
+
