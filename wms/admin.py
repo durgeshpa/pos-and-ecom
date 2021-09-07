@@ -24,12 +24,12 @@ from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm)
+                    StockMovementCSVUploadAdminForm, ZoneForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement)
+                     ExpiredInventoryMovement, Zone)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 
 # Logger
@@ -125,7 +125,7 @@ class SKUFilter(InputFilter):
 class Warehouse(AutocompleteFilter):
     title = 'Warehouse'
     field_name = 'warehouse'
-    autocomplete_url = 'warehouse-autocomplete'
+    autocomplete_url = 'warehouses-autocomplete'
 
 
 class InventoryTypeFilter(AutocompleteFilter):
@@ -233,6 +233,18 @@ class PutawayuserFilter(AutocompleteFilter):
     title = 'PUTAWAY USER'
     field_name = 'putaway_user'
     autocomplete_url = 'putaway-user-autocomplete'
+
+
+class SupervisorFilter(AutocompleteFilter):
+    title = 'Supervisor'
+    field_name = 'supervisor'
+    autocomplete_url = 'supervisor-autocomplete'
+
+
+class CoordinatorFilter(AutocompleteFilter):
+    title = 'Coordinator'
+    field_name = 'coordinator'
+    autocomplete_url = 'coordinator-autocomplete'
 
 
 class BinAdmin(admin.ModelAdmin):
@@ -973,6 +985,28 @@ class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
     download_tickets.short_description = "Download selected items as CSV"
 
 
+class ZoneAdmin(admin.ModelAdmin):
+    form = ZoneForm
+    list_display = ('warehouse', 'supervisor', 'coordinator', 'created_at', 'updated_at', 'created_by',
+                    'updated_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+    list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
+                   ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        else:
+            obj.putaway_users
+        obj.updated_by = request.user
+        super(ZoneAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        pass
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 # admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -991,3 +1025,4 @@ admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
 admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
+admin.site.register(Zone, ZoneAdmin)
