@@ -5,8 +5,9 @@ from django.contrib.admin import SimpleListFilter, ListFilter, FieldListFilter
 from django.contrib.auth.models import Permission
 from django.db.models import Q, F
 
+from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone
 from accounts.models import User
 
 
@@ -80,6 +81,30 @@ class CoordinatorFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
+        return qs
+
+
+class ParentProductFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return ParentProduct.objects.none()
+        qs = ParentProduct.objects.all()
+
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(product_hsn__icontains=self.q))
+        return qs
+
+
+class ZoneFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Zone.objects.none()
+        qs = Zone.objects.all()
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q) | Q(
+                supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
+                coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q))
         return qs
 
 

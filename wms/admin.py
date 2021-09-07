@@ -1005,27 +1005,24 @@ class ZoneAdmin(admin.ModelAdmin):
         pass
 
 
-# class WarehouseAssortmentAdmin(admin.ModelAdmin):
-#     form = WarehouseAssortmentForm
-#     list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
-#                     'updated_by',)
-#     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
-#     list_filter = [Warehouse,
-#                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
-#     list_per_page = 50
-#     date_hierarchy = 'created_at'
-#
-#     def save_model(self, request, obj, form, change):
-#         if not change:
-#             obj.created_by = request.user
-#         obj.updated_by = request.user
-#         super(WarehouseAssortmentAdmin, self).save_model(request, obj, form, change)
-#
-#     class Media:
-#         pass
-
 class WarehouseAssortmentAdmin(admin.ModelAdmin):
-    pass
+    form = WarehouseAssortmentForm
+    list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
+                    'updated_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+    list_filter = [Warehouse,
+                   ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(WarehouseAssortmentAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        pass
 
 
 admin.site.register(Bin, BinAdmin)

@@ -1241,10 +1241,46 @@ class ZoneForm(forms.ModelForm):
 class WarehouseAssortmentForm(forms.ModelForm):
     info_logger.info("WarehouseAssortment Form has been called.")
     # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
-    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True)
-    product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True)
-    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True)
+    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
+                                     widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete'))
 
     class Meta:
         model = WarehouseAssortment
         fields = ['warehouse', 'product', 'zone']
+
+    def clean_warehouse(self):
+        if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
+            raise ValidationError(_("Invalid warehouse selected."))
+        return self.cleaned_data['warehouse']
+
+    def clean_zone(self):
+        if int(self.cleaned_data['zone'].warehouse.id) != int(self.data['warehouse']):
+            raise ValidationError(_("Invalid zone selected."))
+        return self.cleaned_data['zone']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        warehouse = cleaned_data.get("warehouse")
+        product = cleaned_data.get("product")
+        zone = cleaned_data.get("zone")
+        instance = getattr(self, 'instance', None)
+        if warehouse and product and zone:
+            if not instance.pk:
+                if WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).exists():
+                    raise ValidationError("Warehouse Assortment already exist for selected warehouse and "
+                                          "product, only zone updation is allowed.")
+            else:
+                if not WarehouseAssortment.objects.filter(
+                        id=instance.pk, warehouse=warehouse, product=product).exists():
+                    raise ValidationError("Only zone updation is allowed.")
+
+    def __init__(self, *args, **kwargs):
+        super(WarehouseAssortmentForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance.pk:
+            self.fields['zone'].queryset = Zone.objects.filter(warehouse=instance.warehouse)
