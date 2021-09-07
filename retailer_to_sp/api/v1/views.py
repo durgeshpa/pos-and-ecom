@@ -1137,9 +1137,9 @@ class CartCentral(GenericAPIView):
                     cart.seller_shop = kwargs['shop']
                     cart.save()
                     CartProductMapping.objects.filter(cart=cart).delete()
-                    return api_response("No items added in cart yet", None, status.HTTP_200_OK, False)
+                    return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             except ObjectDoesNotExist:
-                return api_response("No items added in cart yet", None, status.HTTP_200_OK, False)
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
 
             if self.request.GET.get("remove_unavailable"):
                 PosCartCls.out_of_stock_items(cart.rt_cart_list.all(), self.request.GET.get("remove_unavailable"))
@@ -1415,6 +1415,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
             # serialize and return response
+            if not CartProductMapping.objects.filter(cart=cart).exists():
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
