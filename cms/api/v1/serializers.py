@@ -292,7 +292,8 @@ class PageCardSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['card_data'] = PageCardDataSerializer(instance.card_version.card_data).data
+        card_version=CardVersion.objects.filter(card = instance.card_version.card).last()
+        data['card_data'] = PageCardDataSerializer(card_version.card_data).data
         return data
 
 

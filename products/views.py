@@ -2255,7 +2255,9 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
             product_list = {k: v for k, v in product_list.items() if v > 0}
             qs = Product.objects.filter(id__in=product_list.keys())
             if self.q:
-                qs = qs.filter(product_name__icontains=self.q)
+                qs = qs.filter(
+                    Q(product_sku__icontains=self.q) |
+                    Q(product_name__icontains=self.q))
         return qs
 
 
@@ -2297,7 +2299,9 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
             psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
             qs = Product.objects.filter(id__in=psm)
             if self.q:
-                qs = qs.filter(product_name__icontains=self.q)
+                qs = qs.filter(
+                    Q(product_sku__icontains=self.q) |
+                    Q(product_name__icontains=self.q))
         return qs
 
 
