@@ -3549,7 +3549,9 @@ class OrderReturns(APIView):
 
         returns = OrderReturn.objects.filter(order=order, status='completed').order_by('-created_at')
         if returns.exists():
-            data = OrderReturnGetSerializer(returns, many=True).data
+            data = dict()
+            data['returns'] = OrderReturnGetSerializer(returns, many=True).data
+            data['buyer'] = PosUserSerializer(order.buyer).data
             return api_response("Order Returns", data, status.HTTP_200_OK, True)
         else:
             return api_response("No Returns For This Order", None, status.HTTP_200_OK, False)

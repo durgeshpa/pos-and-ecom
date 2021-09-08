@@ -1408,6 +1408,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     order_summary = serializers.SerializerMethodField()
     return_summary = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
+    buyer = PosUserSerializer()
     creation_date = serializers.SerializerMethodField()
 
     @staticmethod
@@ -1529,7 +1530,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary')
+        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
+                  'buyer')
 
 
 class VendorSerializer(serializers.ModelSerializer):
