@@ -1157,7 +1157,9 @@ class CartCentral(GenericAPIView):
             RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
-            cart_data.update(checkout.serialize(cart, offers))
+            checkout_data = checkout.serialize(cart, offers)
+            checkout_data.pop('amount_payable', None)
+            cart_data.update(checkout_data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
@@ -4489,11 +4491,13 @@ class OrderReturnsCheckout(APIView):
         # check order
         order_id = self.request.GET.get('order_id')
         try:
-            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop,
-                                                                          order_status__in=['ordered',
-                                                                                            Order.PARTIALLY_RETURNED])
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop)
+            cart_type = order.ordered_cart.cart_type
+            if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
+                    cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
+                return {'error': "Order Not Valid For Return"}
         except ObjectDoesNotExist:
-            return {'error': "Order Does Not Exist / Still Open / Already Returned"}
+            return {'error': "Order Not Valid For Return"}
         # check if return created
         try:
             order_return = OrderReturn.objects.get(order=order, status='created')
@@ -4599,10 +4603,13 @@ class OrderReturnComplete(APIView):
         # check order
         order_id = self.request.data.get('order_id')
         try:
-            order = Order.objects.get(pk=order_id, seller_shop=kwargs['shop'],
-                                      order_status__in=['ordered', Order.PARTIALLY_RETURNED, 'delivered'])
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=kwargs['shop'])
+            cart_type = order.ordered_cart.cart_type
+            if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
+                    cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
+                return {'error': "Order Not Valid For Return"}
         except ObjectDoesNotExist:
-            return api_response("Order Does Not Exist / Still Open / Already Returned")
+            return {'error': "Order Not Valid For Return"}
 
         # Check Payment Type
         try:

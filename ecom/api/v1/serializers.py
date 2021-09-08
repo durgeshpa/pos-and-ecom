@@ -330,7 +330,7 @@ class EcomShipmentSerializer(serializers.Serializer):
         for item in products_info:
             key = str(item['product_id'])
             if key not in order_products:
-                raise serializers.ValidationError("{} Invalid product info")
+                raise serializers.ValidationError("{} Invalid product info".format(key))
             if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
 
