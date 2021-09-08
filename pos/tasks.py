@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 from celery.task import task
+from django.core.files.base import ContentFile
 from elasticsearch import Elasticsearch
 import datetime
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -13,7 +14,7 @@ from django.core.mail import EmailMessage
 from global_config.models import GlobalConfig
 from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from pos.models import RetailerProduct, PosCart
+from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
@@ -165,6 +166,117 @@ def mail_to_vendor_on_po_creation(cart_id):
             vendor_name, instance.retailer_shop.shop_name, instance.retailer_shop.shop_name)
 
         filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
+        template_name = 'admin/purchase_order/retailer_purchase_order.html'
+        cmd_option = {
+            'encoding': 'utf8',
+            'margin-top': 3
+        }
+        data = generate_pdf_data(instance)
+        response = PDFTemplateResponse(
+            request=None, template=template_name,
+            filename=filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+        email = EmailMessage()
+        email.subject = subject
+        email.body = body
+        sender = GlobalConfig.objects.get(key='sender')
+        email.from_email = sender.value
+        email.to = recipient_list
+        email.attach(filename, response.rendered_content, 'application/pdf')
+        email.send()
+
+        # send sms
+        body = 'Dear {}, \n \n PO number {} has been generated from {}, PepperTap POS and sent to you over mail. \n \n N' \
+               'ote: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n T' \
+               'hanks, \n {}'.format(vendor_name, instance.po_no, instance.retailer_shop.shop_name,
+                                     instance.retailer_shop.shop_name)
+
+        message = SendSms(phone=instance.vendor.phone_number,
+                          body=body)
+        message.send()
+
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        error_logger.error("Retailer PO mail, sms not sent - Po number {}, {}, line no {}".format(instance.po_no, e,
+                                                                                                  exc_tb.tb_lineno))
+
+
+def generate_debit_note_number(returned_obj):
+    return "DNPR_" + str(returned_obj.pk)
+
+
+def genrate_debit_note_pdf(grn_return_id):
+    returned_obj = PosReturnGRNOrder.objects.filter(id=grn_return_id, status=PosReturnGRNOrder.RETURNED).last()
+    returned_items_objs = PosReturnItems.objects.filter(grn_return_id=returned_obj, is_active=True)
+    products_list = []
+    total_amount = 0
+    sum_qty = 0
+    for return_item in returned_items_objs:
+        product_dict = {'product_id': return_item.product.pk, 'description': return_item.product.name,
+                        'return_qty': return_item.return_qty, 'selling_price': return_item.selling_price,
+                        'mrp': return_item.product.mrp,
+                        'return_amount': return_item.return_qty * return_item.selling_price}
+        total_amount += (return_item.return_qty * return_item.selling_price)
+        sum_qty += return_item.return_qty
+        products_list.append(product_dict)
+    amt = [num2words(i) for i in str(total_amount).split('.')]
+    amt_in_words = amt[0]
+    if returned_obj.debit_note_number:
+        debit_note_number = returned_obj.debit_note_number
+    else:
+        debit_note_number = generate_debit_note_number(returned_obj)
+        returned_obj.debit_note_number = debit_note_number
+    billing_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+        shop_name_address_mapping.filter(address_type='billing').last()
+    shipping_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+        shop_name_address_mapping.filter(address_type='billing').last()
+    data = {
+        "grn_id": returned_obj.grn_ordered_id.grn_id,
+        "invoice_number": returned_obj.grn_ordered_id.invoice_no,
+        "cart_instance": returned_obj.grn_ordered_id.order.ordered_cart,
+        "purchase_return_instance": returned_obj,
+        "billing": billing_address_instance,
+        "shipping": shipping_address_instance,
+        "return_id": returned_obj.pk,
+        "debit_note_number": debit_note_number,
+        "products": products_list,
+        "sum_qty": sum_qty,
+        "total_amount": total_amount,
+        "amt_in_words": amt_in_words,
+        "url": get_config('SITE_URL'),
+        "scheme": get_config('CONNECTION')
+    }
+    vendor_name = returned_obj.grn_ordered_id.order.ordered_cart.vendor.vendor_name
+    template_name = 'admin/return_order/debit_note.html'
+    filename = 'PR_PDF_{}_{}_{}.pdf'.format(debit_note_number, datetime.datetime.today().date(), vendor_name)
+    cmd_option = {
+        'encoding': 'utf8',
+        'margin-top': 3
+    }
+    response = PDFTemplateResponse(request=None, template=template_name, filename=filename,
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
+    try:
+        returned_obj.debit_note.save("{}".format(filename), ContentFile(response.rendered_content), save=True)
+        returned_obj.save()
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        error_logger.exception(e)
+
+
+@task()
+def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
+    instance = PosReturnGRNOrder.objects.get(id=pos_return_items_obj)
+    try:
+        recipient_list = [instance.grn_ordered_id.vendor.email]
+        vendor_name = instance.vendor.vendor_name
+        return_order_no = instance.pr_number
+        subject = "Purchase Order {} | {}".format(return_order_no, instance.retailer_shop.shop_name)
+        body = 'Dear {}, \n \n Find attached PO from {}, PepperTap POS. \n \n Note: Take Prior appointment before delivery ' \
+               'and bring PO copy along with Original Invoice. \n \n Thanks, \n {}'.format(
+            vendor_name, instance.retailer_shop.shop_name, instance.retailer_shop.shop_name)
+
+        filename = 'PO_PDF_{}_{}_{}.pdf'.format(return_order_no, datetime.datetime.today().date(), vendor_name)
         template_name = 'admin/purchase_order/retailer_purchase_order.html'
         cmd_option = {
             'encoding': 'utf8',

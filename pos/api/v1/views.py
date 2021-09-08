@@ -28,7 +28,7 @@ from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType, \
     PosReturnGRNOrder
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
-                                  check_pos_shop, ProductChangeLogs)
+                                  check_pos_shop, ProductChangeLogs, check_return_status)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop
 from pos.services import grn_product_search
 
@@ -1247,12 +1247,15 @@ class GrnReturnOrderView(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
+    @check_return_status
     def get(self, request, *args, **kwargs):
-        grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop']).\
+        grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
+                                                      status=kwargs['status']).\
             prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
             select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
         if grn_return:
-            serializer = ReturnGrnOrderSerializer(grn_return, many=True)
+            serializer = ReturnGrnOrderSerializer(grn_return, many=True,
+                                                  context={'status': kwargs['status']})
             return api_response('', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response("Return GRN Order not found")
@@ -1285,3 +1288,4 @@ class GrnReturnOrderView(GenericAPIView):
             return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
+

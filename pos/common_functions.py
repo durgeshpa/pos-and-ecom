@@ -510,6 +510,20 @@ def filter_pos_shop(user):
                                pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
+def check_return_status(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        status = request.META.get('HTTP_STATUS', None)
+        if not status:
+            return api_response("No status Selected!")
+        if status not in ['RETURNED', 'CANCELLED']:
+            return api_response("invalid status Selected!")
+        kwargs['status'] = status
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def check_pos_shop(view_func):
     """
         Decorator to validate pos request
