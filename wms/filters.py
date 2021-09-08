@@ -112,7 +112,17 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             return Zone.objects.none()
-        qs = Zone.objects.all()
+
+        if self.request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            qs = Zone.objects.all()
+        elif self.request.user.has_perm('wms.can_have_zone_supervisor_permission'):
+            qs = Zone.objects.filter(supervisor=self.request.user)
+        elif self.request.user.has_perm('wms.can_have_zone_coordinator_permission'):
+            qs = Zone.objects.filter(coordinator=self.request.user)
+        else:
+            qs = Zone.objects.none()
+
+        # qs = Zone.objects.all()
 
         warehouse = self.forwarded.get('warehouse', None)
         if warehouse:

@@ -2204,13 +2204,6 @@ def get_logged_user_wise_query_set(user, queryset):
     return queryset
 
 
-def get_config(key, default_value=None):
-    config_object = GlobalConfig.objects.filter(key=key).last()
-    if config_object is None:
-        return default_value
-    return config_object.value
-
-
 class ZoneCommonFunction(object):
 
     @classmethod

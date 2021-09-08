@@ -17,8 +17,8 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
 from shops.models import Shop
 
-from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    get_config
+from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions
+from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file

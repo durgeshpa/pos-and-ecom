@@ -20,7 +20,8 @@ from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
-from .common_functions import create_batch_id, get_config
+from .common_functions import create_batch_id
+from global_config.views import get_config
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
@@ -92,6 +93,8 @@ class BinForm(forms.ModelForm):
     bin_id = forms.CharField(required=True, max_length=16)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     bin_type = forms.ChoiceField(choices=BIN_TYPE_CHOICES)
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = Bin
