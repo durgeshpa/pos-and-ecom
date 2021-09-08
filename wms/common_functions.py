@@ -17,6 +17,7 @@ from django.db import transaction
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
+from global_config.models import GlobalConfig
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
