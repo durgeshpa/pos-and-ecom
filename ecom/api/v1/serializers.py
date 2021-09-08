@@ -142,6 +142,10 @@ class EcomOrderAddressSerializer(serializers.ModelSerializer):
 class EcomOrderListSerializer(serializers.ModelSerializer):
     total_items = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
+    order_status = serializers.SerializerMethodField()
+
+    def get_order_status(self, obj):
+        return obj.get_order_status_display()
 
     @staticmethod
     def get_total_items(obj):
