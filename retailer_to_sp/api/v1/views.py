@@ -356,8 +356,12 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         filter_list = []
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}, {"range": {"stock_qty": {"gt": 0}}}]
+            filter_list = [{"term": {"status": 'active'}}]
+            shop = Shop.objects.filter(id=shop_id).last()
+            if shop and shop.online_inventory_enabled:
+                filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
+        query = dict()
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
@@ -1519,8 +1523,10 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, seller_shop=seller_shop,
-                                                                 cart_status='active')
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active')
+        if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
+            CartProductMapping.objects.filter(cart=cart).delete()
+        cart.seller_shop = seller_shop
         cart.save()
         return cart
 
@@ -2956,9 +2962,12 @@ class OrderCentral(APIView):
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         out_of_stock_items = PosCartCls.out_of_stock_items(cart_products, self.request.data.get("remove_unavailable"))
-        if out_of_stock_items:
+        if out_of_stock_items and shop.online_inventory_enabled:
             return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+        if not CartProductMapping.objects.filter(cart=cart).exists():
+            return api_response("No items added to cart yet")
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -2966,7 +2975,6 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop, address)
-            payment_type = PaymentType.objects.get(type='cash')
             payments = [
                 {
                     "payment_type": PaymentType.objects.get(type='cash').id,
@@ -4553,6 +4561,7 @@ class CartStockCheckView(APIView):
         """
             Check stock qty cart
         """
+        shop = kwargs['shop']
         try:
             cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
                                                                      seller_shop=kwargs['shop'], cart_status='active')
@@ -4565,7 +4574,7 @@ class CartStockCheckView(APIView):
         out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
         # Return error for out of stock items else return payment methods
-        if out_of_stock_items:
+        if out_of_stock_items and shop.online_inventory_enabled:
             return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
         else:

@@ -2294,7 +2294,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_address(obj):
         if obj.ordered_cart.cart_type == 'ECOM' and hasattr(obj, 'ecom_address_order'):
-            return EcomOrderAddressSerializer(obj.ecom_address_order)
+            return EcomOrderAddressSerializer(obj.ecom_address_order).data
         return None
 
     class Meta:

@@ -70,7 +70,7 @@ class UserLocationSerializer(serializers.Serializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'online_inventory_enabled')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -125,6 +125,14 @@ class SubCategorySerializer(serializers.ModelSerializer):
 
 
 class EcomOrderAddressSerializer(serializers.ModelSerializer):
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+
+    def get_city(self, obj):
+        return obj.city.city_name if obj.city else None
+
+    def get_state(self, obj):
+        return obj.state.state_name if obj.state else None
 
     class Meta:
         model = EcomOrderAddress
