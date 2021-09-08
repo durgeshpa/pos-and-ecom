@@ -5,7 +5,7 @@ import wms
 from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, MergeBarcode
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
-    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter
+    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter
 
 
 
@@ -23,6 +23,8 @@ urlpatterns = [
     url(r'^putaway-user-autocomplete/$', PutawayUserFilter.as_view(), name='putaway-user-autocomplete'),
     url(r'^supervisor-autocomplete/$', SupervisorFilter.as_view(), name='supervisor-autocomplete'),
     url(r'^coordinator-autocomplete/$', CoordinatorFilter.as_view(), name='coordinator-autocomplete'),
+    url(r'^coordinator-available-autocomplete/$', CoordinatorAvailableFilter.as_view(),
+        name='coordinator-available-autocomplete'),
     url(r'^parent-product-autocomplete/$', ParentProductFilter.as_view(), name='parent-product-autocomplete'),
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),

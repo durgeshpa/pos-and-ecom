@@ -20,7 +20,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
-from .common_functions import create_batch_id
+from .common_functions import create_batch_id, get_config
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
@@ -1175,9 +1175,11 @@ putaway_group = Group.objects.get(name='Putaway')
 class ZoneForm(forms.ModelForm):
     info_logger.info("Zone Form has been called.")
     # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
-    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True)
+    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     supervisor = forms.ModelChoiceField(queryset=User.objects.filter(
-        Q(groups__permissions=supervisor_perm) | Q(user_permissions=supervisor_perm)).distinct(), required=True)
+        Q(groups__permissions=supervisor_perm) | Q(user_permissions=supervisor_perm)).distinct(), required=True,
+                                        widget=autocomplete.ModelSelect2(url='supervisor-autocomplete'))
     coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
     putaway_users = forms.ModelMultipleChoiceField(
@@ -1210,8 +1212,10 @@ class ZoneForm(forms.ModelForm):
 
     def clean_putaway_users(self):
         if self.cleaned_data['putaway_users']:
-            if len(self.cleaned_data['putaway_users']) != 2:
-                raise ValidationError(_("You need to select exactly 2 items."))
+            if len(self.cleaned_data['putaway_users']) <= 0 or \
+                    len(self.cleaned_data['putaway_users']) >= get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
+                raise ValidationError(_(
+                    "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
         return self.cleaned_data['putaway_users']
 
     def clean(self):
@@ -1228,14 +1232,23 @@ class ZoneForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(ZoneForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
+        perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
 
         if instance.pk:
             queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
                 id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
             self.fields['putaway_users'].queryset = (queryset | instance.putaway_users.all()).distinct()
+
+            queryset = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
+            self.fields['coordinator'].queryset = (queryset | User.objects.filter(id=instance.coordinator.pk)).distinct()
         else:
             self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
                 id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
+
+            self.fields['coordinator'].queryset = User.objects.filter(
+                Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
 
 
 class WarehouseAssortmentForm(forms.ModelForm):

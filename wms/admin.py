@@ -247,6 +247,18 @@ class CoordinatorFilter(AutocompleteFilter):
     autocomplete_url = 'coordinator-autocomplete'
 
 
+class ZoneFilter(AutocompleteFilter):
+    title = 'Zone'
+    field_name = 'zone'
+    autocomplete_url = 'zone-autocomplete'
+
+
+class ParentProductFilter(AutocompleteFilter):
+    title = 'Product'
+    field_name = 'product'
+    autocomplete_url = 'parent-product-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -1010,7 +1022,7 @@ class WarehouseAssortmentAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
                     'updated_by',)
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
-    list_filter = [Warehouse,
+    list_filter = [Warehouse, ParentProductFilter, ZoneFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
     list_per_page = 50
     date_hierarchy = 'created_at'

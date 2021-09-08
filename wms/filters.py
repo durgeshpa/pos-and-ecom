@@ -84,6 +84,19 @@ class CoordinatorFilter(autocomplete.Select2QuerySetView):
         return qs
 
 
+class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+            id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator')).distinct()
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
+        return qs
+
+
 class ParentProductFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:

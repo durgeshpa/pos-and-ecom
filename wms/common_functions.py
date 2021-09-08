@@ -17,6 +17,7 @@ from django.db import transaction
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
+from global_config.models import GlobalConfig
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
@@ -2201,6 +2202,13 @@ def get_logged_user_wise_query_set(user, queryset):
     elif user.groups.filter(name='Putaway').exists():
         queryset = queryset.filter(putaway_user=user)
     return queryset
+
+
+def get_config(key, default_value=None):
+    config_object = GlobalConfig.objects.filter(key=key).last()
+    if config_object is None:
+        return default_value
+    return config_object.value
 
 
 class ZoneCommonFunction(object):

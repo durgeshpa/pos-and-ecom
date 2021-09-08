@@ -17,7 +17,8 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
 from shops.models import Shop
 
-from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions
+from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
+    get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
@@ -236,8 +237,9 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
                     "Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
         if 'putaway_users' in self.initial_data and self.initial_data['putaway_users']:
-            if len(self.initial_data['putaway_users']) > 2:
-                raise serializers.ValidationError("Maximum 2 putaway users are allowed.")
+            if len(self.initial_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
+                raise serializers.ValidationError(
+                    "Maximum " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " putaway users are allowed.")
             putaway_users = get_validate_putaway_users(self.initial_data['putaway_users'])
             if 'error' in putaway_users:
                 raise serializers.ValidationError((putaway_users["error"]))
