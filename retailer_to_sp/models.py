@@ -918,7 +918,7 @@ class Order(models.Model):
         (PICKUP_CREATED, 'Pickup Created'),
         (PARTIALLY_RETURNED, 'Partially Returned'),
         (FULLY_RETURNED, 'Fully Returned'),
-        (PICKED, 'Picked'),
+        (PICKED, 'Order Processing'),
         (OUT_FOR_DELIVERY, 'Out For Delivery')
     )
 
