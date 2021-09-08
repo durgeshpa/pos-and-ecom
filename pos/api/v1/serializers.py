@@ -301,13 +301,21 @@ class BasicCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_dt')
     total_quantity = serializers.SerializerMethodField('total_quantity_dt')
     total_amount = serializers.SerializerMethodField('total_amount_dt')
+    product_discount_from_mrp = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
         fields = ('id', 'cart_no', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
-                  'total_discount', 'amount_payable')
+                  'product_discount_from_mrp', 'total_discount', 'amount_payable')
+
+    def get_product_discount_from_mrp(self, obj):
+        total_amount = 0
+        for cart_pro in obj.rt_cart_list.all():
+            mrp = cart_pro.retailer_product.mrp if cart_pro.retailer_product.mrp else cart_pro.selling_price
+            total_amount += (Decimal(mrp) - Decimal(cart_pro.selling_price)) * Decimal(cart_pro.qty)
+        return total_amount
 
     def rt_cart_list_dt(self, obj):
         """
