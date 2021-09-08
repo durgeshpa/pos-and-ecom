@@ -1161,7 +1161,7 @@ class IncentiveView(GenericAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
-        msg = "There will be a 1% incentive for billing done from Rs 50000 to Rs 500000 for a calendar month"
+        msg = "There  will  be  a  1%  incentive  for  billing  done  from  Rs 50000  to  Rs 500000  for  a  calendar  month."
         return api_response(msg, None, status.HTTP_200_OK, True)
         # Get start date and end date based on offset and limit
         # offset, limit = int(self.request.GET.get('offset', 0)), min(5, int(self.request.GET.get('limit', 5)))
