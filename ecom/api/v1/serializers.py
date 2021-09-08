@@ -125,6 +125,14 @@ class SubCategorySerializer(serializers.ModelSerializer):
 
 
 class EcomOrderAddressSerializer(serializers.ModelSerializer):
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+
+    def get_city(self, obj):
+        return obj.city.city_name if obj.city else None
+
+    def get_state(self, obj):
+        return obj.state.state_name if obj.state else None
 
     class Meta:
         model = EcomOrderAddress
