@@ -1172,52 +1172,54 @@ class IncentiveView(GenericAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
+        msg = "There will be a 1% incentive for billing done from Rs 50000 to Rs 500000 for a calendar month"
+        return api_response(msg, None, status.HTTP_200_OK, True)
         # Get start date and end date based on offset and limit
-        offset, limit = int(self.request.GET.get('offset', 0)), min(5, int(self.request.GET.get('limit', 5)))
-        date_today = datetime.datetime.today()
-        month, year = date_today.month, date_today.year
-        month_range = calendar.monthrange(year, month)[1]
-        end_date = date_today - datetime.timedelta(days=offset * month_range)
-        start_date = end_date - datetime.timedelta(days=(limit - 1) * month_range)
-        start_month, start_year, end_month, end_year = start_date.month, start_date.year, end_date.month, end_date.year
-
-        # Default result set
-        result_set = self.get_default_result_set(limit, month_range, end_date)
-
-        # SALES
-        shop = kwargs['shop']
-        qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
-        qss = self.filter_by_date(qss, start_month, start_year, end_month, end_year)
-        qss = qss.values('created_at__month', 'created_at__year').annotate(sale=Sum('order_amount'))
-        sales_data = qss.values('sale', 'created_at__month', 'created_at__year', effective_sale=F('sale')).order_by(
-            '-created_at__month', '-created_at__year')
-
-        # RETURNS
-        qsr = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
-        qsr = self.filter_by_date(qsr, start_month, start_year, end_month, end_year)
-        qsr = qsr.values('created_at__month', 'created_at__year').annotate(
-            returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
-        returns_data = qsr.values('returns', 'created_at__month', 'created_at__year')
-
-        # MERGE sales and returns
-        for sale in sales_data:
-            result_set[str(sale['created_at__month']) + '_' + str(sale['created_at__year'])] = sale
-        for ret in returns_data:
-            key = str(ret['created_at__month']) + '_' + str(ret['created_at__year'])
-            if key in result_set:
-                result_set[key].update(ret)
-                result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
-
-        # Incentive cal
-        incentive_rate = int(get_config('pos_retailer_incentive_rate', 1))
-        for key in result_set:
-            result_set[key]['month'] = calendar.month_name[result_set[key]['created_at__month']] + ', ' + str(result_set[key]['created_at__year'])
-            del result_set[key]['created_at__month']
-            del result_set[key]['created_at__year']
-            result_set[key]['incentive_rate'] = str(incentive_rate) + '%'
-            result_set[key]['incentive'] = round((incentive_rate / 100) * result_set[key]['effective_sale'], 2)
-
-        return api_response('Incentive for shop', result_set.values(), status.HTTP_200_OK, True)
+        # offset, limit = int(self.request.GET.get('offset', 0)), min(5, int(self.request.GET.get('limit', 5)))
+        # date_today = datetime.datetime.today()
+        # month, year = date_today.month, date_today.year
+        # month_range = calendar.monthrange(year, month)[1]
+        # end_date = date_today - datetime.timedelta(days=offset * month_range)
+        # start_date = end_date - datetime.timedelta(days=(limit - 1) * month_range)
+        # start_month, start_year, end_month, end_year = start_date.month, start_date.year, end_date.month, end_date.year
+        #
+        # # Default result set
+        # result_set = self.get_default_result_set(limit, month_range, end_date)
+        #
+        # # SALES
+        # shop = kwargs['shop']
+        # qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
+        # qss = self.filter_by_date(qss, start_month, start_year, end_month, end_year)
+        # qss = qss.values('created_at__month', 'created_at__year').annotate(sale=Sum('order_amount'))
+        # sales_data = qss.values('sale', 'created_at__month', 'created_at__year', effective_sale=F('sale')).order_by(
+        #     '-created_at__month', '-created_at__year')
+        #
+        # # RETURNS
+        # qsr = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
+        # qsr = self.filter_by_date(qsr, start_month, start_year, end_month, end_year)
+        # qsr = qsr.values('created_at__month', 'created_at__year').annotate(
+        #     returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
+        # returns_data = qsr.values('returns', 'created_at__month', 'created_at__year')
+        #
+        # # MERGE sales and returns
+        # for sale in sales_data:
+        #     result_set[str(sale['created_at__month']) + '_' + str(sale['created_at__year'])] = sale
+        # for ret in returns_data:
+        #     key = str(ret['created_at__month']) + '_' + str(ret['created_at__year'])
+        #     if key in result_set:
+        #         result_set[key].update(ret)
+        #         result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+        #
+        # # Incentive cal
+        # incentive_rate = int(get_config('pos_retailer_incentive_rate', 1))
+        # for key in result_set:
+        #     result_set[key]['month'] = calendar.month_name[result_set[key]['created_at__month']] + ', ' + str(result_set[key]['created_at__year'])
+        #     del result_set[key]['created_at__month']
+        #     del result_set[key]['created_at__year']
+        #     result_set[key]['incentive_rate'] = str(incentive_rate) + '%'
+        #     result_set[key]['incentive'] = round((incentive_rate / 100) * result_set[key]['effective_sale'], 2)
+        #
+        # return api_response('Incentive for shop', result_set.values(), status.HTTP_200_OK, True)
 
     @staticmethod
     def get_default_result_set(limit, month_range, end_date):
