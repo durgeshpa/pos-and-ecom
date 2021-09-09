@@ -666,31 +666,35 @@ class PickupComplete(APIView):
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
 
-        if order_obj:
-            pd_obj = PickerDashboard.objects.filter(order_id=order_obj).exclude(picking_status='picking_cancelled')
-        else:
-            is_repackaging = 1
-            rep_qs = Repackaging.objects.filter(repackaging_no=order_no)
-            rep_obj = rep_qs.last()
-            pd_obj = PickerDashboard.objects.filter(repackaging_id=rep_obj).exclude(picking_status='picking_cancelled')
+        with transaction.atomic():
 
-        if pd_obj.count() > 1:
-            msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
-        pick_obj = Pickup.objects.filter(pickup_type_id=order_no).exclude(status='picking_cancelled')
-
-        if pick_obj.exists():
-            for pickup in pick_obj:
-                pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
-                for pickup_bin in pickup_bin_list:
-                    if pickup_bin.pickup_quantity is None:
-                        return Response({'is_success': False,
-                                         'message': "Pickup Incomplete for some products-e.g BIN:{},SKU:{}"
-                                        .format(pickup_bin.bin.bin.bin_id,
-                                                pickup_bin.pickup.sku.product_sku)})
-
+            if order_obj:
+                pd_obj = PickerDashboard.objects.select_for_update().filter(order_id=order_obj)
             else:
-                with transaction.atomic():
+                is_repackaging = 1
+                rep_qs = Repackaging.objects.filter(repackaging_no=order_no)
+                rep_obj = rep_qs.last()
+                pd_obj = PickerDashboard.objects.select_for_update().filter(repackaging_id=rep_obj)
+
+            pd_obj = pd_obj.exclude(picking_status__in=['picking_complete', 'picking_cancelled'])
+
+            if pd_obj.count() > 1:
+                msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+            pick_obj = Pickup.objects.select_for_update().filter(pickup_type_id=order_no)\
+                                                         .exclude(status__in=['picking_complete', 'picking_cancelled'])
+
+            if pick_obj.exists():
+                for pickup in pick_obj:
+                    pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
+                    for pickup_bin in pickup_bin_list:
+                        if pickup_bin.pickup_quantity is None:
+                            return Response({'is_success': False,
+                                             'message': "Pickup Incomplete for some products-e.g BIN:{},SKU:{}"
+                                            .format(pickup_bin.bin.bin.bin_id,
+                                                    pickup_bin.pickup.sku.product_sku)})
+
+                else:
                     inventory_type = pickup.inventory_type
                     state_to_be_picked = InventoryState.objects.filter(inventory_state="to_be_picked").last()
                     tr_type = "pickup_complete"
@@ -752,8 +756,8 @@ class PickupComplete(APIView):
                     pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
-                return Response({'is_success': True,
-                                 'message': "Pickup complete for all the items"})
+                    return Response({'is_success': True,
+                                     'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
