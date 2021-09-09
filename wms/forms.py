@@ -1178,7 +1178,7 @@ putaway_group = Group.objects.get(name='Putaway')
 class ZoneForm(forms.ModelForm):
     info_logger.info("Zone Form has been called.")
     # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
-    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True,
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     supervisor = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=supervisor_perm) | Q(user_permissions=supervisor_perm)).distinct(), required=True,
@@ -1257,7 +1257,7 @@ class ZoneForm(forms.ModelForm):
 class WarehouseAssortmentForm(forms.ModelForm):
     info_logger.info("WarehouseAssortment Form has been called.")
     # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
-    warehouse = forms.ModelChoiceField(queryset=Shop.objects.filter(id=600), required=True,
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
                                      widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
