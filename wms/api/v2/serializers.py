@@ -15,7 +15,7 @@ from rest_framework import serializers
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
-from shops.models import Shop
+from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions
 from global_config.views import get_config
@@ -1016,3 +1016,44 @@ class ZoneFilterSerializer(serializers.ModelSerializer):
         response.pop('__str__')
         return response
 
+
+class PostLoginUserSerializers(serializers.ModelSerializer):
+
+    is_warehouse_manager = serializers.SerializerMethodField()
+    is_zone_supervisor = serializers.SerializerMethodField()
+    is_zone_coordinator = serializers.SerializerMethodField()
+    is_putaway_user = serializers.SerializerMethodField()
+    user_warehouse = serializers.SerializerMethodField()
+
+    def get_is_warehouse_manager(self, obj):
+        """Check if user has warehouse manager permission"""
+        if obj.has_perm('wms.can_have_zone_warehouse_permission'):
+            return True
+        return False
+
+    def get_is_zone_supervisor(self, obj):
+        """Check if user has Zone Supervisor permission"""
+        if obj.has_perm('wms.can_have_zone_supervisor_permission'):
+            return True
+        return False
+
+    def get_is_zone_coordinator(self, obj):
+        """Check if user has Zone Coordinator permission"""
+        if obj.has_perm('wms.can_have_zone_coordinator_permission'):
+            return True
+        return False
+
+    def get_is_putaway_user(self, obj):
+        """Check if user is Putaway User"""
+        if obj.groups.filter(name='Putaway').exists():
+            return True
+        return False
+
+    def get_user_warehouse(self, obj):
+        """Get user's associated warehouse"""
+        return WarehouseSerializer(obj.shop_employee.last().shop).data if obj.shop_employee.exists() else None
+
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
+                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')

@@ -32,7 +32,8 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
-    PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer
+    PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
+    PostLoginUserSerializers
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1118,3 +1119,17 @@ class PutawayStatusListView(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in Putaway.PUTAWAY_STATUS_CHOICE]
         msg = ""
         return get_response(msg, data, True)
+
+
+class UserDetailsPostLoginView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = PostLoginUserSerializers
+    queryset = get_user_model().objects.all()
+
+    def get(self, request):
+        """ GET User Details post login """
+        self.queryset = self.queryset.filter(id=request.user.id)
+        user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(user, many=True)
+        msg = "" if user else "no user found"
+        return get_response(msg, serializer.data, True)
