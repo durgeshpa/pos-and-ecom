@@ -922,7 +922,9 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     status = serializers.CharField()
 
     def get_putaway_user(self, obj):
-        return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+        if obj['putaway_user']:
+            return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+        return None
 
     def get_grn_id(self, obj):
         return GRNOrderSerializers(GRNOrder.objects.get(grn_id=obj['grn_id']), read_only=True).data
@@ -1001,4 +1003,16 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return putaway_instance
+
+
+class ZoneFilterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['name'] = response['__str__']
+        response.pop('__str__')
+        return response
 

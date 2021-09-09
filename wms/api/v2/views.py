@@ -32,7 +32,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     WarehouseAssortmentSampleCSVSerializer, WarehouseAssortmentUploadSerializer, BinCrudSerializers, \
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
-    PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer
+    PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -903,7 +903,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                  zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
-        exclude(putaway_user=None).exclude(zone__isnull=True). \
+        exclude(zone__isnull=True). \
         values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
@@ -1056,3 +1056,65 @@ class PutawayUsersListView(generics.GenericAPIView):
         serializer = self.serializer_class(zone_putaway_users, many=True)
         msg = "" if zone_putaway_users else "no putaway users found"
         return get_response(msg, serializer.data, True)
+
+
+class ZoneFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Zone.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
+        prefetch_related('putaway_users'). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'supervisor__id', 'supervisor__first_name', 'supervisor__last_name',
+             'supervisor__phone_number', 'coordinator__id', 'coordinator__first_name',
+             'coordinator__last_name', 'coordinator__phone_number', 'created_at', 'updated_at',). \
+        order_by('-id')
+    serializer_class = ZoneFilterSerializer
+
+    def get(self, request):
+        info_logger.info("Zone Coordinators api called.")
+        """ GET Zone Coordinators List """
+        self.queryset = self.search_filter_zones_data()
+        zone_coordinator = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_coordinator, many=True)
+        msg = "" if zone_coordinator else "no zone found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_zones_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        supervisor = self.request.GET.get('supervisor')
+        coordinator = self.request.GET.get('coordinator')
+
+        '''search using warehouse name, supervisor's firstname  and coordinator's firstname'''
+        if search_text:
+            self.queryset = zone_search(self.queryset, search_text)
+
+        '''Filters using warehouse, supervisor, coordinator'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if supervisor:
+            self.queryset = self.queryset.filter(supervisor__id=supervisor)
+
+        if coordinator:
+            self.queryset = self.queryset.filter(coordinator__id=coordinator)
+
+        return self.queryset.distinct('id')
+
+
+class PutawayStatusListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for PutawayStatusList """
+        info_logger.info("PutawayStatusList GET api called.")
+        fields = ['id', 'status']
+        data = [dict(zip(fields, d)) for d in Putaway.PUTAWAY_STATUS_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)

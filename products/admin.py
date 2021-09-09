@@ -675,7 +675,7 @@ class ParentProductAdmin(admin.ModelAdmin):
             #     return format_html(
             #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
             #         % (600, obj.pk))
-            if not obj.product_zones.filter(warehouse_id=600).exists():
+            if not obj.product_zones.exists():
                 return format_html(
                     "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>" % (600, obj.pk))
             else:

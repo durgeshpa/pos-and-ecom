@@ -264,12 +264,12 @@ class BinAdmin(admin.ModelAdmin):
     form = BinForm
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
-    list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt', 'download_bin_id_barcode')
+    list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt',
+                    'zone', 'download_bin_id_barcode')
     # readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
     #                    'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
-    list_filter = [BinIdFilter,
+    list_filter = [BinIdFilter, ZoneFilter,
                    ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
                    ('bin_type', DropdownFilter),
                    ]
