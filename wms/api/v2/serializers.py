@@ -9,7 +9,7 @@ from rest_framework import serializers
 
 from products.models import Product
 from shops.models import Shop
-from wms.models import In, Out, InventoryType
+from wms.models import In, Out, InventoryType, BinInventory, Bin
 
 
 class InSerializer(serializers.ModelSerializer):
@@ -132,4 +132,56 @@ class InOutLedgerCSVSerializer(serializers.ModelSerializer):
         return response
 
 
+class WarehouseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
+
+class BinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bin
+        fields = ('id', 'bin_id', 'warehouse_id')
+
+
+class InventoryTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryType
+        fields = ('id', 'inventory_type')
+
+
+class ProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name')
+
+
+class BinInventorySerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer()
+    bin = BinSerializer()
+    inventory_type = InventoryTypeSerializer()
+    sku = ProductSerializer()
+    bin_quantity = serializers.SerializerMethodField()
+
+    def get_bin_quantity(self, obj):
+        return obj.quantity+obj.to_be_picked_qty
+
+    class Meta:
+        model = BinInventory
+        fields = ('warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'bin_quantity')
+
+
+    def validate(self, data):
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'])
+                data['warehouse'] = warehouse
+            except Exception as e:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' |  This is required")
+        
+        return data
 

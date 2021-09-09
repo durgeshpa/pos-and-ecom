@@ -8,12 +8,15 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
 from products.models import Product
+from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error
-from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer
+from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, BinInventorySerializer, \
+    InventoryTypeSerializer
 from ...common_validators import validate_ledger_request
 
 # Logger
+from ...models import BinInventory, InventoryType
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -74,3 +77,70 @@ class WarehouseAutocomplete(autocomplete.Select2QuerySetView):
             # qs = qs.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q) |
             #                Q(shop_owner__first_name__icontains=self.q) | Q(shop_owner__last_name__icontains=self.q))
         return qs
+
+
+class InventoryTypeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = InventoryType.objects.all()
+    serializer_class = InventoryTypeSerializer
+
+    def get(self, request):
+        count = self.queryset.count()
+        inventory_type_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(inventory_type_data, many=True)
+        msg = f'{count} records found'
+        return get_response(msg, serializer.data, True)
+
+
+class BinInventoryDataView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BinInventorySerializer
+    queryset = BinInventory.objects.all()
+
+    def get(self, request):
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is required")
+
+        sku = request.GET.get('sku')
+        bin = request.GET.get('bin')
+
+        if not sku and not bin:
+            return get_response("'sku' or 'bin' is required")
+
+        """ GET BinInventory List """
+        self.queryset = self.search_filter_inventory_data()
+        total_count = self.queryset.count()
+        bin_inventory_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(bin_inventory_data, many=True)
+        msg = f"total count {total_count}" if bin_inventory_data else "no record found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_inventory_data(self):
+        warehouse = self.request.GET.get('warehouse')
+        sku = self.request.GET.get('sku')
+        bin = self.request.GET.get('bin')
+        batch = self.request.GET.get('batch')
+        inventory_type = self.request.GET.get('inventory_type')
+
+        '''Filters using warehouse, sku, batch, bin, inventory_type'''
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if sku:
+            self.queryset = self.queryset.filter(sku=sku)
+
+        if bin:
+            self.queryset = self.queryset.filter(bin__bin_id=bin)
+
+        if batch:
+            self.queryset = self.queryset.filter(batch=batch)
+
+        if inventory_type:
+            self.queryset = self.queryset.filter(inventory_type_id=inventory_type)
+
+        return self.queryset
+
