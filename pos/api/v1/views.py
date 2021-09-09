@@ -1,37 +1,34 @@
 import datetime
-from decimal import Decimal
-import logging
 import json
+import logging
 import sys
-import requests
-from io import BytesIO
 from copy import deepcopy
-import calendar
+from decimal import Decimal
+from io import BytesIO
 
-from django.db import transaction
+import requests
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
+from django.db import transaction
 from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
-
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView, ListAPIView
 
-from retailer_backend.utils import SmallOffsetPagination
-from products.models import Product
-from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from wms.models import PosInventoryChange, PosInventoryState, PosInventory
-from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
-
-from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, PaymentType, \
-    PosReturnGRNOrder
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, check_return_status)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
+    PaymentType, \
+    PosReturnGRNOrder
 from pos.services import grn_product_search, grn_return_search
-
+from products.models import Product
+from retailer_backend.utils import SmallOffsetPagination
+from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
+from shops.models import Shop
+from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
@@ -42,12 +39,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
-<<<<<<< HEAD
                           GrnOrderGetSerializer, ReturnGrnOrderSerializer, GrnOrderGetListSerializer)
-=======
-                          GrnOrderGetSerializer)
-from global_config.views import get_config
->>>>>>> 1b1e62fef413d9af859b47c22af46157cebfb00c
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
