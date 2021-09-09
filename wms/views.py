@@ -2249,7 +2249,7 @@ def WarehouseAssortmentDownloadSampleCSV(request):
 
 def WarehouseAssortmentUploadCsvView(request):
     if request.method == 'POST':
-        form = WarehouseAssortmentCsvViewForm(request.POST, request.FILES)
+        form = WarehouseAssortmentCsvViewForm(request.POST, request.FILES, {"user": request.user})
 
         if form.errors:
             return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
@@ -2284,5 +2284,5 @@ def WarehouseAssortmentUploadCsvView(request):
                     created_count) + ", Total updated: " + str(updated_count),
             })
     else:
-        form = WarehouseAssortmentCsvViewForm()
+        form = WarehouseAssortmentCsvViewForm({"user": request.user})
     return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})

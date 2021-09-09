@@ -1324,7 +1324,6 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
 
     def clean_file(self):
         """
-
         :return: Form is valid otherwise validation error message
         """
         # Validate to check the file format, It should be csv file.
@@ -1369,3 +1368,8 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
             form_data_list.append(row)
 
         return self.cleaned_data['file']
+
+    def clean(self):
+        # Check logged in user permissions
+        if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
+            raise forms.ValidationError(_("Required permissions missing to perform this task."))
