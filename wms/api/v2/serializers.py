@@ -959,15 +959,6 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validates the Putaway requests"""
 
-        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
-            try:
-                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
-                data['warehouse'] = warehouse
-            except:
-                raise serializers.ValidationError("Invalid warehouse")
-        else:
-            raise serializers.ValidationError("'warehouse' | This is mandatory")
-
         if 'id' in self.initial_data and self.initial_data['id']:
             if 'status' in self.initial_data and self.initial_data['status']:
                 try:
