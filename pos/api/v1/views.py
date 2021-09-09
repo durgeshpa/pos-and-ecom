@@ -30,7 +30,7 @@ from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, V
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, check_return_status)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop
-from pos.services import grn_product_search
+from pos.services import grn_product_search, grn_return_search
 
 from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
@@ -1255,8 +1255,7 @@ class ReturnStatusListView(GenericAPIView):
         """ GET Status Choice List """
         fields = ['status', 'return_status', ]
         data = [dict(zip(fields, d)) for d in PosReturnGRNOrder.RETURN_STATUS]
-        msg = ""
-        return api_response(msg, data, status.HTTP_200_OK, True)
+        return api_response("", data, status.HTTP_200_OK, True)
 
 
 class GrnReturnOrderView(GenericAPIView):
@@ -1271,6 +1270,11 @@ class GrnReturnOrderView(GenericAPIView):
                                                       status=kwargs['status']).\
             prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
             select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
+
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            grn_return = grn_return_search(grn_return, search_text)
+
         if grn_return:
             serializer = ReturnGrnOrderSerializer(grn_return, many=True,
                                                   context={'status': kwargs['status']})
@@ -1298,7 +1302,9 @@ class GrnReturnOrderView(GenericAPIView):
 
         # validations for input id
         try:
-            id_instance = PosReturnGRNOrder.objects.get(id=int(request.data['id']))
+            pos_return_order = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=
+                                                                kwargs['shop'])
+            id_instance = pos_return_order.get(id=int(request.data['id']))
         except:
             return api_response('please provide a valid id')
         serializer = ReturnGrnOrderSerializer(instance=id_instance, data=request.data,

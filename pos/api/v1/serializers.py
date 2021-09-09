@@ -2086,7 +2086,6 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
     total_return_qty = serializers.SerializerMethodField()
     other_return_qty = serializers.SerializerMethodField()
 
-
     class Meta:
         model = PosReturnItems
         fields = ('id', 'product', 'return_qty', 'other_return_qty', 'total_return_qty')
@@ -2099,11 +2098,12 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_return_qty(obj):
-        return PosReturnItems.objects.filter(product=obj.product).aggregate(total=Sum('return_qty'))['total']
+        total_returned = PosReturnItems.objects.filter(product=obj.product, is_active=True).aggregate(total=Sum('return_qty'))['total']
+        return total_returned if total_returned else 0
 
     @staticmethod
     def get_other_return_qty(obj):
-        return PosReturnItemsSerializer.get_total_return_qty(obj) - obj.return_qty
+        return PosReturnItemsSerializer.get_total_return_qty(obj) - (obj.return_qty if obj.is_active else 0)
 
 
 class GrnOrderGetListSerializer(serializers.ModelSerializer):
@@ -2207,19 +2207,23 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
 
                 previous_return_qty = PosReturnItems.objects.filter(
                     grn_return_id__grn_ordered_id=pos_grn_obj['grn_ordered_id'].id, product_id=rtn_product['product_id'],
-                    grn_return_id__status=PosReturnGRNOrder.RETURN_STATUS.RETURNED). \
+                    grn_return_id__status=PosReturnGRNOrder.RETURN_STATUS.RETURNED, is_active=True,
+                    grn_return_id__grn_ordered_id__order__ordered_cart__retailer_shop=shop). \
                     aggregate(total_qty=Sum('return_qty'))
 
                 if 'id' in self.initial_data and self.initial_data['id']:
-                    if PosReturnGRNOrder.objects.filter(id=self.initial_data['id'], status=PosReturnGRNOrder.CANCELLED).exists():
-                        raise serializers.ValidationError("This Order is cancelled can't modify")
+                    if PosReturnGRNOrder.objects.filter(id=self.initial_data['id'],
+                                                        status=PosReturnGRNOrder.CANCELLED,
+                                                        grn_ordered_id__order__ordered_cart__retailer_shop=shop).exists():
+                        raise serializers.ValidationError("This Order is cancelled, can't modify")
 
                     if rtn_product['return_qty'] > total_ordered_qty:
                         raise serializers.ValidationError("Return Qty is greater than the delivered qty.")
 
                     obj = PosReturnGRNOrder.objects.filter(
                         grn_ordered_id=pos_grn_obj['grn_ordered_id'], grn_order_return__product=rtn_product['product_id'],
-                        grn_order_return__is_active=True, status=PosReturnGRNOrder.RETURNED). \
+                        grn_order_return__is_active=True, status=PosReturnGRNOrder.RETURNED,
+                        grn_ordered_id__order__ordered_cart__retailer_shop=shop). \
                         exclude(id=self.initial_data['id']). \
                         aggregate(total_product_qty=Sum('grn_order_return__return_qty'))
 
@@ -2235,7 +2239,8 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
 
         instance_id = self.instance.id if self.instance else None
         if 'status' in data and data['status'] == PosReturnGRNOrder.CANCELLED and instance_id:
-            if PosReturnGRNOrder.objects.filter(id=instance_id, status=PosReturnGRNOrder.CANCELLED).exists():
+            if PosReturnGRNOrder.objects.filter(id=instance_id, status=PosReturnGRNOrder.CANCELLED,
+                                                grn_ordered_id__order__ordered_cart__retailer_shop=shop).exists():
                 raise serializers.ValidationError("This Order is already cancelled")
 
             # post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
@@ -2356,6 +2361,11 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             PosReturnItems.objects.filter(grn_return_id=grn_return_id,
                                           product=grn_product_return['product_id']).update(is_active=False)
 
+        if grn_return_id.debit_note is not None:
+            grn_return_id.debit_note = None
+            grn_return_id.debit_note_number = None
+            grn_return_id.save()
+
     def manage_nonexisting_return_products(self, grn_return_id, grn_products_return):
         post_return_item = PosReturnItems.objects.filter(grn_return_id=grn_return_id, is_active=True)
         post_return_item_dict = post_return_item.values('product_id', 'return_qty')
@@ -2369,5 +2379,6 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                           grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN)
             # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
             PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
+
 
 
