@@ -2236,7 +2236,7 @@ def assign_putaway_users_to_new_putways():
 
 
 def WarehouseAssortmentDownloadSampleCSV(request):
-    filename = "parent_products_sample.csv"
+    filename = "warehouse_assortment_sample.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
