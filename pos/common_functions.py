@@ -24,7 +24,8 @@ from products.models import Product
 
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, PosCart, PosCartProductMapping, Vendor
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -515,10 +516,12 @@ def check_return_status(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         status = request.META.get('HTTP_STATUS', None)
         if not status:
-            return api_response("No status Selected!")
-        if status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
+            kwargs['status'] = PosReturnGRNOrder.RETURNED
+            # return api_response("No status Selected!")
+        elif status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
             return api_response("invalid status Selected!")
-        kwargs['status'] = status.upper()
+        else:
+            kwargs['status'] = status.upper()
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func

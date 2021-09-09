@@ -5,7 +5,7 @@ from django.db.models import Q
 def grn_product_search(queryset, search_text):
     queryset = queryset.filter(Q(invoice_no__icontains=search_text) | Q(products__name__icontains=search_text)
                                | Q(order__ordered_cart__po_no__icontains=search_text))
-    return queryset
+    return queryset.distinct()
 
 
 # search using pos return pr number, debit note number & grn_ordered_id
