@@ -30,7 +30,8 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment)
-from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
+from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
+    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -1005,7 +1006,6 @@ class ZoneAdmin(admin.ModelAdmin):
     list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
     list_per_page = 50
-    date_hierarchy = 'created_at'
 
     def save_model(self, request, obj, form, change):
         if not change:
@@ -1025,7 +1025,25 @@ class WarehouseAssortmentAdmin(admin.ModelAdmin):
     list_filter = [Warehouse, ParentProductFilter, ZoneFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
     list_per_page = 50
-    date_hierarchy = 'created_at'
+
+    change_list_template = 'admin/wms/warehouse_assortment_change_list.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(WarehouseAssortmentAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^warehouse-assortment-download-sample-csv/$',
+                self.admin_site.admin_view(WarehouseAssortmentDownloadSampleCSV),
+                name="warehouse-assortment-download-sample-csv"
+            ),
+            url(
+                r'^warehouse-assortment-upload-csv/$',
+                self.admin_site.admin_view(WarehouseAssortmentUploadCsvView),
+                name="warehouse-assortment-upload"
+            ),
+        ] + urls
+        return urls
 
     def save_model(self, request, obj, form, change):
         if not change:

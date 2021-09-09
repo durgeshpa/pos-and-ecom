@@ -1017,6 +1017,50 @@ class ZoneFilterSerializer(serializers.ModelSerializer):
         return response
 
 
+class WarehouseAssortmentSampleCSVSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id',)
+
+    def validate(self, data):
+        if 'id' not in self.initial_data or not self.initial_data['id']:
+            raise serializers.ValidationError(_('Warehouse must be selected '))
+        warehouse_id = self.initial_data['id']
+        try:
+            Shop.objects.get(id=warehouse_id, shop_type__shop_type='sp')
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f'Warehouse not found for id {warehouse_id}')
+        data['id'] = warehouse_id
+        return data
+
+    def create(self, validated_data):
+        data = []
+        if validated_data['created_by'].has_perm('wms.can_have_zone_warehouse_permission'):
+            data = WarehouseAssortment.objects. \
+                    select_related('warehouse', 'product', 'zone', 'zone__supervisor', 'zone__coordinator'). \
+                    only('id', 'warehouse__id', 'warehouse__shop_name', 'product__id', 'product__name', 'zone__id',
+                         'zone__supervisor__phone_number', 'zone__supervisor__first_name',
+                         'zone__coordinator__phone_number', 'zone__coordinator__first_name'). \
+                    values_list('warehouse__id', 'warehouse__shop_name', 'product__id', 'product__name', 'zone__id',
+                                'zone__supervisor__phone_number', 'zone__supervisor__first_name',
+                                'zone__coordinator__phone_number', 'zone__coordinator__first_name') \
+                    .filter(warehouse=validated_data['id']).order_by('-id')
+
+        meta = WarehouseAssortment._meta
+        field_names = ['warehouse_id', 'warehouse_name', 'product_id', 'product_name', 'zone_id',
+                       'zone_supervisor_phone_number', 'zone_supervisor_first_name', 'zone_coordinator_phone_number',
+                       'zone_coordinator_first_name']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in data:
+            writer.writerow(list(obj))
+        return response
+
+
 class PostLoginUserSerializers(serializers.ModelSerializer):
 
     is_warehouse_manager = serializers.SerializerMethodField()

@@ -34,6 +34,7 @@ from django.http import JsonResponse
 from global_config.views import get_config
 from products.utils import deactivate_product
 from retailer_backend.common_function import bulk_create
+from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
 from django.db.models import Sum
@@ -56,7 +57,8 @@ from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
-from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm
+from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
+    WarehouseAssortmentCsvViewForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -2231,3 +2233,56 @@ def assign_putaway_users_to_new_putways():
             reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
             cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for GRN Id: " + str(x['grn_id']) +
                              ", Zone Id: " + str(x['zone']) + ", Putaway ids reflected: " + str(reflected_list) + ".")
+
+
+def WarehouseAssortmentDownloadSampleCSV(request):
+    filename = "warehouse_assortment_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
+                     'zone_id', 'zone_supervisor', 'zone_coordinator'])
+    writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "34760", "Zoff Meat Masala 7",
+                     "8", "7763886418 - PAL", "8368222416 - Baljeet"])
+    return response
+
+
+def WarehouseAssortmentUploadCsvView(request):
+    if request.method == 'POST':
+        form = WarehouseAssortmentCsvViewForm(request.POST, request.FILES, {"user": request.user})
+
+        if form.errors:
+            return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            next(reader)
+            try:
+                created_count = 0
+                updated_count = 0
+                for row, data in enumerate(reader):
+                    warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
+                        warehouse_id=data[0], product_id=data[2], defaults={'zone_id': data[4]})
+
+                    if created:
+                        warehouse_assortment_object.created_by = request.user
+                        created_count += 1
+                    else:
+                        warehouse_assortment_object.updated_by = request.user
+                        updated_count += 1
+                    warehouse_assortment_object.save()
+
+            except Exception as e:
+                return render(request, 'admin/wms/warehouse-assortment-upload.html', {
+                    'form': form,
+                    'error': e,
+                })
+            return render(request, 'admin/wms/warehouse-assortment-upload.html', {
+                'form': form,
+                'success': SUCCESS_MESSAGES['CSV_UPLOADED'] + " Total created: " + str(
+                    created_count) + ", Total updated: " + str(updated_count),
+            })
+    else:
+        form = WarehouseAssortmentCsvViewForm({"user": request.user})
+    return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
