@@ -1242,6 +1242,23 @@ class GetGrnOrderListView(ListAPIView):
             return api_response("GRN Order not found")
 
 
+class ReturnStatusListView(GenericAPIView):
+    """
+        Get RETURN Status List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for RETURN Status """
+
+        info_logger.info("RETURN Status GET api called.")
+        """ GET Status Choice List """
+        fields = ['status', 'return_status', ]
+        data = [dict(zip(fields, d)) for d in PosReturnGRNOrder.RETURN_STATUS]
+        msg = ""
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+
 class GrnReturnOrderView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -1249,6 +1266,7 @@ class GrnReturnOrderView(GenericAPIView):
     @check_pos_shop
     @check_return_status
     def get(self, request, *args, **kwargs):
+        """ GET Return Order List """
         grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
                                                       status=kwargs['status']).\
             prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
@@ -1262,6 +1280,7 @@ class GrnReturnOrderView(GenericAPIView):
 
     @check_pos_shop
     def post(self, request, *args, **kwargs):
+        """ Create Return Order """
         serializer = ReturnGrnOrderSerializer(data=request.data,
                                               context={'shop': kwargs['shop']})
         if serializer.is_valid():
@@ -1272,6 +1291,7 @@ class GrnReturnOrderView(GenericAPIView):
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
+        """ Update Return Order """
         info_logger.info("Return Order Product PUT api called.")
         if 'id' not in request.data:
             return api_response('please provide id to update return order product', False)

@@ -516,9 +516,9 @@ def check_return_status(view_func):
         status = request.META.get('HTTP_STATUS', None)
         if not status:
             return api_response("No status Selected!")
-        if status not in ['RETURNED', 'CANCELLED']:
+        if status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
             return api_response("invalid status Selected!")
-        kwargs['status'] = status
+        kwargs['status'] = status.upper()
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
@@ -731,3 +731,7 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no
+
+
+def generate_debit_note_number(returned_obj, billing_address_instance):
+    return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
