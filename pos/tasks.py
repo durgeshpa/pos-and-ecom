@@ -126,7 +126,9 @@ def update_es(products, shop_id):
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date,
             'combo_available': True if coupons else False,
-            'coupons': coupons
+            'coupons': coupons,
+            'online_enabled': product.online_enabled,
+            'online_price': product.online_price
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
