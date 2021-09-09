@@ -1300,3 +1300,72 @@ class WarehouseAssortmentForm(forms.ModelForm):
 
         if instance.pk:
             self.fields['zone'].queryset = Zone.objects.filter(warehouse=instance.warehouse)
+
+
+class WarehouseAssortmentSampleCSV(forms.ModelForm):
+    """
+    Warehouse Assortment Sample CSV Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+
+    class Meta:
+        model = WarehouseAssortment
+        fields = ('warehouse',)
+
+
+class WarehouseAssortmentCsvViewForm(forms.Form):
+    """
+    This Form class is used to upload csv for particular sales executive in Warehouse Assortment
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    file = forms.FileField()
+
+    def clean_file(self):
+        """
+
+        :return: Form is valid otherwise validation error message
+        """
+        # Validate to check the file format, It should be csv file.
+        if self.cleaned_data['file'].name[-4:] not in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted.")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+
+            # validation for warehouse shop id, it should be numeric.
+            if not row[0] or not re.match("^[\d]*$", row[2]):
+                raise ValidationError(_('INVALID_WAREHOUSE_ID at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id+1},)
+
+            if int(row[0]) != self.cleaned_data['warehouse'].pk:
+                raise ValidationError(_(
+                    'Row number [%(value)s] | Assortment are allowed for the selected Warehouse only.'),
+                                      params={'value': row_id + 1}, )
+
+            # validation for warehouse shop id to check that is exist or not in the database
+            if not Shop.objects.filter(pk=row[0], shop_type__shop_type='sp').exists():
+                raise ValidationError(_('INVALID_WAREHOUSE_ID at Row number [%(value)s]. Warehouse Id not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for product to check that is exist or not in the database
+            if not row[2] or not Product.objects.filter(id=row[2]).exists():
+                raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for product to check that is exist or not in the database
+            if not row[4] or not Zone.objects.filter(id=row[4]).exists():
+                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. Zone is not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for zone id is associate with executive
+            if Zone.objects.filter(id=row[4]).last().warehouse.id != int(row[0]):
+                raise ValidationError(_('Row number [%(value)s] | Warehouse not mapped to the selected Zone.'),
+                                      params={'value': row_id+1},)
+
+            form_data_list.append(row)
+
+        return self.cleaned_data['file']

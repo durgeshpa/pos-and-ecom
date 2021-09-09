@@ -1118,3 +1118,19 @@ class PutawayStatusListView(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in Putaway.PUTAWAY_STATUS_CHOICE]
         msg = ""
         return get_response(msg, data, True)
+
+
+class WarehouseAssortmentSampleCSV(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = WarehouseAssortmentSampleCSVSerializer
+
+    def post(self, request):
+        """ POST API for Download Sample CSV for Warehouse Assortment """
+
+        info_logger.info("WarehouseAssortmentSampleCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save(created_by=request.user)
+            info_logger.info("WarehouseAssortmentSampleCSV Exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
