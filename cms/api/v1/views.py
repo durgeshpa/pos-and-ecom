@@ -654,21 +654,16 @@ class SubCategoryListView(APIView):
 
     def get(self, request, format = None):
         is_success = False
-        message = "No Subcategory with banner"
-        print(request.GET.get('category_id'))
+        message = "No Subcategory"
         try:
             category = Category.objects.get(id = request.GET.get('category_id'))
         except Exception:
             raise ValidationError('No such category')
         subcategory = category.cat_parent.filter(status = True).prefetch_related('banner_subcategory')
-        subcategory_with_banner = []
-        for subcat in subcategory:
-            if subcat.banner_subcategory.filter(status=True).exists():
-                subcategory_with_banner.append(subcat)
-        serializer = SubCategorySerializer(subcategory_with_banner, many = True)
-        if subcategory_with_banner:
+        serializer = SubCategorySerializer(subcategory, many = True)
+        if subcategory.exists():
             is_success = True
-            message = "Subcategory with Banner Found"
+            message = "Subcategory Found"
         return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
 
 
@@ -689,25 +684,20 @@ class BrandListView(APIView):
 
 class SubBrandListView(APIView):
     """
-    Get List of SubBrand having banner
+    Get List of SubBrand 
     """
 
     def get(self, request, format = None):
         is_success = False
-        message = "No SubBrand with banner"
-        print(request.GET.get('brand_id'))
+        message = "No SubBrand"
         try:
             brand = Brand.objects.get(id = request.GET.get('brand_id'))
         except Exception:
             raise ValidationError('No such brand')
         subbrands = brand.brand_child.all().prefetch_related('banner_subbrand')
-        subbrand_with_banner = []
-        for subbrand in subbrands:
-            if subbrand.banner_subbrand.filter(status=True).exists():
-                subbrand_with_banner.append(subbrand)
-        serializer = SubBrandSerializer(subbrand_with_banner, many = True)
-        if subbrand_with_banner:
+        serializer = SubBrandSerializer(subbrands, many = True)
+        if subbrands.exists():
             is_success = True
-            message = "SubBrand with Banner Found"
+            message = "SubBrand Found"
         return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
 
