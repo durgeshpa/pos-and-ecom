@@ -51,6 +51,7 @@ def create_order_data_excel(request, queryset):
                 'order__buyer__id', 'order__buyer__first_name', 'order__buyer__phone_number',
                 'rt_order_product_order_product_mapping__shipped_qty',
                 'rt_order_product_order_product_mapping__product_type',
+                'rt_order_product_order_product_mapping__selling_price',
                 'rt_order_product_order_product_mapping__retailer_product__id',
                 'rt_order_product_order_product_mapping__retailer_product__sku',
                 'rt_order_product_order_product_mapping__retailer_product__name',
@@ -111,7 +112,7 @@ def create_order_data_excel(request, queryset):
             order.get('rt_order_product_order_product_mapping__shipped_qty'),
             retailer_product_type.get(product_type, product_type),
             order.get('rt_order_product_order_product_mapping__retailer_product__mrp'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__selling_price'),
+            order.get('rt_order_product_order_product_mapping__selling_price'),
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None,
             offers[0].get('spot_discount', None)

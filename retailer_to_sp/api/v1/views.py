@@ -280,10 +280,17 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+        must_not = dict()
+        if int(self.request.GET.get('ean_not_available', '0')) == 1:
+            must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
         body = dict()
-        if filter_list:
+        if filter_list and must_not:
+            body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
+        elif must_not:
+            body['query'] = {"bool": {"must_not": must_not}}
+        elif filter_list:
             body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
@@ -294,24 +301,36 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         body = dict()
-        query = dict()
+        filter_list = []
+        query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            query = {"bool": {"filter": [{"term": {"is_discounted": False}}]}}
+            filter_list = [{"term": {"is_discounted": False}}]
+        must_not = dict()
+        if int(self.request.GET.get('ean_not_available', '0')) == 1:
+            must_not = {"exists": {"field": "ean"}}
 
         if keyword:
             keyword = keyword.strip()
             if keyword.isnumeric():
-                query["query_string"] = {"query": keyword + "*", "fields": ["ean"]}
+                query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query["query_string"] = {"query": "*" + keyword + "*", "fields": ["name"],
-                                         "minimum_should_match": 2}
-        if query:
-            body['query'] = query
+                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+        if filter_list and query_string:
+            body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
+        elif query_string:
+            body['query'] = {"bool": {"must": {"query_string": query_string}}}
+        elif filter_list:
+            body['query'] = {"bool": {"filter": filter_list}}
+        if must_not:
+            if body and body['query']:
+                body['query']['bool']['must_not'] = must_not
+            else:
+                body['query'] = {"bool": {"must_not": must_not}}
         return self.process_rp(output_type, body, shop_id)
 
     @check_pos_shop
@@ -3530,7 +3549,9 @@ class OrderReturns(APIView):
 
         returns = OrderReturn.objects.filter(order=order, status='completed').order_by('-created_at')
         if returns.exists():
-            data = OrderReturnGetSerializer(returns, many=True).data
+            data = dict()
+            data['returns'] = OrderReturnGetSerializer(returns, many=True).data
+            data['buyer'] = PosUserSerializer(order.buyer).data
             return api_response("Order Returns", data, status.HTTP_200_OK, True)
         else:
             return api_response("No Returns For This Order", None, status.HTTP_200_OK, False)

@@ -889,7 +889,7 @@ class ProductChangeFieldsAdmin(admin.TabularInline):
 class ProductChangeAdmin(admin.ModelAdmin):
     list_display = ('product', 'event_type', 'event_id', 'changed_by', 'created_at')
     list_per_page = 20
-    search_fields = ('product__product_name', 'event_type', 'event_id')
+    search_fields = ('product__name', 'product__sku', 'event_type', 'event_id')
     inlines = [ProductChangeFieldsAdmin]
 
     def has_delete_permission(self, request, obj=None):
