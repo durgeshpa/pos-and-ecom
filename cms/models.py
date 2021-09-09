@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from rest_framework import status
+
+from categories.models import Category
+from brand.models import Brand 
 
 from cms.choices import CARD_TYPE_CHOICES, SCROLL_CHOICES, STATUS_CHOICES, PAGE_STATE_CHOICES
 
@@ -21,6 +23,9 @@ class Card(models.Model):
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=10, choices=CARD_TYPE_CHOICES)
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="cards")
+    category_subtype = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='cms_cartegory_subtype', null=True, blank=True)
+    brand_subtype = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='cms_brand_subtype', null=True, blank=True)
+
     def __str__(self):
         return f"{self.name} - {self.type}"
 

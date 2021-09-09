@@ -164,7 +164,15 @@ class CardDataSerializer(serializers.ModelSerializer):
             except:
                 raise NotFound(detail=ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
 
-            new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            if data['category_subtype']:
+                category = Category.objects.get(id = data['category_subtype'])
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], category_subtype = category)
+            elif data['brand_subtype']:
+                brand = Brand.objects.get(id = data['brand_subtype'])
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
+            else:
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
                                                             card_data=new_card_data,
