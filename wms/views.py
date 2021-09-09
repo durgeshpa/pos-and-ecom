@@ -2284,5 +2284,5 @@ def WarehouseAssortmentUploadCsvView(request):
                     created_count) + ", Total updated: " + str(updated_count),
             })
     else:
-        form = WarehouseAssortmentCsvViewForm({"user": request.user})
+        form = WarehouseAssortmentCsvViewForm(auto_id={"user": request.user})
     return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
