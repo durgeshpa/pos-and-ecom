@@ -1336,7 +1336,7 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         for row_id, row in enumerate(reader):
 
             # validation for warehouse shop id, it should be numeric.
-            if not row[0] or not re.match("^[\d]*$", row[2]):
+            if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError(_('INVALID_WAREHOUSE_ID at Row number [%(value)s]. It should be numeric.'),
                                       params={'value': row_id+1},)
 
@@ -1351,9 +1351,14 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
                                       params={'value': row_id+1},)
 
             # validation for product to check that is exist or not in the database
-            if not row[2] or not Product.objects.filter(id=row[2]).exists():
+            if not row[2] or not ParentProduct.objects.filter(parent_id=row[2]).exists():
                 raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
                                       params={'value': row_id+1},)
+
+            # validation for zone id, it should be numeric.
+            if not row[4] or not re.match("^[\d]*$", row[4]):
+                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id + 1}, )
 
             # validation for product to check that is exist or not in the database
             if not row[4] or not Zone.objects.filter(id=row[4]).exists():

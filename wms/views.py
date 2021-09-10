@@ -2242,7 +2242,7 @@ def WarehouseAssortmentDownloadSampleCSV(request):
     writer = csv.writer(response)
     writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
                      'zone_id', 'zone_supervisor', 'zone_coordinator'])
-    writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "34760", "Zoff Meat Masala 7",
+    writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "PSNGLOC8204", "Zoff Meat Masala 7",
                      "8", "7763886418 - PAL", "8368222416 - Baljeet"])
     return response
 
@@ -2263,7 +2263,8 @@ def WarehouseAssortmentUploadCsvView(request):
                 updated_count = 0
                 for row, data in enumerate(reader):
                     warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
-                        warehouse_id=data[0], product_id=data[2], defaults={'zone_id': data[4]})
+                        warehouse_id=data[0], product=ParentProduct.objects.get(parent_id=data[2]),
+                        defaults={'zone_id': data[4]})
 
                     if created:
                         warehouse_assortment_object.created_by = request.user
