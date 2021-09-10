@@ -167,7 +167,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('order', 'payment_type', 'transaction_id', 'paid_by', 'processed_by', 'created_at')
+    list_display = ('order', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number')
 
@@ -411,12 +411,23 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         return obj.order.order_no
 
     def payment_type(self, obj):
-        pay_obj = obj.order.rt_payment_retailer_order.last()
-        return pay_obj.payment_type.type if (pay_obj and pay_obj.payment_type) else '-'
+        if obj.order.rt_payment_retailer_order.exists():
+            ret = ''
+            for pay_obj in obj.order.rt_payment_retailer_order.all():
+                ret += pay_obj.payment_type.type + ' (' + str(pay_obj.amount) + ')' + ' - '
+            return ret
+        else:
+            return '-'
 
     def transaction_id(self, obj):
-        pay_obj = obj.order.rt_payment_retailer_order.last()
-        return pay_obj.transaction_id if (pay_obj and pay_obj.transaction_id) else '-'
+        if obj.order.rt_payment_retailer_order.exists():
+            ret = ''
+            for pay_obj in obj.order.rt_payment_retailer_order.all():
+                if pay_obj.transaction_id:
+                    ret += pay_obj.transaction_id + ' (' + str(pay_obj.payment_type.type) + ')' + ' - '
+            return ret if ret else '-'
+        else:
+            return '-'
 
     def get_queryset(self, request):
         qs = super(RetailerOrderProductAdmin, self).get_queryset(request)

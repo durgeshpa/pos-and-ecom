@@ -86,13 +86,20 @@ class UserPhoneSerializer(serializers.ModelSerializer):
 class PosUserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     is_mlm = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
 
     @staticmethod
     def get_is_mlm(obj):
         return ReferralCode.is_marketing_user(obj)
 
     @staticmethod
+    def get_email(obj):
+        return None if obj.phone_number == '9999999999' else obj.email
+
+    @staticmethod
     def get_name(obj):
+        if obj.phone_number == '9999999999':
+            return "Default"
         return obj.first_name + ' ' + obj.last_name if obj.first_name and obj.last_name else (
             obj.first_name if obj.first_name else '')
 
