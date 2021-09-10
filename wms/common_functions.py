@@ -2237,7 +2237,8 @@ class WarehouseAssortmentCommonFunction(object):
             warehouse = Shop.objects.get(id=uploaded_data_by_user_list[0]['warehouse_id'])
             for row in uploaded_data_by_user_list:
                 warehouse_assortment_object, created = WarehouseAssortment.objects.get_or_create(
-                    warehouse=warehouse, product_id=int(row['product_id']), zone_id=int(row['zone_id']))
+                    warehouse=warehouse, product=ParentProduct.objects.filter(
+                        parent_id=str(row['product_id']).strip()).last(), zone_id=int(row['zone_id']))
             info_logger.info("Method complete to create Warehouse Assortment from csv file")
         except Exception as e:
             import traceback; traceback.print_exc()

@@ -128,7 +128,7 @@ def check_warehouse_assortment_mandatory_columns(warehouse, uploaded_data_list, 
             if 'product_id' not in row.keys() or str(row['product_id']).strip() == '':
                 raise ValidationError(
                     f"Row {row_num} | 'product_id' can't be empty")
-            if not ParentProduct.objects.filter(id=int(str(row['product_id']).strip())).exists():
+            if not ParentProduct.objects.filter(parent_id=str(row['product_id']).strip()).exists():
                 raise ValidationError(f"Row {row_num} | {row['product_id']} | Product does not exist.")
 
             if 'zone_id' not in row.keys() or str(row['zone_id']).strip() == '':
@@ -137,8 +137,9 @@ def check_warehouse_assortment_mandatory_columns(warehouse, uploaded_data_list, 
                 raise ValidationError(
                     f"Row {row_num} | {row['zone_id']} | Zone does not exist / not mapped to selected warehouse.")
 
-            if WarehouseAssortment.objects.filter(warehouse=warehouse, product_id=int(str(row['product_id']).strip())) \
-                    .exists():
+            if WarehouseAssortment.objects.filter(
+                    warehouse=warehouse, product=ParentProduct.objects.filter(
+                        parent_id=str(row['product_id']).strip()).last()).exists():
                 raise ValidationError(
                     f"Row {row_num} | Warehouse assortment already exist for selected 'warehouse', 'product'.")
 
