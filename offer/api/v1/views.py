@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime
+from django.db import transaction
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils.six import with_metaclass
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -441,12 +443,20 @@ class TopSKUView(GenericAPIView):
         """ POST API for TopSKU Creation """
 
         info_logger.info("TopSKU POST api called.")
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            info_logger.info("TopSKUe Created Successfully.")
-            return get_response('top sku created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
+        products = request.data.pop('product')
+        data = []
+        with transaction.atomic():
+            for product in products:
+                request.data['product'] = product
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    serializer.save(created_by=request.user)
+                    data.append(serializer.data)
+                else:
+                    return get_response(serializer_error(serializer), False)
+        info_logger.info("TopSKUe Created Successfully.")
+        return get_response('top sku created successfully!', data)
+        
 
     def put(self, request):
         """ PUT API for TopSKU Updation """
