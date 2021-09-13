@@ -12,9 +12,9 @@ from openpyxl.writer.excel import save_virtual_workbook
 
 import re
 import logging
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Count, Subquery, OuterRef
 from celery.task import task
-from django.db.models.functions import Length
+from django.db.models.functions import Length, Cast
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -34,19 +34,22 @@ from django.http import JsonResponse
 from global_config.views import get_config
 from products.utils import deactivate_product
 from retailer_backend.common_function import bulk_create
+from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
-from django.db import transaction, DatabaseError
+
+from django.db import transaction, DatabaseError, models
 from datetime import datetime, timedelta, date
+
 
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
-    BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
+    BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, ZonePutawayUserAssignmentMapping
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -56,7 +59,8 @@ from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
-from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm
+from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
+    WarehouseAssortmentCsvViewForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -2204,3 +2208,91 @@ def deactivate_discounted_product(sender, instance=None, created=False, **kwargs
             and instance.inventory_state.inventory_state == 'total_available' \
             and instance.quantity <= 0:
         deactivate_product(instance.sku)
+
+
+
+def assign_putaway_users_to_new_putways():
+    """
+        Assign Putaway users to all those putaways whose zone exists but putaway user not assigned
+    """
+    objs = Putaway.objects.filter(putaway_type='GRN', putaway_user=None, status=Putaway.PUTAWAY_STATUS_CHOICE.NEW). \
+        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
+                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
+                                 order_by('-in_type_id').values('in_type_id')[:1]),
+                 zone=Subquery(WarehouseAssortment.objects.filter(
+                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                 ). \
+        exclude(zone__isnull=True)
+    cron_logger.info(objs.count())
+
+    grouped_objs = objs.values('grn_id', 'zone').annotate(count=Count('grn_id')).order_by()
+    for i, x in enumerate(grouped_objs):
+        zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
+            zone=x['zone'], last_assigned_at=None).last()
+        if not zone_putaway_assigned_user:
+            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
+                order_by('-last_assigned_at').last()
+        if zone_putaway_assigned_user:
+            putaway_user = zone_putaway_assigned_user.user
+            zone_putaway_assigned_user.last_assigned_at = datetime.now()
+            zone_putaway_assigned_user.save()
+            reflected_putaways = objs.filter(grn_id=x['grn_id'], zone=x['zone'])
+            reflected_list = list(reflected_putaways.values_list('id', flat=True))
+            reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
+            cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for GRN Id: " + str(x['grn_id']) +
+                             ", Zone Id: " + str(x['zone']) + ", Putaway ids reflected: " + str(reflected_list) + ".")
+
+
+def WarehouseAssortmentDownloadSampleCSV(request):
+    filename = "warehouse_assortment_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
+                     'zone_id', 'zone_supervisor', 'zone_coordinator'])
+    writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "PSNGLOC8204", "Zoff Meat Masala 7",
+                     "8", "7763886418 - PAL", "8368222416 - Baljeet"])
+    return response
+
+
+def WarehouseAssortmentUploadCsvView(request):
+    if request.method == 'POST':
+        form = WarehouseAssortmentCsvViewForm(request.POST, request.FILES, {"user": request.user})
+
+        if form.errors:
+            return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            next(reader)
+            try:
+                created_count = 0
+                updated_count = 0
+                for row, data in enumerate(reader):
+                    warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
+                        warehouse_id=data[0], product=ParentProduct.objects.get(parent_id=data[2]),
+                        defaults={'zone_id': data[4]})
+
+                    if created:
+                        warehouse_assortment_object.created_by = request.user
+                        created_count += 1
+                    else:
+                        warehouse_assortment_object.updated_by = request.user
+                        updated_count += 1
+                    warehouse_assortment_object.save()
+
+            except Exception as e:
+                return render(request, 'admin/wms/warehouse-assortment-upload.html', {
+                    'form': form,
+                    'error': e,
+                })
+            return render(request, 'admin/wms/warehouse-assortment-upload.html', {
+                'form': form,
+                'success': SUCCESS_MESSAGES['CSV_UPLOADED'] + " Total created: " + str(
+                    created_count) + ", Total updated: " + str(updated_count),
+            })
+    else:
+        form = WarehouseAssortmentCsvViewForm(auto_id={"user": request.user})
+    return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
+

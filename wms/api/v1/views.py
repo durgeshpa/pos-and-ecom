@@ -832,4 +832,3 @@ class DecodeBarcode(APIView):
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
-

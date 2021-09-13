@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.utils import timezone
 from django.db import models, transaction
-from django.db.models import Sum
+from django.db.models import Sum, F, Subquery, OuterRef
 from model_utils import Choices
 
 from products.models import Product, ProductVendorMapping, ParentProduct
@@ -17,7 +17,8 @@ from brand.models import Brand, Vendor
 from addresses.models import Address, State
 from retailer_to_gram.models import (Cart as GramMapperRetailerCart, Order as GramMapperRetailerOrder)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
-from shops.models import Shop
+from shops.models import Shop, ParentRetailerMapping
+from wms.models import WarehouseAssortment
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -361,6 +362,14 @@ class GRNOrder(BaseShipment):  # Order Shipment
     def __str__(self):
         return str(self.grn_id)
 
+    @property
+    def warehouse(self):
+        prm_obj = ParentRetailerMapping.objects.select_related(
+            'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+            parent=self.order.ordered_cart.gf_shipping_address.shop_name, status=True,
+            retailer__shop_type__shop_type='sp', retailer__status=True).last()
+        return prm_obj.retailer if prm_obj else None
+
     def clean(self):
         super(GRNOrder, self).clean()
         today = datetime.date.today()
@@ -431,6 +440,36 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(
             Sum('delivered_qty')).get('delivered_qty__sum')
         return already_grn if already_grn else 0
+
+    @property
+    def warehouse(self):
+        gf_shop = self.grn_order.order.ordered_cart.gf_shipping_address.shop_name
+        prm_obj = ParentRetailerMapping.objects.select_related(
+            'parent', 'parent__shop_type', 'retailer', 'retailer__shop_type').filter(
+            parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True). \
+            only('id', 'parent', 'parent__shop_name', 'parent__shop_type', 'parent__status', 'retailer__shop_name',
+                 'retailer__status', 'retailer__shop_type', 'retailer__shop_type__shop_type', 'retailer__id').last()
+        return prm_obj.retailer if prm_obj else None
+
+    @property
+    def zone_id(self):
+        whc_assrtment_obj = WarehouseAssortment.objects.select_related('zone').filter(
+            warehouse=Subquery(ParentRetailerMapping.objects.select_related('parent', 'retailer').filter(
+                parent=self.grn_order.order.ordered_cart.gf_shipping_address.shop_name, status=True,
+                retailer__shop_type__shop_type='sp', retailer__status=True).order_by('-id').values('retailer')[:1]),
+            product=self.product.parent_product
+        ).last()
+        return whc_assrtment_obj.zone if whc_assrtment_obj else None
+
+    @property
+    def zone(self):
+        whc_assrtment_obj = WarehouseAssortment.objects.select_related('zone').filter(
+            warehouse=Subquery(ParentRetailerMapping.objects.select_related('parent', 'retailer').filter(
+                parent=self.grn_order.order.ordered_cart.gf_shipping_address.shop_name, status=True,
+                retailer__shop_type__shop_type='sp', retailer__status=True).order_by('-id').values('retailer')[:1]),
+            product=self.product.parent_product
+        ).last()
+        return str(whc_assrtment_obj.zone) if whc_assrtment_obj else "-"
 
     @property
     def already_returned_product(self):
