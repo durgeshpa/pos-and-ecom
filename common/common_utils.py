@@ -182,6 +182,8 @@ def whatsapp_opt_in(phone_number, shop_name, media_url, file_name):
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
@@ -210,6 +212,8 @@ def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
@@ -235,6 +239,8 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number, points_credit, 
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
@@ -288,6 +294,8 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
     return :- Ture if success else False
     """
     try:
+        if phone_number == '9999999999':
+            return False
         order_status = order_status.replace('_', ' ')
         api_end_point = WHATSAPP_API_ENDPOINT
         whatsapp_user_id = WHATSAPP_API_USERID
