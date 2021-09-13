@@ -156,7 +156,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		# Get combo coupon for product
 		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
 		# Check and apply/remove combo offers
-		offers_list = BasicCartOffers.basic_combo_offers(int(instance.qty), float(instance.selling_price),
+		offers_list = BasicCartOffers.basic_combo_offers(float(instance.qty), float(instance.selling_price),
 														 instance.retailer_product.id, offer[0] if offer else {},
 														 instance.cart.offers)
 		# Recheck cart discount according to updated cart value

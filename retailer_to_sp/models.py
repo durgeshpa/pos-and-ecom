@@ -3,6 +3,7 @@ import logging
 import csv
 import codecs
 import math
+from decimal import Decimal
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
@@ -16,6 +17,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
 from model_utils import Choices
+from django.core.validators import MinValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -210,7 +212,7 @@ class Cart(models.Model):
     def order_amount_after_discount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
         order_amount = round(float(item_effective_total), 2)
         return order_amount
 
@@ -218,7 +220,7 @@ class Cart(models.Model):
     def order_amount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
         redeem_points_value = 0
         if self.redeem_factor:
             redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
@@ -758,8 +760,8 @@ class CartProductMapping(models.Model):
         on_delete=models.DO_NOTHING, null=True, blank=True
     )
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    qty = models.PositiveIntegerField(default=0)
-    no_of_pieces = models.PositiveIntegerField(default=0)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    no_of_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False
@@ -803,28 +805,28 @@ class CartProductMapping(models.Model):
 
     @property
     def item_effective_prices(self):
-        try:
-            item_effective_price = 0
-            if self.retailer_product:
-                if self.cart.offers and self.product_type:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if int(self.retailer_product.id) == int(i['item_id']):
-                            item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / self.no_of_pieces
-                else:
-                    item_effective_price = float(self.selling_price) if self.selling_price else 0
+        item_effective_price = 0
+        if self.retailer_product:
+            if self.cart.offers and self.product_type:
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if int(self.retailer_product.id) == int(i['item_id']):
+                        item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / float(self.no_of_pieces)
             else:
+                item_effective_price = float(self.selling_price) if self.selling_price else 0
+        else:
+            try:
                 if self.cart.offers:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                     for i in array:
                         if self.cart_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
                 else:
                     product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
                                                                              self.cart.buyer_shop_id)
                     item_effective_price = float(product_price.get_per_piece_price(self.qty))
-        except:
-            logger.exception("Cart product price not found")
+            except Exception as e:
+                logger.exception("Cart product price not found")
         return item_effective_price
 
     @property
@@ -1898,8 +1900,10 @@ class OrderedProductMapping(models.Model):
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
-    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    shipped_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Shipped Pieces",
+                                      validators=[MinValueValidator(0)])
+    delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Delivered Pieces",
+                                        validators=[MinValueValidator(0)])
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
@@ -1917,7 +1921,8 @@ class OrderedProductMapping(models.Model):
     discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
     delivered_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     cancellation_date = models.DateTimeField(null=True, blank=True)
-    picked_pieces = models.PositiveIntegerField(default=0)
+    picked_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
+                                        validators=[MinValueValidator(0)])
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -2271,15 +2276,18 @@ class OrderedProductBatch(models.Model):
                                                 related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField(default=0, verbose_name='NO. OF PIECES TO SHIP')
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)],
+                                   verbose_name='NO. OF PIECES TO SHIP')
     ordered_pieces = models.CharField(max_length=10, null=True, blank=True)
-    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)],
+                                        verbose_name="Delivered Pieces")
     already_shipped_qty = models.PositiveIntegerField(default=0)
     expiry_date = models.CharField(max_length=30, null=True, blank=True)
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
-    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    pickup_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
+                                          validators=[MinValueValidator(0)])
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     missing_qty = models.PositiveIntegerField(default=0, verbose_name="Missing Pieces")
     rejected_qty = models.PositiveIntegerField(default=0, verbose_name="Rejected Pieces")
@@ -2736,7 +2744,7 @@ class ReturnItems(models.Model):
     return_id = models.ForeignKey(OrderReturn, related_name='rt_return_list', on_delete=models.DO_NOTHING)
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
-    return_qty = models.PositiveIntegerField(default=0)
+    return_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

@@ -2,10 +2,11 @@ from django.conf.urls import url
 
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
-                    PaymentTypeDetailView, IncentiveView)
+                    PaymentTypeDetailView, IncentiveView, MeasurementCategoryView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
+    url(r'^product/measurement-category/', MeasurementCategoryView.as_view(), name='pos-measurement-category'),
 
     url(r'^offers/', CouponOfferCreation.as_view(), name='offers'),
 

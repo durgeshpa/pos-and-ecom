@@ -113,7 +113,9 @@ def update_es(products, shop_id):
             'discounted_stock': discounted_stock,
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
-            'offer_end_date': product.offer_end_date
+            'offer_end_date': product.offer_end_date,
+            'product_pack_type': product.product_pack_type,
+            'measurement_category': product.measurement_category.category
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 

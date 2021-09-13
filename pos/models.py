@@ -2,6 +2,7 @@ from django.utils.safestring import mark_safe
 from django.db import models
 
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator
 
 from addresses.models import City, State, Pincode
 from shops.models import Shop, PosShopUserMapping
@@ -18,6 +19,23 @@ PAYMENT_MODE_POS = (
     ('online', 'Online Payment'),
     ('credit', 'Credit Payment')
 )
+
+
+class MeasurementCategory(models.Model):
+    category = models.CharField(choices=(('weight', 'Weight'), ('volume', 'Volume')), max_length=50, unique=True)
+
+    def __str__(self):
+        return self.category
+
+
+class MeasurementUnit(models.Model):
+    category = models.ForeignKey(MeasurementCategory, on_delete=models.CASCADE, related_name='measurement_category_unit')
+    unit = models.CharField(max_length=50, unique=True)
+    conversion = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    default = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.category) + self.unit
 
 
 class RetailerProduct(models.Model):
@@ -47,6 +65,9 @@ class RetailerProduct(models.Model):
                                        on_delete=models.CASCADE, verbose_name='Reference Product')
     status = models.CharField(max_length=20, default='active', choices=STATUS_CHOICES, blank=False,
                               verbose_name='Product Status')
+    product_pack_type = models.CharField(choices=(('packet', 'Packet'), ('loose', 'Loose')), max_length=50,
+                                         default='packet')
+    measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -230,7 +251,7 @@ class PosCart(models.Model):
 class PosCartProductMapping(models.Model):
     cart = models.ForeignKey(PosCart, related_name='po_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(null=True)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)], null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -291,7 +312,7 @@ class PosGRNOrder(models.Model):
 class PosGRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(PosGRNOrder, related_name='po_grn_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, related_name='pos_product_grn_order_product', on_delete=models.CASCADE)
-    received_qty = models.PositiveIntegerField(default=0)
+    received_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

@@ -280,6 +280,10 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+
+        if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
+            filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -305,6 +309,9 @@ class SearchProducts(APIView):
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+        if self.request.GET.get('product_pack_type', 'packet') == 'loose':
+            filter_list.append({"term": {"product_pack_type": 'loose'}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -1240,7 +1247,7 @@ class CartCentral(GenericAPIView):
             if product is None:
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
-            if int(qty) == 0:
+            if not qty > 0:
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
@@ -1250,7 +1257,7 @@ class CartCentral(GenericAPIView):
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
                 cart_mapping.qty = qty
-                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
@@ -1259,7 +1266,8 @@ class CartCentral(GenericAPIView):
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
-                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+                                                             product_info['ean'], self.request.user, 'cart', 'packet',
+                                                             None, cart_id)
         PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                         self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         return product

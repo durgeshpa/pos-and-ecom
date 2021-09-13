@@ -22,7 +22,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
-                     InventoryChangePos, InventoryStatePos)
+                     InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -32,7 +32,8 @@ from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel, create_order_return_excel
-from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
+from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
+    MeasurementUnitFormSet
 
 
 class ExportCsvMixin:
@@ -666,7 +667,9 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
             product = RetailerProductCls.create_retailer_product(obj.shop.id, product_ref.name, product_ref.mrp,
                                                                  discounted_price, product_ref.linked_product_id, 4,
                                                                  product_ref.description, product_ref.product_ean_code,
-                                                                 user, 'product', None, product_status, None, None,
+                                                                 user, 'product', product_ref.product_pack_type,
+                                                                 product_ref.measurement_category_id,
+                                                                 None, product_status, None, None,
                                                                  None, product_ref)
 
             RetailerProductCls.copy_images(product, product_ref.retailer_product_image.all())
@@ -907,6 +910,34 @@ class ProductChangeAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(product__shop__pos_shop__user=request.user,
                          product__shop__pos_shop__status=True)
+
+
+class MeasurementUnitAdmin(admin.TabularInline):
+    model = MeasurementUnit
+    formset = MeasurementUnitFormSet
+    fields = ('unit', 'category', 'conversion', 'default')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MeasurementCategory)
+class MeasurementCategoryAdmin(admin.ModelAdmin):
+    list_display = ('category', 'default_unit')
+    inlines = [MeasurementUnitAdmin]
+
+    @staticmethod
+    def default_unit(obj):
+        return MeasurementUnit.objects.filter(category=obj).last().unit
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

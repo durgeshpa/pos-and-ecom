@@ -11,7 +11,7 @@ from django.core.validators import FileExtensionValidator
 
 from addresses.models import Pincode
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping, Payment, PaymentType, Document
+    PosGRNOrderProductMapping, Payment, PaymentType, Document, MeasurementCategory, MeasurementUnit
 from pos.tasks import mail_to_vendor_on_po_creation
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping
@@ -49,11 +49,13 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=False, default=None, max_length=100, allow_null=True)
-    stock_qty = serializers.IntegerField(min_value=0, default=0)
+    stock_qty = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
     ean_not_available = serializers.BooleanField(default=False)
+    product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
+    measurement_category_id = serializers.IntegerField(required=False, default=None)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -95,6 +97,15 @@ class RetailerProductCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Offer start date should be greater than or equal to today's date.")
         else:
             attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date'] = None, None, None
+
+        if attrs['product_pack_type'] == 'loose':
+            try:
+                measurement_category = MeasurementCategory.objects.get(id=attrs['measurement_category_id'])
+                measurement_unit = MeasurementUnit.objects.get(category=measurement_category, default=True)
+            except:
+                raise serializers.ValidationError("Please provide a valid measurement category for Loose Product")
+        else:
+            attrs['stock_qty'] = int(attrs['stock_qty'])
 
         return attrs
 
@@ -144,14 +155,14 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     add_offer_price = serializers.BooleanField(default=None)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
-    stock_qty = serializers.IntegerField(required=False, default=0)
+    stock_qty = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
     image_ids = serializers.ListField(required=False, default=None, child=serializers.IntegerField())
     is_discounted = serializers.BooleanField(default=False)
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
-    discounted_stock = serializers.IntegerField(required=False)
+    discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     ean_not_available = serializers.BooleanField(default=None)
 
     def validate(self, attrs):
@@ -219,6 +230,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Discounted Price should be less than selling price")
             elif attrs['discounted_stock'] < 0:
                 raise serializers.ValidationError("Invalid discounted stock")
+
+            if product.product_pack_type == 'packet':
+                attrs['discounted_stock'] = int(attrs['discounted_stock'])
+
+        if product.product_pack_type == 'packet':
+            attrs['stock_qty'] = int(attrs['stock_qty'])
         return attrs
 
 
@@ -227,6 +244,19 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         RetailerProduct data for BASIC cart
     """
     is_discounted = serializers.SerializerMethodField()
+    default_measurement_unit = serializers.SerializerMethodField()
+    measurement_category = serializers.SerializerMethodField()
+    product_pack_type = serializers.CharField(source='get_product_pack_type_display')
+
+    @staticmethod
+    def get_default_measurement_unit(obj):
+        if obj.measurement_category:
+            return MeasurementUnit.objects.get(category=obj.measurement_category, default=True).unit
+        return None
+
+    @staticmethod
+    def get_measurement_category(obj):
+        return obj.measurement_category.get_category_display() if obj.measurement_category else None
 
     @staticmethod
     def get_is_discounted(obj):
@@ -234,7 +264,8 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted', 'product_pack_type', 'measurement_category',
+                  'default_measurement_unit')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -246,6 +277,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     offer_price_applied = serializers.SerializerMethodField()
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
+    qty = serializers.SerializerMethodField()
 
     @staticmethod
     def get_offer_price_applied(obj):
@@ -276,9 +308,14 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
                     display_text = offer['display_text']
         return display_text
 
+    @staticmethod
+    def get_qty(obj):
+        return int(obj.qty) if obj.retailer_product.product_pack_type == 'packet' else obj.qty
+
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total',
+                  'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -364,7 +401,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         qty = 0
         for cart_pro in obj.rt_cart_list.filter(product_type=1):
-            qty += int(cart_pro.qty)
+            qty += cart_pro.qty
         free_item_qty = 0
         for offer in obj.offers:
             if offer['type'] == 'combo':
@@ -577,7 +614,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
         """
             qty purchased
         """
-        return obj.shipped_qty
+        return int(obj.shipped_qty) if obj.retailer_product.product_pack_type == 'packet' else obj.shipped_qty
 
     def get_product_subtotal(self, obj):
         """
@@ -1620,8 +1657,8 @@ class POSerializer(serializers.ModelSerializer):
             for product in products_given:
                 mapping = PosCartProductMapping.objects.filter(cart=cart, product=product['product_id']).last()
                 if mapping and mapping.is_grn_done and (
-                        round(float(product['price']), 2) != round(float(mapping.price), 2) or int(
-                        product['qty']) != int(mapping.qty)):
+                        round(float(product['price']), 2) != round(float(mapping.price), 2) or
+                        round(float(product['qty']), 3) != round(float(mapping.qty), 3)):
                     raise serializers.ValidationError("Cannot edit products whose grn is done.")
                 products_updatable += [product]
             attrs['products'] = products_updatable
@@ -1814,7 +1851,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             #     raise serializers.ValidationError(
             #         "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
             #             product_obj.name))
-            if int(product['received_qty']) > po_product.qty:
+            if round(float(product['received_qty']), 3) > round(float(po_product.qty), 3):
                 raise serializers.ValidationError(
                     "{}. Received quantity cannot be greater than PO quantity".format(
                         product_obj.name))
@@ -1894,7 +1931,7 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             #     raise serializers.ValidationError(
             #         "{}. (Received quantity) + (Already grned quantity) cannot be greater than PO quantity".format(
             #             product_obj.name))
-            if int(product['received_qty']) > po_product.qty:
+            if round(float(product['received_qty']), 3) > round(float(po_product.qty), 3):
                 raise serializers.ValidationError(
                     "{}. Received quantity cannot be greater than PO quantity".format(
                         product_obj.name))
@@ -1955,7 +1992,7 @@ class GrnListSerializer(serializers.ModelSerializer):
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
             total_price = round(total_price, 2)
         return total_price
 
@@ -2006,7 +2043,7 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
             total_price = round(total_price, 2)
         return total_price
 
@@ -2058,3 +2095,17 @@ class PosShopUserMappingListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosShopUserMapping
         fields = ('id', 'phone_number', 'name', 'email', 'user_type', 'status')
+
+
+class MeasurementCategorySerializer(serializers.ModelSerializer):
+    category = serializers.CharField(source='get_category_display')
+    default_unit = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_default_unit(obj):
+        default_unit = MeasurementUnit.objects.filter(default=True, category=obj).last()
+        return default_unit.unit if default_unit else None
+
+    class Meta:
+        model = MeasurementCategory
+        fields = ('id', 'category', 'default_unit')
