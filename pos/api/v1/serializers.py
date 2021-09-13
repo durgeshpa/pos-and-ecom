@@ -2100,7 +2100,7 @@ class PosShopUserMappingListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('id', 'user_id', 'phone_number', 'name', 'email', 'user_type', 'status')
+        fields = ('id', 'user_id', 'phone_number', 'name', 'email', 'user_type', 'status', 'is_delivery_person')
 
 
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -2160,6 +2160,20 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     creation_date = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
+    order_update = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_order_update(obj):
+        ret = dict()
+        if obj.order_status == Order.PICKUP_CREATED:
+            return {Order.PICKED: 'Complete pickup'}
+        elif obj.order_status == Order.PICKED:
+            return {Order.OUT_FOR_DELIVERY: 'Mark Out For Delivery'}
+        elif obj.order_status == Order.OUT_FOR_DELIVERY:
+            return {Order.DELIVERED: 'Mark Delivered'}
+        elif obj.order_status == Order.ORDERED:
+            return {Order.PICKUP_CREATED: 'Pick Order'}
+        return ret
 
     @staticmethod
     def get_invoice_amount(obj):
@@ -2305,4 +2319,4 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_amount', 'address')
+                  'invoice_amount', 'address', 'order_update')

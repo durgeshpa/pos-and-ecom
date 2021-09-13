@@ -6287,7 +6287,7 @@ class ShipmentView(GenericAPIView):
 
                 order.order_status = Order.PICKUP_CREATED
                 order.save()
-                return api_response("Pickup recorded")
+                return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
