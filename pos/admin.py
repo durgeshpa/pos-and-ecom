@@ -22,7 +22,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
-                     InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit)
+                     InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
+                     PosReturnItems)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -917,6 +918,12 @@ class MeasurementUnitAdmin(admin.TabularInline):
     formset = MeasurementUnitFormSet
     fields = ('unit', 'category', 'conversion', 'default')
 
+
+class PosReturnItemsAdmin(admin.TabularInline):
+    model = PosReturnItems
+    fields = ('grn_return_id', 'product', 'return_qty',)
+    autocomplete_fields = ('product',)
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -932,6 +939,14 @@ class MeasurementCategoryAdmin(admin.ModelAdmin):
     @staticmethod
     def default_unit(obj):
         return MeasurementUnit.objects.filter(category=obj).last().unit
+
+
+@admin.register(PosReturnGRNOrder)
+class PosReturnGRNOrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'pr_number',  'status', 'last_modified_by', 'created_at', 'modified_at')
+    fields = ('pr_number',  'status', )
+    list_per_page = 10
+    inlines = [PosReturnItemsAdmin]
 
     def has_delete_permission(self, request, obj=None):
         return False

@@ -3,11 +3,11 @@ import uuid
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from retailer_backend.common_function import po_pattern, grn_pattern
+from retailer_backend.common_function import po_pattern, grn_pattern, purchase_return_number_pattern
 from wms.models import PosInventory
 
 from .tasks import update_shop_retailer_product_es
-from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosGRNOrderProductMapping
+from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosGRNOrderProductMapping, PosReturnGRNOrder
 from wms.models import PosInventoryState
 
 
@@ -82,6 +82,13 @@ def generate_po_no(sender, instance=None, created=False, update_fields=None, **k
 def create_grn_id(sender, instance=None, created=False, **kwargs):
     if created:
         instance.grn_id = grn_pattern(instance.pk)
+        instance.save()
+
+
+@receiver(post_save, sender=PosReturnGRNOrder)
+def create_pr_number(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.pr_number = purchase_return_number_pattern(instance.pk, instance.grn_ordered_id.grn_id)
         instance.save()
 
 

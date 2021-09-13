@@ -24,7 +24,8 @@ from products.models import Product
 
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, PosCart, PosCartProductMapping, Vendor
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -239,6 +240,7 @@ class PosInventoryCls(object):
         """
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
         return inventory_object.quantity if inventory_object else 0
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -511,6 +513,22 @@ def filter_pos_shop(user):
                                pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
+def check_return_status(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        status = request.META.get('HTTP_STATUS', None)
+        if not status:
+            kwargs['status'] = PosReturnGRNOrder.RETURNED
+            # return api_response("No status Selected!")
+        elif status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
+            return api_response("invalid status Selected!")
+        else:
+            kwargs['status'] = status.upper()
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def check_pos_shop(view_func):
     """
         Decorator to validate pos request
@@ -722,3 +740,7 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no
+
+
+def generate_debit_note_number(returned_obj, billing_address_instance):
+    return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
