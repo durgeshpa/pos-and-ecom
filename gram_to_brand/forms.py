@@ -15,7 +15,8 @@ from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ProductVendorMapping, ParentProduct
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from shops.models import Shop
+from shops.models import Shop, ParentRetailerMapping
+from wms.models import WarehouseAssortment
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BEST_BEFORE_MONTH_CHOICE,
                      BEST_BEFORE_YEAR_CHOICE, Document, VendorShopMapping)
 
@@ -321,15 +322,16 @@ class GRNOrderProductForm(forms.ModelForm):
     expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE, )
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE, )
+    zone = forms.CharField(required=False)
 
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
                   'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
                   'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
-                  'barcode_id',)
+                  'barcode_id', 'zone',)
         readonly_fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
-                           'already_returned_product', 'barcode_id',)
+                           'already_returned_product', 'barcode_id', 'zone',)
         autocomplete_fields = ('product',)
 
     class Media:
@@ -387,8 +389,17 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         if hasattr(self, 'order') and self.order:
             ordered_cart = self.order
             products = ordered_cart.products.order_by('product_name')
+            gf_shop = ordered_cart.gf_shipping_address.shop_name
+            prm_obj = ParentRetailerMapping.objects.filter(
+                parent=gf_shop, status=True, retailer__shop_type__shop_type='sp', retailer__status=True).last()
             initial = []
             for item in products:
+                zone = None
+                whc_assrtment_obj = WarehouseAssortment.objects.filter(
+                    warehouse=prm_obj.retailer, product=item.parent_product).last()
+                if whc_assrtment_obj:
+                    zone = whc_assrtment_obj.zone
+                # print(prm_obj.retailer.id, item.parent_product.id, zone_id)
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart). \
                     aggregate(Sum('delivered_qty')).get('delivered_qty__sum')
                 already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart). \
@@ -408,6 +419,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                     'product': item, 'product_mrp': mrp, 'po_product_quantity': po_product_quantity,
                     'po_product_price': price, 'already_grned_product': already_grn if already_grn else 0,
                     'already_returned_product': already_return if already_return else 0,
+                    'zone': str(zone) if zone else "-"
                 })
             self.extra = len(initial)
             self.initial = initial

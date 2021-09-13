@@ -1,41 +1,37 @@
 # python imports
-import logging
 import csv
+import logging
 from io import StringIO
-from datetime import datetime
 
 from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
 from django.contrib.admin import AllValuesFieldListFilter
-from django.db.models import F, Q
 from django.http import HttpResponse
-from django.utils.html import format_html
 from django.urls import reverse
-from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
+from django.utils.html import format_html
+from django_admin_listfilter_dropdown.filters import DropdownFilter
+from import_export import resources
 from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
 from audit.models import AUDIT_LEVEL_CHOICES
-from retailer_to_sp.models import Invoice, Trip
+from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import ProductVendorMapping
-from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
+from retailer_to_sp.models import Invoice, Trip
 # app imports
 from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
-from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
-from import_export import resources
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
-                     PickupBinInventory,
-                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm)
-from barCodeGenerator import barcodeGen, merged_barcode_gen
-from gram_to_brand.models import GRNOrderProductMapping
+                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm)
+from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
+                     PickupBinInventory,
+                     WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
+                     ExpiredInventoryMovement, Zone, WarehouseAssortment)
+from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
+    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -130,7 +126,7 @@ class SKUFilter(InputFilter):
 class Warehouse(AutocompleteFilter):
     title = 'Warehouse'
     field_name = 'warehouse'
-    autocomplete_url = 'warehouse-autocomplete'
+    autocomplete_url = 'warehouses-autocomplete'
 
 
 class InventoryTypeFilter(AutocompleteFilter):
@@ -240,17 +236,41 @@ class PutawayuserFilter(AutocompleteFilter):
     autocomplete_url = 'putaway-user-autocomplete'
 
 
+class SupervisorFilter(AutocompleteFilter):
+    title = 'Supervisor'
+    field_name = 'supervisor'
+    autocomplete_url = 'supervisor-autocomplete'
+
+
+class CoordinatorFilter(AutocompleteFilter):
+    title = 'Coordinator'
+    field_name = 'coordinator'
+    autocomplete_url = 'coordinator-autocomplete'
+
+
+class ZoneFilter(AutocompleteFilter):
+    title = 'Zone'
+    field_name = 'zone'
+    autocomplete_url = 'zone-autocomplete'
+
+
+class ParentProductFilter(AutocompleteFilter):
+    title = 'Product'
+    field_name = 'product'
+    autocomplete_url = 'parent-product-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
-    list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt', 'download_bin_id_barcode')
+    list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt',
+                    'zone', 'download_bin_id_barcode')
     # readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
     #                    'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
-    list_filter = [BinIdFilter,
+    list_filter = [BinIdFilter, ZoneFilter,
                    ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
                    ('bin_type', DropdownFilter),
                    ]
@@ -978,6 +998,63 @@ class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
     download_tickets.short_description = "Download selected items as CSV"
 
 
+class ZoneAdmin(admin.ModelAdmin):
+    form = ZoneForm
+    list_display = ('warehouse', 'supervisor', 'coordinator', 'created_at', 'updated_at', 'created_by',
+                    'updated_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+    list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
+                   ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    list_per_page = 50
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(ZoneAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        pass
+
+
+class WarehouseAssortmentAdmin(admin.ModelAdmin):
+    form = WarehouseAssortmentForm
+    list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
+                    'updated_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+    list_filter = [Warehouse, ParentProductFilter, ZoneFilter,
+                   ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    list_per_page = 50
+
+    change_list_template = 'admin/wms/warehouse_assortment_change_list.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(WarehouseAssortmentAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^warehouse-assortment-download-sample-csv/$',
+                self.admin_site.admin_view(WarehouseAssortmentDownloadSampleCSV),
+                name="warehouse-assortment-download-sample-csv"
+            ),
+            url(
+                r'^warehouse-assortment-upload-csv/$',
+                self.admin_site.admin_view(WarehouseAssortmentUploadCsvView),
+                name="warehouse-assortment-upload"
+            ),
+        ] + urls
+        return urls
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(WarehouseAssortmentAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        pass
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 # admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -996,3 +1073,6 @@ admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
 admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
+admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
+admin.site.register(Zone, ZoneAdmin)
+

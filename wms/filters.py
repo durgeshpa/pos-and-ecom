@@ -2,14 +2,16 @@ from datetime import datetime, timedelta
 
 from dal import autocomplete
 from django.contrib.admin import SimpleListFilter, ListFilter, FieldListFilter
+from django.contrib.auth.models import Permission
 from django.db.models import Q, F
 
+from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone
 from accounts.models import User
 
 
-class WareHouseComplete(autocomplete.Select2QuerySetView):
+class WarehousesAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             return Shop.objects.none()
@@ -18,7 +20,7 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
             shop_type__shop_type='sp')
 
         if self.q:
-            qs = qs.filter(shop_name__icontains=self.q)
+            qs = qs.filter(Q(shop_name__icontains=self.q) | Q(id__icontains=self.q))
         return qs
 
 
@@ -55,6 +57,82 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(first_name__icontains=self.q)
+        return qs
+
+
+class SupervisorFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_zone_supervisor_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
+        return qs
+
+
+class CoordinatorFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
+        return qs
+
+
+class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+            id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator')).distinct()
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
+        return qs
+
+
+class ParentProductFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return ParentProduct.objects.none()
+        qs = ParentProduct.objects.all()
+
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(product_hsn__icontains=self.q))
+        return qs
+
+
+class ZoneFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Zone.objects.none()
+
+        if self.request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            qs = Zone.objects.all()
+        elif self.request.user.has_perm('wms.can_have_zone_supervisor_permission'):
+            qs = Zone.objects.filter(supervisor=self.request.user)
+        elif self.request.user.has_perm('wms.can_have_zone_coordinator_permission'):
+            qs = Zone.objects.filter(coordinator=self.request.user)
+        else:
+            qs = Zone.objects.none()
+
+        # qs = Zone.objects.all()
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q) | Q(
+                supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
+                coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q) | Q(
+                warehouse__id__icontains=self.q))
         return qs
 
 

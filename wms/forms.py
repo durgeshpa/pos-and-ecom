@@ -3,17 +3,25 @@ import collections
 import re
 import csv
 import codecs
+from itertools import chain
+
 from django import forms
 from datetime import datetime
-from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
-from products.models import Product, ProductPrice
+
+from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.auth.models import Permission, Group
+
+from accounts.models import User
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment
+from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from .common_functions import create_batch_id
+from global_config.views import get_config
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
@@ -85,10 +93,12 @@ class BinForm(forms.ModelForm):
     bin_id = forms.CharField(required=True, max_length=16)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     bin_type = forms.ChoiceField(choices=BIN_TYPE_CHOICES)
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = Bin
-        fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]
+        fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', 'zone']
 
     def clean_bin_id(self):
         bin_validation, message = bin_id_validation(self.cleaned_data['bin_id'], self.data['bin_type'])
@@ -98,7 +108,7 @@ class BinForm(forms.ModelForm):
             bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.cleaned_data['bin_id'])
         else:
             bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.instance.bin_id)
-        if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id = self.cleaned_data['bin_id']).exists():
+        if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.cleaned_data['bin_id']).exists():
             if bin_obj[0].bin_id == self.cleaned_data['bin_id']:
                 try:
                     if int(bin_obj[0].id) == int(self.instance.id):
@@ -108,7 +118,14 @@ class BinForm(forms.ModelForm):
                         _("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
             else:
                 raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
+
         return self.cleaned_data['bin_id']
+
+    def clean_zone(self):
+        if self.cleaned_data['zone']:
+            if int(self.cleaned_data['zone'].warehouse.id) != int(self.data['warehouse']):
+                raise ValidationError(_("Invalid zone for selected warehouse."))
+        return self.cleaned_data['zone']
 
     def __init__(self, *args, **kwargs):
         super(BinForm, self).__init__(*args, **kwargs)
@@ -1151,3 +1168,213 @@ class UploadAuditAdminForm(forms.Form):
                 " please re-verify at your end."))
 
         return form_data_list
+
+
+supervisor_perm = Permission.objects.get(codename='can_have_zone_supervisor_permission')
+coordinator_perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
+putaway_group = Group.objects.get(name='Putaway')
+
+
+class ZoneForm(forms.ModelForm):
+    info_logger.info("Zone Form has been called.")
+    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    supervisor = forms.ModelChoiceField(queryset=User.objects.filter(
+        Q(groups__permissions=supervisor_perm) | Q(user_permissions=supervisor_perm)).distinct(), required=True,
+                                        widget=autocomplete.ModelSelect2(url='supervisor-autocomplete'))
+    coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
+        Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
+    putaway_users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
+        required=True,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Putaway users'),
+            is_stacked=False
+        )
+    )
+
+    class Meta:
+        model = Zone
+        fields = ['warehouse', 'supervisor', 'coordinator', 'putaway_users']
+
+    def clean_warehouse(self):
+        if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
+            raise ValidationError(_("Invalid warehouse selected."))
+        return self.cleaned_data['warehouse']
+
+    def clean_supervisor(self):
+        if not self.cleaned_data['supervisor'].has_perm('wms.can_have_zone_supervisor_permission'):
+            raise ValidationError(_("Invalid supervisor selected."))
+        return self.cleaned_data['supervisor']
+
+    def clean_coordinator(self):
+        if not self.cleaned_data['coordinator'].has_perm('wms.can_have_zone_coordinator_permission'):
+            raise ValidationError(_("Invalid coordinator selected."))
+        return self.cleaned_data['coordinator']
+
+    def clean_putaway_users(self):
+        if self.cleaned_data['putaway_users']:
+            if len(self.cleaned_data['putaway_users']) <= 0 or \
+                    len(self.cleaned_data['putaway_users']) >= get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
+                raise ValidationError(_(
+                    "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
+        return self.cleaned_data['putaway_users']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        warehouse = cleaned_data.get("warehouse")
+        supervisor = cleaned_data.get("supervisor")
+        coordinator = cleaned_data.get("coordinator")
+        instance = getattr(self, 'instance', None)
+        if not instance.pk:
+            if warehouse and supervisor and coordinator:
+                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
+                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+
+    def __init__(self, *args, **kwargs):
+        super(ZoneForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
+
+        if instance.pk:
+            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
+                id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
+            self.fields['putaway_users'].queryset = (queryset | instance.putaway_users.all()).distinct()
+
+            queryset = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
+            self.fields['coordinator'].queryset = (queryset | User.objects.filter(id=instance.coordinator.pk)).distinct()
+        else:
+            self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
+                id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
+
+            self.fields['coordinator'].queryset = User.objects.filter(
+                Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
+                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
+
+
+class WarehouseAssortmentForm(forms.ModelForm):
+    info_logger.info("WarehouseAssortment Form has been called.")
+    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
+                                     widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
+
+    class Meta:
+        model = WarehouseAssortment
+        fields = ['warehouse', 'product', 'zone']
+
+    def clean_warehouse(self):
+        if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
+            raise ValidationError(_("Invalid warehouse selected."))
+        return self.cleaned_data['warehouse']
+
+    def clean_zone(self):
+        if int(self.cleaned_data['zone'].warehouse.id) != int(self.data['warehouse']):
+            raise ValidationError(_("Invalid zone selected."))
+        return self.cleaned_data['zone']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        warehouse = cleaned_data.get("warehouse")
+        product = cleaned_data.get("product")
+        zone = cleaned_data.get("zone")
+        instance = getattr(self, 'instance', None)
+        if warehouse and product and zone:
+            if not instance.pk:
+                if WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).exists():
+                    raise ValidationError("Warehouse Assortment already exist for selected warehouse and "
+                                          "product, only zone updation is allowed.")
+            else:
+                if not WarehouseAssortment.objects.filter(
+                        id=instance.pk, warehouse=warehouse, product=product).exists():
+                    raise ValidationError("Only zone updation is allowed.")
+
+    def __init__(self, *args, **kwargs):
+        super(WarehouseAssortmentForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance.pk:
+            self.fields['zone'].queryset = Zone.objects.filter(warehouse=instance.warehouse)
+
+
+class WarehouseAssortmentSampleCSV(forms.ModelForm):
+    """
+    Warehouse Assortment Sample CSV Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+
+    class Meta:
+        model = WarehouseAssortment
+        fields = ('warehouse',)
+
+
+class WarehouseAssortmentCsvViewForm(forms.Form):
+    """
+    This Form class is used to upload csv for particular sales executive in Warehouse Assortment
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    file = forms.FileField()
+
+    def clean_file(self):
+        """
+        :return: Form is valid otherwise validation error message
+        """
+        # Validate to check the file format, It should be csv file.
+        if self.cleaned_data['file'].name[-4:] not in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted.")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+
+            # validation for warehouse shop id, it should be numeric.
+            if not row[0] or not re.match("^[\d]*$", row[0]):
+                raise ValidationError(_('INVALID_WAREHOUSE_ID at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id+1},)
+
+            if int(row[0]) != self.cleaned_data['warehouse'].pk:
+                raise ValidationError(_(
+                    'Row number [%(value)s] | Assortment are allowed for the selected Warehouse only.'),
+                                      params={'value': row_id + 1}, )
+
+            # validation for warehouse shop id to check that is exist or not in the database
+            if not Shop.objects.filter(pk=row[0], shop_type__shop_type='sp').exists():
+                raise ValidationError(_('INVALID_WAREHOUSE_ID at Row number [%(value)s]. Warehouse Id not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for product to check that is exist or not in the database
+            if not row[2] or not ParentProduct.objects.filter(parent_id=row[2]).exists():
+                raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for zone id, it should be numeric.
+            if not row[4] or not re.match("^[\d]*$", row[4]):
+                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id + 1}, )
+
+            # validation for product to check that is exist or not in the database
+            if not row[4] or not Zone.objects.filter(id=row[4]).exists():
+                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. Zone is not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for zone id is associate with executive
+            if Zone.objects.filter(id=row[4]).last().warehouse.id != int(row[0]):
+                raise ValidationError(_('Row number [%(value)s] | Warehouse not mapped to the selected Zone.'),
+                                      params={'value': row_id+1},)
+
+            form_data_list.append(row)
+
+        return self.cleaned_data['file']
+
+    def clean(self):
+        # Check logged in user permissions
+        if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
+            raise forms.ValidationError(_("Required permissions missing to perform this task."))

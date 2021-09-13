@@ -662,6 +662,28 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
+    def get_list_display(self, request):
+        default_list_display = super(ParentProductAdmin, self).get_list_display(request)
+
+        def add_zone_link(obj):
+            # if request.user.is_superuser:
+            #     return format_html(
+            #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
+            #         % (600, obj.pk))
+            # if request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            #     return format_html(
+            #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
+            #         % (600, obj.pk))
+            if not obj.product_zones.exists():
+                return format_html(
+                    "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>" % (600, obj.pk))
+            else:
+                return '-'
+
+        add_zone_link.short_description = 'Add Zone'
+
+        return default_list_display + [add_zone_link]
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ParentProductAdmin, self).get_urls()

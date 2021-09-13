@@ -1,4 +1,6 @@
 # python imports
+import csv
+import codecs
 import functools
 import json
 import logging
@@ -15,10 +17,12 @@ from django.db import transaction
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
+from global_config.models import GlobalConfig
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out)
+                     Audit, Out, Zone, WarehouseAssortment)
+from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
 from products.models import Product, ParentProduct, ProductPrice
@@ -81,15 +85,25 @@ class PutawayCommonFunctions(object):
                                            putaway_type=putaway_type, putaway=pu_obj,
                                            putaway_status=putaway_status,
                                            putaway_quantity=qty)
+
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
+            if putaway_quantity == 0:
+                putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.NEW
+            elif putaway_quantity == quantity:
+                putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+            else:
+                putaway_status = None
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
                                                  inventory_type=inventory_type)
+            if putaway_status is not None:
+                putaway_obj.status = putaway_status
+                putaway_obj.save()
             return putaway_obj
 
     @classmethod
@@ -107,6 +121,22 @@ class PutawayCommonFunctions(object):
         else:
             return 0
 
+    @classmethod
+    def get_suggested_bins_for_putaway(cls, warehouse, sku, batch_id, inventory_type):
+        """ Returns the Bins suggested where the given SKU can be kept"""
+        suggested_bins = set()
+        queryset = BinInventory.objects.filter(warehouse=warehouse, inventory_type=inventory_type, sku=sku)
+        if queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), batch_id=batch_id).exists():
+            bin_list = queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0),sku=sku, batch_id=batch_id)\
+                               .values_list('bin__bin_id', flat=True).distinct('bin')[:3]
+            suggested_bins.update(bin_list)
+        if len(suggested_bins) < 3:
+            bins_to_exclude = queryset.filter(~Q(batch_id=batch_id),Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0))\
+                                      .values_list('bin_id', flat=True)
+            bin_list = queryset.exclude(bin_id__in=bins_to_exclude)\
+                               .values_list('bin__bin_id', flat=True).distinct('bin')[:3]
+            suggested_bins.update(bin_list)
+        return suggested_bins
 
 class InCommonFunctions(object):
 
@@ -2157,3 +2187,63 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+def get_logged_user_wise_query_set(user, queryset):
+    '''
+        GET Logged-in user wise queryset for grouped puaways based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        pass
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Putaway').exists():
+        queryset = queryset.filter(putaway_user=user)
+    return queryset
+
+
+class ZoneCommonFunction(object):
+
+    @classmethod
+    def create_zone(cls, warehouse, supervisor, coordinator, putaway_users):
+        Zone.objects.create(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator,
+                            putaway_users=putaway_users)
+
+    @classmethod
+    def update_putaway_users(cls, zone, putaway_users):
+        """
+            Update Putaway users of the Shop
+        """
+        zone.putaway_users.clear()
+        if putaway_users:
+            for user in putaway_users:
+                zone.putaway_users.add(user)
+        zone.save()
+
+
+class WarehouseAssortmentCommonFunction(object):
+
+    @classmethod
+    def create_warehouse_assortment(cls, validated_data):
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+        try:
+            info_logger.info('Method Start to create Beat Planning')
+            warehouse = Shop.objects.get(id=uploaded_data_by_user_list[0]['warehouse_id'])
+            for row in uploaded_data_by_user_list:
+                warehouse_assortment_object, created = WarehouseAssortment.objects.get_or_create(
+                    warehouse=warehouse, product=ParentProduct.objects.filter(
+                        parent_id=str(row['product_id']).strip()).last(), zone_id=int(row['zone_id']))
+            info_logger.info("Method complete to create Warehouse Assortment from csv file")
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            error_logger.info(f"Something went wrong, while working with create Warehouse Assortment  "
+                              f" + {str(e)}")
+
+
+
