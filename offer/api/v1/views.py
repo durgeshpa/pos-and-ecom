@@ -414,9 +414,9 @@ class TopSKUView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product') \
-        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner'). \
-        only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date', 'status').order_by('-id')
+    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop') \
+        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner').\
+        only('id', 'updated_by', 'created_by', 'shop', 'start_date', 'end_date', 'status').order_by('-id')
     serializer_class = TopSKUSerializers
 
     def get(self, request):
@@ -443,21 +443,18 @@ class TopSKUView(GenericAPIView):
         """ POST API for TopSKU Creation """
 
         info_logger.info("TopSKU POST api called.")
-        products = request.data.pop('product')
-        data = []
-        with transaction.atomic():
-            for product in products:
-                request.data['product'] = product
-                serializer = self.serializer_class(data=request.data)
-                if serializer.is_valid():
-                    serializer.save(created_by=request.user)
-                    data.append(serializer.data)
-                else:
-                    return get_response(serializer_error(serializer), False)
-        info_logger.info("TopSKUe Created Successfully.")
-        return get_response('top sku created successfully!', data)
+        try:
+            products = request.data.pop('products')
+        except Exception as e:
+            return get_response('Please select products', False)
+        serializer = self.serializer_class(data=request.data, context = {'products':products})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("TopSKU Created Successfully.")
+            return get_response('top sku created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
         
-
+        
     def put(self, request):
         """ PUT API for TopSKU Updation """
 
@@ -471,7 +468,10 @@ class TopSKUView(GenericAPIView):
             return get_response(id_instance['error'])
 
         top_sku_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=top_sku_instance, data=request.data)
+        products = None
+        if 'products' in request.data:
+            products = request.data.pop('products')
+        serializer = self.serializer_class(instance=top_sku_instance, data=request.data, context = {'products':products})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Top SKU Updated Successfully.")

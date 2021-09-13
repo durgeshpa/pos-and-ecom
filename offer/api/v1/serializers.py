@@ -4,10 +4,11 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from rest_framework import serializers
-from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage
+from offer.models import OfferBanner, OfferBannerPosition, OfferBannerData, OfferBannerSlot, TopSKU, OfferPage, TopSKUProduct
 from brand.models import Brand
 from offer.models import OfferLog
 from offer.common_function import OfferCls
+from products.models import Product
 from offer.common_validators import get_validate_page, get_validate_offerbannerslot, get_validated_offer_ban_data, \
     get_validate_products
 from products.api.v1.serializers import UserSerializers, BrandSerializers, CategorySerializers, ProductSerializers
@@ -224,24 +225,22 @@ class OfferBannerSlotSerializers(serializers.ModelSerializer):
 
 class TopSKUSerializers(serializers.ModelSerializer):
     shop = ServicePartnerShopsSerializer(read_only=True)
-    product = ProductSerializers(read_only=True)
     top_sku_log = OfferLogSerializers(many=True, read_only=True)
+    products = serializers.SerializerMethodField()
     start_date = serializers.DateTimeField(required=True)
     end_date = serializers.DateTimeField(required=True)
 
     class Meta:
         model = TopSKU
-        fields = ('id', 'shop', 'product', 'start_date', 'end_date', 'top_sku_log', 'status')
+        fields = ('id', 'shop', 'products', 'start_date', 'end_date', 'top_sku_log', 'status')
+
+    def get_products(self, obj):
+        top_sku = obj.offer_top_sku.all().values('product__id')
+        products = Product.objects.filter(id__in = top_sku)
+        data = ProductSerializers(products, many=True).data
+        return data
 
     def validate(self, data):
-
-        if not 'product' in self.initial_data or not self.initial_data['product']:
-            raise serializers.ValidationError("please select product")
-
-        product_val = get_validate_product(self.initial_data['product'])
-        if 'error' in product_val:
-            raise serializers.ValidationError(product_val['error'])
-        data['product'] = product_val['product']
 
         if 'shop' in self.initial_data and self.initial_data['shop']:
             seller_shop_val = get_validate_seller_shop(self.initial_data['shop'])
@@ -254,11 +253,26 @@ class TopSKUSerializers(serializers.ModelSerializer):
 
         return data
 
+    def validate_product(self,obj):
+        if len(obj) == 0:
+            raise serializers.ValidationError("please select product")
+        data = []
+        for product in obj:
+            product_val = get_validate_product(product)
+            if 'error' in product_val:
+                raise serializers.ValidationError(product_val['error'])
+            data.append(product_val['product'])
+        return data
+
     @transaction.atomic
     def create(self, validated_data):
         """create a new TopSKU """
+        products = self.context.get('products')
+        validated_product = self.validate_product(products)
         try:
             off_page = TopSKU.objects.create(**validated_data)
+            for product in validated_product:
+                TopSKUProduct.objects.create(top_sku = off_page, product = product)
             OfferCls.create_top_sku_log(off_page, "created")
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
@@ -269,9 +283,16 @@ class TopSKUSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """update TopSKU"""
+        products = self.context.get('products')
+        if products is not None:
+            validated_product = self.validate_product(products)
         try:
             instance = super().update(instance, validated_data)
             OfferCls.create_top_sku_log(instance, "updated")
+            if products is not None:
+                TopSKUProduct.objects.filter(top_sku=instance).delete()
+                for product in validated_product:
+                    TopSKUProduct.objects.create(top_sku = instance, product = product)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
