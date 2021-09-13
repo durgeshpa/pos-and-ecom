@@ -238,7 +238,6 @@ class BrandExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class BrandListSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = Brand
         fields = ('id', 'brand_name',)

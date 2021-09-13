@@ -1007,12 +1007,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'invoice_no', 'seller_shop','buyer_shop_id', 'buyer_shop_type', 'buyer_shop_with_mobile',
-                    'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
-                    'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
-                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    'order_no', 'download_pick_list', 'invoice_no', 'seller_shop', 'buyer_shop_id', 'buyer_shop_type',
+                    'buyer_shop_with_mobile', 'pincode', 'city', 'total_final_amount', 'order_status', 'ordered_by',
+                    'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
+                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'pickup_completed_at',
+                    'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1056,6 +1056,15 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def buyer_shop_type(self, obj):
         return obj.buyer_shop.shop_type
+
+    def app_type(self, obj):
+        """
+            if ordered_by user type is Sales Executive or Sales Manager, Order done from Sales App
+            else Order done from Retailer App
+        """
+        if obj.ordered_by.user_type in [6, 7] and obj.ordered_by.is_staff == True:
+            return "Sales Order"
+        return "Organic Order"
 
     def download_pick_list(self,obj):
         if obj.order_status not in ["active", "pending"]:

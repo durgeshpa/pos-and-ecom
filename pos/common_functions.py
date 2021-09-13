@@ -15,7 +15,7 @@ from addresses.models import Address
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
-from shops.models import Shop
+from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from marketing.models import RewardPoint, RewardLog, Referral, ReferralCode
 from global_config.models import GlobalConfig
@@ -114,6 +114,10 @@ class RetailerProductCls(object):
 
     @classmethod
     def is_discounted_product_exists(cls, product):
+        return hasattr(product, 'discounted_product')
+
+    @classmethod
+    def is_discounted_product_available(cls, product):
         return hasattr(product, 'discounted_product') and product.discounted_product.status == 'active'
 
 
@@ -532,6 +536,17 @@ def check_pos_shop(view_func):
     return _wrapped_view_func
 
 
+def pos_check_permission(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type='manager').exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
@@ -644,19 +659,27 @@ class PosAddToCart(object):
                     if product.mrp and Decimal(selling_price) > product.mrp:
                         return api_response("Selling Price should be equal to OR less than MRP")
 
+                # If adding discounted product for given product
+                add_discounted = request.data.get('add_discounted', None)
+                if add_discounted and product.sku_type != 4:
+                    if RetailerProductCls.is_discounted_product_available(product):
+                        product = product.discounted_product
+                    else:
+                        return api_response("Discounted product not available")
+
+                # check_discounted = request.data.get('check_discounted', None)
+                # if check_discounted and RetailerProductCls.is_discounted_product_exists(
+                #         product) and product.discounted_product.status == 'active':
+                #     return api_response('Discounted product found', self.serialize_product(product),
+                #                         status.HTTP_300_MULTIPLE_CHOICES, False)
+
                 # Check discounted product
                 if product.sku_type == 4:
                     discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
                     if product.status != 'active':
-                        return api_response("This product is de-activated!")
+                        return api_response("The discounted product is de-activated!")
                     elif discounted_stock < qty:
-                        return api_response("This product has only {} in stock!".format(discounted_stock))
-
-                check_discounted = request.data.get('check_discounted', None)
-                if check_discounted and RetailerProductCls.is_discounted_product_exists(
-                        product) and product.discounted_product.status == 'active':
-                    return api_response('Discounted product found', self.serialize_product(product),
-                                        status.HTTP_300_MULTIPLE_CHOICES, False)
+                        return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
             # Return with objects
             kwargs['product'] = product

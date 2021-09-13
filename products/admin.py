@@ -15,7 +15,7 @@ from django.conf.urls import url
 from django.urls import reverse
 from django.utils.html import format_html
 
-from retailer_backend.admin import InputFilter, SelectInputFilter
+from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
@@ -57,7 +57,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload, 
+                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload,
                     get_discounted_product_price_sample_csv, franchise_po_fail_status)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
@@ -112,7 +112,7 @@ class CategorySearch(InputFilter):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        exclude_fields = ['created_at', 'modified_at']
+        exclude_fields = ['modified_at', 'created_at', 'updated_at', 'created_by', 'updated_by']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
         response = HttpResponse(content_type='text/csv')
@@ -280,9 +280,8 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price', 'product_price_pack', 'product_mrp', 'case_size', 'is_default')
 
-    list_display = (
-    'vendor', 'product', 'product_price', 'product_price_pack', 'mrp', 'case_size', 'created_at', 'status',
-    'product_status')
+    list_display = ('vendor', 'product', 'product_price', 'product_price_pack', 'mrp', 'case_size', 'created_at',
+                    'status', 'product_status')
     list_filter = [VendorFilter, ProductFilter, 'product__status', 'status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit', ]
@@ -1606,7 +1605,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details', 'slab2_details'
+                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details',
+                    'slab2_details'
                     ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
@@ -1714,12 +1714,16 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
         qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
                        product__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).values_list('pk', flat=True),)
+
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
-        return qs.filter(
+
+        qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
         ).distinct()
+
+        return qs
 
     def get_urls(self):
         """
@@ -1785,7 +1789,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
     This class is used to create Slabbed Product Price of Discounted Product from admin panel
     """
     form = ProductPriceSlabForm
-    list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop', 
+    list_display = ['product', 'product_mrp', 'reference_product', 'seller_shop', 'buyer_shop',
                     'city', 'pincode', 'approval_status', 'selling_price'
                     ]
     autocomplete_fields = ['product']
@@ -1808,8 +1812,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super(DiscountedProductSlabPriceAdmin, self).save_model(request, obj, form, change)
-        PriceSlab.objects.create(product_price=obj, start_value=1, end_value=0,
-                             selling_price=obj.selling_price)
+        PriceSlab.objects.create(product_price=obj, start_value=0, end_value=0, selling_price=obj.selling_price)
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super(DiscountedProductSlabPriceAdmin, self).get_fieldsets(request, obj)
@@ -1832,8 +1835,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
         if not request.user.is_superuser:
             return self.readonly_fields + (
                 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'selling_price')
-        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'selling_price')
-
+        return self.readonly_fields + ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'selling_price')
 
     def reference_product(self, obj):
         if obj.product.product_ref:
@@ -1855,11 +1857,10 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
             kwargs['form'] = ProductPriceSlabForm
         return super().get_form(request, obj, **kwargs)
 
-
     def get_queryset(self, request):
         qs = super(DiscountedProductSlabPriceAdmin, self).get_queryset(request)
         qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False,
-                                        product__product_type = Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).values_list('pk', flat=True))
+                                        product__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).values_list('pk', flat=True))
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1889,6 +1890,7 @@ class DiscountedProductSlabPriceAdmin(admin.ModelAdmin):
         return urls
     change_list_template = 'admin/products/discountedproduct-slab-price-change-list.html'
 
+
 class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = DiscountedProductForm
     list_display = [
@@ -1908,7 +1910,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_queryset(self, request):
         qs = super().get_queryset(request).filter(product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED)
         return qs
-    
+
     def product_images(self,obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
@@ -1969,13 +1971,13 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
 
-admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
 admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
+admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
 # admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)

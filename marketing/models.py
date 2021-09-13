@@ -71,7 +71,7 @@ class ReferralCode(models.Model):
 
     @classmethod
     def is_marketing_user(cls, user):
-        return True if ReferralCode.objects.filter(user=user).exists() else False
+        return True if ReferralCode.objects.filter(user=user).exists() and user.phone_number != '9999999999' else False
 
     def __str__(self):
         return ''

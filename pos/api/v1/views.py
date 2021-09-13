@@ -6,6 +6,7 @@ import sys
 import requests
 from io import BytesIO
 from copy import deepcopy
+import calendar
 
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -40,6 +41,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer)
+from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -124,17 +126,21 @@ class PosProductView(GenericAPIView):
             name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
                 'mrp'], data['selling_price'], data['description'], data['stock_qty']
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
+            add_offer_price = data['add_offer_price']
+            ean_not_available = data['ean_not_available']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
                 # Update product
-                product.product_ean_code = ean if ean else product.product_ean_code
+                if ean_not_available is not None:
+                    product.product_ean_code = ean
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
-                product.offer_price = offer_price if offer_price else product.offer_price
-                product.offer_start_date = offer_sd if offer_sd else product.offer_start_date
-                product.offer_end_date = offer_ed if offer_ed else product.offer_end_date
+                if add_offer_price is not None:
+                    product.offer_price = offer_price
+                    product.offer_start_date = offer_sd
+                    product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
                 # Update images
@@ -658,7 +664,7 @@ class SalesReport(GenericAPIView):
 
         # Filter Orders for sales
         # Shop Filter
-        qss = Order.objects.filter(seller_shop=shop)
+        qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
         # Date Filter
         qss = qss.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
 
@@ -679,37 +685,31 @@ class SalesReport(GenericAPIView):
         returns_data = qsr.values('returns', 'created_at__date')
 
         # Merge sales and returns
-        result_set = dict()
+        result_set = self.get_default_result_set(limit, end_date)
         for sale in sales_data:
             key = str(sale['created_at__date'])
             sale['date'] = sale['created_at__date'].strftime("%b %d, %Y")
             del sale['created_at__date']
             result_set[key] = sale
-            result_set[key]['returns'] = 0
         for ret in returns_data:
             key = str(ret['created_at__date'])
             ret['date'] = ret['created_at__date'].strftime("%b %d, %Y")
             del ret['created_at__date']
-            if key in result_set:
-                result_set[key].update(ret)
-                result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
-            else:
-                result_set[key] = dict()
-                result_set[key] = ret
-                result_set[key]['sale'] = 0
-                result_set[key]['order_count'] = 0
-                result_set[key]['effective_sale'] = 0
+            result_set[key].update(ret)
+            result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+        report_type = report_type.capitalize()
+        msg = report_type + ' Sales Report Fetched Successfully!'
+        return api_response(msg, result_set.values(), status.HTTP_200_OK, True)
+
+    @staticmethod
+    def get_default_result_set(limit, end_date):
+        result_set = dict()
         for i in range(0, limit):
             date = end_date - datetime.timedelta(days=i)
             date = date.date()
-            if str(date) not in result_set:
-                result_set[str(date)] = {'sale': 0, 'order_count': 0, 'effective_sale': 0, 'returns': 0,
-                                         'date': date.strftime("%b %d, %Y")}
-
-        result_set = dict(reversed(sorted(result_set.items()))).values()
-        report_type = report_type.capitalize()
-        msg = report_type + ' Sales Report Fetched Successfully!'
-        return api_response(msg, result_set, status.HTTP_200_OK, True)
+            result_set[str(date)] = {'sale': 0, 'order_count': 0, 'effective_sale': 0, 'returns': 0,
+                                     'date': date.strftime("%b %d, %Y")}
+        return result_set
 
     def daily_report_prev(self, shop, report_type, request_data):
         # Shop Filter
@@ -950,22 +950,21 @@ class VendorView(GenericAPIView):
         serializer = self.serializer_class(data=data)
         if serializer.is_valid():
             serializer.save()
-            return api_response('', serializer.data, status.HTTP_200_OK, True)
+            return api_response('Vendor created successfully!', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
     def put(self, request, *args, **kwargs):
-        vendor_obj = Vendor.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).last()
-        vendor_status = request.data.get('status', None)
-        if vendor_status and vendor_status not in [True, False]:
-            return api_response("Please provide a valid status choice")
-        if vendor_obj:
-            vendor_obj.status = vendor_status if vendor_status is not None else vendor_obj.status
-            vendor_obj.save()
-            return api_response('', self.serializer_class(vendor_obj).data, status.HTTP_200_OK, True)
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=data,
+                                           context={'user': self.request.user, 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return api_response('Vendor updated Successfully!', None, status.HTTP_200_OK, True)
         else:
-            return api_response("Vendor not found")
+            return api_response(serializer_error(serializer))
 
 
 class VendorListView(ListAPIView):
@@ -976,11 +975,11 @@ class VendorListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = Vendor.objects.filter(retailer_shop=self.shop)
+        queryset = Vendor.objects.filter(retailer_shop=self.shop).order_by('-modified_at')
 
         vendor_status = self.request.GET.get('status', None)
-        if vendor_status in [True, False]:
-            queryset = queryset.filter(status=vendor_status)
+        if vendor_status in ['1', '0']:
+            queryset = queryset.filter(status=int(vendor_status))
 
         search_text = self.request.GET.get('search_text', None)
         if search_text:
@@ -1017,7 +1016,7 @@ class POView(GenericAPIView):
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save()
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1025,11 +1024,11 @@ class POView(GenericAPIView):
     def put(self, request, *args, **kwargs):
         data = request.data
         data['id'] = kwargs['pk']
-        serializer = self.serializer_class(data=request.data,
+        serializer = self.serializer_class(data=data,
                                            context={'user': self.request.user, 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.update(kwargs['pk'], serializer.data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('Purchase Order updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1056,7 +1055,7 @@ class POListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-created_at').prefetch_related(
+        queryset = PosCart.objects.filter(retailer_shop=self.shop).order_by('-modified_at').prefetch_related(
             'po_products')
 
         search_text = self.request.GET.get('search_text', None)
@@ -1102,7 +1101,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.create(s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1120,7 +1119,7 @@ class GrnOrderView(GenericAPIView):
             s_data = serializer.data
             s_data['invoice'] = data['invoice']
             serializer.update(kwargs['pk'], s_data)
-            return api_response('', None, status.HTTP_200_OK, True)
+            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1133,7 +1132,7 @@ class GrnOrderListView(ListAPIView):
     shop = None
 
     def get_queryset(self):
-        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-created_at')
+        queryset = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=self.shop).order_by('-modified_at')
         return queryset
 
     @check_pos_shop
@@ -1155,3 +1154,79 @@ class PaymentTypeDetailView(GenericAPIView):
         serializer = self.serializer_class(payment_type, many=True)
         msg = "" if payment_type else "No payment found"
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
+class IncentiveView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        msg = "There  will  be  a  1%  incentive  for  billing  done  from  Rs 50000  to  Rs 500000  for  a  calendar  month."
+        return api_response(msg, None, status.HTTP_200_OK, True)
+        # Get start date and end date based on offset and limit
+        # offset, limit = int(self.request.GET.get('offset', 0)), min(5, int(self.request.GET.get('limit', 5)))
+        # date_today = datetime.datetime.today()
+        # month, year = date_today.month, date_today.year
+        # month_range = calendar.monthrange(year, month)[1]
+        # end_date = date_today - datetime.timedelta(days=offset * month_range)
+        # start_date = end_date - datetime.timedelta(days=(limit - 1) * month_range)
+        # start_month, start_year, end_month, end_year = start_date.month, start_date.year, end_date.month, end_date.year
+        #
+        # # Default result set
+        # result_set = self.get_default_result_set(limit, month_range, end_date)
+        #
+        # # SALES
+        # shop = kwargs['shop']
+        # qss = Order.objects.filter(seller_shop=shop).exclude(order_status='CANCELLED')
+        # qss = self.filter_by_date(qss, start_month, start_year, end_month, end_year)
+        # qss = qss.values('created_at__month', 'created_at__year').annotate(sale=Sum('order_amount'))
+        # sales_data = qss.values('sale', 'created_at__month', 'created_at__year', effective_sale=F('sale')).order_by(
+        #     '-created_at__month', '-created_at__year')
+        #
+        # # RETURNS
+        # qsr = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
+        # qsr = self.filter_by_date(qsr, start_month, start_year, end_month, end_year)
+        # qsr = qsr.values('created_at__month', 'created_at__year').annotate(
+        #     returns=Coalesce(Sum('refund_amount', filter=Q(refund_amount__gt=0)), 0))
+        # returns_data = qsr.values('returns', 'created_at__month', 'created_at__year')
+        #
+        # # MERGE sales and returns
+        # for sale in sales_data:
+        #     result_set[str(sale['created_at__month']) + '_' + str(sale['created_at__year'])] = sale
+        # for ret in returns_data:
+        #     key = str(ret['created_at__month']) + '_' + str(ret['created_at__year'])
+        #     if key in result_set:
+        #         result_set[key].update(ret)
+        #         result_set[key]['effective_sale'] = result_set[key]['effective_sale'] - ret['returns']
+        #
+        # # Incentive cal
+        # incentive_rate = int(get_config('pos_retailer_incentive_rate', 1))
+        # for key in result_set:
+        #     result_set[key]['month'] = calendar.month_name[result_set[key]['created_at__month']] + ', ' + str(result_set[key]['created_at__year'])
+        #     del result_set[key]['created_at__month']
+        #     del result_set[key]['created_at__year']
+        #     result_set[key]['incentive_rate'] = str(incentive_rate) + '%'
+        #     result_set[key]['incentive'] = round((incentive_rate / 100) * result_set[key]['effective_sale'], 2)
+        #
+        # return api_response('Incentive for shop', result_set.values(), status.HTTP_200_OK, True)
+
+    @staticmethod
+    def get_default_result_set(limit, month_range, end_date):
+        result_set = dict()
+        for i in range(0, limit):
+            date = end_date - datetime.timedelta(days=i * month_range)
+            month, year = date.month, date.year
+            result_set[str(month) + '_' + str(year)] = {"created_at__month": int(month), "created_at__year": int(year),
+                                                        "sale": 0, "effective_sale": 0, "returns": 0, "incentive": 0}
+        return result_set
+
+    @staticmethod
+    def filter_by_date(qs, start_month, start_year, end_month, end_year):
+        if start_year != end_year:
+            qs = qs.filter(Q(created_at__month__gte=start_month, created_at__year=start_year) |
+                           Q(created_at__month__lte=end_month, created_at__year=end_year))
+        else:
+            qs = qs.filter(created_at__month__gte=start_month, created_at__month__lte=end_month,
+                           created_at__year=start_year)
+        return qs
+
