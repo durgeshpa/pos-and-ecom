@@ -14,8 +14,6 @@ from wms.common_functions import get_response, serializer_error
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, BinInventorySerializer, \
     InventoryTypeSerializer
 from ...common_validators import validate_ledger_request
-
-# Logger
 from ...models import BinInventory, InventoryType
 
 info_logger = logging.getLogger('file-info')
@@ -128,13 +126,13 @@ class BinInventoryDataView(generics.GenericAPIView):
         '''Filters using warehouse, sku, batch, bin, inventory_type'''
 
         if warehouse:
-            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+            self.queryset = self.queryset.filter(warehouse_id=warehouse)
 
         if sku:
-            self.queryset = self.queryset.filter(sku=sku)
+            self.queryset = self.queryset.filter(sku_id=sku)
 
         if bin:
-            self.queryset = self.queryset.filter(bin__bin_id=bin)
+            self.queryset = self.queryset.filter(bin_id=bin)
 
         if batch:
             self.queryset = self.queryset.filter(batch=batch)
@@ -144,3 +142,15 @@ class BinInventoryDataView(generics.GenericAPIView):
 
         return self.queryset
 
+    def post(self, request):
+        try:
+            modified_data = request.data["data"]
+        except Exception as e:
+            return get_response("Invalid Data Format")
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Product movement done.")
+            return get_response('Product moved successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)

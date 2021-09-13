@@ -2,13 +2,15 @@ import csv
 from itertools import chain
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum
+from django.db import transaction
+from django.db.models import Sum, Q
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
 from products.models import Product
 from shops.models import Shop
+from wms.common_functions import BinInventoryCommonFunction, get_sku_from_batch
 from wms.models import In, Out, InventoryType, BinInventory, Bin
 
 
@@ -174,14 +176,64 @@ class BinInventorySerializer(serializers.ModelSerializer):
 
 
     def validate(self, data):
-        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+        target_bin_batch_dict = {}
+        if 's_bin' in self.initial_data and self.initial_data['s_bin']:
             try:
-                warehouse = Shop.objects.get(id=self.initial_data['warehouse'])
-                data['warehouse'] = warehouse
+                s_bin = Bin.objects.get(id=self.initial_data['s_bin'])
             except Exception as e:
-                raise serializers.ValidationError("Invalid warehouse")
+                raise serializers.ValidationError("Invalid source Bin")
+            data['s_bin'] = s_bin
         else:
-            raise serializers.ValidationError("'warehouse' |  This is required")
-        
+            raise serializers.ValidationError("'s_bin' is required")
+
+        if 't_bin' in self.initial_data and self.initial_data['t_bin']:
+            try:
+                t_bin = Bin.objects.get(id=self.initial_data['t_bin'])
+            except Exception as e:
+                raise serializers.ValidationError("Invalid target Bin")
+            data['t_bin'] = t_bin
+        else:
+            raise serializers.ValidationError("'t_bin' is required")
+
+        if 'batch_id' in self.initial_data and self.initial_data['batch_id']:
+            data['batch_id'] = self.initial_data['batch_id']
+        else:
+            raise serializers.ValidationError("'batch_id' is required")
+
+        if 'qty' in self.initial_data and self.initial_data['qty']:
+            if self.initial_data['qty'] <= 0:
+                raise serializers.ValidationError("Invalid Quantity {self.initial_data['qty']}")
+            data['qty'] = self.initial_data['qty']
+        else:
+            raise serializers.ValidationError("'qty' is required")
+
+        if 'inventory_type' in self.initial_data and self.initial_data['inventory_type']:
+            try:
+                inventory_type = InventoryType.objects.get(id=self.initial_data['inventory_type'])
+            except Exception as e:
+                raise serializers.ValidationError("Invalid Inventory Type")
+            data['inventory_type'] = inventory_type
+        else:
+            raise serializers.ValidationError("'inventory_type' is required")
+
+        bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
+                                              inventory_type=inventory_type).last()
+        if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
+            raise serializers.ValidationError("Invalid Quantity to move | "
+                                              "Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
+        sku = get_sku_from_batch(self.initial_data['batch_id'])
+        if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
+                                    Q(quantity_gt=0)|Q(to_be_picked_qty_gt=0), bin=t_bin, sku=sku).exists():
+            raise serializers.ValidationError("Invalid Movement | "
+                                              "Target bin already has same product with different batch ID")
         return data
 
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            BinInventoryCommonFunction.product_shift_across_bins(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data

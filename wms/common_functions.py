@@ -213,6 +213,28 @@ class CommonBinInventoryFunctions(object):
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
 
+    @transaction.atomic
+    @classmethod
+    def product_shift_across_bins(cls, data):
+        warehouse = data['warehouse']
+        source_bin = data['s_bin']
+        target_bin = data['t_bin']
+        batch_id = data['batch_id']
+        sku = get_sku_from_batch(batch_id)
+        qty = data['qty']
+        inventory_type = data['inventory_type']
+        tr_type_add = 'bin_shift_add'
+        tr_type_deduct = 'bin_shift_deduct'
+        tr_id = 'bin_shift_' + datetime.datetime.isoformat()
+
+        CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku, batch_id,
+                                                                              inventory_type, inventory_type, -1*qty,
+                                                                              True, tr_type_deduct, tr_id)
+
+        CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, target_bin, sku, batch_id,
+                                                                              inventory_type, inventory_type, qty,
+                                                                              True, tr_type_add, tr_id)
+
 
 class CommonPickupFunctions(object):
 
@@ -2157,3 +2179,11 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+def get_sku_from_batch(batch_id):
+    sku = None
+    if not sku:
+        sku_id = batch_id[:-6]
+        sku = Product.objects.filter(product_sku=sku_id).last()
+    return sku
