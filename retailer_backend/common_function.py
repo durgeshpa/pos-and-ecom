@@ -343,3 +343,7 @@ def send_mail(sender, recipient_list, subject, body, attachment_list=[], **kwarg
     for attachment in attachment_list:
         email.attach(attachment['name'], attachment['value'], attachment['type'])
     email.send()
+
+
+def purchase_return_number_pattern(instance_id, order_no):
+    return "%s%s%s" % ("PR", order_no, instance_id)

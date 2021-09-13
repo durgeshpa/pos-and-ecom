@@ -22,7 +22,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
-                     InventoryChangePos, InventoryStatePos)
+                     InventoryChangePos, InventoryStatePos, PosReturnGRNOrder, PosReturnItems)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -907,6 +907,26 @@ class ProductChangeAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(product__shop__pos_shop__user=request.user,
                          product__shop__pos_shop__status=True)
+
+
+class PosReturnItemsAdmin(admin.TabularInline):
+    model = PosReturnItems
+    fields = ('grn_return_id', 'product', 'return_qty',)
+    autocomplete_fields = ('product',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PosReturnGRNOrder)
+class PosReturnGRNOrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'pr_number',  'status', 'last_modified_by', 'created_at', 'modified_at')
+    fields = ('pr_number',  'status', )
+    list_per_page = 10
+    inlines = [PosReturnItemsAdmin]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

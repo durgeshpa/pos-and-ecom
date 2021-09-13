@@ -2,6 +2,7 @@ from django.utils.safestring import mark_safe
 from django.db import models
 
 from django.utils.translation import gettext_lazy as _
+from model_utils import Choices
 
 from addresses.models import City, State, Pincode
 from shops.models import Shop, PosShopUserMapping
@@ -406,3 +407,47 @@ class InventoryChangePos(PosInventoryChange):
     class Meta:
         proxy = True
         verbose_name = 'Inventory Change'
+
+
+class PosReturnGRNOrder(models.Model):
+    RETURNED, CANCELLED = 'RETURNED', 'CANCELLED'
+    RETURN_STATUS = Choices((RETURNED, 'Returned'), (CANCELLED, 'Cancelled'))
+    pr_number = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
+    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=False,
+                                       on_delete=models.DO_NOTHING)
+    last_modified_by = models.ForeignKey(User, related_name='grn_return_last_modified_user', null=True, blank=True,
+                                         on_delete=models.CASCADE)
+    debit_note_number = models.CharField(max_length=255, null=True, blank=True)
+    debit_note = models.FileField(upload_to='pos/purchase_return/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Store - GRN - Return"
+
+    @property
+    def po_no(self):
+        return self.grn_ordered_id.order.ordered_cart.po_no
+
+
+class PosReturnItems(models.Model):
+    grn_return_id = models.ForeignKey(PosReturnGRNOrder, related_name='grn_order_return', on_delete=models.CASCADE)
+    product = models.ForeignKey(RetailerProduct, related_name='grn_product_return', on_delete=models.CASCADE)
+    selling_price = models.FloatField(null=True, blank=True)
+    return_qty = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Store - GRN - Return items"
+        unique_together = ('grn_return_id', 'product')
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            po_product = PosCartProductMapping.objects.filter(
+                cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
+            self.selling_price = po_product.price if po_product else 0
+        super(PosReturnItems, self).save(*args, **kwargs)
+
