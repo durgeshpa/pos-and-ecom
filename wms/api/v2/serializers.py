@@ -1090,6 +1090,12 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
                         item['bin'] = bin
                     else:
                         raise serializers.ValidationError(f'Invalid Bin {bin}')
+
+                    if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
+                        item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
+                    else:
+                        raise serializers.ValidationError('Invalid reason')
+                    
                     if item['qty'] <= 0 or putaway_quantity+item['qty'] > putaway_instance.quantity:
                         raise serializers.ValidationError(f'Invalid quantity')
                     if putaway_quantity+item['qty']<putaway_instance.quantity and (not item['remark'] or item['remark'] == ''):
