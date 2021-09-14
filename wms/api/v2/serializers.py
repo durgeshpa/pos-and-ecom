@@ -17,10 +17,11 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
 from shops.models import Shop, ShopUserMapping
 
-from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions
+from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -950,8 +951,9 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
     def get_putaway_done(self, obj):
         """ Returns Putaway bins along with respective quantity"""
         if obj.status in ['INITIATED', 'COMPLETED']:
-            return PutawayBinInventory.objects.filter(putaway=obj)\
-                .annotate(putaway_bin=F('bin__bin__bin_id')).values('putaway_bin', 'putaway_quantity')
+            return PutawayBinInventory.objects.filter(putaway=obj).values('bin__bin__bin_id')\
+                .annotate(putaway_bin=F('bin__bin__bin_id'), putaway_quantity=Sum('putaway_quantity'))\
+                .values('putaway_bin', 'putaway_quantity')
 
     class Meta:
         model = Putaway
@@ -1057,3 +1059,110 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
                   'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')
+
+
+class PutawayActionSerializer(PutawayItemsCrudSerializer):
+    """Serializer for PerformPutawayView"""
+
+
+    def validate(self, data):
+        if 'id' in self.initial_data and self.initial_data['id']:
+            try:
+                putaway_instance = Putaway.objects.get(id=self.initial_data['id'])
+            except Exception as e:
+                raise serializers.ValidationError("Invalid Putaway")
+            data['putaway'] = putaway_instance
+            if 'batch' in self.initial_data and self.initial_data['batch']:
+                if self.initial_data['batch'] != putaway_instance.batch_id:
+                    raise serializers.ValidationError('Invalid Batch')
+                batch = self.initial_data['batch']
+                data['batch'] = batch
+            else:
+                raise serializers.ValidationError("'batch' | This is mandatory")
+            if 'putaway_bin_data' in self.initial_data and self.initial_data['putaway_bin_data']:
+                putaway_quantity = putaway_instance.putaway_quantity
+                zone = WarehouseAssortmentCommonFunction.get_product_zone(putaway_instance.warehouse, putaway_instance.sku)
+                for item in self.initial_data['putaway_bin_data']:
+
+                    bin = Bin.objects.filter(bin_id=item['bin'], warehouse=putaway_instance.warehouse,
+                                             zone=zone, is_active=True).last()
+                    if bin:
+                        item['bin'] = bin
+                    else:
+                        raise serializers.ValidationError(f'Invalid Bin {bin}')
+                    if item['qty'] <= 0 or putaway_quantity+item['qty'] > putaway_instance.quantity:
+                        raise serializers.ValidationError(f'Invalid quantity')
+                    if putaway_quantity+item['qty']<putaway_instance.quantity and (not item['remark'] or item['remark'] == ''):
+                        raise serializers.ValidationError(f'Reason is required for partial putaway')
+                    putaway_quantity += item['qty']
+                data['putaway_bin_data'] = self.initial_data['putaway_bin_data']
+            else:
+                raise serializers.ValidationError("'putaway_bin_data' | This is mandatory")
+        else:
+            raise serializers.ValidationError("'putaway' | This is mandatory")
+        return data
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        @param instance: Putaway model instance
+        @param validated_data: dict object
+        @return: PutawayActionSerializer serializer object
+        """
+        try:
+            putaway_instance = super().update(instance, validated_data)
+            putaway_bin_data = validated_data.pop('putaway_bin_data')
+            putaway_instance = self.post_putaway_data_update(putaway_instance, putaway_bin_data)
+            validated_data['putaway_quantity'] = putaway_instance.putaway_quantity
+            if putaway_instance.quantity == putaway_instance.putaway_quantity:
+                putaway_instance.status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+            putaway_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return putaway_instance
+
+
+    def post_putaway_data_update(self, putaway_instance, putaway_bin_data):
+        """
+        Updates following tables post putaway quantity update:
+        1. Make entries in PutawayBinInventory
+        2. Update BinInventory and BinInternalInventoryChange
+        3. Update WarehouseInventory and WarehouseInternalInventoryChange
+        """
+
+        transaction_type = 'put_away_type'
+        transaction_id = putaway_instance.id
+        warehouse = putaway_instance.warehouse
+        sku = putaway_instance.sku
+        zone = WarehouseAssortmentCommonFunction.get_product_zone(warehouse, sku)
+
+        initial_inv_type = InventoryType.objects.filter(inventory_type='new').last()
+        final_inv_type = putaway_instance.inventory_type
+        state_available = InventoryState.objects.filter(inventory_state='total_available').last()
+        putaway_quantity = putaway_instance.putaway_quantity
+        for item in putaway_bin_data:
+            putaway_quantity += item['qty']
+            # Get Bin Object
+            bin = Bin.objects.filter(bin_id=item['bin'], warehouse=warehouse, zone=zone).last()
+            weight = sku.weight_value * item['qty'] \
+                            if sku.repackaging_type == 'packing_material' else 0
+
+            # Update BinInventory
+            bin_inventory_obj = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
+                warehouse, bin, sku, putaway_instance.batch_id, initial_inv_type,
+                final_inv_type, item['qty'], True, transaction_type, transaction_id, weight)
+
+            # Create PutawayBinInventory
+            PutawayBinInventory.objects.create(warehouse=warehouse, putaway=putaway_instance,
+                                               bin=bin_inventory_obj, putaway_quantity=item['qty'], putaway_status=True,
+                                               sku=sku, batch_id=putaway_instance.batch_id,
+                                               putaway_type=putaway_instance.putaway_type, remark=item['remark'])
+
+            # Update WarehouseInventory
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, final_inv_type, state_available, item['qty'], transaction_type, transaction_id,
+                                                        True,  weight)
+        putaway_instance.putaway_quantity = putaway_quantity
+        return putaway_instance

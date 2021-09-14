@@ -287,6 +287,7 @@ class Putaway(models.Model):
 
 
 class PutawayBinInventory(models.Model):
+    REMARK_CHOICE = Choices((0, 'NOT_ENOUGH_SPACE', 'Not enough space'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, blank=True, null=True, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -295,6 +296,7 @@ class PutawayBinInventory(models.Model):
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_quantity = models.PositiveIntegerField()
     putaway_status = models.BooleanField(default=False)
+    remark = models.CharField(choices=REMARK_CHOICE, max_length=20, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
