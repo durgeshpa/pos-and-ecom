@@ -99,11 +99,11 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
+                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'created_at', 'modified_at')
+              'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     readonly_fields = (
-    'shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+    'shop', 'sku', 'product_ean_code', 'product_pack_type', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)

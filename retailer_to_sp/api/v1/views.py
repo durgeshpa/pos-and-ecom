@@ -1258,6 +1258,7 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = selling_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)

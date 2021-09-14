@@ -775,6 +775,8 @@ class CartProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    qty_conversion_unit = models.ForeignKey("pos.MeasurementUnit", related_name='rt_unit_cart_mapping',
+                                            null=True, on_delete=models.DO_NOTHING)
 
     def __str__(self):
         return self.cart_product.product_name if self.cart_product else self.retailer_product.name

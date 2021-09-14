@@ -25,7 +25,7 @@ from products.models import Product
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
 from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
-    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -702,8 +702,20 @@ class PosAddToCart(object):
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
             # qty w.r.t pack type
+            kwargs['conversion_unit'] = None
             if product.product_pack_type == 'packet':
                 qty = int(qty)
+            else:
+                given_qty_unit = self.request.data.get('qty_unit')
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                qty_unit = default_unit
+                if given_qty_unit:
+                    try:
+                        qty_unit = MeasurementUnit.objects.get(unit=self.request.data.get('qty_unit'))
+                    except:
+                        qty_unit = default_unit
+                qty = round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion
+                kwargs['conversion_unit_id'] = qty_unit.id
 
             # Return with objects
             kwargs['product'] = product

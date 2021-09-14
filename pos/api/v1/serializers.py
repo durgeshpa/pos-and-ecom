@@ -279,6 +279,8 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
     qty = serializers.SerializerMethodField()
+    qty_unit = serializers.SerializerMethodField()
+    units = serializers.SerializerMethodField()
 
     @staticmethod
     def get_offer_price_applied(obj):
@@ -311,12 +313,27 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_qty(obj):
-        return int(obj.qty) if obj.retailer_product.product_pack_type == 'packet' else obj.qty
+        if obj.retailer_product.product_pack_type == 'loose':
+            default_unit = MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category, default=True)
+            return obj.qty * default_unit.conversion / obj.qty_conversion_unit.conversion
+        else:
+            return int(obj.qty)
+
+    @staticmethod
+    def get_qty_unit(obj):
+        return obj.qty_conversion_unit.unit if obj.retailer_product.product_pack_type == 'loose' else None
+
+    @staticmethod
+    def get_units(obj):
+        if obj.retailer_product.product_pack_type == 'loose':
+            return MeasurementUnit.objects.filter(
+                category=obj.retailer_product.measurement_category).values_list('unit', flat=True)
+        return None
 
     class Meta:
         model = CartProductMapping
         fields = ('id', 'retailer_product', 'qty', 'product_price', 'offer_price_applied', 'product_sub_total',
-                  'display_text')
+                  'display_text', 'qty_unit', 'units')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -337,7 +354,9 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
          Search and pagination on cart
         """
-        qs = obj.rt_cart_list.filter(product_type=1)
+        qs = obj.rt_cart_list.filter(product_type=1).select_related('retailer_product',
+                                                                    'retailer_product__measurement_category',
+                                                                    'qty_conversion_unit')
         search_text = self.context.get('search_text')
         # Search on name, ean and sku
         if search_text:
@@ -2180,7 +2199,7 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += int(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
             total_price = round(total_price, 2)
         return total_price
 
