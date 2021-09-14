@@ -126,6 +126,7 @@ class ShopCustomerMap(models.Model):
 class PaymentType(models.Model):
     type = models.CharField(max_length=20, unique=True)
     enabled = models.BooleanField(default=True)
+    app = models.CharField(choices=(('pos', 'POS'), ('ecom', 'ECOM'), ('both', 'Both')), default='pos', max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

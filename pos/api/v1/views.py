@@ -1154,7 +1154,7 @@ class GrnOrderListView(ListAPIView):
 
 class PaymentTypeDetailView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = PaymentType.objects.all()
+    queryset = PaymentType.objects.filter(app__in=['pos', 'both'])
     serializer_class = PaymentTypeSerializer
 
     def get(self, request):

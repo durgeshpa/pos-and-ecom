@@ -82,7 +82,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
-                                    RetailerProductResponseSerializer, PosShopUserMappingListSerializer)
+                                    RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
+                                    PaymentTypeSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -2954,6 +2955,11 @@ class OrderCentral(APIView):
         except ObjectDoesNotExist:
             return api_response("Please add items to proceed to order")
 
+        try:
+            payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
+        except:
+            return api_response("Invalid Payment Method")
+
         # check inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
@@ -2973,7 +2979,7 @@ class OrderCentral(APIView):
             order = self.create_basic_order(cart, shop, address)
             payments = [
                 {
-                    "payment_type": PaymentType.objects.get(type='cash').id,
+                    "payment_type": payment_id,
                     "amount": order.order_amount,
                     "transaction_id": ""
                 }
@@ -6346,3 +6352,11 @@ class EcomPaymentView(APIView):
             return api_response("", hash_string, status.HTTP_200_OK, True)
         except:
             return api_response("Something went wrong!")
+
+    @check_ecom_user
+    def get(self, request, *args, **kwargs):
+        queryset = PaymentType.objects.filter(app__in=['ecom', 'both'])
+        queryset = SmallOffsetPagination().paginate_queryset(queryset, request)
+        serializer = PaymentTypeSerializer(queryset, many=True)
+        msg = "" if queryset else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
