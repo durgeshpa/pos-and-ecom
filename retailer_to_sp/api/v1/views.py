@@ -8,6 +8,8 @@ from datetime import date as datetime_date
 from operator import itemgetter
 from num2words import num2words
 from elasticsearch import Elasticsearch
+from decouple import config
+from hashlib import sha512
 
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
@@ -6245,6 +6247,8 @@ class OrderCommunication(APIView):
 
 
 class ShipmentView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     serializer_class = EcomShipmentSerializer
 
     @check_pos_shop
@@ -6304,3 +6308,18 @@ class ShipmentView(GenericAPIView):
                 if offer['type'] == 'free_product':
                     cart_free_product = offer
         return product_combo_map, cart_free_product
+
+
+class EcomPaymentView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_ecom_user
+    def post(self, request, *args, **kwags):
+        try:
+            hash_string = self.request.data.get('hash_string')
+            hash_string += '|' + str(config('PAYU_SALT'))
+            hash_string = sha512(hash_string.encode()).hexdigest().lower()
+            return api_response("", hash_string, status.HTTP_200_OK, True)
+        except:
+            return api_response("Something went wrong!")
