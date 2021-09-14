@@ -261,59 +261,67 @@ class CommonBinInventoryFunctions(object):
         tr_type_add = 'bin_shift_add'
         tr_type_deduct = 'bin_shift_deduct'
         tr_id = 'bin_shift'
+        try:
+            with transaction.atomic():
+                source_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                    warehouse=warehouse, bin_id=source_bin, batch_id=batch_id,
+                    inventory_type=inventory_type,
+                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
 
-        with transaction.atomic():
-            source_bin_inv_object = BinInventory.objects.select_for_update().filter(
-                                                    warehouse=warehouse, bin_id=source_bin, batch_id=batch_id,
-                                                    inventory_type=inventory_type,
-                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                target_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                    warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
+                    inventory_type=inventory_type,
+                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                if source_bin_inv_object.quantity < qty:
+                    qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
+                    total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
+                else:
+                    qty_to_deduct_from_bin_inv = qty
+                    total_qty_to_move_from_pickup = 0
 
-            target_bin_inv_object = BinInventory.objects.select_for_update().filter(
-                                                    warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
-                                                    inventory_type=inventory_type,
-                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
-            if source_bin_inv_object.quantity < qty:
-                qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
-                total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
-            else:
-                qty_to_deduct_from_bin_inv = qty
-                total_qty_to_move_from_pickup = 0
+                if qty_to_deduct_from_bin_inv > 0:
+                    CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
+                                                                                          batch_id,
+                                                                                          inventory_type,
+                                                                                          inventory_type,
+                                                                                          -1 * qty_to_deduct_from_bin_inv,
+                                                                                          True, tr_type_deduct, tr_id)
 
-            if qty_to_deduct_from_bin_inv > 0:
-                CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
-                                                                                      batch_id,
-                                                                                      inventory_type, inventory_type,
-                                                                                      -1 * qty_to_deduct_from_bin_inv,
-                                                                                      True, tr_type_deduct, tr_id)
+                    target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
+                        warehouse, target_bin, sku, batch_id, inventory_type, inventory_type,
+                        qty_to_deduct_from_bin_inv,
+                        True, tr_type_add, tr_id)
 
-                target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                    warehouse, target_bin, sku, batch_id, inventory_type, inventory_type, qty_to_deduct_from_bin_inv,
-                    True, tr_type_add, tr_id)
+                if total_qty_to_move_from_pickup > 0:
+                    CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup,
+                                                                             source_bin_inv_object)
+                    pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
+                        warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
+                        pickup__status__in=['pickup_creation', 'picking_assigned'],
+                        pickup_quantity__isnull=True).order_by('id')
+                    for pb in pickup_bin_qs:
+                        qty_to_move_from_pickup = 0
+                        if total_qty_to_move_from_pickup > pb.quantity:
+                            qty_to_move_from_pickup = pb.quantity
+                            total_qty_to_move_from_pickup -= qty_to_move_from_pickup
+                            pb.quantity = 0
+                            pb.pickup_quantity = 0
+                            pb.save()
+                        elif total_qty_to_move_from_pickup > 0:
+                            qty_to_move_from_pickup = total_qty_to_move_from_pickup
+                            pb.quantity = pb.quantity - qty_to_move_from_pickup
+                            total_qty_to_move_from_pickup = 0
+                            pb.save()
 
-            if total_qty_to_move_from_pickup > 0:
-                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup, source_bin_inv_object)
-                pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
-                                                warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
-                                                pickup__status__in=['pickup_creation', 'picking_assigned'],
-                                                pickup_quantity__isnull=True).order_by('id')
-                for pb in pickup_bin_qs:
-                    qty_to_move_from_pickup = 0
-                    if total_qty_to_move_from_pickup > pb.quantity:
-                        qty_to_move_from_pickup = pb.quantity
-                        total_qty_to_move_from_pickup -= qty_to_move_from_pickup
-                        pb.quantity = 0
-                        pb.pickup_quantity = 0
-                        pb.save()
-                    elif total_qty_to_move_from_pickup > 0:
-                        qty_to_move_from_pickup = total_qty_to_move_from_pickup
-                        pb.quantity = pb.quantity - qty_to_move_from_pickup
-                        total_qty_to_move_from_pickup = 0
-                        pb.save()
+                        PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                                                          pickup=pb.pickup, bin=target_bin_inv_object,
+                                                          quantity=qty_to_move_from_pickup)
+                        CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_move_from_pickup,
+                                                                            target_bin_inv_object)
 
-                    PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
-                                                      pickup=pb.pickup, bin=target_bin_inv_object,
-                                                      quantity=qty_to_move_from_pickup)
-                    CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_move_from_pickup, target_bin_inv_object)
+        except Exception as e:
+            info_logger.error('product_shift_across_bins | '.join(e.args) if len(e.args) > 0 else 'Unknown Error')
+            raise Exception('Product movement failed!')
 
 
 class CommonPickupFunctions(object):
