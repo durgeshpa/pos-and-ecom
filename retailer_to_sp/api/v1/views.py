@@ -2630,7 +2630,7 @@ class OrderCentral(APIView):
             except ObjectDoesNotExist:
                 return api_response('Order Not Found!')
             # check input status validity
-            allowed_updates = [Order.CANCELLED, Order.PICKED, Order.OUT_FOR_DELIVERY, Order.DELIVERED, Order.CLOSED]
+            allowed_updates = [Order.CANCELLED, Order.OUT_FOR_DELIVERY, Order.DELIVERED, Order.CLOSED]
             order_status = self.request.data.get('status')
             if order_status not in allowed_updates:
                 return api_response("Please Provide A Valid Status To Update Order")
@@ -2674,21 +2674,11 @@ class OrderCentral(APIView):
                 # whatsapp api call for order cancellation
                 whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                             net_points)
-            elif order_status == Order.PICKED:
-                if order.ordered_cart.cart_type != 'ECOM':
-                    return api_response("Invalid action")
-                if order.order_status != Order.PICKUP_CREATED:
-                    return api_response("Pickup not created")
-                order.order_status = Order.PICKED
-                order.save()
-                shipment = OrderedProduct.objects.get(order=order)
-                shipment.shipment_status = OrderedProduct.READY_TO_SHIP
-                shipment.save()
             # Generate invoice
             elif order_status == Order.OUT_FOR_DELIVERY:
                 if order.ordered_cart.cart_type != 'ECOM':
                     return api_response("Invalid action")
-                if order.order_status != Order.PICKED:
+                if order.order_status != Order.PICKUP_CREATED:
                     return api_response("This order is not picked yet or is already out for delivery")
                 try:
                     delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
@@ -2698,6 +2688,8 @@ class OrderCentral(APIView):
                 order.delivery_person = delivery_person
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
+                shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+                shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
                 shipment.save()
                 # Inventory move from ordered to picked
@@ -3767,6 +3759,8 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
         elif order_type == 'ecom':
             qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM')
+            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == 'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
+                qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
@@ -6181,6 +6175,10 @@ class PosShopUsersList(APIView):
         pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False)
         if self.request.GET.get('is_delivery_person', False):
             pos_shop_users = pos_shop_users.filter(Q(user_type='delivery_person') | Q(is_delivery_person=True))
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            pos_shop_users = pos_shop_users.filter(Q(user__phone_number__icontains=search_text) |
+                                                   Q(user__first_name__icontains=search_text))
         pos_shop_users = pos_shop_users.order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data

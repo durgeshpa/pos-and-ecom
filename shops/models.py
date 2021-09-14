@@ -555,8 +555,13 @@ class PosShopUserMapping(models.Model):
         verbose_name_plural = 'POS Shop User Mappings'
         unique_together = ['shop', 'user']
 
+    def save(self, *args, **kwargs):
+        if self.user_type == 'delivery_person':
+            self.is_delivery_person = True
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return "%s" % (self.user)
+        return "%s" % self.user
 
 
 class SalesAppVersion(models.Model):

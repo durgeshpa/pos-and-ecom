@@ -1172,7 +1172,7 @@ class PosShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop_id', 'shop_name', 'user_type')
+        fields = ('shop_id', 'shop_name', 'user_type', 'is_delivery_person')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
@@ -2166,13 +2166,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     def get_order_update(obj):
         ret = dict()
         if obj.order_status == Order.PICKUP_CREATED:
-            return {Order.PICKED: 'Complete pickup'}
-        elif obj.order_status == Order.PICKED:
             return {Order.OUT_FOR_DELIVERY: 'Mark Out For Delivery'}
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
-        elif obj.order_status == Order.ORDERED:
-            return {Order.PICKUP_CREATED: 'Pick Order'}
         return ret
 
     @staticmethod

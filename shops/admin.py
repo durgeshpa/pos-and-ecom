@@ -487,7 +487,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
 
 class PosShopUserMappingAdmin(admin.ModelAdmin):
     form = PosShopUserMappingForm
-    list_display = ('shop', 'user', 'user_type', 'created_at', 'modified_at', 'status')
+    list_display = ('shop', 'user', 'user_type', 'is_delivery_person', 'created_at', 'modified_at', 'status')
     list_filter = [ShopFilter, UserFilter, 'status', ('created_at', DateTimeRangeFilter), ]
     search_fields = ('shop__shop_name', 'user__phone_number')
 
