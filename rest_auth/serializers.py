@@ -29,6 +29,7 @@ from otp.models import PhoneOTP
 from otp.views import ValidateOTPInternal
 from marketing.models import ReferralCode
 from pos.common_functions import filter_pos_shop
+from shops.models import PosShopUserMapping
 
 from .models import TokenModel
 from .utils import import_callable
@@ -278,6 +279,8 @@ class PosLoginResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+    is_delivery_person = serializers.SerializerMethodField()
 
     @staticmethod
     def get_access_token(obj):
@@ -290,6 +293,14 @@ class PosLoginResponseSerializer(serializers.Serializer):
     @staticmethod
     def get_shop_name(obj):
         return obj['shop_object'].shop_name if obj['shop_object'] else ''
+
+    @staticmethod
+    def get_user_type(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).user_type
+
+    @staticmethod
+    def get_is_delivery_person(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).is_delivery_person
 
 
 class TokenSerializer(serializers.ModelSerializer):

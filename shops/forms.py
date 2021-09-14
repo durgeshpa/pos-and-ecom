@@ -299,7 +299,7 @@ class PosShopUserMappingForm(forms.ModelForm):
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop', 'user', 'user_type','status',)
+        fields = ('shop', 'user', 'user_type', 'is_delivery_person', 'status',)
 
 class ShopUserMappingCsvViewForm(forms.Form):
     file = forms.FileField()
