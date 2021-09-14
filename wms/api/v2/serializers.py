@@ -1129,9 +1129,12 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
 
         bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
                                               inventory_type=inventory_type).last()
-        if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
-            raise serializers.ValidationError("Invalid Quantity to move | "
-                                              "Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
+        if bin_inv:
+            if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
+                raise serializers.ValidationError(f"Invalid Quantity to move | "
+                                                  f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
+        else:
+            raise serializers.ValidationError("Invalid s_bin or batch_id")
         sku = get_sku_from_batch(self.initial_data['batch_id'])
         if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
                                     Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():

@@ -189,7 +189,7 @@ class CommonBinInventoryFunctions(object):
     @transaction.atomic
     def update_bin_inventory_with_transaction_log(cls, warehouse, bin, sku, batch_id, initial_inventory_type,
                                                   final_inventory_time, quantity, in_stock, tr_type, tr_id):
-        cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity, in_stock)
+        bin_inv_object = cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity, in_stock)
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
@@ -198,6 +198,7 @@ class CommonBinInventoryFunctions(object):
                                                   transaction_type=tr_type,
                                                   transaction_id=tr_id,
                                                   quantity=abs(quantity))
+        return bin_inv_object
 
     @classmethod
     @transaction.atomic
@@ -246,6 +247,10 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     @transaction.atomic
     def product_shift_across_bins(cls, data):
+        """
+        Move product from one bin to the other bin
+        Refreshes the pickup list if required
+        """
         warehouse = data['warehouse']
         source_bin = data['s_bin']
         target_bin = data['t_bin']
@@ -255,15 +260,60 @@ class CommonBinInventoryFunctions(object):
         inventory_type = data['inventory_type']
         tr_type_add = 'bin_shift_add'
         tr_type_deduct = 'bin_shift_deduct'
-        tr_id = 'bin_shift_' + datetime.datetime.today().isoformat()
+        tr_id = 'bin_shift'
 
-        # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku, batch_id,
-        #                                                                       inventory_type, inventory_type, -1*qty,
-        #                                                                       True, tr_type_deduct, tr_id)
-        #
-        # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, target_bin, sku, batch_id,
-        #                                                                       inventory_type, inventory_type, qty,
-        #                                                                       True, tr_type_add, tr_id)
+        with transaction.atomic():
+            source_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                                                    warehouse=warehouse, bin_id=source_bin, batch_id=batch_id,
+                                                    inventory_type=inventory_type,
+                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+
+            target_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                                                    warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
+                                                    inventory_type=inventory_type,
+                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+            if source_bin_inv_object.quantity < qty:
+                qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
+                total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
+            else:
+                qty_to_deduct_from_bin_inv = qty
+                total_qty_to_move_from_pickup = 0
+
+            if qty_to_deduct_from_bin_inv > 0:
+                CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
+                                                                                      batch_id,
+                                                                                      inventory_type, inventory_type,
+                                                                                      -1 * qty_to_deduct_from_bin_inv,
+                                                                                      True, tr_type_deduct, tr_id)
+
+                target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
+                    warehouse, target_bin, sku, batch_id, inventory_type, inventory_type, qty_to_deduct_from_bin_inv,
+                    True, tr_type_add, tr_id)
+
+            if total_qty_to_move_from_pickup > 0:
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup, source_bin_inv_object)
+                pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
+                                                warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
+                                                pickup__status__in=['pickup_creation', 'picking_assigned'],
+                                                pickup_quantity__isnull=True).order_by('id')
+                for pb in pickup_bin_qs:
+                    qty_to_move_from_pickup = 0
+                    if total_qty_to_move_from_pickup > pb.quantity:
+                        qty_to_move_from_pickup = pb.quantity
+                        total_qty_to_move_from_pickup -= qty_to_move_from_pickup
+                        pb.quantity = 0
+                        pb.pickup_quantity = 0
+                        pb.save()
+                    elif total_qty_to_move_from_pickup > 0:
+                        qty_to_move_from_pickup = total_qty_to_move_from_pickup
+                        pb.quantity = pb.quantity - qty_to_move_from_pickup
+                        total_qty_to_move_from_pickup = 0
+                        pb.save()
+
+                    PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                                                      pickup=pb.pickup, bin=target_bin_inv_object,
+                                                      quantity=qty_to_move_from_pickup)
+                    CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_move_from_pickup, target_bin_inv_object)
 
 
 class CommonPickupFunctions(object):

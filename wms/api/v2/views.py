@@ -35,7 +35,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
-    PostLoginUserSerializers, BinInventorySerializer, BinShiftPostSerializer
+    PostLoginUserSerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1205,3 +1205,31 @@ class BinInventoryDataView(generics.GenericAPIView):
                                         inventory_type=modified_data['inventory_type'])
             return get_response('Product moved successfully!', BinInventorySerializer(bin_inventory_data, many=True).data)
         return get_response(serializer_error(serializer), False)
+
+
+class BinFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Bin.objects.select_related('warehouse')
+    serializer_class = BinSerializer
+
+    def get(self, request):
+        self.queryset = self.search_bins()
+        bins = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(bins, many=True)
+        msg = "" if bins else "no bin found"
+        return get_response(msg, serializer.data, True)
+
+    def search_bins(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+
+        '''search using bin_id'''
+        if search_text:
+            self.queryset = bin_search(self.queryset, search_text)
+
+        '''Filters using warehouse'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('id')
