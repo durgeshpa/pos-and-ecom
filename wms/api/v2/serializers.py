@@ -186,7 +186,7 @@ class ChildProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('product_sku', 'product_name', 'product_pro_image')
+        fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
