@@ -240,14 +240,20 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         RetailerProduct data for BASIC cart
     """
     is_discounted = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     @staticmethod
     def get_is_discounted(obj):
         return obj.sku_type == 4
 
+    @staticmethod
+    def get_image(obj):
+        image = obj.retailer_product_image.last()
+        return image.image.url if image else None
+
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted', 'image')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -1176,7 +1182,7 @@ class PosShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop_id', 'shop_name', 'user_type')
+        fields = ('shop_id', 'shop_name', 'user_type', 'is_delivery_person')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
@@ -2171,13 +2177,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     def get_order_update(obj):
         ret = dict()
         if obj.order_status == Order.PICKUP_CREATED:
-            return {Order.PICKED: 'Complete pickup'}
-        elif obj.order_status == Order.PICKED:
             return {Order.OUT_FOR_DELIVERY: 'Mark Out For Delivery'}
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
-        elif obj.order_status == Order.ORDERED:
-            return {Order.PICKUP_CREATED: 'Pick Order'}
         return ret
 
     @staticmethod
@@ -2324,7 +2326,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_amount', 'address', 'order_update')
+                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time')
 
 
 class RetailerProductSerializer(serializers.ModelSerializer):

@@ -15,6 +15,7 @@ from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, E
 from django.db.models.functions import Coalesce
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.views import APIView
 
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
@@ -1154,7 +1155,7 @@ class GrnOrderListView(ListAPIView):
 
 class PaymentTypeDetailView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = PaymentType.objects.all()
+    queryset = PaymentType.objects.filter(app__in=['pos', 'both'])
     serializer_class = PaymentTypeSerializer
 
     def get(self, request):
@@ -1332,3 +1333,18 @@ class GrnReturnOrderView(GenericAPIView):
         else:
             return api_response(serializer_error(serializer))
 
+
+class ShopSpecificationView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        # Enable inventory for online orders
+        enable_online_inventory = self.request.data.get('enable_online_inventory', None)
+        if enable_online_inventory not in [True, False]:
+            return api_response("Invalid request")
+
+        Shop.objects.filter(id=kwargs['shop'].id).update(online_inventory_enabled=enable_online_inventory)
+        msg = "Enabled Online Inventory Check" if enable_online_inventory else "Disabled Online Inventory Check"
+        return api_response(msg, None, status.HTTP_200_OK, True)

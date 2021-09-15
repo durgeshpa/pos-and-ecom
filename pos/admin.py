@@ -859,15 +859,17 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentType)
 class PaymentTypeAdmin(admin.ModelAdmin):
-    list_display = ('type', 'enabled', 'created_at', 'modified_at')
-    fields = ('type', 'enabled')
+    list_display = ('type', 'enabled', 'app', 'created_at', 'modified_at')
+    fields = ('type', 'enabled', 'app')
     list_per_page = 10
     search_fields = ('type',)
 
-    def has_delete_permission(self, request, obj=None):
-        return False
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ('type',)
+        return self.readonly_fields
 
-    def has_change_permission(self, request, obj=None):
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
