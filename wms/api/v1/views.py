@@ -6,7 +6,7 @@ from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload, In
+    PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
@@ -824,6 +824,22 @@ class DecodeBarcode(APIView):
                 else:
                     batch_id = grn_product.batch_id
                     barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                    data.append(data_item)
+            elif type_identifier == '3':
+                id = barcode[1:12].lstrip('0')
+                if id is not None:
+                    id = int(id)
+                else:
+                    id = 0
+                area = QCArea.objects.filter(pk=id).last()
+                if area is None:
+                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                    data_item = {'is_success': False, 'message': 'QC Area not found', 'data': barcode_data}
+                    data.append(data_item)
+                else:
+                    area_id = area.area_id
+                    barcode_data = {'type': 'qc area', 'id': area_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:

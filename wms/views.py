@@ -50,7 +50,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone
+    ZonePutawayUserAssignmentMapping, Zone, QCArea
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -2482,4 +2482,16 @@ def WarehouseAssortmentUploadCsvView(request):
     else:
         form = WarehouseAssortmentCsvViewForm(auto_id={"user": request.user})
     return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
+
+
+class QCAreaBarcodeGenerator(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        qcarea = QCArea.objects.filter(pk=self.kwargs.get('id')).last()
+        area_barcode_txt = qcarea.area_barcode_txt
+        if qcarea and qcarea.area_barcode_txt is None:
+            area_barcode_txt = '3' + str(qcarea.id).zfill(11)
+        qcarea_data = {area_barcode_txt: {"qty": 1, "data": {"QC Area": qcarea.area_id}}}
+        return merged_barcode_gen(qcarea_data)
 

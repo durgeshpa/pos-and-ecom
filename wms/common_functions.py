@@ -21,7 +21,7 @@ from global_config.models import GlobalConfig
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment)
+                     Audit, Out, Zone, WarehouseAssortment, QCArea)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
