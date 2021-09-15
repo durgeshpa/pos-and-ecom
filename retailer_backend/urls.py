@@ -79,6 +79,7 @@ urlpatterns = [
     url(r'^ars/', include('ars.urls')),
     url(r'^ecom/', include('ecom.urls')),
     url(r'^cms/', include('cms.urls')),
+    url(r'^coupon/', include('coupon.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

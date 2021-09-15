@@ -8,6 +8,7 @@ from elasticsearch import Elasticsearch
 
 from accounts.models import User
 from brand.models import Brand
+from categories.models import Category
 from shops.models import Shop
 from addresses.models import City
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
@@ -153,10 +154,11 @@ class RuleSetBrandMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-# class RuleSetCategoryMapping(models.Model):
-#     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
-#     category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
+class RuleSetCategoryMapping(models.Model):
+    rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 #
 # class RuleAreaMapping(models.Model):
 #     rule = models.ForeignKey(CouponRuleSet, related_name ='area_ruleset', on_delete=models.CASCADE)
