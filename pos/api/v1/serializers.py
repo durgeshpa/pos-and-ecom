@@ -236,14 +236,20 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         RetailerProduct data for BASIC cart
     """
     is_discounted = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     @staticmethod
     def get_is_discounted(obj):
         return obj.sku_type == 4
 
+    @staticmethod
+    def get_image(obj):
+        image = obj.retailer_product_image.last()
+        return image.image.url if image else None
+
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted')
+        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted', 'image')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -2315,4 +2321,4 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_amount', 'address', 'order_update')
+                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time')

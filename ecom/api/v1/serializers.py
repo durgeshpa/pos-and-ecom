@@ -1,3 +1,5 @@
+import datetime
+
 from rest_framework import serializers
 
 from django.db.models import Sum
@@ -9,6 +11,7 @@ from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct
+from global_config.views import get_config
 
 from ecom.models import Address, EcomOrderAddress, Tag
 
@@ -145,6 +148,8 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.SerializerMethodField()
 
     def get_order_status(self, obj):
+        if obj.order_status == Order.PICKUP_CREATED:
+            return 'Processing'
         return obj.get_order_status_display()
 
     @staticmethod
@@ -157,7 +162,8 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at')
+        fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
+                  'ecom_estimated_delivery_time')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):

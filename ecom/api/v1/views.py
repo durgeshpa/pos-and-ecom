@@ -1,23 +1,22 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 
 from categories.models import Category
 from marketing.models import RewardPoint
 from pos.common_functions import serializer_error, api_response
-from wms.models import PosInventory, PosInventoryState
 from pos.models import RetailerProduct
+from retailer_backend.utils import SmallOffsetPagination
+from retailer_to_sp.models import Order
+from pos.models import ShopCustomerMap
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
-from ecom.models import Address, Tag, TagProductMapping
+from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer)
-from pos.models import RetailerProduct
-from retailer_backend.utils import SmallOffsetPagination
 
 
 class AccountView(APIView):
@@ -58,16 +57,31 @@ class ShopView(APIView):
         """
         Get nearest franchise retailer from user location - latitude, longitude
         """
-        serializer = UserLocationSerializer(data=request.GET)
+        if not int(self.request.GET.get('from_location', '0')):
+            # Get shop from latest order
+            order = Order.objects.filter(buyer=self.request.user, ordered_cart__cart_type__in=['BASIC', 'ECOM']).last()
+            if order:
+                return self.serialize(order.seller_shop)
+
+            # check mapped pos shop
+            shop_map = ShopCustomerMap.objects.filter(user=self.request.user).last()
+            if shop_map:
+                return self.serialize(shop_map.shop)
+
+        return self.shop_from_location()
+
+    def shop_from_location(self):
+        serializer = UserLocationSerializer(data=self.request.GET)
         if serializer.is_valid():
             data = serializer.data
             shop = nearby_shops(data['latitude'], data['longitude'])
-            if shop:
-                return api_response("", ShopSerializer(shop).data, status.HTTP_200_OK, True)
-            else:
-                return api_response('No nearby shop found!')
+            return self.serialize(shop) if shop else api_response('No shop found!')
         else:
             return api_response(serializer_error(serializer))
+
+    @staticmethod
+    def serialize(shop):
+        return api_response("", ShopSerializer(shop).data, status.HTTP_200_OK, True)
 
 
 class AddressView(APIView):

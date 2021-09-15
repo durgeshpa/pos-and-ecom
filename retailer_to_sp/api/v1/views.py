@@ -2618,6 +2618,8 @@ class OrderCentral(APIView):
             return self.put_retail_order(kwargs['pk'])
         elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.put_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -2724,6 +2726,48 @@ class OrderCentral(APIView):
                 shipment.save()
 
             return api_response("Order updated successfully!", None, status.HTTP_200_OK, True)
+
+    @check_ecom_user
+    def put_ecom_order(self, request, *args, **kwargs):
+        """
+            Customer Cancel ecom order
+        """
+        with transaction.atomic():
+            # Check if order exists
+            try:
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'], ordered_cart__cart_type='ECOM',
+                                                              buyer=self.request.user)
+            except ObjectDoesNotExist:
+                return api_response('Order Not Found!')
+
+            # Unprocessed orders can be cancelled
+            if order.order_status != Order.ORDERED:
+                return api_response('This order cannot be cancelled!')
+
+            cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
+            # Update inventory
+            for cp in cart_products:
+                PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
+                                                PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                                                order.order_no, PosInventoryChange.CANCELLED)
+
+            # update order status
+            order.order_status = Order.CANCELLED
+            order.last_modified_by = self.request.user
+            order.save()
+            # Refund redeemed loyalty points
+            # Deduct loyalty points awarded on order
+            points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
+                order.ordered_cart.redeem_points, order.buyer, order.order_no, 'order_cancel_credit',
+                'order_cancel_debit', self.request.user, 0, order.order_no)
+            order_number = order.order_no
+            shop_name = order.seller_shop.shop_name
+            phone_number = order.buyer.phone_number
+            # whatsapp api call for order cancellation
+            whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
+                                        net_points)
+
+            return api_response("Order cancelled successfully!", None, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
         """
