@@ -106,7 +106,7 @@ class ZoneCrudView(generics.GenericAPIView):
     queryset = Zone.objects. \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
-        prefetch_related('putaway_users'). \
+        prefetch_related('putaway_users', 'picker_users'). \
         only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
              'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
@@ -296,7 +296,7 @@ class WarehouseAssortmentCrudView(generics.GenericAPIView):
                        'warehouse__shop_type__shop_sub_type', 'product',
                        'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
                        'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
-        prefetch_related('zone__putaway_users'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
         only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
              'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
@@ -487,7 +487,7 @@ class BinCrudView(generics.GenericAPIView):
                        'warehouse__shop_type__shop_sub_type',
                        'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
                        'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
-        prefetch_related('zone__putaway_users'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
         only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
              'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
@@ -628,7 +628,7 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
     queryset = ZonePutawayUserAssignmentMapping.objects. \
         select_related('user', 'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
                        'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
-        prefetch_related('zone__putaway_users'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
         only('id', 'user', 'zone__id', 'zone__warehouse__id', 'zone__warehouse__status',
              'zone__warehouse__shop_name', 'zone__warehouse__shop_type',
              'zone__warehouse__shop_type__shop_type', 'zone__warehouse__shop_type__shop_sub_type',

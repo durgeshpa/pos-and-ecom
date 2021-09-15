@@ -89,6 +89,7 @@ class Zone(BaseTimestampUserModel):
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
     putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+    picker_users = models.ManyToManyField(get_user_model(), related_name='picker_zone_users')
 
     class Meta:
         permissions = (

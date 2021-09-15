@@ -22,7 +22,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState
-from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
+from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
 
@@ -191,10 +191,12 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
     supervisor = UserSerializers(read_only=True)
     coordinator = UserSerializers(read_only=True)
     putaway_users = UserSerializers(read_only=True, many=True)
+    picker_users = UserSerializers(read_only=True, many=True)
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'created_at', 'updated_at')
+        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users', 'created_at',
+                  'updated_at')
 
     def validate(self, data):
 
@@ -248,6 +250,17 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("'putaway_users' | This is mandatory")
 
+        if 'picker_users' in self.initial_data and self.initial_data['picker_users']:
+            if len(self.initial_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
+                raise serializers.ValidationError(
+                    "Maximum " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " putaway users are allowed.")
+            picker_users = get_validate_picker_users(self.initial_data['picker_users'])
+            if 'error' in picker_users:
+                raise serializers.ValidationError((picker_users["error"]))
+            data['picker_users'] = picker_users['picker_users']
+        else:
+            raise serializers.ValidationError("'picker_users' | This is mandatory")
+
         if 'id' in self.initial_data and self.initial_data['id']:
             if not Zone.objects.filter(id=self.initial_data['id'], warehouse=warehouse).exists():
                 raise serializers.ValidationError("Warehouse updation is not allowed.")
@@ -258,6 +271,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Zone with Putaway Users"""
         putaway_users = validated_data.pop('putaway_users', None)
+        picker_users = validated_data.pop('picker_users', None)
 
         try:
             zone_instance = Zone.objects.create(**validated_data)
@@ -266,12 +280,14 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        ZoneCommonFunction.update_picker_users(zone_instance, picker_users)
         return zone_instance
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Zone with Putaway Users"""
         putaway_users = validated_data.pop('putaway_users', None)
+        picker_users = validated_data.pop('picker_users', None)
 
         try:
             zone_instance = super().update(instance, validated_data)
@@ -280,6 +296,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        ZoneCommonFunction.update_picker_users(zone_instance, picker_users)
         return zone_instance
 
 
@@ -294,10 +311,11 @@ class ZoneSerializer(serializers.ModelSerializer):
     supervisor = UserSerializers(read_only=True)
     coordinator = UserSerializers(read_only=True)
     putaway_users = UserSerializers(read_only=True, many=True)
+    picker_users = UserSerializers(read_only=True, many=True)
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users')
+        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users')
 
 
 class WarehouseAssortmentCrudSerializers(serializers.ModelSerializer):
