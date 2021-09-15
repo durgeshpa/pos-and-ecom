@@ -85,6 +85,8 @@ class RetailerProduct(models.Model):
             discounted.product_ean_code = self.product_ean_code
             discounted.mrp = self.mrp
             discounted.save()
+        if self.online_enabled and not self.online_price:
+            self.online_price = self.selling_price
         super(RetailerProduct, self).save(*args, **kwargs)
 
     class Meta:
