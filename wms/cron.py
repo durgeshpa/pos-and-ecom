@@ -9,7 +9,7 @@ from products.models import Product
 from wms import common_functions
 from wms.common_functions import CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from wms.models import BinInventory, In, InventoryType
-from wms.views import create_update_discounted_products
+from wms.views import create_update_discounted_products, assign_putaway_users_to_new_putways
 
 cron_logger = logging.getLogger('cron_log')
 
