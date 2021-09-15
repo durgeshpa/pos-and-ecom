@@ -352,7 +352,7 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         filter_list = []
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}]
+            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
@@ -6260,7 +6260,7 @@ class OrderCommunication(APIView):
             Resend invoice for pos order
         """
         try:
-            order = Order.objects.get(pk=pk, seller_shop=shop, ordered_cart__cart_type='BASIC')
+            order = Order.objects.get(pk=pk, seller_shop=shop, ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Could not find order to send invoice for")
 
@@ -6276,7 +6276,7 @@ class OrderCommunication(APIView):
         """
         try:
             order_return = OrderReturn.objects.get(pk=pk, order__seller_shop=shop,
-                                                   order__ordered_cart__cart_type='BASIC')
+                                                   ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Could not find return to send credit note for")
 
