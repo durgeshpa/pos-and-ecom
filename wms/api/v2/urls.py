@@ -35,4 +35,5 @@ urlpatterns = [
     url('user-details/', UserDetailsPostLoginView.as_view(), name='user-details'),
     url('putaway-action/', PerformPutawayView.as_view(), name='putaway-action'),
     url('putaway-remark/', PutawayRemarkView.as_view(), name='putaway-remark'),
+
 ]
