@@ -154,18 +154,41 @@ class RuleSetBrandMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-class RuleSetCategoryMapping(models.Model):
-    rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-#
+# class RuleSetCategoryMapping(models.Model):
+#     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
+#     category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
 # class RuleAreaMapping(models.Model):
 #     rule = models.ForeignKey(CouponRuleSet, related_name ='area_ruleset', on_delete=models.CASCADE)
 #     seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
 #     buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
 #     city = models.ForeignKey(City, related_name ='city_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
 
+class Discount(models.Model):
+    """
+    Discount for category and Brand
+    """
+    DISCOUNT_TYPE = (
+        ('brand', "brand"),
+        ('category', "category"),
+    )
+    discount_type = models.CharField(max_length=255, choices=DISCOUNT_TYPE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='category_discount', null=True, blank=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='Brand_discount', null=True, blank=True)
+    discount_value = models.ForeignKey(DiscountValue, on_delete=models.CASCADE, related_name='retailer_discount_value')
+    start_price = models.IntegerField()
+    end_price = models.IntegerField()
+    start_date = models.DateField(default=datetime.date.today)
+    end_date = models.DateField(default=datetime.date.today)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        if self.category:
+            return self.discount_type + " " + self.category.category_name
+        else:
+            return self.discount_type + " " + self.brand.brand_name
 
 def create_es_index(index):
     """

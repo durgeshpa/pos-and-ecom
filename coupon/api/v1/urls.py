@@ -1,6 +1,6 @@
 from django.conf.urls import url
-from .views import CouponView
+from .views import DiscountView
 
 urlpatterns = [
-    url(r'^coupons/$', CouponView.as_view(), name='retailer-coupon'),
+    url(r'^discount/$', DiscountView.as_view(), name='retailer-discount'),
 ]
