@@ -2011,6 +2011,7 @@ class CartCheckout(APIView):
             response['available_offers'] = offers['total_offers']
             if offers['spot_discount']:
                 response['spot_discount'] = offers['spot_discount']
+        response['key_p'] = str(config('PAYU_KEY'))
         return response
 
 
