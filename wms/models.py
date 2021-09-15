@@ -652,3 +652,27 @@ class PosInventoryChange(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 
+class QCArea(BaseTimestampUserModel):
+    QC_AREA_TYPE_CHOICES = Choices(('GR', 'Ground'), ('RC', 'Rack'))
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    area_id = models.CharField(max_length=10, null=True, blank=True)
+    area_type = models.CharField(max_length=50, choices=QC_AREA_TYPE_CHOICES)
+    area_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
+    area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+    is_active = models.BooleanField()
+
+    def save(self, *args, **kwargs):
+
+        if not self.id:
+            last_qc_area = QCArea.objects.filter(area_type=self.area_type).last()
+            if not last_qc_area:
+                current_number = 0
+            else:
+                current_number = int(last_qc_area.area_id[2:])
+            current_number += 1
+            self.area_id = self.area_type + str(current_number).zfill(4)
+        super(QCArea, self).save(*args, **kwargs)
+
+    @property
+    def barcode_image(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.area_id, self.area_barcode.url))

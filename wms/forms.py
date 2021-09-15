@@ -13,7 +13,7 @@ from django.contrib.auth.models import Permission, Group
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1378,3 +1378,23 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         # Check logged in user permissions
         if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
             raise forms.ValidationError(_("Required permissions missing to perform this task."))
+
+
+class QCAreaForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+
+    area_id = forms.CharField(required=False, max_length=16)
+    area_type = forms.ChoiceField(choices=QCArea.QC_AREA_TYPE_CHOICES)
+
+    def __init__(self, *args, **kwargs):
+        super(QCAreaForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance.id is not None:
+            self.fields['warehouse'].disabled = True
+            self.fields['area_type'].disabled = True
+        self.fields['area_id'].disabled = True
+
+    class Meta:
+        model = QCArea
+        fields = ['warehouse', 'area_id', 'area_type', 'is_active']

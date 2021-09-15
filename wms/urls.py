@@ -3,7 +3,8 @@ from django.conf.urls import include, url
 import views
 import wms
 from .api.v2.views import ProductSkuAutocomplete
-from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, MergeBarcode
+from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, \
+    MergeBarcode, QCAreaBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
     SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter
 
@@ -34,5 +35,6 @@ urlpatterns = [
     url(r'^rectify-batch-ids/$', wms.views.rectify_batch_ids, name="rectify-batch-ids"),
     url(r'^audit_ordered_data/$', wms.views.audit_ordered_data, name='audit_ordered_data'),
     url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
-    url(r'^product-sku-autocomplete/$', ProductSkuAutocomplete.as_view(), name='product-sku-autocomplete',),
+    url(r'^product-sku-autocomplete/$', ProductSkuAutocomplete.as_view(), name='product-sku-autocomplete'),
+    url(r'^qc_barcode/(?P<id>[\w-]+)/$', QCAreaBarcodeGenerator.as_view(), name='qc_barcode'),
 ]
