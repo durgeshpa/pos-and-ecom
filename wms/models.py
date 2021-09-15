@@ -85,6 +85,8 @@ class Zone(BaseTimestampUserModel):
     """
         Mapping model of warehouse, supervisor, coordinator and putaway users
     """
+    zone_number = models.CharField(max_length=20, null=True, blank=True, editable=False)
+    name = models.CharField(max_length=30, null=True)
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
@@ -98,8 +100,7 @@ class Zone(BaseTimestampUserModel):
         )
 
     def __str__(self):
-        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + \
-               " - " + str(self.warehouse.pk) + " - " + str(self.pk)
+        return str(self.zone_number) + " - " + str(self.name)
 
 
 class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
@@ -287,6 +288,7 @@ class Putaway(models.Model):
 
 
 class PutawayBinInventory(models.Model):
+    REMARK_CHOICE = Choices((0, 'NOT_ENOUGH_SPACE', 'Not enough space'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, blank=True, null=True, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -295,6 +297,7 @@ class PutawayBinInventory(models.Model):
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_quantity = models.PositiveIntegerField()
     putaway_status = models.BooleanField(default=False)
+    remark = models.CharField(choices=REMARK_CHOICE, max_length=20, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
