@@ -1225,7 +1225,7 @@ class ZoneForm(forms.ModelForm):
     def clean_putaway_users(self):
         if self.cleaned_data['putaway_users']:
             if len(self.cleaned_data['putaway_users']) <= 0 or \
-                    len(self.cleaned_data['putaway_users']) >= get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
+                    len(self.cleaned_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
         return self.cleaned_data['putaway_users']
@@ -1233,7 +1233,7 @@ class ZoneForm(forms.ModelForm):
     def clean_picker_users(self):
         if self.cleaned_data['picker_users']:
             if len(self.cleaned_data['picker_users']) <= 0 or \
-                    len(self.cleaned_data['picker_users']) >= get_config('MAX_PICKER_USERS_PER_ZONE'):
+                    len(self.cleaned_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " users."))
         return self.cleaned_data['picker_users']
