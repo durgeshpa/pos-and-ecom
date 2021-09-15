@@ -1177,7 +1177,6 @@ putaway_group = Group.objects.get(name='Putaway')
 
 class ZoneForm(forms.ModelForm):
     info_logger.info("Zone Form has been called.")
-    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     supervisor = forms.ModelChoiceField(queryset=User.objects.filter(
@@ -1196,7 +1195,7 @@ class ZoneForm(forms.ModelForm):
 
     class Meta:
         model = Zone
-        fields = ['warehouse', 'supervisor', 'coordinator', 'putaway_users']
+        fields = ['name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
@@ -1228,9 +1227,12 @@ class ZoneForm(forms.ModelForm):
         coordinator = cleaned_data.get("coordinator")
         instance = getattr(self, 'instance', None)
         if not instance.pk:
-            if warehouse and supervisor and coordinator:
-                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
-                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        else:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
+                    exclude(id=instance.pk).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
     def __init__(self, *args, **kwargs):
         super(ZoneForm, self).__init__(*args, **kwargs)
@@ -1256,7 +1258,6 @@ class ZoneForm(forms.ModelForm):
 
 class WarehouseAssortmentForm(forms.ModelForm):
     info_logger.info("WarehouseAssortment Form has been called.")
-    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,

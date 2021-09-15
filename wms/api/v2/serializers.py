@@ -194,9 +194,15 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'created_at', 'updated_at')
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'created_at',
+                  'updated_at')
 
     def validate(self, data):
+
+        if 'name' in self.initial_data and self.initial_data['name']:
+            data['name'] = self.initial_data['name']
+        else:
+            raise serializers.ValidationError("'name' | This is mandatory")
 
         if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
             try:
@@ -297,7 +303,7 @@ class ZoneSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users')
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users')
 
 
 class WarehouseAssortmentCrudSerializers(serializers.ModelSerializer):
