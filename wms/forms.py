@@ -1278,7 +1278,7 @@ class ZoneForm(forms.ModelForm):
 
             self.fields['coordinator'].queryset = User.objects.filter(
                 Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
-                coordinator_zone_user__isnull=False)
+                coordinator_zone_user__isnull=False).distinct()
 
 
 class WarehouseAssortmentForm(forms.ModelForm):
