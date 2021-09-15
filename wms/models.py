@@ -350,6 +350,7 @@ class Pickup(models.Model):
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_zone', on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

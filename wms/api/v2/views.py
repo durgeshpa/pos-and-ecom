@@ -1178,3 +1178,13 @@ class PerformPutawayView(generics.GenericAPIView):
                              f'Putaway Type Id-{putaway_instance.putaway_type_id}')
             return get_response('Putaways Done Successfully!', response.data)
         return get_response(serializer_error(serializer), False)
+
+
+class PickupEntryCreationView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET User Details post login """
+        pickup_entry_creation_with_cron()
+        return get_response("", {}, True)
