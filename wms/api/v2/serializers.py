@@ -1118,7 +1118,7 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
 
 
         if self.initial_data['qty'] <= 0:
-            raise serializers.ValidationError("Invalid Quantity {self.initial_data['qty']}")
+            raise serializers.ValidationError(f"Invalid Quantity {self.initial_data['qty']}")
         data['qty'] = self.initial_data['qty']
 
         try:
