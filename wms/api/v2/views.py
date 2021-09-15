@@ -26,7 +26,7 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_putaway_assignments_search, putaway_search
+    zone_putaway_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway
 # Logger
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
@@ -910,7 +910,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
-    @check_whc_manager_coordinator_supervisor
+    @check_whc_manager_coordinator_supervisor_putaway
     def get(self, request):
         """ GET API for Putaways grouped by GRN """
         info_logger.info("Putaway GET api called.")
