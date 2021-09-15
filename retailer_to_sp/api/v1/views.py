@@ -6299,7 +6299,7 @@ class OrderCommunication(APIView):
         """
         try:
             order_return = OrderReturn.objects.get(pk=pk, order__seller_shop=shop,
-                                                   ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+                                                   order__ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Could not find return to send credit note for")
 
