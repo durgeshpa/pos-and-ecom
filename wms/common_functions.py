@@ -2262,5 +2262,3 @@ class WarehouseAssortmentCommonFunction(object):
         if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).exists():
             zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
         return zone
-
-

@@ -1013,7 +1013,7 @@ def pickup_entry_creation_with_cron():
                         qty = obj.quantity
                         total_to_be_picked = 0
                         bin_lists = obj.sku.rt_product_sku.filter(
-                            warehouse=warehouse, quantity__gt=0, inventory_type=inventory_type). \
+                            warehouse=warehouse, bin__zone=obj.zone,quantity__gt=0, inventory_type=inventory_type). \
                             order_by('-batch_id', 'quantity')
                         if bin_lists.exists():
                             for k in bin_lists:
@@ -1026,9 +1026,10 @@ def pickup_entry_creation_with_cron():
                                         datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                           "%d-%m-%Y"))
                         else:
+
                             bin_lists = obj.sku.rt_product_sku.filter(
-                                warehouse=warehouse, quantity=0, inventory_type=inventory_type).order_by(
-                                '-batch_id', 'quantity').last()
+                                warehouse=warehouse, quantity=0, bin__zone=obj.zone, inventory_type=inventory_type)\
+                                .order_by('-batch_id', 'quantity').last()
                             if len(bin_lists.batch_id) == 23:
                                 bin_inv_dict[bin_lists] = str(
                                     datetime.strptime(bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[19:21] + '-'
