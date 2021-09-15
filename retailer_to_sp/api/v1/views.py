@@ -4092,10 +4092,10 @@ class OrderReturns(APIView):
         Place return for an order
     """
 
-    @check_pos_shop
     def get(self, request, *args, **kwargs):
         try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+            order = Order.objects.get(pk=self.request.GET.get('order_id'),
+                                      ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
 
