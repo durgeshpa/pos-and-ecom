@@ -219,11 +219,12 @@ class CreatePickList(APIView):
 
     def get(self, request, *args, **kwargs):
         pk = self.kwargs.get('pk')
+        zone = self.kwargs.get('zone', None)
         picklist_type = self.kwargs.get('type')
         if picklist_type and int(picklist_type) == 2:
-            pdf_data = repackaging_picklist(pk)
+            pdf_data = repackaging_picklist(pk, zone)
         else:
-            pdf_data = order_picklist(pk)
+            pdf_data = order_picklist(pk, zone)
 
         cmd_option = {
             "margin-top": 10,
@@ -242,12 +243,18 @@ class CreatePickList(APIView):
         return response
 
 
-def order_picklist(order_id):
+def order_picklist(order_id, zone_id=None):
     pdf_data = {}
     order = get_object_or_404(Order, pk=order_id)
     barcode = barcodeGen(order.order_no)
-    picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(
-        pickup__status='picking_cancelled')
+    if not zone_id:
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(
+            pickup__status='picking_cancelled')
+    else:
+        picku_bin_inv = PickupBinInventory.objects.filter(
+            pickup__pickup_type_id=order.order_no,
+            pickup__sku__parent_product__product_zones__zone__id=zone_id).exclude(
+            pickup__status='picking_cancelled')
 
     data_list = []
     new_list = []
@@ -280,12 +287,17 @@ def order_picklist(order_id):
     return pdf_data
 
 
-def repackaging_picklist(repackaging_id):
+def repackaging_picklist(repackaging_id, zone_id=None):
     pdf_data = {}
     repackaging = Repackaging.objects.get(id=repackaging_id)
     barcode = barcodeGen(repackaging.repackaging_no)
-    pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
-                                                       pickup__status__in=['pickup_creation', 'picking_assigned'])
+    if not zone_id:
+        pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
+                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])
+    else:
+        pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
+                                                           pickup__sku__parent_product__product_zones__zone__id=zone_id,
+                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])
     data_list = []
     for i in pickup_bin_inv:
         product = i.pickup.sku.product_name
@@ -982,14 +994,14 @@ def pickup_entry_creation_with_cron():
                         if prd == zp['cart_product__parent_product__product_zones__product']:
                             product_zone_dict[zp['cart_product__parent_product__product_zones__product']] = zp[
                                 'cart_product__parent_product__product_zones__zone']
-                    if prd not in product_zone_dict:
-                        product_zone_dict[prd] = None
-                        if None not in zones_list:
-                            zones_list.append(None)
+                if len(product_zone_dict) != len(product_ids):
+                    cron_logger.info("{}| some/all products of order no {} does not mapped to any zone"
+                                     .format(cron_name, order.order_no))
+                    continue
                 for order_product in order.ordered_cart.rt_cart_list.all():
                     zone = Zone.objects.get(
                         pk=product_zone_dict[order_product.cart_product.parent_product.pk]) \
-                        if product_zone_dict[order_product.cart_product.parent_product.pk] else None
+                        if order_product.cart_product.parent_product.pk in product_zone_dict else None
                     CommonPickupFunctions.create_pickup_entry_with_zone(
                         warehouse, zone, 'Order', order.order_no, order_product.cart_product,
                         order_product.no_of_pieces, 'pickup_creation', inventory_type)

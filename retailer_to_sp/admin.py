@@ -937,15 +937,27 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def download_pick_list(self, obj):
         if obj.order:
             if obj.order.order_status not in ["active", "pending"]:
+                if obj.zone:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('generate-picklist', kwargs={'pk': obj.order.pk, 'zone': obj.zone.id}))
+                    )
+                else:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('create-picklist', args=[obj.order.pk]))
+                    )
+        elif obj.repackaging:
+            if obj.zone:
                 return format_html(
                     "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('create-picklist', args=[obj.order.pk]))
+                    (reverse('generate-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2, 'zone': obj.zone.id}))
                 )
-        elif obj.repackaging:
-            return format_html(
-                "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
-            )
+            else:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
+                )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
