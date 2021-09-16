@@ -2667,13 +2667,15 @@ class OrderCentral(APIView):
         if type(payments) != list:
             return {'error': "Invalid payment format"}
         amount = 0
+        cash_only = True
         for payment_method in payments:
             if 'payment_type' not in payment_method or 'amount' not in payment_method:
                 return {'error': "Invalid payment format"}
             try:
-                PaymentType.objects.get(id=payment_method['payment_type'])
+                pt = PaymentType.objects.get(id=payment_method['payment_type'])
             except:
                 return {'error': "Invalid Payment Type"}
+            cash_only = False if pt.type != 'cash' else cash_only
             try:
                 curr_amount = float(payment_method['amount'])
                 if curr_amount <= 0:
@@ -2683,8 +2685,11 @@ class OrderCentral(APIView):
                 return {'error': "Invalid Payment Amount"}
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
-        if round(amount, 2) != cart.order_amount:
-            return {'error': "Total payment amount should be equal to order amount"}
+        if not cash_only:
+            if round(amount, 2) != cart.order_amount:
+                return {'error': "Total payment amount should be equal to order amount"}
+        elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
+            return {'error': "Cash payment amount should be close to order amount. Please check."}
 
         if int(self.request.data.get('use_default_buyer', 0)) != 1:
             email = self.request.data.get('email')

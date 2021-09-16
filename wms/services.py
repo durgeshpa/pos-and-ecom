@@ -105,3 +105,18 @@ def bin_search(queryset, search_text):
         bin_id__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
                                Q(zone__coordinator__first_name__icontains=search_text))
     return queryset
+
+def check_whc_manager_coordinator_supervisor_putaway(view_func):
+    """
+    Decorator to validate request from warehouse manager / Coordinator / Supervisor
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('wms.can_have_zone_warehouse_permission') or \
+                user.has_perm('wms.can_have_zone_supervisor_permission') or \
+                user.has_perm('wms.can_have_zone_coordinator_permission') or \
+                user.groups.filter(name='Putaway').exists():
+            return view_func(self, request, *args, **kwargs)
+        return get_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func

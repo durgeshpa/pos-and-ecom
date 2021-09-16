@@ -1000,8 +1000,8 @@ class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
 
 class ZoneAdmin(admin.ModelAdmin):
     form = ZoneForm
-    list_display = ('warehouse', 'supervisor', 'coordinator', 'created_at', 'updated_at', 'created_by',
-                    'updated_by',)
+    list_display = ('zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'created_at', 'updated_at',
+                    'created_by', 'updated_by',)
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
     list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]

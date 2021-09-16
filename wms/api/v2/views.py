@@ -23,11 +23,12 @@ from shops.models import Shop
 
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
-    validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone, validate_zone
+    validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone, validate_zone, \
+    validate_putaway_user_against_putaway
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    BinInventory
+    BinInventory, PutawayBinInventory
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_putaway_assignments_search, putaway_search
+    zone_putaway_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway
 
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
@@ -36,7 +37,9 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
-    PostLoginUserSerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer
+    PostLoginUserSerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
+    PutawayActionSerializer
+
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -106,8 +109,8 @@ class ZoneCrudView(generics.GenericAPIView):
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
         prefetch_related('putaway_users'). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+        only('id', 'zone_number', 'name', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name',
+             'warehouse__shop_type', 'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
              'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
              'warehouse__shop_owner__phone_number', 'supervisor__id', 'supervisor__first_name', 'supervisor__last_name',
@@ -911,7 +914,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
-    @check_whc_manager_coordinator_supervisor
+    @check_whc_manager_coordinator_supervisor_putaway
     def get(self, request):
         """ GET API for Putaways grouped by GRN """
         info_logger.info("Putaway GET api called.")
@@ -1069,8 +1072,8 @@ class ZoneFilterView(generics.GenericAPIView):
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
         prefetch_related('putaway_users'). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+        only('id', 'zone_number', 'name', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name',
+             'warehouse__shop_type', 'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
              'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
              'warehouse__shop_owner__phone_number', 'supervisor__id', 'supervisor__first_name', 'supervisor__last_name',
@@ -1112,6 +1115,7 @@ class ZoneFilterView(generics.GenericAPIView):
 
 
 class PutawayStatusListView(generics.GenericAPIView):
+
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
@@ -1120,6 +1124,19 @@ class PutawayStatusListView(generics.GenericAPIView):
         info_logger.info("PutawayStatusList GET api called.")
         fields = ['id', 'status']
         data = [dict(zip(fields, d)) for d in Putaway.PUTAWAY_STATUS_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class PutawayRemarkView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for Putaway Remarks """
+        fields = ['id', 'remark']
+        data = [dict(zip(fields, d)) for d in PutawayBinInventory.REMARK_CHOICE]
         msg = ""
         return get_response(msg, data, True)
 
@@ -1235,3 +1252,31 @@ class BinFilterView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(warehouse__id=warehouse)
 
         return self.queryset.distinct('id')
+
+
+class PerformPutawayView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PutawayActionSerializer
+
+    @check_putaway_user
+    def put(self, request):
+        """ PUT API for performing putaway """
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        # validations for assigned putaway user
+        id_validation = validate_putaway_user_against_putaway(int(modified_data['id']), request.user.id)
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        putaway_instance = id_validation['data']
+        serializer = self.serializer_class(instance=putaway_instance, data=modified_data)
+        if serializer.is_valid():
+            putaway_instance = serializer.save(updated_by=request.user)
+            response = PutawayItemsCrudSerializer(putaway_instance)
+            info_logger.info(f'Putaway Completed. Id-{putaway_instance.id}, Batch Id-{putaway_instance.batch_id}, '
+                             f'Putaway Type Id-{putaway_instance.putaway_type_id}')
+            return get_response('Putaways Done Successfully!', response.data)
+        return get_response(serializer_error(serializer), False)
+
