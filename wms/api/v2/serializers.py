@@ -7,21 +7,24 @@ from itertools import chain
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum, F
+from django.db import transaction
+from django.db.models import Sum, F, Q
+
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
+
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
-from shops.models import Shop, ShopUserMapping
+from shops.models import Shop
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -183,7 +186,7 @@ class ChildProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('product_sku', 'product_name', 'product_pro_image')
+        fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -1009,7 +1012,6 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
         return putaway_instance
 
 
@@ -1065,6 +1067,98 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
                   'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')
+
+
+class BinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bin
+        fields = ('id', 'bin_id', 'warehouse_id')
+
+
+class InventoryTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryType
+        fields = ('id', 'inventory_type')
+
+
+class BinInventorySerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer()
+    bin = BinSerializer()
+    inventory_type = InventoryTypeSerializer()
+    sku = ChildProductSerializer()
+    bin_quantity = serializers.SerializerMethodField()
+
+    def get_bin_quantity(self, obj):
+        return obj.quantity+obj.to_be_picked_qty
+
+    class Meta:
+        model = BinInventory
+        fields = ('warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'bin_quantity')
+
+class BinShiftPostSerializer(serializers.ModelSerializer):
+    s_bin = serializers.IntegerField()
+    t_bin = serializers.IntegerField()
+    batch_id = serializers.CharField()
+    qty = serializers.IntegerField()
+    inventory_type = serializers.IntegerField()
+
+    class Meta:
+        model = BinInventory
+        fields = ('s_bin', 't_bin', 'batch_id', 'qty', 'inventory_type')
+
+
+
+    def validate(self, data):
+        data['warehouse'] = self.initial_data['warehouse']
+        try:
+            s_bin = Bin.objects.get(id=self.initial_data['s_bin'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid source Bin")
+        data['s_bin'] = s_bin
+
+        try:
+            t_bin = Bin.objects.get(id=self.initial_data['t_bin'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid target Bin")
+        if s_bin == t_bin:
+            raise serializers.ValidationError("Source and target bins are same.")
+        data['t_bin'] = t_bin
+        data['batch_id'] = self.initial_data['batch_id']
+
+
+        if self.initial_data['qty'] <= 0:
+            raise serializers.ValidationError(f"Invalid Quantity {self.initial_data['qty']}")
+        data['qty'] = self.initial_data['qty']
+
+        try:
+            inventory_type = InventoryType.objects.get(id=self.initial_data['inventory_type'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid Inventory Type")
+        data['inventory_type'] = inventory_type
+
+        bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
+                                              inventory_type=inventory_type).last()
+        if bin_inv:
+            if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
+                raise serializers.ValidationError(f"Invalid Quantity to move | "
+                                                  f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
+        else:
+            raise serializers.ValidationError("Invalid s_bin or batch_id")
+        sku = get_sku_from_batch(self.initial_data['batch_id'])
+        if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
+                                    Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
+            raise serializers.ValidationError("Invalid Movement | "
+                                              "Target bin already has same product with different batch ID")
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            CommonBinInventoryFunctions.product_shift_across_bins(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return validated_data
 
 
 class PutawayActionSerializer(PutawayItemsCrudSerializer):
