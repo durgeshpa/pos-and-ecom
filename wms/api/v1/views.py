@@ -423,15 +423,16 @@ class BinIDList(APIView):
             msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         if isinstance(pickup_orders, Order):
-            pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
+            pd_qs = PickerDashboard.objects.filter(order=pickup_orders, zone__picker_users=request.user)
         else:
-            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders)
+            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
-        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no) \
+        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                           pickup__zone__picker_users=request.user) \
                                                    .exclude(pickup__status='picking_cancelled').\
             order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
@@ -486,14 +487,15 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)\
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
+                                                            pickup__zone__picker_users=request.user)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
-        pd_qs = PickerDashboard.objects.filter(order=order)
+        pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -575,6 +577,7 @@ class PickupDetail(APIView):
         with transaction.atomic():
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                    pickup__zone__picker_users=request.user,
                                                                     bin__bin__bin_id=bin_id, pickup__sku__id=j)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
@@ -636,10 +639,11 @@ class PickupDetail(APIView):
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                        pickup__zone__picker_users=request.user,
                                                                         pickup__sku__id=j)\
                                                                 .exclude(pickup__status='picking_cancelled')
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j)\
+                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
                                       .exclude(status='picking_cancelled')\
                                       .update(pickup_quantity=sum_total)
 
