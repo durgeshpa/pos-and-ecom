@@ -1118,13 +1118,12 @@ def pickup_entry_creation_with_cron():
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
-            print(e)
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
             cron_logger.error(e)
 
     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
     cron_log_entry.completed_at = timezone.now()
-    print("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
 
 
