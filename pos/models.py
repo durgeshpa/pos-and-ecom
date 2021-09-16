@@ -34,7 +34,7 @@ class RetailerProduct(models.Model):
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
-    product_ean_code = models.CharField(max_length=255, blank=False)
+    product_ean_code = models.CharField(max_length=255, blank=False, null=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

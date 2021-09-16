@@ -13,6 +13,7 @@ from .views import (SupplierAutocomplete, ShippingAddressAutocomplete, BillingAd
 from django.conf.urls import url,include
 
 urlpatterns = [
+    url(r'^api/', include('gram_to_brand.api.urls')),
     url(r'^vendor-autocomplete/$',VendorAutocomplete.as_view(),name='vendor-autocomplete',),
     url(r'^supplier-autocomplete/$',SupplierAutocomplete.as_view(),name='supplier-autocomplete',),
     url(r'^shipping-address-autocomplete/$',ShippingAddressAutocomplete.as_view(),name='shipping-address-autocomplete',),

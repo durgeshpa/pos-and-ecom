@@ -1,18 +1,17 @@
 import datetime
 import logging
 
-from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.dispatch import receiver
 
-from wms.models import InventoryType
+from global_config.views import get_config
+from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern, po_pattern
 from shops.models import Shop, ParentRetailerMapping
-from whc.models import AutoOrderProcessing
 from sp_to_gram.models import (Cart as SpPO, CartProductMapping as SpPOProducts, Order as SpOrder,
                                OrderedProduct as SpGRNOrder, OrderedProductMapping as SpGRNOrderProductMapping)
-from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern, po_pattern
+from whc.models import AutoOrderProcessing
 from wms.common_functions import InCommonFunctions
-from global_config.views import get_config
-
+from wms.models import InventoryType
 from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order
 from .views import mail_to_vendor_on_po_approval
 
@@ -136,11 +135,9 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     weight = 0
                     if instance.product.repackaging_type == 'packing_material':
                         weight = int(instance.delivered_qty) * instance.product.weight_value
-                    in_obj = InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,
-                                                         instance.product,
-                                                         instance.batch_id, int(instance.delivered_qty),
-                                                         putaway_quantity,
-                                                         type_normal, weight, instance.manufacture_date)
+                    in_obj = InCommonFunctions.create_in(
+                        shop.retailer, 'GRN', instance.grn_order.grn_id, instance.product, instance.batch_id,
+                        int(instance.delivered_qty), putaway_quantity, type_normal, weight, instance.manufacture_date)
 
         # ends here
         instance.available_qty = 0

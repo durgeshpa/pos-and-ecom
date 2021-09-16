@@ -1058,7 +1058,11 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return obj.buyer_shop.shop_type
 
     def app_type(self, obj):
-        if obj.ordered_by.user_type in [6, 7]:
+        """
+            if ordered_by user type is Sales Executive or Sales Manager, Order done from Sales App
+            else Order done from Retailer App
+        """
+        if obj.ordered_by.user_type in [6, 7] and obj.ordered_by.is_staff == True:
             return "Sales Order"
         return "Organic Order"
 
