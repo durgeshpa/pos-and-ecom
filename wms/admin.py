@@ -668,7 +668,7 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'zone', 'inventory_type', 'quantity',
                     'pickup_quantity', 'status', 'completed_at')
     readonly_fields = (
     'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)

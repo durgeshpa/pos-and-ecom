@@ -188,8 +188,9 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     @transaction.atomic
     def update_bin_inventory_with_transaction_log(cls, warehouse, bin, sku, batch_id, initial_inventory_type,
-                                                  final_inventory_time, quantity, in_stock, tr_type, tr_id):
-        cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity, in_stock)
+                                                  final_inventory_time, quantity, in_stock, tr_type, tr_id, weight=0):
+        bin_inv_obj = cls.update_or_create_bin_inventory(warehouse, bin, sku, batch_id, final_inventory_time, quantity,
+                                                         in_stock, weight)
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
@@ -198,10 +199,11 @@ class CommonBinInventoryFunctions(object):
                                                   transaction_type=tr_type,
                                                   transaction_id=tr_id,
                                                   quantity=abs(quantity))
+        return bin_inv_obj
 
     @classmethod
     @transaction.atomic
-    def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
+    def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock, weight=0):
         bin_inv_obj = BinInventory.objects.select_for_update().\
                                            filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
                                                   inventory_type=inventory_type, in_stock=in_stock).last()
@@ -209,11 +211,13 @@ class CommonBinInventoryFunctions(object):
             bin_quantity = bin_inv_obj.quantity
             final_quantity = bin_quantity + quantity
             bin_inv_obj.quantity = final_quantity
+            bin_inv_obj.weight = bin_inv_obj.weight + weight
             bin_inv_obj.save()
         else:
             bin_inv_obj, created = BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku,
                                                                       batch_id=batch_id, inventory_type=inventory_type,
-                                                                      quantity=quantity, in_stock=in_stock)
+                                                                      quantity=quantity, in_stock=in_stock,
+                                                                      weight=weight)
         return bin_inv_obj
 
     @classmethod
@@ -250,6 +254,13 @@ class CommonPickupFunctions(object):
     def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status, inventory_type):
         return Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku,
                                      quantity=quantity, status=status, inventory_type=inventory_type)
+
+    @classmethod
+    def create_pickup_entry_with_zone(cls, warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status,
+                                      inventory_type):
+        return Pickup.objects.create(warehouse=warehouse, zone=zone, pickup_type=pickup_type,
+                                     pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=pickup_status,
+                                     inventory_type=inventory_type)
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
@@ -2214,12 +2225,23 @@ class ZoneCommonFunction(object):
     @classmethod
     def update_putaway_users(cls, zone, putaway_users):
         """
-            Update Putaway users of the Shop
+            Update Putaway users of the Zone
         """
         zone.putaway_users.clear()
         if putaway_users:
             for user in putaway_users:
                 zone.putaway_users.add(user)
+        zone.save()
+
+    @classmethod
+    def update_picker_users(cls, zone, picker_users):
+        """
+            Update Picker users of the Zone
+        """
+        zone.picker_users.clear()
+        if picker_users:
+            for user in picker_users:
+                zone.picker_users.add(user)
         zone.save()
 
 
@@ -2244,3 +2266,10 @@ class WarehouseAssortmentCommonFunction(object):
             import traceback; traceback.print_exc()
             error_logger.info(f"Something went wrong, while working with create Warehouse Assortment  "
                               f" + {str(e)}")
+
+    @classmethod
+    def get_product_zone(cls, warehouse, sku):
+        zone = None
+        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).exists():
+            zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
+        return zone

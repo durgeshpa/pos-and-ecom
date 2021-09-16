@@ -29,18 +29,18 @@ def create_audit_tickets_cron():
         cron_logger.info('create_audit_tickets| audit ticket created | audit {}'.format(audit_id))
     cron_logger.info('create_audit_tickets|completed')
 
-def create_picklist_cron():
-    cron_logger.info('create_picklist_cron|started')
-    audit_id_list = AuditCancelledPicklist.objects.filter(is_picklist_refreshed=False,
-                                                          audit__state__in=[AUDIT_DETAIL_STATE_CHOICES.FAIL,
-                                                                            AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED,
-                                                                            AUDIT_DETAIL_STATE_CHOICES.TICKET_CLOSED])\
-                                                  .values_list('audit_id', flat=True)
-    cron_logger.info('create_picklist_cron| Audit count to generate picklist for {}'.format(len(audit_id_list)))
-    for audit_id in audit_id_list:
-        create_pick_list_by_audit(audit_id)
-        cron_logger.info('create_picklist_cron| picklist generated | audit {}'.format(audit_id))
-    cron_logger.info('create_audit_tickets|completed')
+# def create_picklist_cron():
+#     cron_logger.info('create_picklist_cron|started')
+#     audit_id_list = AuditCancelledPicklist.objects.filter(is_picklist_refreshed=False,
+#                                                           audit__state__in=[AUDIT_DETAIL_STATE_CHOICES.FAIL,
+#                                                                             AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED,
+#                                                                             AUDIT_DETAIL_STATE_CHOICES.TICKET_CLOSED])\
+#                                                   .values_list('audit_id', flat=True)
+#     cron_logger.info('create_picklist_cron| Audit count to generate picklist for {}'.format(len(audit_id_list)))
+#     for audit_id in audit_id_list:
+#         create_pick_list_by_audit(audit_id)
+#         cron_logger.info('create_picklist_cron| picklist generated | audit {}'.format(audit_id))
+#     cron_logger.info('create_audit_tickets|completed')
 
 
 def release_products_from_audit():
