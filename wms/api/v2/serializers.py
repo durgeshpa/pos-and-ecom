@@ -1113,6 +1113,8 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
             t_bin = Bin.objects.get(id=self.initial_data['t_bin'])
         except Exception as e:
             raise serializers.ValidationError("Invalid target Bin")
+        if s_bin == t_bin:
+            raise serializers.ValidationError("Source and target bins are same.")
         data['t_bin'] = t_bin
         data['batch_id'] = self.initial_data['batch_id']
 
