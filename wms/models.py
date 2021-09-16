@@ -497,8 +497,7 @@ class BinInternalInventoryChange(models.Model):
         ('repackaging', 'Repackaging'),
         ('moved_to_discounted', 'Moved To Discounted'),
         ('added_as_discounted', 'Added As Discounted'),
-        ('bin_shift_add', 'Bin Shift Add'),
-        ('bin_shift_deduct', 'Bin Shift Deduct')
+        ('bin_shift', 'Bin Shift'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
