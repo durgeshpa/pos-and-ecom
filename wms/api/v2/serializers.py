@@ -21,7 +21,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState, ZonePickerUserAssignmentMapping
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
@@ -775,6 +775,15 @@ class ZonePutawayAssignmentsCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ZonePutawayUserAssignmentMapping
+        fields = ('id', 'last_assigned_at', 'zone', 'user',)
+
+
+class ZonePickerAssignmentsCrudSerializers(serializers.ModelSerializer):
+    zone = ZoneSerializer(read_only=True)
+    user = UserSerializers(read_only=True)
+
+    class Meta:
+        model = ZonePickerUserAssignmentMapping
         fields = ('id', 'last_assigned_at', 'zone', 'user',)
 
 

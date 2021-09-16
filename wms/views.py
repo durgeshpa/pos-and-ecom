@@ -50,7 +50,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone, QCArea
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -1010,9 +1010,22 @@ def pickup_entry_creation_with_cron():
 
                 for zone_id in zones_list:
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
+                        picker_user = None
+                        # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
+                        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                            zone_id=zone_id, last_assigned_at=None).last()
+                        if not zone_picker_assigned_user:
+                            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                zone_id=zone_id). \
+                                order_by('-last_assigned_at').last()
+                        if zone_picker_assigned_user:
+                            picker_user = zone_picker_assigned_user.user
+                            zone_picker_assigned_user.last_assigned_at = datetime.now()
+                            zone_picker_assigned_user.save()
+                        # Create Entry in PickerDashboard
                         PickerDashboard.objects.create(
                             order=order, picking_status="picking_pending", zone_id=zone_id,
-                            picklist_id=generate_picklist_id(pincode))
+                            picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
                         cron_logger.info(
                             'picker dashboard entry created for order {} & zone {}, order status updated to {}'
                                 .format(order.id, zone_id, order.PICKUP_CREATED))

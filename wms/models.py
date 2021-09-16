@@ -115,6 +115,18 @@ class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
         return str(self.zone) + " - " + str(self.user)
 
 
+class ZonePickerUserAssignmentMapping(BaseTimestampModel):
+    """
+        Mapping model of zone and picker user where we maintain the last assigned user for next assignment
+    """
+    zone = models.ForeignKey(Zone, related_name="zone_picker_assigned_users", on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.zone) + " - " + str(self.user)
+
+
 class WarehouseAssortment(BaseTimestampUserModel):
     """
         Mapping model of warehouse, product and zone
