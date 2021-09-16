@@ -673,7 +673,7 @@ class PickupAdmin(admin.ModelAdmin):
     readonly_fields = (
     'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
+    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ZoneFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
 
     class Media:
