@@ -13,6 +13,7 @@ from django.http import HttpResponse
 from rest_framework import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
@@ -1204,7 +1205,8 @@ class BinInventoryDataView(generics.GenericAPIView):
                                         batch_id=modified_data['batch_id'],
                                         inventory_type=modified_data['inventory_type'])
             return get_response('Product moved successfully!', BinInventorySerializer(bin_inventory_data, many=True).data)
-        return get_response(serializer_error(serializer), False)
+        # return get_response(serializer_error(serializer), False)
+        return Response({"is_success": False, "message": serializer_error(serializer), "response_data": []})
 
 
 class BinFilterView(generics.GenericAPIView):
