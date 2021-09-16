@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
 from products.models import Product
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from shops.models import Shop
 
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
@@ -1157,7 +1157,7 @@ class BinInventoryDataView(generics.GenericAPIView):
         """ GET BinInventory List """
         self.queryset = self.search_filter_inventory_data()
         total_count = self.queryset.count()
-        bin_inventory_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        bin_inventory_data = OffsetPaginationDefault50().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(bin_inventory_data, many=True)
         msg = f"total count {total_count}" if bin_inventory_data else "no record found"
@@ -1217,7 +1217,7 @@ class BinFilterView(generics.GenericAPIView):
 
     def get(self, request):
         self.queryset = self.search_bins()
-        bins = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        bins = OffsetPaginationDefault50().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(bins, many=True)
         msg = "" if bins else "no bin found"
         return get_response(msg, serializer.data, True)
