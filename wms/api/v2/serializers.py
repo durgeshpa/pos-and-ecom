@@ -988,11 +988,11 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
                         or (status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
                             and putaway_status != Putaway.PUTAWAY_STATUS_CHOICE.INITIATED):
                     raise serializers.ValidationError(f'Invalid status | {putaway_status}-->{status} not allowed')
-                elif status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED \
-                    and putaway_status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED \
-                        and putaway_quantity != quantity:
-                    raise serializers.ValidationError(f'Putaway cannot be completed. '
-                                                      f'Remaining putaway_quantity-{quantity-putaway_quantity}')
+                # elif status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED \
+                #     and putaway_status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED \
+                #         and putaway_quantity != quantity:
+                #     raise serializers.ValidationError(f'Putaway cannot be completed. '
+                #                                       f'Remaining putaway_quantity-{quantity-putaway_quantity}')
                 data['status'] = status
             else:
                 raise serializers.ValidationError("Only status update is allowed")
