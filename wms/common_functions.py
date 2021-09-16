@@ -256,6 +256,13 @@ class CommonPickupFunctions(object):
                                      quantity=quantity, status=status, inventory_type=inventory_type)
 
     @classmethod
+    def create_pickup_entry_with_zone(cls, warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status,
+                                      inventory_type):
+        return Pickup.objects.create(warehouse=warehouse, zone=zone, pickup_type=pickup_type,
+                                     pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=pickup_status,
+                                     inventory_type=inventory_type)
+
+    @classmethod
     def get_filtered_pickup(cls, **kwargs):
         pickup_data = Pickup.objects.filter(**kwargs).exclude(status='picking_cancelled')
         return pickup_data
@@ -2218,12 +2225,23 @@ class ZoneCommonFunction(object):
     @classmethod
     def update_putaway_users(cls, zone, putaway_users):
         """
-            Update Putaway users of the Shop
+            Update Putaway users of the Zone
         """
         zone.putaway_users.clear()
         if putaway_users:
             for user in putaway_users:
                 zone.putaway_users.add(user)
+        zone.save()
+
+    @classmethod
+    def update_picker_users(cls, zone, picker_users):
+        """
+            Update Picker users of the Zone
+        """
+        zone.picker_users.clear()
+        if picker_users:
+            for user in picker_users:
+                zone.picker_users.add(user)
         zone.save()
 
 

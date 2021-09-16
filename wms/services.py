@@ -11,7 +11,7 @@ def zone_search(queryset, search_text):
     return queryset
 
 
-def zone_putaway_assignments_search(queryset, search_text):
+def zone_assignments_search(queryset, search_text):
     """
     search using warehouse shop_name & supervisor name & coordinator name & user name based on criteria that matches
     """

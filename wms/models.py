@@ -91,6 +91,7 @@ class Zone(BaseTimestampUserModel):
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
     putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+    picker_users = models.ManyToManyField(get_user_model(), related_name='picker_zone_users')
 
     class Meta:
         permissions = (
@@ -108,6 +109,18 @@ class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
         Mapping model of zone and putaway user where we maintain the last assigned user for next assignment
     """
     zone = models.ForeignKey(Zone, related_name="zone_putaway_assigned_users", on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.zone) + " - " + str(self.user)
+
+
+class ZonePickerUserAssignmentMapping(BaseTimestampModel):
+    """
+        Mapping model of zone and picker user where we maintain the last assigned user for next assignment
+    """
+    zone = models.ForeignKey(Zone, related_name="zone_picker_assigned_users", on_delete=models.DO_NOTHING)
     user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
     last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
 
@@ -351,6 +364,7 @@ class Pickup(models.Model):
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_zone', on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

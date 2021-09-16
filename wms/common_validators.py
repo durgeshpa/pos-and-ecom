@@ -77,6 +77,29 @@ def get_validate_putaway_users(putaway_users):
     return {'putaway_users': putaway_users_obj}
 
 
+def get_validate_picker_users(picker_users):
+    """
+    validate ids that belong to a User model also
+    checking picker_user shouldn't repeat else through error
+    """
+    picker_users_list = []
+    picker_users_obj = []
+    for picker_users_data in picker_users:
+        try:
+            picker_user = get_user_model().objects.get(
+                id=int(picker_users_data['id']))
+            if not picker_user.groups.filter(name='Picker Boy').exists():
+                return {'error': '{} picker_user does not have required permission.'.format(picker_users_data['id'])}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} picker_user not found'.format(picker_users_data['id'])}
+        picker_users_obj.append(picker_user)
+        if picker_user in picker_users_list:
+            return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
+        picker_users_list.append(picker_user)
+    return {'picker_users': picker_users_obj}
+
+
 def get_csv_file_data(csv_file, csv_file_headers):
     uploaded_data_by_user_list = []
     csv_dict = {}

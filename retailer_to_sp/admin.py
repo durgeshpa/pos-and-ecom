@@ -798,7 +798,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy',
+        'picklist', 'picking_status', 'picker_boy', 'zone',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
@@ -937,15 +937,27 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def download_pick_list(self, obj):
         if obj.order:
             if obj.order.order_status not in ["active", "pending"]:
+                if obj.zone:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('generate-picklist', kwargs={'pk': obj.order.pk, 'zone': obj.zone.id}))
+                    )
+                else:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('create-picklist', args=[obj.order.pk]))
+                    )
+        elif obj.repackaging:
+            if obj.zone:
                 return format_html(
                     "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('create-picklist', args=[obj.order.pk]))
+                    (reverse('generate-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2, 'zone': obj.zone.id}))
                 )
-        elif obj.repackaging:
-            return format_html(
-                "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
-            )
+            else:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
+                )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
