@@ -3,6 +3,10 @@ import codecs
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
+
+from rest_framework import status
+from rest_framework.response import Response
 
 from wms.models import InventoryType, WarehouseInventory
 from wms.common_functions import get_stock
@@ -154,3 +158,35 @@ def create_cart_product_mapping(row, instance):
         CartProductMapping.objects.create(cart=instance, cart_product_id=row[2], cart_parent_product=parent_product,
                                           no_of_pieces=no_of_pieces, price=float(row[9]),
                                           vendor_product=vendor_product_dt)
+
+
+def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
+    """
+        General Response For API
+    """
+    if success:
+        result = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            result = {"is_success": True,
+                      "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            result = {"is_success": False, "message": msg, "response_data": []}
+
+    return Response(result, status=status_code)
+
+
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    return errors[0]

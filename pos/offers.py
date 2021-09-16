@@ -488,8 +488,8 @@ class BasicCartOffers(object):
             if cart_products:
                 for product_mapping in cart_products:
                     cart_value += product_mapping.selling_price * product_mapping.qty
-            discount_value = round((float(spot_discount) / 100) * float(cart_value), 2) if is_percentage else float(
-                spot_discount)
+            discount_value = int((float(spot_discount) / 100) * float(cart_value)) if is_percentage else int(float(
+                spot_discount))
             if discount_value <= cart_value:
                 offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
                 offers = BasicCartOffers.update_cart_offer(cart.offers, cart_value, offer)
@@ -541,13 +541,13 @@ class BasicCartOffers(object):
     @classmethod
     def discount_value(cls, offer, cart_value):
         if not offer['is_percentage']:
-            discount = float(offer['discount'])
+            discount = int(float(offer['discount']))
         else:
             if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
                     float(offer['discount']) / 100) * float(cart_value):
-                discount = round((float(offer['discount']) / 100) * float(cart_value), 2)
+                discount = int((float(offer['discount']) / 100) * float(cart_value))
             else:
-                discount = float(offer['max_discount'])
+                discount = int(float(offer['max_discount']))
         return discount
 
     @classmethod
