@@ -31,46 +31,19 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
-
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
-from wms.views import shipment_reschedule_inventory_change
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer
-                          )
-from products.models import ProductPrice, ProductOption, Product
-from sp_to_gram.models import OrderedProductReserved
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
-from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
-                                     Order as GramMappedOrder
-                                     )
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
-
 from brand.models import Brand
 
 from categories import models as categorymodel
 from common.data_wrapper_view import DataWrapperViewSet
-
-from sp_to_gram.tasks import es_search, upload_shop_stock
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer
+from ecom.models import Address as EcomAddress, EcomOrderAddress
 
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
@@ -78,39 +51,18 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
 
 from marketing.models import ReferralCode
 
+from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
+                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
+                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
+from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
-                                    PaymentTypeSerializer)
-from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
-                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
-                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
-
-from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
-from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
-    PosInventoryChange
-from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
-
-from pos.offers import BasicCartOffers
-
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
-    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
-    RetailerProductResponseSerializer, PosShopUserMappingListSerializer,\
-    PosEcomOrderDetailSerializer
-
-from pos.common_validators import validate_user_type_for_pos_shop
-
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
-from retailer_backend.settings import AWS_MEDIA_URL
-
+                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+from pos.models import RetailerProduct, Payment as PosPayment, PaymentType
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
@@ -128,6 +80,7 @@ from retailer_to_sp.common_function import check_date_range, capping_check, gene
 
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
@@ -141,7 +94,6 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
-from ecom.models import Address as EcomAddress, EcomOrderAddress
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -364,11 +316,9 @@ class SearchProducts(APIView):
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
-        query = dict()
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
-
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -6392,7 +6342,7 @@ class EcomPaymentView(APIView):
     def post(self, request, *args, **kwags):
         try:
             hash_string = self.request.data.get('hash_string')
-            hash_string += '|' + str(config('PAYU_SALT'))
+            hash_string += str(config('PAYU_SALT'))
             hash_string = sha512(hash_string.encode()).hexdigest().lower()
             return api_response("", hash_string, status.HTTP_200_OK, True)
         except:
