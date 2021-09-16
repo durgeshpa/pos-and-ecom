@@ -193,3 +193,10 @@ def validate_zone(zone):
         return {'data': Zone.objects.filter(id=zone).last()}
     return {'error': 'Invalid zone!'}
 
+
+def validate_putaway_user_against_putaway(putaway_id, user_id):
+    """validating user against the putaway"""
+    putaway = Putaway.objects.filter(id=putaway_id, putaway_user=user_id).last()
+    if not putaway:
+        return {'error': 'Putaway is not assigned to the logged in user.'}
+    return {'data': putaway}
