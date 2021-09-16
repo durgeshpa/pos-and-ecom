@@ -195,10 +195,15 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users', 'created_at',
-                  'updated_at')
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users',
+                  'picker_users', 'created_at', 'updated_at')
 
     def validate(self, data):
+
+        if 'name' in self.initial_data and self.initial_data['name']:
+            data['name'] = self.initial_data['name']
+        else:
+            raise serializers.ValidationError("'name' | This is mandatory")
 
         if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
             try:
@@ -315,8 +320,8 @@ class ZoneSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ('id', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users')
-
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users',
+                  'picker_users')
 
 class WarehouseAssortmentCrudSerializers(serializers.ModelSerializer):
     warehouse = WarehouseSerializer(read_only=True)
@@ -1009,11 +1014,11 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
                         or (status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
                             and putaway_status != Putaway.PUTAWAY_STATUS_CHOICE.INITIATED):
                     raise serializers.ValidationError(f'Invalid status | {putaway_status}-->{status} not allowed')
-                elif status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED \
-                    and putaway_status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED \
-                        and putaway_quantity != quantity:
-                    raise serializers.ValidationError(f'Putaway cannot be completed. '
-                                                      f'Remaining putaway_quantity-{quantity-putaway_quantity}')
+                # elif status == Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED \
+                #     and putaway_status == Putaway.PUTAWAY_STATUS_CHOICE.INITIATED \
+                #         and putaway_quantity != quantity:
+                #     raise serializers.ValidationError(f'Putaway cannot be completed. '
+                #                                       f'Remaining putaway_quantity-{quantity-putaway_quantity}')
                 data['status'] = status
             else:
                 raise serializers.ValidationError("Only status update is allowed")

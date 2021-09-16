@@ -85,6 +85,8 @@ class Zone(BaseTimestampUserModel):
     """
         Mapping model of warehouse, supervisor, coordinator and putaway users
     """
+    zone_number = models.CharField(max_length=20, null=True, blank=True, editable=False)
+    name = models.CharField(max_length=30, null=True)
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
@@ -99,8 +101,7 @@ class Zone(BaseTimestampUserModel):
         )
 
     def __str__(self):
-        return str(self.supervisor.first_name) + " - " + str(self.coordinator.first_name) + \
-               " - " + str(self.warehouse.pk) + " - " + str(self.pk)
+        return str(self.zone_number) + " - " + str(self.name)
 
 
 class ZonePutawayUserAssignmentMapping(BaseTimestampModel):

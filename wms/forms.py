@@ -1178,7 +1178,6 @@ picker_group = Group.objects.filter(name='Picker Boy').last()
 
 class ZoneForm(forms.ModelForm):
     info_logger.info("Zone Form has been called.")
-    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     supervisor = forms.ModelChoiceField(queryset=User.objects.filter(
@@ -1205,7 +1204,7 @@ class ZoneForm(forms.ModelForm):
 
     class Meta:
         model = Zone
-        fields = ['warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users']
+        fields = ['name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
@@ -1283,7 +1282,6 @@ class ZoneForm(forms.ModelForm):
 
 class WarehouseAssortmentForm(forms.ModelForm):
     info_logger.info("WarehouseAssortment Form has been called.")
-    # warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,

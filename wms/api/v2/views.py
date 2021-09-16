@@ -107,8 +107,8 @@ class ZoneCrudView(generics.GenericAPIView):
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
         prefetch_related('putaway_users', 'picker_users'). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+        only('id', 'zone_number', 'name', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name',
+             'warehouse__shop_type', 'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
              'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
              'warehouse__shop_owner__phone_number', 'supervisor__id', 'supervisor__first_name', 'supervisor__last_name',
@@ -1157,8 +1157,8 @@ class ZoneFilterView(generics.GenericAPIView):
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'supervisor', 'coordinator'). \
         prefetch_related('putaway_users'). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+        only('id', 'zone_number', 'name', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name',
+             'warehouse__shop_type', 'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
              'warehouse__shop_type__shop_sub_type__retailer_type_name',
              'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
              'warehouse__shop_owner__phone_number', 'supervisor__id', 'supervisor__first_name', 'supervisor__last_name',

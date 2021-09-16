@@ -18,6 +18,10 @@ def create_zone_putaway_user_assignment_mapping(sender, instance=None, created=F
     """
         ZonePutawayUserAssignmentMapping on Zone creation / updation
     """
+    if not instance.zone_number:
+        zone_count = Zone.objects.filter(warehouse=instance.warehouse).count()
+        instance.zone_number = "W" + str(instance.warehouse.id).zfill(6) + "Z" + str(zone_count + 1).zfill(2)
+        instance.save()
     if created:
         for user in instance.putaway_users.all():
             ZonePutawayUserAssignmentMapping.objects.create(zone=instance, user=user)
