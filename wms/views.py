@@ -971,6 +971,7 @@ def pickup_entry_creation_with_cron():
     for order in order_obj:
         try:
             with transaction.atomic():
+                order.order_status = Order.PICKING_ASSIGNED
                 pincode = "00"
                 inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
                 state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
@@ -1010,7 +1011,6 @@ def pickup_entry_creation_with_cron():
 
                 for zone_id in zones_list:
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
-                        picker_user = None
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
                         zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
                             zone_id=zone_id, last_assigned_at=None).last()
@@ -1022,6 +1022,10 @@ def pickup_entry_creation_with_cron():
                             picker_user = zone_picker_assigned_user.user
                             zone_picker_assigned_user.last_assigned_at = datetime.now()
                             zone_picker_assigned_user.save()
+                        else:
+                            picker_user = None
+                            order.order_status = Order.PICKUP_CREATED
+                            cron_logger.info('Picker user not found for zone {}'.format(zone_id))
                         # Create Entry in PickerDashboard
                         PickerDashboard.objects.create(
                             order=order, picking_status="picking_pending", zone_id=zone_id,
@@ -1114,7 +1118,6 @@ def pickup_entry_creation_with_cron():
                     info_logger.info('RefreshPicklist|create_picklist_by_order| completed for order {}'
                                      .format(order.order_no))
 
-                order.order_status = 'PICKUP_CREATED'
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
