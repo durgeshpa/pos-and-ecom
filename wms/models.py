@@ -670,7 +670,7 @@ class PosInventoryChange(models.Model):
 
 
 class QCArea(BaseTimestampUserModel):
-    QC_AREA_TYPE_CHOICES = Choices(('GR', 'Ground'), ('RC', 'Rack'))
+    QC_AREA_TYPE_CHOICES = Choices(('OA', 'Open Area'), ('RC', 'Rack'), ('PA', 'Pallet'))
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     area_id = models.CharField(max_length=10, null=True, blank=True)
     area_type = models.CharField(max_length=50, choices=QC_AREA_TYPE_CHOICES)

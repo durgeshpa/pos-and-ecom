@@ -785,8 +785,8 @@ class DecodeBarcode(APIView):
                              'data': barcode_data}
                 data.append(data_item)
                 continue;
-            type_identifier = barcode[0]
-            if type_identifier == '1':
+            type_identifier = barcode[0:2]
+            if type_identifier[0] == '1':
                 id = barcode[1:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -803,7 +803,7 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
 
-            elif type_identifier == '2':
+            elif type_identifier[0] == '2':
                 id = barcode[0:12]
                 grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id, batch_id__isnull=False).last()
 
@@ -826,8 +826,8 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-            elif type_identifier == '3':
-                id = barcode[1:12].lstrip('0')
+            elif type_identifier == '30':
+                id = barcode[2:12].lstrip('0')
                 if id is not None:
                     id = int(id)
                 else:
