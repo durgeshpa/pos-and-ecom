@@ -879,7 +879,7 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
-    PICKING_PARTIAL_COMPLETE = 'picking_partial_complete'
+    PICKING_PARTIAL_COMPLETE = 'PICKING_PARTIAL_COMPLETE'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'

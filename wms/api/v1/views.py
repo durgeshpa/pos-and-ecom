@@ -770,10 +770,10 @@ class PickupComplete(APIView):
                     else:
                         if PickerDashboard.objects.filter(order_id=order_obj). \
                                 exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exist():
-                            order_qs.update(order_status='picking_partial_complete')
+                            order_qs.update(order_status=Order.PICKING_PARTIAL_COMPLETE)
                             return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                         else:
-                            order_qs.update(order_status='picking_complete')
+                            order_qs.update(order_status=Order.PICKING_COMPLETE)
                             return Response({'is_success': True, 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
