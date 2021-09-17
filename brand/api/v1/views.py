@@ -10,7 +10,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
 from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers, \
-    BrandExportAsCSVSerializers, BrandListSerializers
+    BrandExportAsCSVSerializers, BrandListSerializers, BannerImageSerializer
 
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
@@ -103,10 +103,9 @@ class GetSubBrandsListView(APIView):
         if card:
             latest_card_version = CardVersion.objects.filter(card = card).last()
             card_items = latest_card_version.card_data.items.all()
-            for item in card_items:
-                banner_image.append(item.image.url)
+            banner_image = BannerImageSerializer(card_items, many=True).data
         is_success = True if product_subbrands else False
-        return Response({"message": [""], "image": banner_image, "response_data": brand_data_serializer.data, "is_success": is_success})
+        return Response({"message": [""], "banner_image": banner_image, "response_data": brand_data_serializer.data, "is_success": is_success})
 
 
 class BrandListView(GenericAPIView):
