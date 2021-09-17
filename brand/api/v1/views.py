@@ -10,7 +10,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
 from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers, \
-    BrandExportAsCSVSerializers, BrandListSerializers
+    BrandExportAsCSVSerializers, BrandListSerializers, BannerImageSerializer
 
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
@@ -21,6 +21,7 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
 from brand.common_validators import validate_data_format
 from products.models import ParentProduct
+from cms.models import Card, CardData, CardItem, CardVersion
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -97,9 +98,14 @@ class GetSubBrandsListView(APIView):
         else:
             product_subbrands = brand.brand_child.filter(status=True)
             brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
-
+        banner_image = []
+        card = Card.objects.filter(type='brand',brand_subtype = brand).last()
+        if card:
+            latest_card_version = CardVersion.objects.filter(card = card).last()
+            card_items = latest_card_version.card_data.items.all()
+            banner_image = BannerImageSerializer(card_items, many=True).data
         is_success = True if product_subbrands else False
-        return Response({"message": [""], "response_data": brand_data_serializer.data, "is_success": is_success})
+        return Response({"message": [""], "banner_image": banner_image, "response_data": brand_data_serializer.data, "is_success": is_success})
 
 
 class BrandListView(GenericAPIView):
