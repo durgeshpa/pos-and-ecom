@@ -879,6 +879,7 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_PARTIAL_COMPLETE = 'picking_partial_complete'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
@@ -909,6 +910,7 @@ class Order(models.Model):
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (COMPLETED, 'Completed'),
+        (PICKING_PARTIAL_COMPLETE, 'Picking Partial Complete'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
