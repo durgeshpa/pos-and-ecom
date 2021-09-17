@@ -51,7 +51,7 @@ def create_zone_putaway_user_assignment_mapping(sender, instance=None, created=F
 def create_qc_area_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Generates barcode_txt and bar_code image for QCArea"""
     if created:
-        instance.area_barcode_txt = '3' + str(instance.id).zfill(11)
+        instance.area_barcode_txt = '30' + str(instance.id).zfill(10)
         image = barcode_gen(str(instance.area_barcode_txt))
         instance.area_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.area_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)

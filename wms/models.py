@@ -670,9 +670,9 @@ class PosInventoryChange(models.Model):
 
 
 class QCArea(BaseTimestampUserModel):
-    QC_AREA_TYPE_CHOICES = Choices(('GR', 'Ground'), ('RC', 'Rack'))
+    QC_AREA_TYPE_CHOICES = Choices(('OA', 'Open Area'), ('RC', 'Rack'), ('PA', 'Pallet'))
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
-    area_id = models.CharField(max_length=10, null=True, blank=True)
+    area_id = models.CharField(max_length=6, null=True, blank=True)
     area_type = models.CharField(max_length=50, choices=QC_AREA_TYPE_CHOICES)
     area_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
@@ -681,7 +681,7 @@ class QCArea(BaseTimestampUserModel):
     def save(self, *args, **kwargs):
 
         if not self.id:
-            last_qc_area = QCArea.objects.filter(area_type=self.area_type).last()
+            last_qc_area = QCArea.objects.filter(area_type=self.area_type, warehouse=self.warehouse).last()
             if not last_qc_area:
                 current_number = 0
             else:
