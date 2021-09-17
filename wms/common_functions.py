@@ -2316,12 +2316,23 @@ class ZoneCommonFunction(object):
     @classmethod
     def update_putaway_users(cls, zone, putaway_users):
         """
-            Update Putaway users of the Shop
+            Update Putaway users of the Zone
         """
         zone.putaway_users.clear()
         if putaway_users:
             for user in putaway_users:
                 zone.putaway_users.add(user)
+        zone.save()
+
+    @ classmethod
+    def update_picker_users(cls, zone, picker_users):
+        """
+        Update Picker users of the Zone
+        """
+        zone.picker_users.clear()
+        if picker_users:
+            for user in picker_users:
+                zone.picker_users.add(user)
         zone.save()
 
 
