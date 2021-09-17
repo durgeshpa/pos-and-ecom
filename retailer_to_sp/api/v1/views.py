@@ -6216,7 +6216,6 @@ class OrderCommunication(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
-    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
 
         com_type, pk, shop = kwargs['type'], kwargs['pk'], kwargs['shop']
