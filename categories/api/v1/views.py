@@ -24,6 +24,7 @@ from categories.common_validators import validate_data_format
 from products.common_validators import validate_id
 from categories.services import category_search
 from categories.models import Category
+from cms.models import Card, CardVersion
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -85,9 +86,15 @@ class GetSubCategoriesListView(APIView):
         category = Category.objects.get(pk=category_id)
         sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
         sub_category_data_serializer = SubCategorySerializer(sub_categories, many=True)
-
+        banner_image = []
+        card = Card.objects.filter(type='category',category_subtype = category).last()
+        if card:
+            latest_card_version = CardVersion.objects.filter(card = card).last()
+            card_items = latest_card_version.card_data.items.all()
+            for item in card_items:
+                banner_image.append(item.image.url)
         is_success = True if sub_categories else False
-        return Response({"message": [""], "response_data": sub_category_data_serializer.data, "is_success": is_success})
+        return Response({"message": [""], "image":banner_image, "response_data": sub_category_data_serializer.data, "is_success": is_success})
 
 
 class GetAllCategoryListView(APIView):

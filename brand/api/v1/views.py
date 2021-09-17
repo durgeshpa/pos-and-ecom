@@ -21,6 +21,7 @@ from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
 from brand.common_validators import validate_data_format
 from products.models import ParentProduct
+from cms.models import Card, CardData, CardItem, CardVersion
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -97,9 +98,15 @@ class GetSubBrandsListView(APIView):
         else:
             product_subbrands = brand.brand_child.filter(status=True)
             brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
-
+        banner_image = []
+        card = Card.objects.filter(type='brand',brand_subtype = brand).last()
+        if card:
+            latest_card_version = CardVersion.objects.filter(card = card).last()
+            card_items = latest_card_version.card_data.items.all()
+            for item in card_items:
+                banner_image.append(item.image.url)
         is_success = True if product_subbrands else False
-        return Response({"message": [""], "response_data": brand_data_serializer.data, "is_success": is_success})
+        return Response({"message": [""], "image": banner_image, "response_data": brand_data_serializer.data, "is_success": is_success})
 
 
 class BrandListView(GenericAPIView):
