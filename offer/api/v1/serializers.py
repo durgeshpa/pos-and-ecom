@@ -92,9 +92,20 @@ class OfferBannerSlotSerializer(serializers.ModelSerializer):
 
 
 class TopSKUSerializer(serializers.ModelSerializer):
+    products = serializers.SerializerMethodField()
+
+    def get_products(self, obj):
+        top_sku = obj.offer_top_sku.all().values('product__id')
+        products = Product.objects.filter(id__in = top_sku)
+        data = ProductSerializers(products, many=True).data
+        return data
+
     class Meta:
         model = TopSKU
-        fields = ('product',)
+        fields = ('products',)
+
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
 
 
 class OfferLogSerializers(serializers.ModelSerializer):
@@ -239,6 +250,8 @@ class TopSKUSerializers(serializers.ModelSerializer):
         products = Product.objects.filter(id__in = top_sku)
         data = ProductSerializers(products, many=True).data
         return data
+
+    
 
     def validate(self, data):
 
