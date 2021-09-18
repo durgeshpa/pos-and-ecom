@@ -82,6 +82,7 @@ class GetSubBrandsListView(APIView):
         shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
         card = Card.objects.filter(type='brand',brand_subtype = brand).last()
+        banner_image = []
         if card:
             latest_card_version = CardVersion.objects.filter(card = card).last()
             card_items = latest_card_version.card_data.items.all()
