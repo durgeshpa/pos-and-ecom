@@ -94,7 +94,13 @@ class GetSubCategoriesListView(APIView):
             card_items = latest_card_version.card_data.items.all()
             banner_image = BannerImageSerializer(card_items, many=True).data
         is_success = True if sub_categories else False
-        return Response({"message": [""], "banner_image":banner_image, "response_data": sub_category_data_serializer.data, "is_success": is_success})
+        data = {}
+        if is_success:
+            data = {
+                "sub_brands": sub_category_data_serializer.data,
+                "banner_image": banner_image
+            }
+        return Response({"message": [""],"response_data": data, "is_success": is_success})
 
 
 class GetAllCategoryListView(APIView):
