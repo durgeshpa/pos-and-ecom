@@ -33,7 +33,7 @@ class Card(models.Model):
 class CardData(models.Model):
     """Card Data Model"""
     image = models.ImageField(upload_to="cards/data/images", null=True, blank=True)
-    header = models.CharField(max_length=255)
+    header = models.CharField(max_length=255, blank=True, null=True)
     header_action = models.URLField(blank=True, null=True)
     sub_header = models.CharField(max_length=255, null=True, blank=True)
     footer = models.CharField(max_length=255, null=True, blank=True)
