@@ -130,7 +130,7 @@ class PutawayCommonFunctions(object):
             bin_list = queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0),sku=sku, batch_id=batch_id)\
                                .values_list('bin__bin_id', flat=True).distinct('bin')[:3]
             suggested_bins.update(bin_list)
-        if len(suggested_bins) < 3:
+        if len(suggested_bins) == 0:
             bins_to_exclude = queryset.filter(~Q(batch_id=batch_id),Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0))\
                                       .values_list('bin_id', flat=True)
             bin_list = queryset.exclude(bin_id__in=bins_to_exclude)\
