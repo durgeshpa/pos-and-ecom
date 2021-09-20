@@ -139,9 +139,8 @@ table tr td,th,h4,span,address{
 
 												<!-- <td class="text-center"><strong>GF Code</strong></td> -->
         							<td class="text-center"><strong>Description of Goods</strong></td>
-
+									<td class="text-center"><strong>EAN Code</strong></td>
         							<td class="text-center"><strong>HSN/SAC</strong></td>
-
 									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
 										<td class="text-center"><strong>Specific Cess Amount (per unit)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
@@ -160,6 +159,7 @@ table tr td,th,h4,span,address{
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
 								<td class="text-center"><strong>{{ m.product.product_short_description }}</strong></td>
+									<td class="text-center">{{ m.product.product_ean_code}}</td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>
@@ -173,6 +173,7 @@ table tr td,th,h4,span,address{
     							</tr>
 								{% endfor %}
     							<tr>
+									<td></td>
 									<td></td>
 									<td></td>
 									<td><strong></strong></td>
@@ -197,6 +198,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
 									<td class="no-line text-center">TCS Rate</td>
 									<td class="no-line text-center">{{tcs_rate}} %</td>
 								</tr>
@@ -211,10 +213,12 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
 									<td class="no-line text-center">TCS Value</td>
 									<td class="no-line text-center">{{tcs_tax}}</td>
 								</tr>
 								<tr>
+									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
@@ -242,6 +246,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>CGST</strong></td>
     								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
@@ -255,6 +260,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>SGST</strong></td>
@@ -269,6 +275,7 @@ table tr td,th,h4,span,address{
 
 										<td class="no-line"></td>
                     <td class="no-line"></td>
+										<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -293,6 +300,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
 										<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Cess</strong></td>
     								<td class="no-line text-right"><strong>₹ {{cess | floatformat:2 }}/-</strong></td>
     							</tr>
@@ -311,6 +319,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
 											<td class="no-line"></td>
+										<td class="no-line"></td>
 	    								<td class="no-line text-center"><strong>Surcharge</strong></td>
 	    								<td class="no-line text-right"><strong>₹ {{surcharge | floatformat:2 }}/-</strong></td>
 	    							</tr>
@@ -325,6 +334,7 @@ table tr td,th,h4,span,address{
 														<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
+									<td class="no-line"></td>
 										<td class="no-line"></td>
 									<td class="no-line text-right"><strong>Total</strong></td>
     								<td class="no-line text-right" colspan="2">

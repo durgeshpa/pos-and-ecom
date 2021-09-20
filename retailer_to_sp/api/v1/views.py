@@ -6,6 +6,10 @@ import requests
 from datetime import datetime, timedelta
 from datetime import date as datetime_date
 from operator import itemgetter
+from num2words import num2words
+from elasticsearch import Elasticsearch
+from decouple import config
+from hashlib import sha512
 
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
@@ -13,77 +17,83 @@ from django.db.models import F, Sum, Q
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.contrib.auth import get_user_model
-from rest_framework.generics import GenericAPIView
 from django.shortcuts import get_object_or_404
+
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, generics, permissions, authentication
-
 from wkhtmltopdf.views import PDFTemplateResponse
-from num2words import num2words
 
-from retailer_backend.utils import SmallOffsetPagination
-from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping, getShop
-from retailer_backend.messages import ERROR_MESSAGES
-
-from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen
-from wms.views import shipment_reschedule_inventory_change
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer
-                          )
-from products.models import ProductPrice, ProductOption, Product
-from sp_to_gram.models import OrderedProductReserved
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
-from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
-                                     Order as GramMappedOrder
-                                     )
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
-from brand.models import Brand
+from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address
-from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from audit.views import BlockUnblockProduct
+
+from barCodeGenerator import barcodeGen
+from brand.models import Brand
+
+from categories import models as categorymodel
 from common.data_wrapper_view import DataWrapperViewSet
-from sp_to_gram.tasks import es_search, upload_shop_stock
-from coupon.serializers import CouponSerializer
-from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
-    PosInventoryChange
-from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
+from coupon.serializers import CouponSerializer
+from coupon.models import Coupon, CusotmerCouponUsage
+
+from ecom.utils import check_ecom_user_shop, check_ecom_user
+from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer
+from ecom.models import Address as EcomAddress, EcomOrderAddress
+
+from global_config.models import GlobalConfig
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList)
+
+from marketing.models import ReferralCode
+
+from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
+                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
+                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
-    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
-    PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
-    RetailerProductResponseSerializer, PosShopUserMappingListSerializer
-from pos.common_validators import validate_user_type_for_pos_shop
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
-from retailer_backend.settings import AWS_MEDIA_URL
+from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
+                                    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
+                                    OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
+                                    OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
+                                    RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
+                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+from pos.models import RetailerProduct, Payment as PosPayment, PaymentType
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
-from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from global_config.models import GlobalConfig
-from elasticsearch import Elasticsearch
-from pos.common_functions import check_pos_shop
-from marketing.models import ReferralCode
+from products.models import ProductPrice, ProductOption, Product
+
+from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
+from retailer_backend.messages import ERROR_MESSAGES
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder)
+from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
+                                   OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
+                                   CreditNote)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+
+from sp_to_gram.models import OrderedProductReserved
+from sp_to_gram.tasks import es_search, upload_shop_stock
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.views import shipment_reschedule_inventory_change
+
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
+                          OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
+                          GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
+                          OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
+                          OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer)
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -91,11 +101,8 @@ User = get_user_model()
 
 logger = logging.getLogger('django')
 
-today = datetime.today()
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
-cron_logger = logging.getLogger('cron_log')
 
 
 class PickerDashboardViewSet(DataWrapperViewSet):
@@ -257,13 +264,14 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
         elif search_type == '2':
-            results = self.rp_normal_search(shop_id)
+            results = self.rp_normal_search(shop_id, app_type)
         else:
             return api_response("Please Provide A Valid Search Type")
         if results:
@@ -294,17 +302,23 @@ class SearchProducts(APIView):
             body["query"] = {"bool": {"filter": filter_list}}
         return self.process_rp(output_type, body, shop_id)
 
-    def rp_normal_search(self, shop_id):
+    def rp_normal_search(self, shop_id, app_type=None):
         """
             Search Retailer Shop Catalogue On Similar Match
         """
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
-        body = dict()
+        category_ids = self.request.GET.get('category_ids')
         filter_list = []
+        if app_type == '3':
+            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
+            shop = Shop.objects.filter(id=shop_id).last()
+            if shop and shop.online_inventory_enabled:
+                filter_list.append({"range": {"stock_qty": {"gt": 0}}})
+        body = dict()
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            filter_list = [{"term": {"is_discounted": False}}]
+            filter_list.append({"term": {"is_discounted": False}})
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -320,6 +334,12 @@ class SearchProducts(APIView):
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
                 query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+
+        if category_ids:
+            category = category_ids.split(',')
+            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
         elif query_string:
@@ -388,14 +408,30 @@ class SearchProducts(APIView):
                 response['products'] = gf_results
         return response
 
-    def process_rp(self, output_type, body, shop_id):
+    def process_rp(self, output_type, body, shop_id, app_type=None):
         """
             Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
-        body["sort"] = {"modified_at": "desc"}
+        sort_by = self.request.GET.get('sort_by', 'modified_at')
+        sort_order = self.request.GET.get('sort_order', 'desc')
+        sort_by = sort_by if sort_by in ['ptr', 'combo_available'] else 'modified_at'
+        sort_order = sort_order if sort_order in ['asc'] else 'desc'
+        if sort_by == 'modified_at':
+            sort_order = 'desc'
+        if sort_by == 'combo_available':
+            sort_order = 'desc'
+        body["sort"] = {sort_by: sort_order}
         p_list = []
+        cart_check = False
+        # Ecom Cart
+        if app_type == '3' and self.request.user.id:
+            cart = Cart.objects.filter(cart_type='ECOM', seller_shop_id=shop_id, buyer=self.request.user,
+                                       cart_status='active').prefetch_related('rt_cart_list').last()
+            if cart:
+                cart_check = True
+                cart_products = cart.rt_cart_list.all()
         # Raw Output
         if output_type == '1':
             # body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
@@ -414,14 +450,38 @@ class SearchProducts(APIView):
             #                                 'offer_start_date', 'offer_end_date']}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+                product_ids = []
                 for p in products_list['hits']['hits']:
-                    # Combo Offers On Products
-                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 10,
-                                                                                      ["coupon_code", "coupon_type"])
+                    product_ids += [p["_source"]['id']]
+                coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
+                                                                  ["coupon_code", "coupon_type", "purchased_product"])
+                for p in products_list['hits']['hits']:
+                    if cart_check:
+                        p = self.modify_rp_cart_product_es(cart, cart_products, p)
+                    for coupon in coupons:
+                        if int(coupon['purchased_product']) == int(p["_source"]['id']):
+                            p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
         return p_list
+
+    @staticmethod
+    def modify_rp_cart_product_es(cart, cart_products, p):
+        for c_p in cart_products:
+            if c_p.retailer_product_id != p["_source"]["id"]:
+                continue
+            if cart.offers:
+                cart_offers = cart.offers
+                combo_offers = list(filter(lambda d: d['type'] in ['combo'], cart_offers))
+                for offer in combo_offers:
+                    if offer['item_id'] == c_p.retailer_product_id:
+                        p["_source"]["free_product_text"] = 'Free - ' + str(
+                            offer['free_item_qty_added']) + ' items of ' + str(
+                            offer['free_item_name']) + ' | Buy ' + str(offer['item_qty']) + ' Get ' + str(
+                            offer['free_item_qty'])
+            p["_source"]["cart_qty"] = c_p.qty or 0
+        return p
 
     def gf_search(self):
         """
@@ -890,6 +950,8 @@ class CartCentral(GenericAPIView):
                 return self.get_basic_cart(request, *args, **kwargs)
             else:
                 return self.get_basic_cart_list(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -908,6 +970,8 @@ class CartCentral(GenericAPIView):
             return self.retail_add_to_cart()
         elif app_type == '2':
             return self.basic_add_to_cart(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.ecom_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -929,6 +993,7 @@ class CartCentral(GenericAPIView):
             return api_response('Please provide a valid app_type')
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def delete(self, request, *args, **kwargs):
         """
             Update Cart Status To deleted For Basic Cart
@@ -936,7 +1001,7 @@ class CartCentral(GenericAPIView):
         # Check If Cart Exists
         try:
             cart = Cart.objects.get(id=kwargs['pk'], cart_status__in=['active', 'pending'],
-                                    seller_shop=kwargs['shop'])
+                                    seller_shop=kwargs['shop'], cart_type='BASIC')
         except:
             return api_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
@@ -1005,25 +1070,52 @@ class CartCentral(GenericAPIView):
             For cart_type "basic"
         """
         try:
-            cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'))
+            cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'),
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
         # Refresh cart prices
-        self.refresh_cart_prices(cart)
+        PosCartCls.refresh_prices(cart.rt_cart_list.all())
         # Refresh - add/remove/update combo, get nearest cart offer over cart value
         next_offer = BasicCartOffers.refresh_offers_cart(cart)
         return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
 
-    @staticmethod
-    def refresh_cart_prices(cart):
-        cart_products = cart.rt_cart_list.all()
-        if cart_products:
-            for product_mapping in cart_products:
-                if product_mapping.retailer_product.offer_price and product_mapping.retailer_product.offer_start_date <= datetime_date.today() <= product_mapping.retailer_product.offer_end_date:
-                    product_mapping.selling_price = product_mapping.retailer_product.offer_price
-                else:
-                    product_mapping.selling_price = product_mapping.retailer_product.selling_price
-                product_mapping.save()
+    @check_ecom_user_shop
+    def get_ecom_cart(self, request, *args, **kwargs):
+        """
+            Get Cart
+            For cart_type "ecom"
+        """
+        with transaction.atomic():
+            try:
+                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active')
+                # Empty cart if shop/location changed
+                if cart.seller_shop.id != kwargs['shop'].id:
+                    cart.seller_shop = kwargs['shop']
+                    cart.save()
+                    CartProductMapping.objects.filter(cart=cart).delete()
+                    return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+            except ObjectDoesNotExist:
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+
+            if self.request.GET.get("remove_unavailable"):
+                PosCartCls.out_of_stock_items(cart.rt_cart_list.all(), self.request.GET.get("remove_unavailable"))
+            # Refresh cart prices
+            PosCartCls.refresh_prices(cart.rt_cart_list.all())
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            cart_data = self.get_serialize_process_basic(cart, next_offer)
+            checkout = CartCheckout()
+            checkout_data = checkout.serialize(cart, offers)
+            checkout_data.pop('amount_payable', None)
+            cart_data.update(checkout_data)
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            cart_data.update({'default_address': address})
+            return api_response('Cart', cart_data, status.HTTP_200_OK, True)
 
     @check_pos_shop
     def get_basic_cart_list(self, request, *args, **kwargs):
@@ -1033,7 +1125,8 @@ class CartCentral(GenericAPIView):
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop=kwargs['shop'],
                                                                                              cart_status__in=['active',
-                                                                                                              'pending']).order_by(
+                                                                                                              'pending'],
+                                                                                             cart_type='BASIC').order_by(
             '-modified_at')
         if search_text:
             carts = carts.filter(Q(cart_no__icontains=search_text) |
@@ -1225,6 +1318,7 @@ class CartCentral(GenericAPIView):
                                 status.HTTP_200_OK)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     @PosAddToCart.validate_request_body
     def basic_add_to_cart(self, request, *args, **kwargs):
         """
@@ -1253,6 +1347,35 @@ class CartCentral(GenericAPIView):
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
             # serialize and return response
+            return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
+    @check_ecom_user_shop
+    @PosAddToCart.validate_request_body_ecom
+    def ecom_add_to_cart(self, request, *args, **kwargs):
+        """
+            Add To Cart
+            For cart type 'ECOM'
+        """
+        with transaction.atomic():
+            # basic validations for inputs
+            shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
+
+            # Update or create cart for user for shop
+            cart = self.post_update_ecom_cart(shop)
+            # Check if product has to be removed
+            if int(qty) == 0:
+                delete_cart_mapping(cart, product, 'ecom')
+            else:
+                # Add quantity to cart
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                                                                           product_type=1)
+                cart_mapping.selling_price = product.selling_price
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            # serialize and return response
+            if not CartProductMapping.objects.filter(cart=cart).exists():
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
@@ -1348,6 +1471,18 @@ class CartCentral(GenericAPIView):
                         seller_shop=seller_shop)
             cart.approval_status = False
             cart.save()
+        return cart
+
+    def post_update_ecom_cart(self, seller_shop):
+        """
+            Create or update/add product to ecom Cart
+        """
+        user = self.request.user
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active')
+        if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
+            CartProductMapping.objects.filter(cart=cart).delete()
+        cart.seller_shop = seller_shop
+        cart.save()
         return cart
 
     @staticmethod
@@ -1569,6 +1704,7 @@ class CartUserView(APIView):
         return api_response('Customer Detail Success', data, status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def put(self, request, *args, **kwargs):
         # Validate number
         serializer = BasicCartUserViewSerializer(data=self.request.data)
@@ -1607,7 +1743,7 @@ class CartUserView(APIView):
             Cart Customer Get Validate
         """
         # Check cart
-        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+        cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!", 'error_code': None}
         elif cart.cart_status == Cart.ORDERED:
@@ -1626,11 +1762,25 @@ class CartCheckout(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Checkout
-            Apply Any Available Cart Offer - Either coupon or spot discount
+            Apply Offer
+        """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.post_pos_cart_checkout(request, *args, **kwargs)
+        # ECOM
+        elif app_type == '3':
+            return self.post_ecom_cart_checkout(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def post_pos_cart_checkout(self, request, *args, **kwargs):
+        """
+            POS Checkout
             Inputs
             cart_id
             coupon_id
@@ -1638,7 +1788,7 @@ class CartCheckout(APIView):
             is_percentage (spot discount type)
         """
         # Input validation
-        initial_validation = self.post_validate(kwargs['shop'])
+        initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         cart = initial_validation['cart']
@@ -1660,14 +1810,54 @@ class CartCheckout(APIView):
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
-    @check_pos_shop
+    @check_ecom_user_shop
+    def post_ecom_cart_checkout(self, request, *args, **kwargs):
+        """
+            Ecom Checkout
+            Inputs
+            coupon_id
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        if not self.request.data.get('coupon_id'):
+            return api_response("Invalid request")
+        with transaction.atomic():
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            if 'error' in offers:
+                return api_response(offers['error'], None, offers['code'])
+            if offers['applied']:
+                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+            else:
+                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+
     def get(self, request, *args, **kwargs):
         """
             Get Checkout Amount Info, Offers Applied-Applicable
         """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.get_pos_cart_checkout(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_cart_checkout(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def get_pos_cart_checkout(self, request, *args, **kwargs):
+        """
+            POS cart checkout
+        """
         cart_id = self.request.GET.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
         with transaction.atomic():
@@ -1682,18 +1872,49 @@ class CartCheckout(APIView):
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
             return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
-    @check_pos_shop
+    @check_ecom_user_shop
+    def get_ecom_cart_checkout(self, request, *args, **kwargs):
+        """
+            ECOM cart checkout
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+
+        with transaction.atomic():
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            data = self.serialize(cart, offers)
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            data.update({'default_address': address})
+            return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
+
     def delete(self, request, *args, **kwargs):
         """
             Checkout
             Delete any applied cart offers
         """
+        app_type = request.META.get('HTTP_APP_TYPE', '1')
+        # POS
+        if app_type == '2':
+            return self.delete_pos_offer(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.delete_ecom_offer(request, *args, **kwargs)
+        else:
+            return api_response('Please provide a valid app_type')
+
+    @check_pos_shop
+    def delete_pos_offer(self, request, *args, **kwargs):
         try:
-            cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -1702,17 +1923,39 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            # Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
 
-    def post_validate(self, shop):
+    @check_ecom_user_shop
+    def delete_ecom_offer(self, request, *args, **kwargs):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            cart.offers = offers_list
+            cart.save()
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+
+    def post_basic_validate(self, shop):
         """
             Add cart offer in checkout
             Input validation
         """
         cart_id = self.request.data.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except ObjectDoesNotExist:
             return {'error': "Cart Does Not Exist / Already Closed"}
         if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
@@ -1734,6 +1977,7 @@ class CartCheckout(APIView):
             response['available_offers'] = offers['total_offers']
             if offers['spot_discount']:
                 response['spot_discount'] = offers['spot_discount']
+        response['key_p'] = str(config('PAYU_KEY'))
         return response
 
 
@@ -2325,6 +2569,8 @@ class OrderCentral(APIView):
             return self.get_retail_order()
         elif app_type == '2':
             return self.get_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -2338,41 +2584,143 @@ class OrderCentral(APIView):
             return self.put_retail_order(kwargs['pk'])
         elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.put_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
     @check_pos_shop
     def put_basic_order(self, request, *args, **kwargs):
         """
-            Cancel POS order
+            Update pos/ecom order
         """
         with transaction.atomic():
             # Check if order exists
             try:
                 order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
-                                                              order_status='ordered')
+                                          ordered_cart__cart_type__in=['BASIC', 'ECOM'])
             except ObjectDoesNotExist:
-                return api_response('Order Not Found To Cancel!')
+                return api_response('Order Not Found!')
             # check input status validity
-            allowed_updates = [Order.CANCELLED]
+            allowed_updates = [Order.CANCELLED, Order.OUT_FOR_DELIVERY, Order.DELIVERED, Order.CLOSED]
             order_status = self.request.data.get('status')
             if order_status not in allowed_updates:
                 return api_response("Please Provide A Valid Status To Update Order")
-            # cancel order
-            order.order_status = order_status
+            # CANCEL ORDER
+            if order_status == Order.CANCELLED:
+                # Unprocessed orders can be cancelled
+                if order.order_status != Order.ORDERED:
+                    return api_response('This order cannot be cancelled!')
+
+                cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
+                if order.ordered_cart.cart_type == 'BASIC':
+                    # cancel shipment pos order
+                    ordered_product = OrderedProduct.objects.filter(order=order).last()
+                    ordered_product.shipment_status = 'CANCELLED'
+                    ordered_product.last_modified_by = self.request.user
+                    ordered_product.save()
+                    # Update inventory
+                    for cp in cart_products:
+                        PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.SHIPPED,
+                                                        PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                                                        order.order_no, PosInventoryChange.CANCELLED)
+                else:
+                    # Update inventory
+                    for cp in cart_products:
+                        PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
+                                                        PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                                                        order.order_no, PosInventoryChange.CANCELLED)
+
+                # update order status
+                order.order_status = order_status
+                order.last_modified_by = self.request.user
+                order.save()
+                # Refund redeemed loyalty points
+                # Deduct loyalty points awarded on order
+                points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
+                    order.ordered_cart.redeem_points, order.buyer, order.order_no, 'order_cancel_credit',
+                    'order_cancel_debit', self.request.user, 0, order.order_no)
+                order_number = order.order_no
+                shop_name = order.seller_shop.shop_name
+                phone_number = order.buyer.phone_number
+                # whatsapp api call for order cancellation
+                whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
+                                            net_points)
+            # Generate invoice
+            elif order_status == Order.OUT_FOR_DELIVERY:
+                if order.ordered_cart.cart_type != 'ECOM':
+                    return api_response("Invalid action")
+                if order.order_status != Order.PICKUP_CREATED:
+                    return api_response("This order is not picked yet or is already out for delivery")
+                try:
+                    delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
+                except:
+                    return api_response("Please select a delivery person")
+                order.order_status = Order.OUT_FOR_DELIVERY
+                order.delivery_person = delivery_person
+                order.save()
+                shipment = OrderedProduct.objects.get(order=order)
+                shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+                shipment.save()
+                shipment.shipment_status = 'OUT_FOR_DELIVERY'
+                shipment.save()
+                # Inventory move from ordered to picked
+                ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
+                for product_map in ordered_products:
+                    product_id = product_map.retailer_product_id
+                    if product_map.shipped_qty > 0:
+                        PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED, PosInventoryState.SHIPPED,
+                                                        product_map.shipped_qty,
+                                                        self.request.user, order.order_no, PosInventoryChange.SHIPPED)
+                    ordered_p = CartProductMapping.objects.get(cart=order.ordered_cart, retailer_product=product_map.retailer_product,
+                                                               product_type=product_map.product_type)
+                    if ordered_p.qty - product_map.shipped_qty > 0:
+                        PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                                        PosInventoryState.AVAILABLE,
+                                                        ordered_p.qty - product_map.shipped_qty,
+                                                        self.request.user, order.order_no, PosInventoryChange.SHIPPED)
+                pdf_generation_retailer(request, order.id)
+            # Delivered/Closed
+            else:
+                if order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
+                    return api_response("Invalid Order update")
+                order.order_status = order_status
+                order.last_modified_by = self.request.user
+                order.save()
+                shipment = OrderedProduct.objects.get(order=order)
+                shipment.shipment_status = order_status
+                shipment.save()
+
+            return api_response("Order updated successfully!", None, status.HTTP_200_OK, True)
+
+    @check_ecom_user
+    def put_ecom_order(self, request, *args, **kwargs):
+        """
+            Customer Cancel ecom order
+        """
+        with transaction.atomic():
+            # Check if order exists
+            try:
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'], ordered_cart__cart_type='ECOM',
+                                                              buyer=self.request.user)
+            except ObjectDoesNotExist:
+                return api_response('Order Not Found!')
+
+            # Unprocessed orders can be cancelled
+            if order.order_status != Order.ORDERED:
+                return api_response('This order cannot be cancelled!')
+
+            cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
+            # Update inventory
+            for cp in cart_products:
+                PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
+                                                PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                                                order.order_no, PosInventoryChange.CANCELLED)
+
+            # update order status
+            order.order_status = Order.CANCELLED
             order.last_modified_by = self.request.user
             order.save()
-            # cancel shipment
-            ordered_product = OrderedProduct.objects.filter(order=order).last()
-            ordered_product.shipment_status = 'CANCELLED'
-            ordered_product.last_modified_by = self.request.user
-            ordered_product.save()
-            # Update inventory
-            ordered_products = ShipmentProducts.objects.filter(ordered_product=ordered_product)
-            for op in ordered_products:
-                PosInventoryCls.order_inventory(op.retailer_product.id, PosInventoryState.ORDERED,
-                                                PosInventoryState.AVAILABLE, op.shipped_qty, self.request.user,
-                                                order.order_no, PosInventoryChange.CANCELLED)
             # Refund redeemed loyalty points
             # Deduct loyalty points awarded on order
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -2382,7 +2730,9 @@ class OrderCentral(APIView):
             shop_name = order.seller_shop.shop_name
             phone_number = order.buyer.phone_number
             # whatsapp api call for order cancellation
-            whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit, net_points)
+            whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
+                                        net_points)
+
             return api_response("Order cancelled successfully!", None, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -2423,6 +2773,8 @@ class OrderCentral(APIView):
             return self.post_retail_order()
         elif app_type == '2':
             return self.post_basic_order(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.post_ecom_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -2454,11 +2806,26 @@ class OrderCentral(APIView):
             Get Order
             For Basic Cart
         """
+        order = Order.objects.filter(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop']).last()
+        if order:
+            if order.ordered_cart.cart_type == 'BASIC':
+                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+            elif order.ordered_cart.cart_type == 'ECOM':
+                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+        return api_response("Order not found")
+
+    @check_ecom_user
+    def get_ecom_order(self, request, *args, **kwargs):
+        """
+            Get Order
+            For Basic Cart
+        """
         try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+            order = Order.objects.get(pk=self.request.GET.get('order_id'),
+                                      buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
-        return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
 
     def post_retail_order(self):
         """
@@ -2536,6 +2903,7 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post_basic_order(self, request, *args, **kwargs):
         """
             Place Order
@@ -2558,7 +2926,61 @@ class OrderCentral(APIView):
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payments, transaction_id)
+            self.auto_process_order(order, payments, 'pos', transaction_id)
+            self.auto_process_pos_order(order)
+            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                status.HTTP_200_OK, True)
+
+    @check_pos_shop
+    def post_ecom_order(self, request, *args, **kwargs):
+        """
+            Place Order
+            For ecom cart
+        """
+        shop = kwargs['shop']
+
+        if not self.request.data.get('address_id'):
+            return api_response("Please select an address to place order")
+        try:
+            address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
+        try:
+            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Please add items to proceed to order")
+
+        try:
+            payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
+        except:
+            return api_response("Invalid Payment Method")
+
+        # check inventory
+        cart_products = cart.rt_cart_list.all()
+        cart_products = PosCartCls.refresh_prices(cart_products)
+        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products, self.request.data.get("remove_unavailable"))
+        if out_of_stock_items and shop.online_inventory_enabled:
+            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+        if not CartProductMapping.objects.filter(cart=cart).exists():
+            return api_response("No items added to cart yet")
+
+        with transaction.atomic():
+            # Update Cart To Ordered
+            self.update_cart_ecom(cart)
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            order = self.create_basic_order(cart, shop, address)
+            payments = [
+                {
+                    "payment_type": payment_id,
+                    "amount": order.order_amount,
+                    "transaction_id": ""
+                }
+            ]
+            self.auto_process_order(order, payments, 'ecom')
+            self.auto_process_ecom_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -2642,7 +3064,7 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        cart = Cart.objects.select_for_update().filter(id=cart_id, seller_shop=shop).last()
+        cart = Cart.objects.select_for_update().filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -2662,18 +3084,21 @@ class OrderCentral(APIView):
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
+
         # Check Payment Types
         payments = self.request.data.get('payment')
         if type(payments) != list:
             return {'error': "Invalid payment format"}
         amount = 0
+        cash_only = True
         for payment_method in payments:
             if 'payment_type' not in payment_method or 'amount' not in payment_method:
                 return {'error': "Invalid payment format"}
             try:
-                PaymentType.objects.get(id=payment_method['payment_type'])
+                pt = PaymentType.objects.get(id=payment_method['payment_type'])
             except:
                 return {'error': "Invalid Payment Type"}
+            cash_only = False if pt.type != 'cash' else cash_only
             try:
                 curr_amount = float(payment_method['amount'])
                 if curr_amount <= 0:
@@ -2683,8 +3108,11 @@ class OrderCentral(APIView):
                 return {'error': "Invalid Payment Amount"}
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
-        if round(amount, 2) != cart.order_amount:
-            return {'error': "Total payment amount should be equal to order amount"}
+        if not cash_only:
+            if round(amount, 2) != cart.order_amount:
+                return {'error': "Total payment amount should be equal to order amount"}
+        elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
+            return {'error': "Cash payment amount should be close to order amount. Please check."}
 
         if int(self.request.data.get('use_default_buyer', 0)) != 1:
             email = self.request.data.get('email')
@@ -2768,6 +3196,16 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
+    def update_cart_ecom(self, cart):
+        """
+            Place order
+            Update cart to ordered
+            For ecom cart
+        """
+        cart.cart_status = 'ordered'
+        cart.last_modified_by = self.request.user
+        cart.save()
+
     def create_retail_order_sp(self, cart, parent_mapping, billing_address, shipping_address):
         """
             Place Order
@@ -2803,7 +3241,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop):
+    def create_basic_order(self, cart, shop, address=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -2812,6 +3250,12 @@ class OrderCentral(APIView):
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
+
+        if address:
+            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
+                                            contact_number=address.contact_number, latitude=address.latitude,
+                                            longitude=address.longitude, pincode=address.pincode,
+                                            state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -2910,6 +3354,15 @@ class OrderCentral(APIView):
             return BasicOrderDetailSerializer(order).data
         return BasicOrderSerializer(order).data
 
+    def get_serialize_process_pos_ecom(self, order):
+        """
+           Get Order
+           Cart type Ecom
+        """
+        if int(self.request.GET.get('summary', 0)) == 1:
+            return PosEcomOrderDetailSerializer(order).data
+        return BasicOrderSerializer(order).data
+
     def post_serialize_process_sp(self, order, parent_mapping):
         """
             Place Order
@@ -2940,7 +3393,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payments, transaction_id):
+    def auto_process_order(self, order, payments, app_type='pos', transaction_id=''):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -2951,7 +3404,7 @@ class OrderCentral(APIView):
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
                                              order.order_no)
         # Loyalty points credit
-        shops_str = GlobalConfig.objects.get(key='pos_loyalty_shop_ids').value
+        shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         shops_str = str(shops_str) if shops_str else ''
         if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
             if ReferralCode.is_marketing_user(order.buyer):
@@ -2991,6 +3444,8 @@ class OrderCentral(APIView):
                 processed_by=self.request.user,
                 amount=payment['amount']
             )
+
+    def auto_process_pos_order(self, order):
         # Create shipment
         shipment = OrderedProduct(order=order)
         shipment.save()
@@ -3013,6 +3468,8 @@ class OrderCentral(APIView):
                                                pickup_quantity=qty, delivered_qty=qty, ordered_pieces=qty)
             PosInventoryCls.order_inventory(product_id, PosInventoryState.AVAILABLE, PosInventoryState.ORDERED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.ORDERED)
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED, PosInventoryState.SHIPPED, qty,
+                                            self.request.user, order.order_no, PosInventoryChange.SHIPPED)
         # Invoice Number Generate
         shipment.shipment_status = OrderedProduct.READY_TO_SHIP
         shipment.save()
@@ -3020,6 +3477,15 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
+
+    def auto_process_ecom_order(self, order):
+
+        cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
+                                                          ).values('retailer_product', 'qty')
+        for product_map in cart_products:
+            product_id, qty = product_map['retailer_product'], product_map['qty']
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.AVAILABLE, PosInventoryState.ORDERED, qty,
+                                            self.request.user, order.order_no, PosInventoryChange.ORDERED)
 
     def discounted_product_in_stock(self, cart_products):
         if cart_products.filter(retailer_product__sku_type=4).exists():
@@ -3244,6 +3710,8 @@ class OrderListCentral(GenericAPIView):
             return self.get_retail_order_list()
         elif app_type == '2':
             return self.get_basic_order_list(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.get_ecom_order_list(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -3299,20 +3767,49 @@ class OrderListCentral(GenericAPIView):
     def get_basic_order_list(self, request, *args, **kwargs):
         """
             Get Order
-            For Basic Cart
+            For Basic Cart as well as
+            Ecom Cart
+            Cart Type 1 - Basic Cart
+            Cart Type 2 - Ecom Cart
         """
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'])
-        if order_status:
-            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
-            qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
+        order_type = self.request.GET.get('order_type', 'pos')
+        if order_type == 'pos':
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
+            if order_status:
+                order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+                qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
+        elif order_type == 'ecom':
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM')
+            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == 'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
+                qs = qs.filter(delivery_person=self.request.user)
+            if order_status:
+                order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
+                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+        else:
+            return api_response("Invalid cart type")
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
         return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
+
+    @check_ecom_user
+    def get_ecom_order_list(self, request, *args, **kwargs):
+        # Search, Paginate, Return Orders
+        order_status = self.request.GET.get('order_status')
+        qs = Order.objects.filter(ordered_cart__cart_type='ECOM', buyer=self.request.user)
+
+        if order_status:
+            order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
+            qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            qs = qs.filter(Q(order_no__icontains=search_text) |
+                           Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
+        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -3344,6 +3841,11 @@ class OrderListCentral(GenericAPIView):
         order = order.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return BasicOrderListSerializer(objects, many=True).data
+
+    def get_serialize_process_ecom(self, order):
+        order = order.order_by('-created_at')
+        objects = self.pagination_class().paginate_queryset(order, self.request)
+        return EcomOrderListSerializer(objects, many=True).data
 
 
 class OrderedItemCentralDashBoard(APIView):
@@ -3540,10 +4042,10 @@ class OrderReturns(APIView):
         Place return for an order
     """
 
-    @check_pos_shop
     def get(self, request, *args, **kwargs):
         try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+            order = Order.objects.get(pk=self.request.GET.get('order_id'),
+                                      ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
 
@@ -3557,6 +4059,7 @@ class OrderReturns(APIView):
             return api_response("No Returns For This Order", None, status.HTTP_200_OK, False)
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         """
             Returns for any order
@@ -3609,14 +4112,14 @@ class OrderReturns(APIView):
                                 free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                              return_free_qty)
                     new_cart_value += (
-                                                  ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
+                                              ordered_product_map.shipped_qty - return_qty - previous_ret_qty) * ordered_product_map.selling_price
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
                     new_cart_value += (
-                                                  ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
+                                              ordered_product_map.shipped_qty - previous_ret_qty) * ordered_product_map.selling_price
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
             # check if free product offered on order value is still valid
@@ -3640,9 +4143,11 @@ class OrderReturns(APIView):
         # check if order exists
         order_id = self.request.data.get('order_id')
         try:
-            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop,
-                                                                          order_status__in=['ordered',
-                                                                                            Order.PARTIALLY_RETURNED])
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop)
+            cart_type = order.ordered_cart.cart_type
+            if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
+                    cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
+                return {'error': "Order Not Valid For Return"}
         except ObjectDoesNotExist:
             return {'error': "Order Not Valid For Return"}
         # check return reason is valid
@@ -3700,9 +4205,10 @@ class OrderReturns(APIView):
         prev_refund_total = prev_refund_points_value + prev_refund_amount
 
         # Order values
+        ordered_product = OrderedProduct.objects.filter(order=order).last()
         cart_redeem_points = order.ordered_cart.redeem_points
         redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
-        order_amount = float(order.order_amount)
+        order_amount = float(ordered_product.invoice_amount)
         order_total = order_amount + redeem_value
         discount = 0
         offers = order.ordered_cart.offers
@@ -3987,11 +4493,13 @@ class OrderReturnsCheckout(APIView):
         # check order
         order_id = self.request.GET.get('order_id')
         try:
-            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop,
-                                                                          order_status__in=['ordered',
-                                                                                            Order.PARTIALLY_RETURNED])
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop)
+            cart_type = order.ordered_cart.cart_type
+            if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
+                    cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
+                return {'error': "Order Not Valid For Return"}
         except ObjectDoesNotExist:
-            return {'error': "Order Does Not Exist / Still Open / Already Returned"}
+            return {'error': "Order Not Valid For Return"}
         # check if return created
         try:
             order_return = OrderReturn.objects.get(order=order, status='created')
@@ -4045,6 +4553,42 @@ class OrderReturnsCheckout(APIView):
         return response
 
 
+class PaymentDataView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        pass
+
+
+class CartStockCheckView(APIView):
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        """
+            Check stock qty cart
+        """
+        shop = kwargs['shop']
+        try:
+            cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
+                                                                     seller_shop=kwargs['shop'], cart_status='active')
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
+
+        # Check for changes in cart - price / offers / available inventory
+        cart_products = cart.rt_cart_list.all()
+        cart_products = PosCartCls.refresh_prices(cart_products)
+        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
+
+        # Return error for out of stock items else return payment methods
+        if out_of_stock_items and shop.online_inventory_enabled:
+            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+        else:
+            return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+
+
 class OrderReturnComplete(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -4053,6 +4597,7 @@ class OrderReturnComplete(APIView):
     """
 
     @check_pos_shop
+    @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         """
             Complete return on order
@@ -4060,10 +4605,13 @@ class OrderReturnComplete(APIView):
         # check order
         order_id = self.request.data.get('order_id')
         try:
-            order = Order.objects.get(pk=order_id, seller_shop=kwargs['shop'],
-                                      order_status__in=['ordered', Order.PARTIALLY_RETURNED])
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=kwargs['shop'])
+            cart_type = order.ordered_cart.cart_type
+            if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
+                    cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
+                return {'error': "Order Not Valid For Return"}
         except ObjectDoesNotExist:
-            return api_response("Order Does Not Exist / Still Open / Already Returned")
+            return {'error': "Order Not Valid For Return"}
 
         # Check Payment Type
         try:
@@ -4105,14 +4653,14 @@ class OrderReturnComplete(APIView):
             for ret in returns:
                 return_ids += [ret.id]
                 refund_amount += ret.refund_amount
-            new_paid_amount = order.order_amount - refund_amount
+            new_paid_amount = ordered_product.invoice_amount - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
                 self.request.user, new_paid_amount, order.order_no, return_ids)
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:
-                PosInventoryCls.order_inventory(rp.ordered_product.retailer_product.id, PosInventoryState.ORDERED,
+                PosInventoryCls.order_inventory(rp.ordered_product.retailer_product.id, PosInventoryState.SHIPPED,
                                                 PosInventoryState.AVAILABLE, rp.return_qty, self.request.user, rp.id,
                                                 PosInventoryChange.RETURN)
             # complete return
@@ -4444,10 +4992,10 @@ def pdf_generation(request, ordered_product):
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
-            
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
+                "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
                 "product_mrp": product_pro_price_mrp,
@@ -4596,7 +5144,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = ordered_product.order.order_amount
+        total_amount = ordered_product.invoice_amount
         total_amount_int = round(total_amount)
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
@@ -5650,7 +6198,14 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-status')
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False)
+        if self.request.GET.get('is_delivery_person', False):
+            pos_shop_users = pos_shop_users.filter(Q(user_type='delivery_person') | Q(is_delivery_person=True))
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            pos_shop_users = pos_shop_users.filter(Q(user__phone_number__icontains=search_text) |
+                                                   Q(user__first_name__icontains=search_text))
+        pos_shop_users = pos_shop_users.order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
@@ -5677,7 +6232,7 @@ class OrderCommunication(APIView):
             Resend invoice for pos order
         """
         try:
-            order = Order.objects.get(pk=pk, seller_shop=shop, ordered_cart__cart_type='BASIC')
+            order = Order.objects.get(pk=pk, seller_shop=shop, ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Could not find order to send invoice for")
 
@@ -5693,7 +6248,7 @@ class OrderCommunication(APIView):
         """
         try:
             order_return = OrderReturn.objects.get(pk=pk, order__seller_shop=shop,
-                                                   order__ordered_cart__cart_type='BASIC')
+                                                   order__ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         except ObjectDoesNotExist:
             return api_response("Could not find return to send credit note for")
 
@@ -5712,3 +6267,90 @@ class OrderCommunication(APIView):
         else:
             return api_response("Credit note could not be sent. Please try again later", None,
                                 status.HTTP_500_INTERNAL_SERVER_ERROR, False)
+
+
+class ShipmentView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = EcomShipmentSerializer
+
+    @check_pos_shop
+    @pos_check_permission_delivery_person
+    def post(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        serializer = self.serializer_class(data=self.request.data, context={'shop': shop})
+        if serializer.is_valid():
+            with transaction.atomic():
+                data = serializer.validated_data
+                products_info, order_id = data['products'], data['order_id']
+                order = Order.objects.filter(pk=order_id, seller_shop=shop, order_status__in=['ordered', Order.PICKUP_CREATED],
+                                             ordered_cart__cart_type='ECOM').last()
+                # Create shipment
+                shipment = OrderedProduct.objects.filter(order=order).last()
+                if not shipment:
+                    shipment = OrderedProduct(order=order)
+                    shipment.save()
+                for product_map in products_info:
+                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map['product_type']
+                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                        retailer_product_id=product_id,
+                                                                                        product_type=product_type)
+                    ordered_product_mapping.shipped_qty = qty
+                    ordered_product_mapping.picked_pieces = qty
+                    ordered_product_mapping.selling_price = product_map['selling_price']
+                    ordered_product_mapping.save()
+                    # Item Batch
+                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                    if not batch:
+                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                    else:
+                        batch.pickup_quantity = qty
+                        batch.quantity = qty
+                        batch.delivered_qty = qty
+                        batch.save()
+
+                order.order_status = Order.PICKUP_CREATED
+                order.save()
+                return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    def get_combo_offers(self, order):
+        """
+            Get combo offers mapping with product purchased
+        """
+        offers = order.ordered_cart.offers
+        product_combo_map = {}
+        cart_free_product = {}
+        if offers:
+            for offer in offers:
+                if offer['type'] == 'combo':
+                    product_combo_map[int(offer['item_id'])] = product_combo_map[int(offer['item_id'])] + [offer] \
+                        if int(offer['item_id']) in product_combo_map else [offer]
+                if offer['type'] == 'free_product':
+                    cart_free_product = offer
+        return product_combo_map, cart_free_product
+
+
+class EcomPaymentView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_ecom_user
+    def post(self, request, *args, **kwags):
+        try:
+            hash_string = self.request.data.get('hash_string')
+            hash_string += str(config('PAYU_SALT'))
+            hash_string = sha512(hash_string.encode()).hexdigest().lower()
+            return api_response("", hash_string, status.HTTP_200_OK, True)
+        except:
+            return api_response("Something went wrong!")
+
+    @check_ecom_user
+    def get(self, request, *args, **kwargs):
+        queryset = PaymentType.objects.filter(app__in=['ecom', 'both'])
+        queryset = SmallOffsetPagination().paginate_queryset(queryset, request)
+        serializer = PaymentTypeSerializer(queryset, many=True)
+        msg = "" if queryset else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)

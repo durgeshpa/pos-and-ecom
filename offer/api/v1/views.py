@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime
+from django.db import transaction
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils.six import with_metaclass
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -160,7 +162,8 @@ class GetTopSKUListView(APIView):
         if shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
-                data = TopSKU.objects.filter(start_date__lte=date, end_date__gte=date, status=True, shop=parent.id)
+                x = TopSKU.objects.filter(end_date__gte=date, status=True, shop=parent)
+                data = TopSKU.objects.filter(start_date__lte=date, end_date__gte=date, status=True, shop=parent).exclude(offer_top_sku__isnull=True)
                 is_success = True if data else False
                 message = "Top SKUs" if is_success else "No Top SKUs"
                 serializer = TopSKUSerializer(data, many=True)
@@ -412,9 +415,9 @@ class TopSKUView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop', 'product') \
-        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner'). \
-        only('id', 'updated_by', 'created_by', 'shop', 'product', 'start_date', 'end_date', 'status').order_by('-id')
+    queryset = TopSKU.objects.select_related('updated_by', 'created_by', 'shop') \
+        .prefetch_related('top_sku_log', 'top_sku_log__updated_by', 'shop__shop_type', 'shop__shop_owner').\
+        only('id', 'updated_by', 'created_by', 'shop', 'start_date', 'end_date', 'status').order_by('-id')
     serializer_class = TopSKUSerializers
 
     def get(self, request):
@@ -441,13 +444,18 @@ class TopSKUView(GenericAPIView):
         """ POST API for TopSKU Creation """
 
         info_logger.info("TopSKU POST api called.")
-        serializer = self.serializer_class(data=request.data)
+        try:
+            products = request.data.pop('products')
+        except Exception as e:
+            return get_response('Please select products', False)
+        serializer = self.serializer_class(data=request.data, context = {'products':products})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            info_logger.info("TopSKUe Created Successfully.")
+            info_logger.info("TopSKU Created Successfully.")
             return get_response('top sku created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
-
+        
+        
     def put(self, request):
         """ PUT API for TopSKU Updation """
 
@@ -461,7 +469,10 @@ class TopSKUView(GenericAPIView):
             return get_response(id_instance['error'])
 
         top_sku_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=top_sku_instance, data=request.data)
+        products = None
+        if 'products' in request.data:
+            products = request.data.pop('products')
+        serializer = self.serializer_class(instance=top_sku_instance, data=request.data, context = {'products':products})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Top SKU Updated Successfully.")

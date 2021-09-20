@@ -57,9 +57,8 @@ from products.models import (
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
-
-from global_config.views import get_config
 from pos.models import RetailerProduct
+from global_config.views import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -1458,10 +1457,9 @@ def set_parent_data_sample_excel_file(request, *args):
 
     columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-               'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-               'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-               'is_lead_time_applicable']
-
+               'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+               'is_lead_time_applicable', 'discounted_life_percent']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -2257,7 +2255,9 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
             product_list = {k: v for k, v in product_list.items() if v > 0}
             qs = Product.objects.filter(id__in=product_list.keys())
             if self.q:
-                qs = qs.filter(product_name__icontains=self.q)
+                qs = qs.filter(
+                    Q(product_sku__icontains=self.q) |
+                    Q(product_name__icontains=self.q))
         return qs
 
 
@@ -2299,7 +2299,9 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
             psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
             qs = Product.objects.filter(id__in=psm)
             if self.q:
-                qs = qs.filter(product_name__icontains=self.q)
+                qs = qs.filter(
+                    Q(product_sku__icontains=self.q) |
+                    Q(product_name__icontains=self.q))
         return qs
 
 
@@ -2830,3 +2832,16 @@ def franchise_po_fail_status(request, pk):
         if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
             writer.writerow([p.product_sku, p.product_name, p.product_ean_code])
     return response
+
+
+class DiscountedProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Get discounted product
+    """
+    def get_queryset(self):
+        qs = Product.objects.filter(product_type=1)
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
+        return qs

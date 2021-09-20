@@ -57,8 +57,9 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload,
-                    get_discounted_product_price_sample_csv, franchise_po_fail_status)
+                    packing_material_inventory_sample_upload, HSNAutocomplete, franchise_po_fail_status,
+                    discounted_product_price_csv_upload, get_discounted_product_price_sample_csv,
+)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -661,6 +662,28 @@ class ParentProductAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Download CSV of Selected Objects"
+
+    def get_list_display(self, request):
+        default_list_display = super(ParentProductAdmin, self).get_list_display(request)
+
+        def add_zone_link(obj):
+            # if request.user.is_superuser:
+            #     return format_html(
+            #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
+            #         % (600, obj.pk))
+            # if request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            #     return format_html(
+            #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
+            #         % (600, obj.pk))
+            if not obj.product_zones.exists():
+                return format_html(
+                    "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>" % (600, obj.pk))
+            else:
+                return '-'
+
+        add_zone_link.short_description = 'Add Zone'
+
+        return default_list_display + [add_zone_link]
 
     def get_urls(self):
         from django.conf.urls import url

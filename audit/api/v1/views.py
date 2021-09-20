@@ -384,7 +384,8 @@ class AuditEndView(APIView):
         batches_audited = AuditRunItem.objects.filter(audit_run=audit_run, bin__bin_id=bin_id)\
                                               .values_list('batch_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, bin__bin_id=bin_id,
-                                            inventory_type__in=inv_type_list)
+                                            inventory_type__in=inv_type_list,
+                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
         for bi in bi_qs:
             if bi.batch_id in batches_audited:
                 continue
@@ -411,7 +412,8 @@ class AuditEndView(APIView):
         bins_audited = AuditRunItem.objects.filter(audit_run=audit_run, sku=sku)\
                                            .values_list('bin_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, sku_id=sku,
-                                            inventory_type__in=inv_type_list)
+                                            inventory_type__in=inv_type_list,
+                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
         for bi in bi_qs:
             if bi.bin_id in bins_audited:
                 continue
@@ -501,6 +503,7 @@ class AuditBinsBySKUList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         product_image = get_product_image(product)
         bin_ids = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                                              sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                               warehouse=audit.warehouse, sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
         bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit, sku=audit_sku)\
@@ -658,7 +661,8 @@ class AuditInventory(APIView):
                         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
                     elif qty > current_inventory[inv_type]:
                         add_on_qty = qty - current_inventory[inv_type]
-                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty)
+                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty,
+                                                           inventory_type)
                         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
 
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
@@ -762,6 +766,7 @@ class AuditInventory(APIView):
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
         inv_type_list = [normal_type, damaged_type, expired_type]
         bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin=bin, batch_id=batch_id,
+                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                                     inventory_type__in=inv_type_list) \
                                             .values('inventory_type__inventory_type', 'quantity', 'to_be_picked_qty')
         bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity']+g['to_be_picked_qty'] for g in bin_inventory}
@@ -779,7 +784,8 @@ class AuditInventory(APIView):
 
     def get_pickup_blocked_quantity(self, warehouse, batch_id, bin, inventory_type):
         bin_inv_qs = BinInventory.objects.filter(warehouse=warehouse, bin_id=bin, batch_id=batch_id,
-                                                 inventory_type=inventory_type)
+                                                 inventory_type=inventory_type,
+                                                 sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
         if not bin_inv_qs.exists():
             return 0
         return bin_inv_qs.last().to_be_picked_qty
@@ -810,8 +816,11 @@ class AuditInventory(APIView):
         """
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
-        pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, batch_id=batch_id, bin__bin_id=bin,
-                                                          pickup__status__in=['pickup_creation', 'picking_assigned']).order_by('id')
+        pickup_bin_qs = PickupBinInventory.objects.select_for_update()\
+                                                  .filter(warehouse=warehouse, batch_id=batch_id,
+                                                          bin__bin_id=bin,
+                                                          pickup__status__in=['pickup_creation',
+                                                                              'picking_assigned']).order_by('id')
 
         with transaction.atomic():
             for pb in pickup_bin_qs:
@@ -865,7 +874,7 @@ class AuditInventory(APIView):
             info_logger.info('AuditInventory | update_inventory | IN entry done ')
 
     @transaction.atomic
-    def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added):
+    def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added, inventory_type):
 
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | started ')
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
@@ -873,6 +882,7 @@ class AuditInventory(APIView):
 
         # Get all the pickup entries where picklist quantity is less than ordered quantity
         pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, pickup__sku=sku,
+                                                          pickup__inventory_type=inventory_type,
                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])\
                                                   .values('pickup_id', 'pickup__inventory_type_id', 'pickup__quantity')\
                                                   .annotate(pickup_bin_inventory_qty=Sum('quantity'))\
