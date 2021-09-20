@@ -1047,7 +1047,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects. \
+    queryset = Putaway.objects.filter(putaway_type='GRN'). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user', 'inventory_type'). \
         prefetch_related('sku__product_pro_image'). \
@@ -1057,15 +1057,16 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
                  zone_id=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner',
-             'warehouse__shop_type__shop_sub_type__retailer_type_name', 'warehouse__shop_owner__first_name',
-             'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'putaway_user__id',
-             'putaway_user__first_name', 'putaway_user__last_name', 'putaway_user__phone_number', 'inventory_type__id',
-             'inventory_type__inventory_type', 'sku', 'sku__id', 'sku__product_sku', 'sku__product_name', 'batch_id',
-             'quantity', 'putaway_quantity', 'status', 'putaway_type', 'putaway_type_id', 'grn_id', 'zone_id',
-             'created_at', 'modified_at',). \
         order_by('-id')
+        # only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+        #      'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner',
+        #      'warehouse__shop_type__shop_sub_type__retailer_type_name', 'warehouse__shop_owner__first_name',
+        #      'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'putaway_user__id',
+        #      'putaway_user__first_name', 'putaway_user__last_name', 'putaway_user__phone_number', 'inventory_type__id',
+        #      'inventory_type__inventory_type', 'sku', 'sku__id', 'sku__product_sku', 'sku__product_name', 'batch_id',
+        #      'quantity', 'putaway_quantity', 'status', 'putaway_type', 'putaway_type_id', 'grn_id', 'zone_id',
+        #      'created_at', 'modified_at',). \
+        # order_by('-id')
     serializer_class = PutawaySerializers
 
     def get(self, request):
@@ -1114,7 +1115,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         putaways_reflected = copy.copy(putaway_instances)
         if putaway_instances.last().putaway_user == putaway_user:
             return get_response("Selected putaway user already assigned.")
-        putaway_instances.update(putaway_user=putaway_user)
+        putaway_instances.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
         serializer = self.serializer_class(putaways_reflected, many=True)
         info_logger.info("Putaways Updated Successfully.")
         return get_response('putaways updated successfully!', serializer.data)

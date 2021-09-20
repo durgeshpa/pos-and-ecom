@@ -7,6 +7,7 @@ import codecs
 import itertools
 from math import floor
 
+from dal import autocomplete
 from openpyxl import Workbook
 from openpyxl.writer.excel import save_virtual_workbook
 
@@ -19,6 +20,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
+from accounts.models import User
 from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from barCodeGenerator import barcodeGen
 # django imports
@@ -2510,3 +2512,32 @@ class QCAreaBarcodeGenerator(APIView):
         qcarea_data = {area_barcode_txt: {"qty": 1, "data": {"QC Area": qcarea.area_id}}}
         return merged_barcode_gen(qcarea_data)
 
+
+class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Putaway')).exclude(putaway_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+        return qs
+
+
+class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Picker Boy')).exclude(picker_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+        return qs

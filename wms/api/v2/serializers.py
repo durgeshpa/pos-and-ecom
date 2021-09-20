@@ -248,7 +248,8 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             if len(self.initial_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
                 raise serializers.ValidationError(
                     "Maximum " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " putaway users are allowed.")
-            putaway_users = get_validate_putaway_users(self.initial_data['putaway_users'])
+            putaway_users = get_validate_putaway_users(
+                self.initial_data['putaway_users'], self.initial_data['warehouse'])
             if 'error' in putaway_users:
                 raise serializers.ValidationError((putaway_users["error"]))
             data['putaway_users'] = putaway_users['putaway_users']
@@ -259,7 +260,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             if len(self.initial_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
                 raise serializers.ValidationError(
                     "Maximum " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " putaway users are allowed.")
-            picker_users = get_validate_picker_users(self.initial_data['picker_users'])
+            picker_users = get_validate_picker_users(self.initial_data['picker_users'], self.initial_data['warehouse'])
             if 'error' in picker_users:
                 raise serializers.ValidationError((picker_users["error"]))
             data['picker_users'] = picker_users['picker_users']
