@@ -2283,3 +2283,4 @@ def post_picking_order_update(picker_dashboard_instance):
                 picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
             else:
                 picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'
+            picker_dashboard_instance.order.save()
