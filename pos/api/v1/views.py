@@ -1339,6 +1339,11 @@ class ShopSpecificationView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        return api_response("", {"enable_online_inventory": shop.online_inventory_enabled}, status.HTTP_200_OK, True)
+
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         # Enable inventory for online orders
         enable_online_inventory = self.request.data.get('enable_online_inventory', None)
