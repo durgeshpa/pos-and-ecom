@@ -125,7 +125,8 @@ class PutawayCommonFunctions(object):
     def get_suggested_bins_for_putaway(cls, warehouse, sku, batch_id, inventory_type):
         """ Returns the Bins suggested where the given SKU can be kept"""
         suggested_bins = set()
-        queryset = BinInventory.objects.filter(warehouse=warehouse, inventory_type=inventory_type, sku=sku)
+        zone = WarehouseAssortmentCommonFunction.get_product_zone(warehouse, sku)
+        queryset = BinInventory.objects.filter(warehouse=warehouse, bin__zone=zone, inventory_type=inventory_type, sku=sku)
         if queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), batch_id=batch_id).exists():
             bin_list = queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0),sku=sku, batch_id=batch_id)\
                                .values_list('bin__bin_id', flat=True).distinct('bin')[:3]
