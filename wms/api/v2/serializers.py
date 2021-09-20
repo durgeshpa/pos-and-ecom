@@ -1001,7 +1001,6 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
 
         return data
 
-
     @transaction.atomic
     def update(self, instance, validated_data):
         try:
@@ -1070,7 +1069,6 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
 class PutawayActionSerializer(PutawayItemsCrudSerializer):
     """Serializer for PerformPutawayView"""
 
-
     def validate(self, data):
         if 'id' in self.initial_data and self.initial_data['id']:
             try:
@@ -1114,7 +1112,6 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
             raise serializers.ValidationError("'putaway' | This is mandatory")
         return data
 
-
     @transaction.atomic
     def update(self, instance, validated_data):
         """
@@ -1134,7 +1131,6 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return putaway_instance
-
 
     def post_putaway_data_update(self, putaway_instance, putaway_bin_data):
         """

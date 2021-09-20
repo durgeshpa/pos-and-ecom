@@ -946,9 +946,8 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         if created_at:
             try:
                 created_at = datetime.strptime(created_at, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(
-                    grn_id=Subquery(GRNOrder.objects.filter(
-                        created_at__date=created_at.date()).order_by('-grn_id').values('grn_id')[:1]))
+                grn_ids = GRNOrder.objects.filter(created_at__date=created_at).values_list('grn_id', flat=True)
+                self.queryset = self.queryset.filter(grn_id__in=grn_ids)
             except Exception as e:
                 error_logger.error(e)
 
