@@ -120,3 +120,18 @@ def check_whc_manager_coordinator_supervisor_putaway(view_func):
             return view_func(self, request, *args, **kwargs)
         return get_response("Logged In user does not have required permission to perform this action.")
     return _wrapped_view_func
+
+
+def check_picker(view_func):
+    """
+        Decorator to validate putaway user request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.groups.filter(name='Picker Boy').exists():
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func

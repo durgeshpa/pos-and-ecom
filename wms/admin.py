@@ -1058,7 +1058,7 @@ class WarehouseAssortmentAdmin(admin.ModelAdmin):
 class QCAreaAdmin(admin.ModelAdmin):
     form = QCAreaForm
     list_display = ('area_id', 'warehouse', 'area_type', 'is_active','area_barcode_txt', 'download_area_barcode')
-    search_fields = ('area_id',)
+    search_fields = ('area_id', 'area_barcode_txt')
     list_filter = [Warehouse, ('area_type', DropdownFilter),]
     list_per_page = 50
     def save_model(self, request, obj, form, change):

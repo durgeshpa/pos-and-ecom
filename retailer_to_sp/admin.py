@@ -799,7 +799,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy', 'zone',
+        'picklist', 'picking_status', 'picker_boy', 'zone', 'qc_area',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']

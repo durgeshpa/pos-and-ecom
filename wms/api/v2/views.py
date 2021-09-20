@@ -18,6 +18,7 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from gram_to_brand.models import GRNOrder
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
+from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
@@ -26,8 +27,7 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, ZonePickerUserAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway
-# Logger
+    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -35,9 +35,9 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
-    PostLoginUserSerializers, PutawayActionSerializer, ZonePickerAssignmentsCrudSerializers
-
+    PostLoginUserSerializers, PutawayActionSerializer, ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer
 from ...views import pickup_entry_creation_with_cron
+
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1276,3 +1276,29 @@ class PickupEntryCreationView(generics.GenericAPIView):
         """ GET User Details post login """
         pickup_entry_creation_with_cron()
         return get_response("", {}, True)
+
+
+class UpdateQCAreaView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = AllocateQCAreaSerializer
+    queryset = PickerDashboard.objects.all()
+
+    @check_picker
+    def put(self, request):
+        """ PUT API for picker dashboard """
+        modified_data = validate_data_format(self.request)
+        modified_data['warehouse'] = request.user.shop_employee.last().shop_id
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        picking_dashboard_entry = PickerDashboard.objects.filter(id=int(modified_data['id']),
+                                                                 picker_boy=request.user.id).last()
+        if not picking_dashboard_entry:
+            return get_response('Pickling is not assigned to the logged in user.')
+        serializer = self.serializer_class(instance=picking_dashboard_entry, data=modified_data)
+        if serializer.is_valid():
+            picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Picking Updated Successfully!', picking_dashboard_entry.data)
+        return get_response(serializer_error(serializer), False)

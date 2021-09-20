@@ -12,12 +12,11 @@ from rest_framework.response import Response
 
 # django imports
 from django import forms
-from django.db.models import Sum, Q, ExpressionWrapper, F, IntegerField
+from django.db.models import Sum, Q
 from django.db import transaction
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
-from global_config.models import GlobalConfig
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
@@ -2274,3 +2273,13 @@ class WarehouseAssortmentCommonFunction(object):
         if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).exists():
             zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
         return zone
+
+def post_picking_order_update(picker_dashboard_instance):
+
+    if picker_dashboard_instance.picking_status == 'moved_to_qc':
+        if picker_dashboard_instance.order.order_status in ['picking_complete', 'PICKING_PARTIAL_COMPLETE']:
+            if picker_dashboard_instance.order.picker_order.exclude(picking_status__in=['moved_to_qc',
+                                                                    'picking_cancelled']).exists():
+                picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
+            else:
+                picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'

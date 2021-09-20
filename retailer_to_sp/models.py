@@ -29,8 +29,8 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
 
 from addresses.models import Address
-from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, \
-    InventoryState, Bin, Zone
+
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
 from brand.models import Brand
@@ -880,6 +880,8 @@ class Order(models.Model):
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
     PICKING_PARTIAL_COMPLETE = 'PICKING_PARTIAL_COMPLETE'
+    MOVED_TO_QC = 'MOVED_TO_QC'
+    PARTIAL_MOVED_TO_QC = 'PARTIAL_MOVED_TO_QC'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
@@ -911,6 +913,8 @@ class Order(models.Model):
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (COMPLETED, 'Completed'),
         (PICKING_PARTIAL_COMPLETE, 'Picking Partial Complete'),
+        (MOVED_TO_QC, 'Moved To QC Area'),
+        (PARTIAL_MOVED_TO_QC, 'Partially Moved To QC Area'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
@@ -1843,6 +1847,7 @@ class PickerDashboard(models.Model):
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
         ('picking_cancelled', 'Picking Cancelled'),
+        ('moved_to_qc', 'Moved To QC Area'),
 
     )
 
@@ -1862,11 +1867,13 @@ class PickerDashboard(models.Model):
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
     zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_dashboard_zone', on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, null=True, blank=True, related_name='area_pickings', on_delete=models.DO_NOTHING)
     is_valid = models.BooleanField(default=True)
     refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
+    moved_to_qc_at = models.DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)

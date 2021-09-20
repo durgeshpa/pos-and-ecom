@@ -15,13 +15,15 @@ from rest_framework import serializers
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
+from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, post_picking_order_update
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState, ZonePickerUserAssignmentMapping
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState, ZonePickerUserAssignmentMapping,\
+    QCArea
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
@@ -1205,3 +1207,104 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
                                                         True,  weight)
         putaway_instance.putaway_quantity = putaway_quantity
         return putaway_instance
+
+
+class QCAreaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QCArea
+        fields = ('id', 'area_id', 'area_type')
+
+
+class PicklistSerializer(serializers.ModelSerializer):
+
+    picker_status = serializers.SerializerMethodField('picker_status_dt')
+    order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
+    picking_completed_time = serializers.SerializerMethodField('get_completed_time')
+    order_no = serializers.SerializerMethodField()
+    qc_area = QCAreaSerializer()
+
+    def picker_status_dt(self, obj):
+        return str(obj.picking_status).lower()
+
+    def get_order_create_date(self, obj):
+        return obj.order.created_at.strftime("%d-%m-%Y")
+
+    def m_delivery_location(self, obj):
+        return obj.order.shipping_address.city.city_name
+
+    def get_assigned_time(self, obj):
+        try:
+            return obj.picker_assigned_date.strftime('%b %d, %H:%M')
+        except:
+            return None
+
+    def get_completed_time(self, obj):
+        return obj.completed_at.strftime('%b %d, %H:%M') if obj.completed_at else None
+
+    def get_order_no(self, obj):
+        return obj.order.order_no
+
+    # def get_qc_area(self, obj):
+    #     return QCAreaSerializer(obj.qc_area)
+
+    class Meta:
+        model = PickerDashboard
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area')
+
+
+class AllocateQCAreaSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = PickerDashboard
+        fields = ('id', 'picking_status', 'qc_area_id')
+
+    def validate(self, data):
+        if 'id' in self.initial_data and self.initial_data['id']:
+            try:
+                picker_dashboard_instance = PickerDashboard.objects.get(id=self.initial_data['id'])
+            except Exception as e:
+                raise serializers.ValidationError("Invalid Picking Entry")
+            if picker_dashboard_instance.picking_status not in ['picking_complete', 'moved_to_qc']:
+                raise serializers.ValidationError('This picking is not yet completed')
+
+            data['picking_entry'] = picker_dashboard_instance
+
+            if 'qc_area' in self.initial_data and self.initial_data['qc_area']:
+                qc_area = QCArea.objects.filter(area_id=self.initial_data['qc_area'],
+                                                warehouse_id=self.initial_data['warehouse']).last()
+                if not qc_area:
+                    raise serializers.ValidationError('Invalid QC Area')
+
+                qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
+                                                                 order=picker_dashboard_instance.order)\
+                                                         .exclude(id=picker_dashboard_instance.id).last()
+                if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
+                    raise serializers.ValidationError(f"Invalid QC Area| QcArea alloted for this order is"
+                                                      f" {qc_area_alloted.qc_area}")
+                data['qc_area'] = qc_area
+            else:
+                raise serializers.ValidationError("'qc_area' | This is mandatory")
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory")
+        return data
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        @param instance: PickerDashboard model instance
+        @param validated_data: dict object
+        @return: AllocateQCAreaSerializer serializer object
+        """
+        try:
+            validated_data['picking_status'] = 'moved_to_qc'
+            picker_dashboard_instance = super().update(instance, validated_data)
+            post_picking_order_update(instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return picker_dashboard_instance
+

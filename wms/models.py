@@ -678,6 +678,9 @@ class QCArea(BaseTimestampUserModel):
     area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     is_active = models.BooleanField()
 
+    def __str__(self):
+        return self.area_id
+
     def save(self, *args, **kwargs):
 
         if not self.id:
