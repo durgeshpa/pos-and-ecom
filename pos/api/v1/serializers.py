@@ -2444,7 +2444,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosReturnGRNOrder
         fields = ('id', 'pr_number', 'po_no', 'grn_ordered_id', 'grn_id', 'grn_product_return', 'status',
-                  'last_modified_by', 'debit_note_number', 'debit_note')
+                  'last_modified_by', 'debit_note_number', 'debit_note', 'created_at', 'modified_at')
 
     def validate(self, data):
         shop = self.context.get('shop')
@@ -2661,3 +2661,10 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                           grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN)
             # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
             PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        if representation['modified_at']:
+            representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
+        return representation
