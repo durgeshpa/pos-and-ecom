@@ -959,7 +959,7 @@ def pickup_entry_creation_with_cron():
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(
-        order_status='ordered', order_closed=False, created_at__lt=current_time, created_at__gt=start_time) \
+         order_status='ordered', order_closed=False, created_at__lt=current_time, created_at__gt=start_time) \
         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
 
     if order_obj.count() == 0:

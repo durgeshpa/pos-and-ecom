@@ -1247,11 +1247,11 @@ class PicklistSerializer(serializers.ModelSerializer):
         return obj.order.order_no
 
     def get_qc_area(self, obj):
-        qc_area = obj.qc_area if obj.qc_area else None
+        qc_area = obj.qc_area.area_id if obj.qc_area else None
         if not qc_area:
-            qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area \
+            qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area.area_id \
                 if obj.order.picker_order.filter(qc_area__isnull=False).exists() else None
-        return qc_area.area_id
+        return qc_area
 
     class Meta:
         model = PickerDashboard
