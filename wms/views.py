@@ -2227,15 +2227,28 @@ def assign_putaway_users_to_new_putways():
 
     grouped_objs = objs.values('grn_id', 'zone').annotate(count=Count('grn_id')).order_by()
     for i, x in enumerate(grouped_objs):
-        zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
-            zone=x['zone'], last_assigned_at=None).last()
-        if not zone_putaway_assigned_user:
-            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
-                order_by('-last_assigned_at').last()
-        if zone_putaway_assigned_user:
-            putaway_user = zone_putaway_assigned_user.user
-            zone_putaway_assigned_user.last_assigned_at = datetime.now()
-            zone_putaway_assigned_user.save()
+        putaway_obj = Putaway.objects.filter(
+            putaway_type='GRN', status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED). \
+            annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
+                    grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
+                                    order_by('-in_type_id').values('in_type_id')[:1]),
+                    zone=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                    ). \
+            filter(grn_id=x['grn_id'], zone=x['zone'])
+        if putaway_obj:
+            putaway_user = putaway_obj.last().putaway_user
+        else:
+            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
+                zone=x['zone'], last_assigned_at=None).last()
+            if not zone_putaway_assigned_user:
+                zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
+                    order_by('-last_assigned_at').last()
+            if zone_putaway_assigned_user:
+                putaway_user = zone_putaway_assigned_user.user
+                zone_putaway_assigned_user.last_assigned_at = datetime.now()
+                zone_putaway_assigned_user.save()
+        if putaway_user:
             reflected_putaways = objs.filter(grn_id=x['grn_id'], zone=x['zone'])
             reflected_list = list(reflected_putaways.values_list('id', flat=True))
             reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
