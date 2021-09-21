@@ -737,6 +737,8 @@ class CancelPutawayCrudView(generics.GenericAPIView):
         putaway_instance = id_validation['data'].last()
         if putaway_instance.status == str(Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED):
             return get_response("Putaway already cancelled for id: " + str(putaway_instance.pk))
+        else:
+            putaway_instance.status = Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED
 
         serializer = self.serializer_class(
             instance=putaway_instance, data=PutawayModelSerializer(putaway_instance).data)
