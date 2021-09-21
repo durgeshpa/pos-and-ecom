@@ -4,10 +4,11 @@ import csv
 import re
 from itertools import chain
 
-from django.db import transaction
+from django.db import transaction, models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Subquery, OuterRef, Count
+from django.db.models.functions import Cast
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -935,6 +936,95 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
 
     def get_grn_id(self, obj):
         return GRNOrderSerializers(GRNOrder.objects.get(grn_id=obj['grn_id']), read_only=True).data
+
+
+class StatusCountSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class POSummarySerializers(serializers.Serializer):
+    po_no = serializers.CharField()
+    status_count = serializers.SerializerMethodField()
+    total_items = serializers.IntegerField()
+
+    def get_status_count(self, obj):
+        if obj['po_no']:
+            status_data = Putaway.objects.filter(putaway_type='GRN'). \
+                annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
+                         po_no=Subquery(GRNOrder.objects.filter(grn_id=Subquery(In.objects.filter(
+                             id=OuterRef(OuterRef('putaway_type_id_key'))).order_by(
+                             '-in_type_id').values('in_type_id')[:1])).order_by('-order__order_no').values(
+                             'order__order_no')[:1])
+                         ). \
+                exclude(status__isnull=True). \
+                filter(po_no=obj['po_no']). \
+                values('status').annotate(count=Count('status')).order_by('-status')
+            return StatusCountSerializer(status_data, read_only=True, many=True).data
+        return []
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        status_list = []
+        pending = 0
+        completed = 0
+        cancelled = 0
+        if representation['status_count']:
+            for obj in representation['status_count']:
+                if obj['status'] in [Putaway.COMPLETED]:
+                    completed += obj['count']
+                elif obj['status'] in [Putaway.NEW, Putaway.ASSIGNED, Putaway.INITIATED]:
+                    pending += obj['count']
+                elif obj['status'] in [Putaway.CANCELLED]:
+                    cancelled += obj['count']
+        status_list.append(StatusCountSerializer({"count": completed, "status": "COMPLETED"}, read_only=True).data)
+        status_list.append(StatusCountSerializer({"count": pending, "status": "PENDING"}, read_only=True).data)
+        status_list.append(StatusCountSerializer({"count": cancelled, "status": "CANCELLED"}, read_only=True).data)
+        representation['status_count'] = status_list
+        return representation
+
+
+class ZonewiseSummarySerializers(serializers.Serializer):
+    total_items = serializers.IntegerField()
+    status_count = serializers.SerializerMethodField()
+    zone = serializers.SerializerMethodField()
+
+    def get_zone(self, obj):
+        if obj['zone']:
+            return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
+        return None
+
+    def get_status_count(self, obj):
+        if obj['zone']:
+            status_data = Putaway.objects.filter(putaway_type='GRN'). \
+                annotate(zone=Subquery(WarehouseAssortment.objects.filter(
+                warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                         ). \
+                exclude(status__isnull=True). \
+                filter(zone=obj['zone']). \
+                values('status').annotate(count=Count('status')).order_by('-status')
+            return StatusCountSerializer(status_data, read_only=True, many=True).data
+        return []
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        status_list = []
+        pending = 0
+        completed = 0
+        cancelled = 0
+        if representation['status_count']:
+            for obj in representation['status_count']:
+                if obj['status'] in [Putaway.COMPLETED]:
+                    completed += obj['count']
+                elif obj['status'] in [Putaway.NEW, Putaway.ASSIGNED, Putaway.INITIATED]:
+                    pending += obj['count']
+                elif obj['status'] in [Putaway.CANCELLED]:
+                    cancelled += obj['count']
+        status_list.append(StatusCountSerializer({"count": completed, "status": "COMPLETED"}, read_only=True).data)
+        status_list.append(StatusCountSerializer({"count": pending, "status": "PENDING"}, read_only=True).data)
+        status_list.append(StatusCountSerializer({"count": cancelled, "status": "CANCELLED"}, read_only=True).data)
+        representation['status_count'] = status_list
+        return representation
 
 
 class PutawayItemsCrudSerializer(serializers.ModelSerializer):
