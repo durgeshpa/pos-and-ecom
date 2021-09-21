@@ -966,11 +966,12 @@ def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefi
                 mrp = i.pickup.sku.product_mrp
             else:
                 mrp = '-'
+            zone = i.pickup.zone.zone_no if i.pickup.zone else '-'
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
-                         "bin": bin_id}
+                         "bin": bin_id, "zone": zone}
             data_list.append(prod_list)
 
         if obj_type == 'repackaging':

@@ -268,11 +268,13 @@ def order_picklist(order_id, zone_id=None):
             mrp = i.pickup.sku.product_mrp
         else:
             mrp = '-'
+        zone = i.pickup.zone.zone_number if i.pickup.zone else '-'
         # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
         qty = i.quantity
         batch_id = i.batch_id
         bin_id = i.bin.bin.bin_id
-        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
+        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id,
+                     "zone": zone}
         data_list.append(prod_list)
     pdf_data['data'] = {
         "data_list": data_list,
@@ -282,7 +284,8 @@ def order_picklist(order_id, zone_id=None):
         "buyer_shipping_city": order.shipping_address.city.city_name,
         "barcode": barcode,
         "order_obj": order,
-        "type": 'Order'
+        "type": 'Order',
+        "zone": zone
     }
     pdf_data['filename'] = 'picklist.pdf'
 
@@ -309,8 +312,9 @@ def repackaging_picklist(repackaging_id, zone_id=None):
         qty = i.quantity
         batch_id = i.batch_id
         bin_id = i.bin.bin.bin_id
+        zone = i.pickup.zone.zone_number if i.pickup.zone else '-'
         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
-                     "bin": bin_id}
+                     "bin": bin_id, "zone":zone}
         data_list.append(prod_list)
     pdf_data['data'] = {
         "data_list": data_list,
