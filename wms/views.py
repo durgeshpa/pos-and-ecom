@@ -1024,14 +1024,17 @@ def pickup_entry_creation_with_cron():
                             picker_user = zone_picker_assigned_user.user
                             zone_picker_assigned_user.last_assigned_at = datetime.now()
                             zone_picker_assigned_user.save()
+                            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                            PickerDashboard.objects.create(
+                                order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
                         else:
-                            picker_user = None
                             order.order_status = Order.PICKUP_CREATED
                             cron_logger.info('Picker user not found for zone {}'.format(zone_id))
-                        # Create Entry in PickerDashboard
-                        PickerDashboard.objects.create(
-                            order=order, picking_status="picking_pending", zone_id=zone_id,
-                            picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                            # Create Entry in PickerDashboard with PICKING_PENDING status
+                            PickerDashboard.objects.create(
+                                order=order, picking_status="picking_pending", zone_id=zone_id,
+                                picker_boy=None, picklist_id=generate_picklist_id(pincode))
                         cron_logger.info(
                             'picker dashboard entry created for order {} & zone {}, order status updated to {}'
                                 .format(order.id, zone_id, order.PICKUP_CREATED))
