@@ -284,8 +284,7 @@ def order_picklist(order_id, zone_id=None):
         "buyer_shipping_city": order.shipping_address.city.city_name,
         "barcode": barcode,
         "order_obj": order,
-        "type": 'Order',
-        "zone": zone
+        "type": 'Order'
     }
     pdf_data['filename'] = 'picklist.pdf'
 
