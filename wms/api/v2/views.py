@@ -943,7 +943,10 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_user=putaway_user)
 
         if status:
-            self.queryset = self.queryset.filter(status=status)
+            if status == Putaway.ASSIGNED:
+                self.queryset = self.queryset.filter(status__in=[Putaway.ASSIGNED, Putaway.INITIATED])
+            else:
+                self.queryset = self.queryset.filter(status=status)
 
         if created_at:
             try:
@@ -1167,7 +1170,7 @@ class PerformPutawayView(generics.GenericAPIView):
         # validations for assigned putaway user
         id_validation = validate_putaway_user_against_putaway(int(modified_data['id']), request.user.id)
         if 'error' in id_validation:
-            return get_response(id_validation['error'])
+            return get_response(id_validation['error'], modified_data)
         putaway_instance = id_validation['data']
         serializer = self.serializer_class(instance=putaway_instance, data=modified_data)
         if serializer.is_valid():
