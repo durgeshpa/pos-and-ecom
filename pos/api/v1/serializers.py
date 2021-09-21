@@ -2154,12 +2154,12 @@ class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
             Received amount for product
         """
         picked_qty = self.get_picked_qty(obj)
-        return obj.selling_price * obj.qty if picked_qty else None
+        return obj.selling_price * picked_qty if picked_qty else None
 
     class Meta:
         model = CartProductMapping
-        fields = ('retailer_product', 'selling_price', 'qty', 'picked_qty', 'product_subtotal', 'product_invoice_subtotal',
-                  'rt_return_ordered_product')
+        fields = ('retailer_product', 'selling_price', 'qty', 'picked_qty', 'product_subtotal',
+                  'product_invoice_subtotal', 'rt_return_ordered_product')
 
 
 class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
