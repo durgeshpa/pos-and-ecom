@@ -97,8 +97,7 @@ class TopSKUSerializer(serializers.ModelSerializer):
     products = serializers.SerializerMethodField()
 
     def get_products(self, obj):
-        top_sku = obj.offer_top_sku.all().values('product__id',flat=True)
-        print(top_sku)
+        top_sku = obj.offer_top_sku.all().values_list('product__id', flat=True)
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         shop_products_dict = get_stock(obj.shop, type_normal, top_sku)
         prd = [k for k,v in shop_products_dict.items() if v > 0]
