@@ -130,6 +130,12 @@ class TopSKU(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
 
+class TopSKUProduct(models.Model):
+    top_sku = models.ForeignKey(TopSKU, on_delete=models.CASCADE, related_name='offer_top_sku')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='top_sku_product')
+
+    def __str__(self):
+        return self.top_sku.shop.shop_name + ' ' + self.product.product_name
 
 class OfferLog(models.Model):
     action = models.CharField(max_length=50, null=True, blank=True)
