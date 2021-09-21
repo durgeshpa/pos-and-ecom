@@ -413,7 +413,7 @@ CRONJOBS = [
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
-    ('*/10 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
+    ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
