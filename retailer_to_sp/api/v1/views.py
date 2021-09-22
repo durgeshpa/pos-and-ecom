@@ -1369,7 +1369,7 @@ class CartCentral(GenericAPIView):
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
-                cart_mapping.selling_price = product.selling_price
+                cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()

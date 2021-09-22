@@ -252,7 +252,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted', 'image')
+        fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -2153,7 +2153,7 @@ class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
             Received amount for product
         """
         picked_qty = self.get_picked_qty(obj)
-        return obj.selling_price * obj.qty if picked_qty else None
+        return obj.selling_price * picked_qty if picked_qty else None
 
     class Meta:
         model = CartProductMapping
