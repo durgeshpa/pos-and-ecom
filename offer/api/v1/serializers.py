@@ -254,6 +254,8 @@ class TopSKUSerializers(serializers.ModelSerializer):
         top_sku = obj.offer_top_sku.all().values('product__id')
         products = Product.objects.filter(id__in = top_sku)
         data = ProductSerializers(products, many=True).data
+        top_sku= TopSKU.objects.filter(shop=obj.shop).exclude(id=obj.id)
+        top_sku.update(status=False)
         return data
 
     
