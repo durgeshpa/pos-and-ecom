@@ -1229,7 +1229,6 @@ class POSummaryView(generics.GenericAPIView):
         """ GET API for Putaways po summary """
         info_logger.info("Putaway PO Summary GET api called.")
         """ GET Putaway PO Summary List """
-        # self.queryset = self.get_queryset()
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_po_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
