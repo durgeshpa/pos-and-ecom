@@ -670,17 +670,15 @@ class ProductPrice(models.Model):
                 brand_discount = Discount.objects.filter(
                     brand=product_brand, is_active=True, end_date__gte=datetime.date.today()).last()
                 if brand_discount and product.product_mrp > brand_discount.start_price and product.product_mrp < brand_discount.end_price:
-                    brand_discount_value = round(
-                        ((brand_discount.discount_value.discount_value / 100) * 1 * float(selling_price)), 2)
+                    brand_discount_value = ((brand_discount.discount_value.discount_value / 100) * float(1) * float(selling_price), 2)[0]
                 product_category_mapping = product.parent_product.parent_product_pro_category.last()
                 if product_category_mapping:
                     product_category = product_category_mapping.category
                     category_discount = Discount.objects.filter(
                         category=product_category, is_active=True, end_date__gte=datetime.date.today()).last()
                     if category_discount and product.product_mrp > category_discount.start_price and product.product_mrp < category_discount.end_price:
-                        category_discount_value = round(
-                            ((category_discount.discount_value.discount_value / 100) * 1 * float(selling_price),
-                             2))
+                        category_discount_value =((category_discount.discount_value.discount_value / 100) * float(1) * float(selling_price),
+                             2)[0]
                 return (slab.ptr-brand_discount_value-category_discount_value)
         return 0
         
