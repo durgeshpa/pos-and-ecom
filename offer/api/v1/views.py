@@ -162,10 +162,10 @@ class GetTopSKUListView(APIView):
         if shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
-                data = TopSKU.objects.filter(start_date__lte=date, end_date__gte=date, status=True, shop=parent).exclude(offer_top_sku__isnull=True)
+                data = TopSKU.objects.filter(start_date__lte=date, end_date__gte=date, status=True, shop=parent).exclude(offer_top_sku__isnull=True).last()
                 is_success = True if data else False
                 message = "Top SKUs" if is_success else "No Top SKUs"
-                serializer = TopSKUSerializer(data, many=True)
+                serializer = TopSKUSerializer(data)
             else:
                 data = TopSKU.objects.filter(start_date__lte=date, end_date__gte=date, status=True, shop=None)
                 is_success = True if data else False
