@@ -753,7 +753,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
     """API view for Putaway"""
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURN']). \
+    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user',
                        'sku', 'sku__parent_product').\
