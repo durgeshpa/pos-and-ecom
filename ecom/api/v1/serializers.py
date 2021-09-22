@@ -280,9 +280,9 @@ class ProductSerializer(serializers.ModelSerializer):
     Serializer to get product details
     """
     image = serializers.SerializerMethodField()
-    selling_price = serializers.SerializerMethodField()
+    online_price = serializers.SerializerMethodField()
 
-    def get_selling_price(self, obj):
+    def get_online_price(self, obj):
         if obj.online_price:
             return obj.online_price
         else:
@@ -293,7 +293,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'mrp', 'selling_price', 'image')
+        fields = ('id', 'name', 'mrp', 'online_price', 'image')
 
 
 class TagProductSerializer(serializers.ModelSerializer):

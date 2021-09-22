@@ -2168,6 +2168,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     """
     order_summary = serializers.SerializerMethodField()
     return_summary = serializers.SerializerMethodField()
+    invoice_summary = serializers.SerializerMethodField()
     invoice_amount = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
     creation_date = serializers.SerializerMethodField()
@@ -2205,6 +2206,16 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         order_summary['payment_type'] = payment_obj.payment_type.type
         order_summary['transaction_id'] = payment_obj.transaction_id
         return order_summary
+
+    def get_invoice_summary(self, obj):
+        invoice_summary = dict()
+        invoice_summary['invoice_value'] = obj.invoice_subtotal()
+        invoice_summary['invoice_amount'], invoice_summary['invoice_discount'] = None, None
+        if invoice_summary['invoice_value']:
+            invoice_summary['invoice_amount'] = self.get_invoice_amount(obj)
+            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - invoice_summary[
+                'invoice_amount'], 2)
+        return invoice_summary
 
     @staticmethod
     def get_return_summary(obj):
@@ -2333,6 +2344,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
+                  'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
                   'order_status_display')
 

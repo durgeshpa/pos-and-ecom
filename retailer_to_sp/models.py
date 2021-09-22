@@ -1581,6 +1581,12 @@ class OrderedProduct(models.Model):  # Shipment
                     _("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def invoice_subtotal(self):
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=RoundAmount(Sum(F('selling_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
+
+    @property
     def invoice_amount(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
