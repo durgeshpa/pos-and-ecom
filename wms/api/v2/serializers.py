@@ -934,8 +934,8 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
             return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
         return None
 
-    def get_grn_id(self, obj):
-        return GRNOrderSerializers(GRNOrder.objects.get(grn_id=obj['grn_id']), read_only=True).data
+    # def get_grn_id(self, obj):
+    #     return obj['grn_id']
 
 
 class StatusCountSerializer(serializers.Serializer):

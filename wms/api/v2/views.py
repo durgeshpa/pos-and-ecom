@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication
@@ -901,14 +901,20 @@ class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
 class GroupedByGRNPutawaysView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type='GRN'). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
+    queryset = Putaway.objects. \
+        annotate(grn_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                 order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                 ),
                  zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
         exclude(zone__isnull=True). \
+        exclude(grn_id__isnull=True). \
         values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
@@ -917,6 +923,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         """ GET API for Putaways grouped by GRN """
         info_logger.info("Putaway GET api called.")
         """ GET Putaway List """
+
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_grouped_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
