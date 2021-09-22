@@ -1098,7 +1098,7 @@ class CartCentral(GenericAPIView):
             except ObjectDoesNotExist:
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
 
-            if self.request.GET.get("remove_unavailable"):
+            if self.request.GET.get("remove_unavailable") and cart.seller_shop.online_inventory_enabled:
                 PosCartCls.out_of_stock_items(cart.rt_cart_list.all(), self.request.GET.get("remove_unavailable"))
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
@@ -2958,10 +2958,11 @@ class OrderCentral(APIView):
         # check inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
-        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products, self.request.data.get("remove_unavailable"))
-        if out_of_stock_items and shop.online_inventory_enabled:
-            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
-                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+        if shop.online_inventory_enabled:
+            out_of_stock_items = PosCartCls.out_of_stock_items(cart_products, self.request.data.get("remove_unavailable"))
+            if out_of_stock_items:
+                return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                    False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         if not CartProductMapping.objects.filter(cart=cart).exists():
             return api_response("No items added to cart yet")
@@ -4579,14 +4580,15 @@ class CartStockCheckView(APIView):
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
-        out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
+        if shop.online_inventory_enabled:
+            out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
-        # Return error for out of stock items else return payment methods
-        if out_of_stock_items and shop.online_inventory_enabled:
-            return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
-                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
-        else:
-            return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+            # Return error for out of stock items
+            if out_of_stock_items and shop.online_inventory_enabled:
+                return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                    False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+        return api_response("Stock check completed", None, status.HTTP_200_OK, True)
 
 
 class OrderReturnComplete(APIView):
