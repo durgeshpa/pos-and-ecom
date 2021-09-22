@@ -260,7 +260,7 @@ class BannerImageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if instance.subcategory:
-            representation['subcategory_id'] = instance.subcategory
+            representation['subcategory_id'] = instance.subcategory.id
         elif instance.subbrand:
-            representation['subbrand_id'] = instance.subbrand
+            representation['subbrand_id'] = instance.subbrand.id
         return representation
