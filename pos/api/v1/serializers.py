@@ -2192,6 +2192,11 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return ordered_product.invoice_amount if ordered_product else None
 
     @staticmethod
+    def get_invoice_subtotal(obj):
+        ordered_product = OrderedProduct.objects.filter(order=obj).last()
+        return ordered_product.invoice_subtotal if ordered_product else None
+
+    @staticmethod
     def get_creation_date(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
@@ -2209,7 +2214,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
 
     def get_invoice_summary(self, obj):
         invoice_summary = dict()
-        invoice_summary['invoice_value'] = obj.invoice_subtotal()
+        invoice_summary['invoice_value'] = self.get_invoice_subtotal(obj)
         invoice_summary['invoice_amount'], invoice_summary['invoice_discount'] = None, None
         if invoice_summary['invoice_value']:
             invoice_summary['invoice_amount'] = self.get_invoice_amount(obj)
