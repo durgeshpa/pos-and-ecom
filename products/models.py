@@ -660,25 +660,27 @@ class ProductPrice(models.Model):
         """
         Returns the price applicable per piece
         """
-        brand_discount_value, category_discount_value = 0, 0
-        product = self.product
-        product_brand = product.product_brand
-        brand_discount = Discount.objects.filter(
-            brand=product_brand, is_active=True, end_date__gte=datetime.date.today()).last()
-        if brand_discount and product.product_mrp > brand_discount.start_price and product.product_mrp < brand_discount.end_price:
-            brand_discount_value = round(
-                ((brand_discount.discount_value.discount_value / 100) * 1 * float(product.product_mrp)), 2)
-        product_category_mapping = product.parent_product.parent_product_pro_category.last()
-        if product_category_mapping:
-            product_category = product_category_mapping.category
-            category_discount = Discount.objects.filter(
-                category=product_category, is_active=True, end_date__gte=datetime.date.today()).last()
-            if category_discount and product.product_mrp > category_discount.start_price and product.product_mrp < category_discount.end_price:
-                category_discount_value = round(
-                    ((category_discount.discount_value.discount_value / 100) * 1 * float(product.product_mrp), 2))
         slabs = self.price_slabs.all()
         for slab in slabs:
             if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
+                selling_price = slab.ptr
+                brand_discount_value, category_discount_value = 0, 0
+                product = self.product
+                product_brand = product.product_brand
+                brand_discount = Discount.objects.filter(
+                    brand=product_brand, is_active=True, end_date__gte=datetime.date.today()).last()
+                if brand_discount and product.product_mrp > brand_discount.start_price and product.product_mrp < brand_discount.end_price:
+                    brand_discount_value = round(
+                        ((brand_discount.discount_value.discount_value / 100) * 1 * float(selling_price)), 2)
+                product_category_mapping = product.parent_product.parent_product_pro_category.last()
+                if product_category_mapping:
+                    product_category = product_category_mapping.category
+                    category_discount = Discount.objects.filter(
+                        category=product_category, is_active=True, end_date__gte=datetime.date.today()).last()
+                    if category_discount and product.product_mrp > category_discount.start_price and product.product_mrp < category_discount.end_price:
+                        category_discount_value = round(
+                            ((category_discount.discount_value.discount_value / 100) * 1 * float(selling_price),
+                             2))
                 return (slab.ptr-brand_discount_value-category_discount_value)
         return 0
         
