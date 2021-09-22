@@ -915,7 +915,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                  ). \
         exclude(zone__isnull=True). \
         exclude(grn_id__isnull=True). \
-        values('grn_id', 'zone', 'putaway_user', 'status').annotate(total_items=Count('grn_id')).order_by('-grn_id')
+        values('grn_id', 'zone', 'putaway_user', 'status', 'putaway_type').annotate(total_items=Count('grn_id')).order_by('-grn_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
@@ -936,10 +936,11 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         grn_id = self.request.GET.get('grn_id')
         zone = self.request.GET.get('zone')
         putaway_user = self.request.GET.get('putaway_user')
+        putaway_type = self.request.GET.get('putaway_type')
         status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
 
-        '''Filters using grn_id, zone, putaway_user'''
+        '''Filters using grn_id, zone, putaway_user, putaway_type'''
         if grn_id:
             self.queryset = self.queryset.filter(grn_id=grn_id)
 
@@ -948,6 +949,9 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 
         if putaway_user:
             self.queryset = self.queryset.filter(putaway_user=putaway_user)
+
+        if putaway_type:
+            self.queryset = self.queryset.filter(putaway_type=putaway_type)
 
         if status:
             if status == Putaway.ASSIGNED:
