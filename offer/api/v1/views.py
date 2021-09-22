@@ -179,6 +179,8 @@ class GetTopSKUListView(APIView):
             is_success = True if data else False
             message = "" if is_success else "No Top SKUs"
             serializer = TopSKUSerializer(data, many=True)
+            if serializer.data.__len__() is 0:
+                return Response({"message": [message], "response_data": {}, "is_success": is_success})
             return Response({"message": [message], "response_data": serializer.data, "is_success": is_success})
 
 
