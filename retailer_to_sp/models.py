@@ -1880,10 +1880,10 @@ class PickerDashboard(models.Model):
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
             if self.order:
-                Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                Pickup.objects.filter(pickup_type_id=self.order.order_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
             elif self.repackaging:
-                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no,
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
