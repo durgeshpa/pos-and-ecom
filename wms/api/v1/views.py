@@ -358,7 +358,7 @@ class PickupList(APIView):
             #                               ).order_by(
             #     'created_at')
             pickings = PickerDashboard.objects.filter(picker_boy=request.user,
-                                           picking_status__in=['picking_assigned', 'picking_complete'],
+                                           picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc'],
                                            picker_assigned_date__startswith=date.date()).order_by('created_at')
             if pickings:
                 data_found = 1
