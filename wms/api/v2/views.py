@@ -1196,16 +1196,32 @@ class PerformPutawayView(generics.GenericAPIView):
 class POSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type='GRN'). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 po_no=Subquery(GRNOrder.objects.filter(grn_id=Subquery(In.objects.filter(
-                     id=OuterRef(OuterRef('putaway_type_id_key'))).order_by('-in_type_id').values('in_type_id')[:1])). \
-                                order_by('-order__order_no').values('order__order_no')[:1]),
+    queryset = Putaway.objects. \
+        annotate(putaway_type_id_key=Case(
+                    When(putaway_type='GRN',
+                         then=Cast('putaway_type_id', models.IntegerField())
+                         ),
+                    output_field=models.CharField()
+                 ),
+                 po_no=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(
+                             Subquery(GRNOrder.objects.filter(
+                                 grn_id=Subquery(In.objects.filter(
+                                     id=OuterRef(OuterRef('putaway_type_id_key'))
+                                 ).order_by('-in_type_id').values('in_type_id')[:1])
+                             ).order_by('-order__order_no').values('order__order_no')[:1]), models.CharField())
+                         ),
+                    When(putaway_type__in=['RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                 ),
                  zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
-        exclude(status__isnull=True). \
-        values('po_no').annotate(total_items=Count('po_no')).order_by('-po_no')
+        exclude(zone__isnull=True). \
+        exclude(po_no__isnull=True). \
+        values('po_no', 'putaway_type').annotate(total_items=Count('po_no')).order_by('-po_no')
     serializer_class = POSummarySerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
@@ -1213,6 +1229,7 @@ class POSummaryView(generics.GenericAPIView):
         """ GET API for Putaways po summary """
         info_logger.info("Putaway PO Summary GET api called.")
         """ GET Putaway PO Summary List """
+        # self.queryset = self.get_queryset()
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_po_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
@@ -1223,10 +1240,14 @@ class POSummaryView(generics.GenericAPIView):
 
     def filter_po_putaways_data(self):
         po_no = self.request.GET.get('po_no')
+        putaway_type = self.request.GET.get('putaway_type')
 
-        '''Filters using po_no'''
+        '''Filters using po_no, putaway_type'''
         if po_no:
             self.queryset = self.queryset.filter(po_no=po_no)
+
+        if putaway_type:
+            self.queryset = self.queryset.filter(putaway_type=putaway_type)
 
         return self.queryset
 
