@@ -253,7 +253,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'selling_price', 'mrp', 'is_discounted', 'image')
+        fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
