@@ -148,8 +148,9 @@ class OrderedProductForm(forms.ModelForm):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_complete":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
+        if self.cleaned_data['order'].picker_order.exclude(picking_status='picking_cancelled').count() != \
+                self.cleaned_data['order'].picker_order.filter(picking_status='moved_to_qc').count():
+            raise forms.ValidationError(_("Not all the pickings are yet moved to QC Area"), )
         return data
 
 

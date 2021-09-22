@@ -1737,7 +1737,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status__in=["SHIPMENT_CREATED","READY_TO_SHIP"]).values('order')
         qs = Order.objects.filter(
             # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
-            order_status='picking_complete',
+            order_status=Order.MOVED_TO_QC,
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders) | Q(ordered_cart__cart_type='DISCOUNTED',
