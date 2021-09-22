@@ -34,34 +34,40 @@ def get_product_price(shop_id, products):
 	Returns the dictionary of prices to be updated in ElasticSearch.
 	Any product may have prices at store level, pincode level or city level
 	"""
+	info_logger.info("Inside get_product_price, shop_id: " + str(shop_id) + ", products: " + str(products))
 	if shop_id:
-		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop_id=shop_id,
-													 status=True, approval_status=ProductPrice.APPROVED,
-													 price_slabs__isnull=False)\
-											 .select_related('product')\
-											 .order_by('product_id', '-created_at')
+		products_price = ProductPrice.objects.filter(
+			product__id__in=products, seller_shop_id=shop_id, status=True, approval_status=ProductPrice.APPROVED,
+			price_slabs__isnull=False).select_related('product').order_by('product_id', '-created_at')
 	else:
-		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
-													 approval_status=ProductPrice.APPROVED,
-													 price_slabs__isnull=False)\
-											 .select_related('product')\
-											 .order_by('product_id', '-created_at')
+		products_price = ProductPrice.objects.filter(
+			product__id__in=products, status=True, approval_status=ProductPrice.APPROVED, price_slabs__isnull=False)\
+			.select_related('product').order_by('product_id', '-created_at')
+	info_logger.info("Inside get_product_price, products_price count: " + str(
+		products_price.count()) + ", products_price: " + str(products_price))
+
 	price_dict = {}
 	for price in products_price:
-		product_active_prices = price_dict.get(price.product_id,{'store':{}, 'pincode':{}, 'city':{}})
+		info_logger.info("Inside get_product_price, price: " + str(price) + ", product_mrp: " + str(
+			price.product.product_mrp) + ", product_inner_case_size: " + str(price.product.product_inner_case_size))
+		product_active_prices = price_dict.get(price.product_id, {'store': {}, 'pincode': {}, 'city': {}})
 		if price.buyer_shop_id:
+			info_logger.info("Inside get_product_price, true condition 'price.buyer_shop_id'")
 			product_active_prices['store'][price.buyer_shop_id] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.pincode:
+			info_logger.info("Inside get_product_price, true condition 'price.pincode'")
 			product_active_prices['pincode'][price.pincode.pincode] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.city:
+			info_logger.info("Inside get_product_price, true condition 'price.city'")
 			product_active_prices['city'][price.city_id] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.seller_shop_id :
+			info_logger.info("Inside get_product_price, true condition 'price.seller_shop_id '")
 			product_active_prices['store'][price.seller_shop_id ] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
