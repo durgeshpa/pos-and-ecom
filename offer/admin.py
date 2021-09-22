@@ -3,7 +3,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import OfferBanner, OfferBannerData, OfferBannerPosition, OfferBannerSlot, OfferPage, TopSKU
+from .models import OfferBanner, OfferBannerData, OfferBannerPosition, OfferBannerSlot, OfferPage, TopSKU, TopSKUProduct
 from .forms import OfferBannerForm, OfferBannerPositionForm, TopSKUForm
 
 
@@ -70,3 +70,9 @@ class TopSKUAdmin(admin.ModelAdmin):
 
 
 admin.site.register(TopSKU, TopSKUAdmin)
+
+class TopSKUProductAdmin(admin.ModelAdmin):
+    field = ('top_sku','product')
+
+
+admin.site.register(TopSKUProduct, TopSKUProductAdmin)

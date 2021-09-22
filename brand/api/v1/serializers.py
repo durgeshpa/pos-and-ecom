@@ -12,6 +12,7 @@ from brand.common_validators import validate_brand_name, validate_brand_code, va
 from products.common_validators import get_validate_parent_brand
 from brand.common_function import BrandCls
 from products.models import ProductVendorMapping, Product, ParentProduct
+from cms.models import CardItem
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -246,4 +247,20 @@ class BrandListSerializers(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         if representation['brand_name']:
             representation['brand_name'] = representation['brand_name'].title()
+        return representation
+
+class BannerImageSerializer(serializers.ModelSerializer):
+    """
+    Serializer to get banner data
+    """
+    class Meta:
+        model = CardItem
+        fields = ('id','image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.subcategory:
+            representation['subcategory_id'] = instance.subcategory.id
+        elif instance.subbrand:
+            representation['subbrand_id'] = instance.subbrand.id
         return representation

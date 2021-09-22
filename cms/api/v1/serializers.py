@@ -8,6 +8,8 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
+from categories.models import Category
+from brand.models import Brand
 
 
 info_logger = logging.getLogger('file-info')
@@ -162,7 +164,15 @@ class CardDataSerializer(serializers.ModelSerializer):
             except:
                 raise NotFound(detail=ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
 
-            new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            if data.get('category_subtype'):
+                category = Category.objects.get(id = data['category_subtype'])
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], category_subtype = category)
+            elif data.get('brand_subtype'):
+                brand = Brand.objects.get(id = data['brand_subtype'])
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
+            else:
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
                                                             card_data=new_card_data,
@@ -461,3 +471,52 @@ class PageLatestDetailSerializer(serializers.ModelSerializer):
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
+
+class CategorySerializer(serializers.ModelSerializer):
+    """
+    Serializer for category data
+    """
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name')
+
+
+class SubCategorySerializer(serializers.ModelSerializer):
+    """
+    Serializer for subcategory with banner
+    """
+    banner_image = serializers.SerializerMethodField()
+
+    def get_banner_image(self, obj):
+        if obj.banner_subcategory.filter(status = True).exists():
+            return obj.banner_subcategory.filter(status = True).last().image.url
+        else:
+            return None
+
+    class Meta:
+        model = Category
+        fields = ('category_name', 'id', 'banner_image')
+
+class BrandSerializer(serializers.ModelSerializer):
+    """
+    Serializer for brand data
+    """
+    class Meta:
+        model = Brand
+        fields = ('id', 'brand_name')
+
+class SubBrandSerializer(serializers.ModelSerializer):
+    """
+    Serializer for subbrand with banner
+    """
+    banner_image = serializers.SerializerMethodField()
+
+    def get_banner_image(self, obj):
+        if obj.banner_subbrand.filter(status = True).exists():
+            return obj.banner_subbrand.filter(status = True).last().image.url
+        else:
+            return None
+
+    class Meta:
+        model = Brand
+        fields = ('brand_name', 'id', 'banner_image')
