@@ -21,7 +21,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status)
-from pos.common_validators import compareList, validate_user_type_for_pos_shop
+from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, \
     PosReturnGRNOrder
@@ -1285,17 +1285,18 @@ class GrnReturnOrderView(GenericAPIView):
     @check_return_status
     def get(self, request, *args, **kwargs):
         """ GET Return Order List """
-        if kwargs['pk']:
-            grn_return = PosReturnGRNOrder.objects.filter(
-                grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
-                status=kwargs['status'], id=kwargs['pk']). \
-                prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return', ). \
-                select_related('grn_ordered_id', 'last_modified_by', ).order_by('-modified_at')
-        else:
-            grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
-                                                          status=kwargs['status']).\
-                prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
-                select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
+        grn_return = PosReturnGRNOrder.objects.filter(
+            grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
+            status=kwargs['status']). \
+            prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return', ). \
+            select_related('grn_ordered_id', 'last_modified_by', ).order_by('-modified_at')
+
+        if request.GET.get('id'):
+            """ Get Return Order for specific ID """
+            id_validation = validate_id(grn_return, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            grn_return = id_validation['data']
 
         search_text = self.request.GET.get('search_text')
         if search_text:
