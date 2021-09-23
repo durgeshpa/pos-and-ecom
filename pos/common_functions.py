@@ -576,6 +576,8 @@ def check_return_status(view_func):
     @wraps(view_func)
     def _wrapped_view_func(self, request, *args, **kwargs):
         status = request.META.get('HTTP_STATUS', None)
+        pk = request.META.get('HTTP_PK', None)
+        kwargs['pk'] = pk
         if not status:
             kwargs['status'] = PosReturnGRNOrder.RETURNED
             # return api_response("No status Selected!")

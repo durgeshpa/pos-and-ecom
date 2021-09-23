@@ -1285,10 +1285,17 @@ class GrnReturnOrderView(GenericAPIView):
     @check_return_status
     def get(self, request, *args, **kwargs):
         """ GET Return Order List """
-        grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
-                                                      status=kwargs['status']).\
-            prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
-            select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
+        if kwargs['pk']:
+            grn_return = PosReturnGRNOrder.objects.filter(
+                grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
+                status=kwargs['status'], id=kwargs['pk']). \
+                prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return', ). \
+                select_related('grn_ordered_id', 'last_modified_by', ).order_by('-modified_at')
+        else:
+            grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
+                                                          status=kwargs['status']).\
+                prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
+                select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
 
         search_text = self.request.GET.get('search_text')
         if search_text:
