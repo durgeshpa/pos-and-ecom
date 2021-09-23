@@ -2277,7 +2277,9 @@ class WarehouseAssortmentCommonFunction(object):
 def post_picking_order_update(picker_dashboard_instance):
 
     if picker_dashboard_instance.picking_status == 'moved_to_qc':
-        if picker_dashboard_instance.order.order_status in ['picking_complete', 'PICKING_PARTIAL_COMPLETE']:
+        if picker_dashboard_instance.order and \
+                picker_dashboard_instance.order.order_status in ['picking_complete', 'PICKING_PARTIAL_COMPLETE',
+                                                                 'PARTIAL_MOVED_TO_QC']:
             if picker_dashboard_instance.order.picker_order.exclude(picking_status__in=['moved_to_qc',
                                                                     'picking_cancelled']).exists():
                 picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
