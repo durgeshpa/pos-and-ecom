@@ -10,9 +10,10 @@ from django.db import models
 from django.db.models import Q, OuterRef, Subquery, Count, CharField
 from django.db.models.functions import Cast
 from django.http import HttpResponse
-from rest_framework import authentication
+from rest_framework import authentication, status
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
@@ -1301,4 +1302,6 @@ class UpdateQCAreaView(generics.GenericAPIView):
         if serializer.is_valid():
             picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
             return get_response('Picking moved to qc area!', picking_dashboard_entry.data)
-        return get_response(serializer_error(serializer), modified_data, False)
+        # return get_response(serializer_error(serializer), modified_data, False)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)
