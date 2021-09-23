@@ -278,24 +278,25 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_repackaging, repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
-
+                product_zone = rep_obj.source_sku.parent_product.product_zones.last().zone
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
                     picking_status="picking_pending",
-                    picklist_id=generate_picklist_id("00")
+                    picklist_id=generate_picklist_id("00"),
+                    zone=product_zone
                 )
                 rep_obj.source_picking_status = 'pickup_created'
                 rep_obj.save()
                 shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
-                CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no,
-                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation',
-                                                          type_normal)
+                CommonPickupFunctions.create_pickup_entry_with_zone(shop, product_zone, 'Repackaging',
+                                                                    rep_obj.repackaging_no, rep_obj.source_sku,
+                                                                    repackage_quantity, 'pickup_creation', type_normal)
                 pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
                 for obj in pu:
                     bin_inv_dict = {}
                     pickup_obj = obj
                     qty = obj.quantity
-                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, warehouse=shop,
+                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, warehouse=shop, bin__zone=obj.zone,
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
@@ -303,7 +304,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         for k in bin_lists:
                             bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
                     else:
-                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop, bin__zone=obj.zone,
                                                                   inventory_type__inventory_type='normal').order_by(
                             '-batch_id',
                             'quantity').last()

@@ -104,7 +104,7 @@ class ParentProductFilter(autocomplete.Select2QuerySetView):
         qs = ParentProduct.objects.all()
 
         if self.q:
-            qs = qs.filter(Q(name__icontains=self.q) | Q(product_hsn__icontains=self.q))
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
         return qs
 
 
