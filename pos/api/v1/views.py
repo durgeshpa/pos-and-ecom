@@ -1255,7 +1255,8 @@ class GetGrnOrderListView(ListAPIView):
         if search_text:
             grn_order = grn_product_search(grn_order, search_text.strip())
         if grn_order:
-            return api_response('', self.serializer_class(grn_order, many=True).data, status.HTTP_200_OK, True)
+            return api_response('', self.serializer_class(
+                grn_order, many=True, context={'shop': kwargs['shop']}).data, status.HTTP_200_OK, True)
         else:
             return api_response("GRN Order not found")
 
@@ -1295,23 +1296,25 @@ class GrnReturnOrderView(GenericAPIView):
 
         if grn_return:
             serializer = ReturnGrnOrderSerializer(grn_return, many=True,
-                                                  context={'status': kwargs['status']})
+                                                  context={'status': kwargs['status'], 'shop': kwargs['shop']})
             return api_response('', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response("Return GRN Order not found")
 
     @check_pos_shop
+    @check_return_status
     def post(self, request, *args, **kwargs):
         """ Create Return Order """
         serializer = ReturnGrnOrderSerializer(data=request.data,
-                                              context={'shop': kwargs['shop']})
+                                              context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
-            return api_response('GRN returned successfully!', serializer.data, status.HTTP_200_OK, True)
+            return api_response('GRN returned successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @check_return_status
     def put(self, request, *args, **kwargs):
         """ Update Return Order """
         info_logger.info("Return Order Product PUT api called.")
@@ -1326,7 +1329,7 @@ class GrnReturnOrderView(GenericAPIView):
         except:
             return api_response('please provide a valid id')
         serializer = ReturnGrnOrderSerializer(instance=id_instance, data=request.data,
-                                              context={'shop': kwargs['shop']})
+                                              context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
             return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)

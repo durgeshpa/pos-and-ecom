@@ -3,9 +3,10 @@ import datetime
 import calendar
 import re
 
+from django.db.models.functions import Cast
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField
-from django.db import transaction
+from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField, Count
+from django.db import transaction, models
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
 
@@ -2397,7 +2398,8 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_return_qty(obj):
-        total_returned = PosReturnItems.objects.filter(product=obj.product, is_active=True).aggregate(total=Sum('return_qty'))['total']
+        total_returned = PosReturnItems.objects.filter(grn_return_id=obj.grn_return_id, product=obj.product,
+                                                       is_active=obj.is_active).aggregate(total=Sum('return_qty'))['total']
         return total_returned if total_returned else 0
 
     @staticmethod
@@ -2432,8 +2434,16 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
                                                                           output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 
-    @staticmethod
-    def get_products(obj):
+    def get_return_products(self, grn_ordered_id, product_id, shop):
+        previous_return_qty = PosReturnItems.objects.filter(
+            grn_return_id__grn_ordered_id=grn_ordered_id, product_id=product_id,
+            grn_return_id__status=PosReturnGRNOrder.RETURN_STATUS.RETURNED, is_active=True,
+            grn_return_id__grn_ordered_id__order__ordered_cart__retailer_shop=shop). \
+            aggregate(total_qty=Sum('return_qty'))
+        return previous_return_qty['total_qty'] if previous_return_qty['total_qty'] else 0
+
+    def get_products(self, obj):
+        shop = self.context.get('shop')
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
         po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
 
@@ -2441,15 +2451,13 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
             grn_order=obj).values('product_id', 'received_qty')}
 
         for po_pr in po_products_data:
-            po_pr['curr_grn_received_qty'] = 0
-            if po_pr['product_id'] in grn_products:
-                po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']]
-
+            po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']] if po_pr['product_id'] in grn_products else 0
+            po_pr['previous_grn_returned_qty'] = self.get_return_products(obj, po_pr['product_id'], shop)
         return po_products_data
 
     class Meta:
         model = PosGRNOrder
-        fields = ('id', 'grn_id', 'po_no', 'po_status', 'invoice_no', 'invoice_amount',
+        fields = ('id', 'grn_id', 'vendor_name', 'po_no', 'po_status', 'invoice_no', 'invoice_amount',
                   'po_total_price', 'current_grn_total_price', 'products',)
 
 
@@ -2555,11 +2563,14 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
 
     def get_grn_product_return(self, obj):
         order_return_status = self.context.get('status')
+        shop = self.context.get('shop')
         status = True
         if order_return_status == 'CANCELLED':
             status = False
-        po_products_data = PosReturnItemsSerializer(PosReturnItems.objects.filter(grn_return_id=obj.id, is_active=status),
-                                                    many=True).data
+        po_products_data = PosReturnItemsSerializer(
+            PosReturnItems.objects.filter(
+                grn_return_id=obj.id, grn_return_id__status=order_return_status, is_active=status,
+                grn_return_id__grn_ordered_id__order__ordered_cart__retailer_shop=shop), many=True).data
         return po_products_data
 
     def get_grn_id(self, obj):
