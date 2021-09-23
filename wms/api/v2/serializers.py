@@ -943,6 +943,7 @@ class StatusCountSerializer(serializers.Serializer):
 
 class POSummarySerializers(serializers.Serializer):
     po_no = serializers.CharField()
+    putaway_type = serializers.CharField()
     status_count = serializers.SerializerMethodField()
     total_items = serializers.IntegerField()
 
