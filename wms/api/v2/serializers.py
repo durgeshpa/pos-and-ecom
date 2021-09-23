@@ -923,12 +923,13 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
 
 
 class GroupedByGRNPutawaysSerializers(serializers.Serializer):
-    grn_id = serializers.CharField()
+    token_id = serializers.CharField()
     zone = serializers.IntegerField()
     total_items = serializers.IntegerField()
     putaway_user = serializers.SerializerMethodField()
     status = serializers.CharField()
     putaway_type = serializers.CharField()
+    created_at__date = serializers.DateField()
 
     def get_putaway_user(self, obj):
         if obj['putaway_user']:
