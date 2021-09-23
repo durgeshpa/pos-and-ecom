@@ -1106,10 +1106,10 @@ def cancel_order_with_pick(instance):
                                                          defaults={'quantity': quantity,
                                                                    'putaway_quantity': 0})
                 # update or create put away bin inventory model
-                PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                                                             batch_id=pickup_bin.batch_id, putaway_type=status,
-                                                             putaway=pu, bin=pickup_bin.bin, putaway_status=False,
-                                                             defaults={'putaway_quantity': pick_up_bin_quantity})
+                # PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
+                #                                              batch_id=pickup_bin.batch_id, putaway_type=status,
+                #                                              putaway=pu, bin=pickup_bin.bin, putaway_status=False,
+                #                                              defaults={'putaway_quantity': pick_up_bin_quantity})
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     warehouse, pickup_bin.bin.sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
@@ -1462,13 +1462,13 @@ def create_putaway(warehouse, sku, batch_id, bin, inventory_type, putaway_type, 
                                              inventory_type=inventory_type,
                                              defaults={'quantity': quantity,
                                                        'putaway_quantity': 0})
-    PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
-                                                 sku=sku,
-                                                 batch_id=batch_id,
-                                                 putaway_type=putaway_type,
-                                                 putaway=pu, bin=bin,
-                                                 putaway_status=False,
-                                                 defaults={'putaway_quantity': quantity})
+    # PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
+    #                                              sku=sku,
+    #                                              batch_id=batch_id,
+    #                                              putaway_type=putaway_type,
+    #                                              putaway=pu, bin=bin,
+    #                                              putaway_status=False,
+    #                                              defaults={'putaway_quantity': quantity})
 
 
 def create_batch_id(sku, expiry_date):
