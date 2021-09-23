@@ -898,13 +898,26 @@ class UpdateZoneForCancelledPutawayView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class PutawayTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for PutawayTypeList """
+        info_logger.info("PutawayTypeList GET api called.")
+        data = [{'id': d, 'type': d} for d in ['GRN', 'RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class GroupedByGRNPutawaysView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = Putaway.objects. \
-        annotate(grn_id=Case(
+        annotate(token_id=Case(
                     When(putaway_type='GRN',
-                         then=Cast(Subquery(In.objects.filter(id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
                                  order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
                     When(putaway_type__in=['RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
@@ -914,8 +927,9 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
         exclude(zone__isnull=True). \
-        exclude(grn_id__isnull=True). \
-        values('grn_id', 'zone', 'putaway_user', 'status', 'putaway_type').annotate(total_items=Count('grn_id')).order_by('-grn_id')
+        exclude(token_id__isnull=True). \
+        values('token_id', 'zone', 'putaway_user', 'status', 'putaway_type', 'created_at__date'). \
+        annotate(total_items=Count('token_id')).order_by('-token_id')
     serializer_class = GroupedByGRNPutawaysSerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
@@ -933,16 +947,16 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_grouped_putaways_data(self):
-        grn_id = self.request.GET.get('grn_id')
+        token_id = self.request.GET.get('token_id')
         zone = self.request.GET.get('zone')
         putaway_user = self.request.GET.get('putaway_user')
         putaway_type = self.request.GET.get('putaway_type')
         status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
 
-        '''Filters using grn_id, zone, putaway_user, putaway_type'''
-        if grn_id:
-            self.queryset = self.queryset.filter(grn_id=grn_id)
+        '''Filters using token_id, zone, putaway_user, putaway_type'''
+        if token_id:
+            self.queryset = self.queryset.filter(token_id=token_id)
 
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
@@ -962,8 +976,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         if created_at:
             try:
                 created_at = datetime.strptime(created_at, "%Y-%m-%d")
-                grn_ids = GRNOrder.objects.filter(created_at__date=created_at).values_list('grn_id', flat=True)
-                self.queryset = self.queryset.filter(grn_id__in=grn_ids)
+                self.queryset = self.queryset.filter(created_at__date=created_at)
             except Exception as e:
                 error_logger.error(e)
 
