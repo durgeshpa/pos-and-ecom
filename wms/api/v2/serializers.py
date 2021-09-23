@@ -984,6 +984,13 @@ class POSummarySerializers(serializers.Serializer):
         return representation
 
 
+class PutawaySummarySerializers(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    cancelled = serializers.IntegerField()
+
+
 class ZonewiseSummarySerializers(serializers.Serializer):
     total_items = serializers.IntegerField()
     status_count = serializers.SerializerMethodField()
