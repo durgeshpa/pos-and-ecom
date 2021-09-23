@@ -21,7 +21,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
-    validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone, validate_zone, \
+    validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory
@@ -754,7 +754,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
     """API view for Putaway"""
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']). \
+    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user',
                        'sku', 'sku__parent_product').\
@@ -906,7 +906,7 @@ class PutawayTypeListView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for PutawayTypeList """
         info_logger.info("PutawayTypeList GET api called.")
-        data = [{'id': d, 'type': d} for d in ['GRN', 'RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']]
+        data = [{'id': d, 'type': d} for d in ['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']]
         msg = ""
         return get_response(msg, data, True)
 
@@ -920,7 +920,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                          then=Cast(Subquery(In.objects.filter(
                              id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
                                  order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
-                    When(putaway_type__in=['RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
@@ -991,20 +991,20 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user', 'inventory_type'). \
         prefetch_related('sku__product_pro_image'). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
-                 zone_id=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
-        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
-             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner',
-             'warehouse__shop_type__shop_sub_type__retailer_type_name', 'warehouse__shop_owner__first_name',
-             'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'putaway_user__id',
-             'putaway_user__first_name', 'putaway_user__last_name', 'putaway_user__phone_number', 'inventory_type__id',
-             'inventory_type__inventory_type', 'sku', 'sku__id', 'sku__product_sku', 'sku__product_name', 'batch_id',
-             'quantity', 'putaway_quantity', 'status', 'putaway_type', 'putaway_type_id', 'grn_id', 'zone_id',
-             'created_at', 'modified_at',). \
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                ),
+                    zone_id=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                ). \
+        exclude(zone_id__isnull=True). \
+        exclude(token_id__isnull=True). \
         order_by('-id')
     serializer_class = PutawaySerializers
 
@@ -1020,7 +1020,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
             data = id_validation['data']
         else:
             """ GET Zone List """
-            # self.queryset = self.search_filter_zone_putaway_assignments_data()
+            self.queryset = self.search_filter_zone_putaway_assignments_data()
             total_count = self.queryset.count()
             data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -1036,12 +1036,12 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         if 'error' in modified_data:
             return get_response(modified_data['error'])
 
-        if 'grn_id' not in modified_data or not modified_data['grn_id'] or 'zone_id' not in modified_data or not \
+        if 'token_id' not in modified_data or not modified_data['token_id'] or 'zone_id' not in modified_data or not \
                 modified_data['zone_id'] or 'putaway_user' not in modified_data or not modified_data['putaway_user']:
-            return get_response('please provide grn_id, zone_id and putaway_user to update putaway', False)
+            return get_response('please provide token_id, zone_id and putaway_user to update putaway', False)
 
         # validations for input id
-        id_validation = validate_putaways_by_grn_and_zone(modified_data['grn_id'], int(modified_data['zone_id']))
+        id_validation = validate_putaways_by_token_id_and_zone(modified_data['token_id'], int(modified_data['zone_id']))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         putaway_instances = id_validation['data']
@@ -1051,13 +1051,54 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
             return get_response(pu_validation['error'])
         putaway_user = pu_validation['data']
 
-        putaways_reflected = copy.copy(putaway_instances)
+        putaways_reflected = [x.id for x in putaway_instances]
         if putaway_instances.last().putaway_user == putaway_user:
             return get_response("Selected putaway user already assigned.")
         putaway_instances.update(putaway_user=putaway_user)
-        serializer = self.serializer_class(putaways_reflected, many=True)
+        serializer = self.serializer_class(Putaway.objects.filter(id__in=putaways_reflected), many=True)
         info_logger.info("Putaways Updated Successfully.")
         return get_response('putaways updated successfully!', serializer.data)
+
+    def search_filter_zone_putaway_assignments_data(self):
+        token_id = self.request.GET.get('token_id')
+        warehouse = self.request.GET.get('warehouse')
+        zone = self.request.GET.get('zone')
+        putaway_user = self.request.GET.get('putaway_user')
+        putaway_type = self.request.GET.get('putaway_type')
+        putaway_type_id = self.request.GET.get('putaway_type_id')
+        status = self.request.GET.get('status')
+        created_at = self.request.GET.get('created_at')
+
+        '''Filters using token_id, warehouse, zone, putaway_user, putaway_type'''
+        if token_id:
+            self.queryset = self.queryset.filter(token_id=token_id)
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse=warehouse)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone=zone)
+
+        if putaway_user:
+            self.queryset = self.queryset.filter(putaway_user=putaway_user)
+
+        if putaway_type:
+            self.queryset = self.queryset.filter(putaway_type=putaway_type)
+
+        if putaway_type_id:
+            self.queryset = self.queryset.filter(putaway_type_id=putaway_type_id)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if created_at:
+            try:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
+            except Exception as e:
+                error_logger.error(e)
+
+        return self.queryset
 
 
 class PutawayUsersListView(generics.GenericAPIView):
@@ -1226,7 +1267,7 @@ class POSummaryView(generics.GenericAPIView):
                                  ).order_by('-in_type_id').values('in_type_id')[:1])
                              ).order_by('-order__order_no').values('order__order_no')[:1]), models.CharField())
                          ),
-                    When(putaway_type__in=['RETURN', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
