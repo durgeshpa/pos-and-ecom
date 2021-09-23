@@ -1301,4 +1301,4 @@ class UpdateQCAreaView(generics.GenericAPIView):
         if serializer.is_valid():
             picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
             return get_response('Picking moved to qc area!', picking_dashboard_entry.data)
-        return get_response(serializer_error(serializer), False)
+        return get_response(serializer_error(serializer), modified_data, False)
