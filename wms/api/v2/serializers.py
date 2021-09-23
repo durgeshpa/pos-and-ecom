@@ -820,12 +820,12 @@ class PutawaySerializers(serializers.ModelSerializer):
     sku = ChildProductSerializer(read_only=True)
     inventory_type = InventoryTypeSerializers(read_only=True)
     status = StatusSerializer(choices=Putaway.PUTAWAY_STATUS_CHOICE, required=True)
-    grn_id = serializers.CharField(required=False)
+    token_id = serializers.CharField(required=False)
     zone_id = serializers.CharField(required=False)
 
     class Meta:
         model = Putaway
-        fields = ('id', 'grn_id', 'zone_id', 'putaway_user', 'status', 'putaway_type', 'putaway_type_id', 'warehouse',
+        fields = ('id', 'token_id', 'zone_id', 'putaway_user', 'status', 'putaway_type', 'putaway_type_id', 'warehouse',
                   'sku', 'batch_id', 'inventory_type', 'quantity', 'putaway_quantity', 'created_at', 'modified_at',)
 
 
