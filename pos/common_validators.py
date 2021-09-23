@@ -36,3 +36,10 @@ def get_validate_grn_order(grn_ordered_id, shop):
     except Exception as e:
         return {'error': "GRN Order doesn't exist"}
     return {'grn_ordered_id': grn_ordered_obj}
+
+
+def validate_id(queryset, s_id):
+    """ validation only ids that belong to a selected related model """
+    if not queryset.filter(id=s_id).exists():
+        return {'error': 'please provide a valid id'}
+    return {'data': queryset.filter(id=s_id)}

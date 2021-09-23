@@ -575,7 +575,7 @@ def filter_pos_shop(user):
 def check_return_status(view_func):
     @wraps(view_func)
     def _wrapped_view_func(self, request, *args, **kwargs):
-        status = request.META.get('HTTP_STATUS', None)
+        status = request.GET.get('status')
         if not status:
             kwargs['status'] = PosReturnGRNOrder.RETURNED
             # return api_response("No status Selected!")
@@ -855,3 +855,6 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
 
 def generate_debit_note_number(returned_obj, billing_address_instance):
     return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
+
+
+
