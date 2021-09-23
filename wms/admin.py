@@ -29,7 +29,8 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea)
+                     ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
+                     ZonePutawayUserAssignmentMapping)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
 
@@ -252,6 +253,24 @@ class ZoneFilter(AutocompleteFilter):
     title = 'Zone'
     field_name = 'zone'
     autocomplete_url = 'zone-autocomplete'
+
+
+class UserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'users-autocomplete'
+
+
+class PutawayUserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'all-putaway-users-autocomplete'
+
+
+class PickerUserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'all-picker-users-autocomplete'
 
 
 class ParentProductFilter(AutocompleteFilter):
@@ -1005,6 +1024,7 @@ class ZoneAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
     list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    search_fields = ('zone_number', 'name')
     list_per_page = 50
 
     def save_model(self, request, obj, form, change):
@@ -1080,6 +1100,42 @@ class QCAreaAdmin(admin.ModelAdmin):
         return False
 
 
+class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
+    list_display = ('zone', 'user', 'last_assigned_at')
+    list_filter = [ZoneFilter, PutawayUserFilter]
+    list_per_page = 50
+    ordering = ('-zone',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class ZonePickerUserAssignmentMappingAdmin(admin.ModelAdmin):
+    list_display = ('zone', 'user', 'last_assigned_at')
+    list_filter = [ZoneFilter, PickerUserFilter]
+    list_per_page = 50
+    ordering = ('-zone',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
 
 
 admin.site.register(Bin, BinAdmin)
@@ -1103,3 +1159,5 @@ admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
 admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
+admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
+admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
