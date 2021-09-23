@@ -2398,8 +2398,9 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_return_qty(obj):
-        total_returned = PosReturnItems.objects.filter(grn_return_id=obj.grn_return_id, product=obj.product,
-                                                       is_active=obj.is_active).aggregate(total=Sum('return_qty'))['total']
+        total_returned = PosReturnItems.objects.filter(
+            grn_return_id__grn_ordered_id=obj.grn_return_id.grn_ordered_id, product=obj.product,
+            is_active=True).aggregate(total=Sum('return_qty'))['total']
         return total_returned if total_returned else 0
 
     @staticmethod
