@@ -2537,6 +2537,18 @@ class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class PutawayUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Putaway'))
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
+        return qs
+
+
 class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
@@ -2549,4 +2561,16 @@ class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+        return qs
+
+
+class PickerUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Picker Boy'))
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
         return qs
