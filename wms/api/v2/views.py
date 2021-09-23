@@ -35,7 +35,8 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
-    PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers
+    PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers, \
+    PutawaySummarySerializers
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1260,6 +1261,50 @@ class POSummaryView(generics.GenericAPIView):
 
         if putaway_type:
             self.queryset = self.queryset.filter(putaway_type=putaway_type)
+
+        return self.queryset
+
+
+class PutawaySummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Putaway.objects. \
+        annotate(zone=Subquery(WarehouseAssortment.objects.filter(
+                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                 ). \
+        exclude(status__isnull=True)
+    serializer_class = PutawaySummarySerializers
+
+    @check_whc_manager_coordinator_supervisor_putaway
+    def get(self, request):
+        """ GET API for Putaways po summary """
+        info_logger.info("Putaway PO Summary GET api called.")
+        """ GET Putaway PO Summary List """
+
+        self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
+        self.queryset = self.filter_putaway_summary_data()
+        self.queryset = self.queryset.values('status').annotate(total_items=Count('status'))
+        putaways_data = {"total": 0, "pending": 0, "completed": 0, "cancelled": 0}
+        for obj in self.queryset:
+            if obj['status'] in [Putaway.NEW, Putaway.ASSIGNED, Putaway.INITIATED]:
+                putaways_data['total'] += obj['total_items']
+                putaways_data['pending'] += obj['total_items']
+            elif obj['status'] == Putaway.COMPLETED:
+                putaways_data['total'] += obj['total_items']
+                putaways_data['completed'] += obj['total_items']
+            elif obj['status'] == Putaway.CANCELLED:
+                putaways_data['total'] += obj['total_items']
+                putaways_data['cancelled'] += obj['total_items']
+        serializer = self.serializer_class(putaways_data)
+        msg = "" if putaways_data else "no putaway found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_putaway_summary_data(self):
+        date = self.request.GET.get('date')
+
+        '''Filters using date'''
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
