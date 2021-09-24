@@ -1096,13 +1096,12 @@ def cancel_order_with_pick(instance):
                         status = 'Pickup_Cancelled'
 
             # update or create put away model
-                pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
-                                                         warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
+                pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                          putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                                          batch_id=pickup_bin.batch_id,
                                                          inventory_type=type_normal,
                                                          defaults={'quantity': quantity,
-                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED,
+                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
                                                                    'putaway_quantity': 0})
                 # update or create put away bin inventory model
                 PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
@@ -1452,15 +1451,14 @@ def create_in(warehouse, batch_id, sku, in_type, in_type_id, inventory_type, qua
 
 
 def create_putaway(warehouse, sku, batch_id, bin, inventory_type, putaway_type, putaway_type_id, putaway_user, quantity):
-    pu, _ = Putaway.objects.update_or_create(putaway_user=putaway_user,
-                                             warehouse=warehouse,
+    pu, _ = Putaway.objects.update_or_create(warehouse=warehouse,
                                              putaway_type=putaway_type,
                                              putaway_type_id=putaway_type_id,
                                              sku=sku,
                                              batch_id=batch_id,
                                              inventory_type=inventory_type,
                                              defaults={'quantity': quantity,
-                                                       'status': Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED,
+                                                       'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
                                                        'putaway_quantity': 0})
     PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
                                                  sku=sku,
