@@ -4209,7 +4209,7 @@ class OrderReturns(APIView):
         ordered_product = OrderedProduct.objects.filter(order=order).last()
         cart_redeem_points = order.ordered_cart.redeem_points
         redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
-        order_amount = float(ordered_product.invoice_amount)
+        order_amount = round(ordered_product.invoice_amount_exact, 2)
         order_total = order_amount + redeem_value
         discount = 0
         offers = order.ordered_cart.offers
@@ -4655,7 +4655,7 @@ class OrderReturnComplete(APIView):
             for ret in returns:
                 return_ids += [ret.id]
                 refund_amount += ret.refund_amount
-            new_paid_amount = ordered_product.invoice_amount - refund_amount
+            new_paid_amount = ordered_product.invoice_amount_exact - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
                 self.request.user, new_paid_amount, order.order_no, return_ids)
@@ -5146,7 +5146,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = ordered_product.invoice_amount
+        total_amount = round(ordered_product.invoice_amount_exact, 2)
         total_amount_int = round(total_amount)
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0

@@ -1584,7 +1584,13 @@ class OrderedProduct(models.Model):  # Shipment
     def invoice_subtotal(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
-            inv_amt=RoundAmount(Sum(F('selling_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
+            inv_amt=Sum(F('selling_price') * F('shipped_qty'), output_field=FloatField())).get('inv_amt')
+
+    @property
+    def invoice_amount_exact(self):
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=Sum(F('effective_price') * F('shipped_qty'), output_field=FloatField())).get('inv_amt')
 
     @property
     def invoice_amount(self):

@@ -513,7 +513,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
-        return ordered_product.invoice_amount if ordered_product else obj.order_amount
+        return round(ordered_product.invoice_amount_exact, 2) if ordered_product else obj.order_amount
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
@@ -2188,7 +2188,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_invoice_amount(obj):
         ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return ordered_product.invoice_amount if ordered_product else None
+        return round(ordered_product.invoice_amount_exact, 2) if ordered_product else None
 
     @staticmethod
     def get_invoice_subtotal(obj):
