@@ -36,10 +36,11 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
-MANAGER, CASHIER = 'manager', 'cashier'
+MANAGER, CASHIER, DELIVERY_PERSON = 'manager', 'cashier', 'delivery_person'
 USER_TYPE_CHOICES = (
     (MANAGER, 'Manager'),
-    (CASHIER, 'Cashier')
+    (CASHIER, 'Cashier'),
+    (DELIVERY_PERSON, 'Delivery Person')
 )
 
 
@@ -99,6 +100,9 @@ class Shop(models.Model):
         on_delete=models.DO_NOTHING
     )
     pos_enabled = models.BooleanField(default=False, verbose_name='Enabled For POS')
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
+    online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -539,6 +543,7 @@ class PosShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='pos_shop', on_delete=models.CASCADE)
     user = models.ForeignKey(get_user_model(), related_name='pos_shop_user', on_delete=models.CASCADE)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default="cashier")
+    is_delivery_person = models.BooleanField(default=False)
     status = models.BooleanField(default=True)
     created_by = models.ForeignKey(get_user_model(), related_name='pos_shop_created_by', null=True, blank=True,
                                    on_delete=models.DO_NOTHING)
@@ -550,8 +555,13 @@ class PosShopUserMapping(models.Model):
         verbose_name_plural = 'POS Shop User Mappings'
         unique_together = ['shop', 'user']
 
+    def save(self, *args, **kwargs):
+        if self.user_type == 'delivery_person':
+            self.is_delivery_person = True
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return "%s" % (self.user)
+        return "%s" % self.user
 
 
 class SalesAppVersion(models.Model):

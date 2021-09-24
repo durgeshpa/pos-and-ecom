@@ -57,8 +57,9 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload, HSNAutocomplete, discounted_product_price_csv_upload,
-                    get_discounted_product_price_sample_csv, franchise_po_fail_status)
+                    packing_material_inventory_sample_upload, HSNAutocomplete, franchise_po_fail_status,
+                    discounted_product_price_csv_upload, get_discounted_product_price_sample_csv,
+)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory

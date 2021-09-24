@@ -888,9 +888,8 @@ def pickup_entry_creation_with_cron():
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time) \
-        .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
-
+                                     created_at__gt=start_time)\
+                             .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM'])
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return

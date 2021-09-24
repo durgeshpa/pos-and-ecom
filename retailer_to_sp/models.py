@@ -40,6 +40,7 @@ from shops.models import Shop, ParentRetailerMapping
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
+from global_config.views import get_config
 
 today = datetime.datetime.today()
 
@@ -70,6 +71,7 @@ RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
+ECOM = 'EC0M'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -102,7 +104,8 @@ CART_TYPES = (
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
-    (BASIC, 'Basic')
+    (BASIC, 'Basic'),
+    (ECOM, 'Ecom')
 )
 
 
@@ -184,7 +187,7 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            if self.cart_type == 'BASIC':
+            if self.cart_type in ['BASIC', 'ECOM']:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('selling_price') * F('qty'),
                                      output_field=FloatField()))['subtotal_sum'], 2)
@@ -232,7 +235,7 @@ class Cart(models.Model):
     @property
     def mrp_subtotal(self):
         try:
-            if self.cart_type == 'BASIC':
+            if self.cart_type in ['BASIC', 'ECOM']:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
@@ -551,7 +554,7 @@ class Cart(models.Model):
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
-            if self.cart_type != 'BASIC':
+            if self.cart_type not in ['BASIC', 'ECOM']:
                 for cart_product in self.rt_cart_list.all():
                     cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
@@ -884,6 +887,8 @@ class Order(models.Model):
     PICKUP_CREATED = 'PICKUP_CREATED'
     PARTIALLY_RETURNED = 'partially_returned'
     FULLY_RETURNED = 'fully_returned'
+    PICKED = 'picked'
+    OUT_FOR_DELIVERY = 'out_for_delivery'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
@@ -913,7 +918,9 @@ class Order(models.Model):
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
         (PARTIALLY_RETURNED, 'Partially Returned'),
-        (FULLY_RETURNED, 'Fully Returned')
+        (FULLY_RETURNED, 'Fully Returned'),
+        (PICKED, 'Order Processing'),
+        (OUT_FOR_DELIVERY, 'Out For Delivery')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1004,6 +1011,7 @@ class Order(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
+    delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1181,6 +1189,16 @@ class Order(models.Model):
                     if reschedule.trip:
                         trips += [reschedule.trip.dispatch_no]
         return format_html("<b>{}</b>".format(curr_trip)) + format_html_join("", "{}<br>", ((t,) for t in trips))
+
+    @property
+    def ecom_estimated_delivery_time(self):
+        if self.ordered_cart.cart_type == 'ECOM' and self.order_status in [Order.ORDERED, Order.PICKUP_CREATED,
+                                                                           Order.OUT_FOR_DELIVERY]:
+            order_placed_at = self.created_at
+            delivery_span = get_config("pos_order_delivery_time_hours", None)
+            return (order_placed_at.replace(minute=0, second=0) + datetime.timedelta(
+                hours=int(delivery_span))).strftime("%b %d, %Y %-I:%M %p") if delivery_span else None
+        return None
 
 
 class Trip(models.Model):
@@ -1447,6 +1465,7 @@ class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
+    DELIVERED = "DELIVERED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -1464,6 +1483,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
+        (DELIVERED, 'Delivered')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -1559,6 +1579,12 @@ class OrderedProduct(models.Model):  # Shipment
             if self.no_of_crates_check != self.no_of_crates:
                 raise ValidationError(
                     _("The number of crates must be equal to the number of crates shipped during shipment"))
+
+    @property
+    def invoice_subtotal(self):
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=RoundAmount(Sum(F('selling_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
 
     @property
     def invoice_amount(self):
@@ -1756,6 +1782,12 @@ class OrderedProduct(models.Model):  # Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'ECOM':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number(
@@ -2763,7 +2795,7 @@ def update_full_part_order_status(shipment):
 @task
 def assign_update_picker_to_shipment(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
-    if shipment.shipment_status == "SHIPMENT_CREATED":
+    if shipment.shipment_status == "SHIPMENT_CREATED" and shipment.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated
         if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
@@ -2829,6 +2861,12 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+        if instance.ordered_cart.cart_type in ['ECOM']:
+            instance.order_no = common_function.order_id_pattern(
+                sender, 'order_no', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk, "EO")
         elif instance.ordered_cart.cart_type == 'BULK':
             instance.order_no = common_function.order_id_pattern_bulk(
                 sender, 'order_no', instance.pk,
@@ -2962,7 +3000,7 @@ def populate_data_on_qc_pass(order):
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False:
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
@@ -2970,7 +3008,7 @@ def create_putaway(sender, created=False, instance=None, *args, **kwargs):
 def return_putaway(sender, created=False, instance=None, *args, **kwargs):
     complete_shipment_status = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
                                 'FULLY_DELIVERED_AND_VERIFIED']
-    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status:
+    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
         add_to_putaway_on_return(instance.ordered_product_mapping.ordered_product.id)
 
 

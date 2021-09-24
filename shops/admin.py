@@ -215,7 +215,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_form_template = 'admin/shops/shop/change_form.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'approval_status']
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
+              'approval_status']
     actions = ["export_as_csv", "disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -486,7 +487,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
 
 class PosShopUserMappingAdmin(admin.ModelAdmin):
     form = PosShopUserMappingForm
-    list_display = ('shop', 'user', 'user_type', 'created_at', 'modified_at', 'status')
+    list_display = ('shop', 'user', 'user_type', 'is_delivery_person', 'created_at', 'modified_at', 'status')
     list_filter = [ShopFilter, UserFilter, 'status', ('created_at', DateTimeRangeFilter), ]
     search_fields = ('shop__shop_name', 'user__phone_number')
 

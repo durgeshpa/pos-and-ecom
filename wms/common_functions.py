@@ -542,6 +542,23 @@ def get_brand_in_shop_stock(shop_id, brand):
     return shop_stock
 
 
+def add_discounted_product_quantity(shop, inventory_type, sku_qty_dict):
+    """
+    Taken in the dictionary of product and their stock,
+    checks and add in that if any discounted product stock is available
+    """
+
+    product_ids = sku_qty_dict.keys()
+    discounted_products = Product.objects.filter(id__in=product_ids, discounted_sku__isnull=False)\
+                                         .values('id','discounted_sku__id')
+    discounted_product_dict = {p['discounted_sku__id']:p['id'] for p in discounted_products}
+    if len(discounted_product_dict) > 0:
+        stock = get_stock(shop, inventory_type, discounted_product_dict.keys())
+        for product_id, qty in stock.items():
+            sku_qty_dict[discounted_product_dict[product_id]] += qty
+    return sku_qty_dict
+
+
 def get_stock(shop, inventory_type, product_id_list=None):
     inventory_states = InventoryState.objects.filter(inventory_state__in=['reserved', 'ordered',
                                                                           'to_be_picked', 'total_available'])

@@ -8,7 +8,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
-                    PosShopUsersList, RetailerList, OrderCommunication
+                    PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
+                    ShipmentView, EcomPaymentView
                     )
 
 router = routers.DefaultRouter()
@@ -27,8 +28,11 @@ urlpatterns = [
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
     url(r'^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
-    # ORDER
+    # COMMIT TO ORDER
+    url('^cart/check/stock_qty/$', CartStockCheckView.as_view(), name='ecom_cart_check'),
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
+    url('^payment-data/$', PaymentDataView.as_view(), name='ecom-payment-data'),
+    # ORDER
     url('^order/$', OrderCentral.as_view()),
     url(r'^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
     url(r'^order-communication/(?P<type>[-\w]+)/(?P<pk>\d+)/$', OrderCommunication.as_view()),
@@ -46,6 +50,10 @@ urlpatterns = [
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
+    # Shipment
+    url(r'^ecom-shipment/', ShipmentView.as_view(), name='ecom-shipment'),
+    # Payment
+    url(r'^ecom-payment/', EcomPaymentView.as_view(), name='ecom-payment'),
     # OTHERS
     url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoiceSP.as_view(), name='download_invoice_sp'),
     url('^customer-care-form/$', CustomerCareApi.as_view(), name='customer_care_form'),
