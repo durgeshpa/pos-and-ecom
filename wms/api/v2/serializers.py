@@ -1221,12 +1221,12 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
         @return: PutawayActionSerializer serializer object
         """
         try:
-            putaway_instance = super().update(instance, validated_data)
+            putaway_instance = validated_data.pop('putaway')
             putaway_bin_data = validated_data.pop('putaway_bin_data')
             putaway_instance = self.post_putaway_data_update(putaway_instance, putaway_bin_data)
             validated_data['putaway_quantity'] = putaway_instance.putaway_quantity
             if putaway_instance.quantity == putaway_instance.putaway_quantity:
-                putaway_instance.status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+                validated_data['status'] = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
             putaway_instance = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
