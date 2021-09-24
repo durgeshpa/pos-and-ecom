@@ -78,11 +78,11 @@ class PutawayCommonFunctions(object):
 
         pu_obj = cls.create_putaway(bi.warehouse, putaway_type, putaway_type_id, bi.sku, bi.batch_id, qty,
                                     0, inventory_type)
-        PutawayBinInventory.objects.create(warehouse=pu_obj.warehouse, sku=pu_obj.sku,
-                                           batch_id=pu_obj.batch_id, bin=bi,
-                                           putaway_type=putaway_type, putaway=pu_obj,
-                                           putaway_status=putaway_status,
-                                           putaway_quantity=qty)
+        # PutawayBinInventory.objects.create(warehouse=pu_obj.warehouse, sku=pu_obj.sku,
+        #                                    batch_id=pu_obj.batch_id, bin=bi,
+        #                                    putaway_type=putaway_type, putaway=pu_obj,
+        #                                    putaway_status=putaway_status,
+        #                                    putaway_quantity=qty)
 
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
