@@ -24,7 +24,7 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    PutawayBinInventory
+    PutawayBinInventory, Pickup
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_putaway_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway
 # Logger
@@ -754,7 +754,8 @@ class PutawayItemsCrudView(generics.GenericAPIView):
     """API view for Putaway"""
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']). \
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user',
                        'sku', 'sku__parent_product').\
@@ -906,7 +907,8 @@ class PutawayTypeListView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for PutawayTypeList """
         info_logger.info("PutawayTypeList GET api called.")
-        data = [{'id': d, 'type': d} for d in ['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']]
+        putaway_type_list = ['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']
+        data = [{'id': d, 'type': d} for d in putaway_type_list]
         msg = ""
         return get_response(msg, data, True)
 
@@ -914,12 +916,18 @@ class PutawayTypeListView(generics.GenericAPIView):
 class GroupedByGRNPutawaysView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects. \
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         annotate(token_id=Case(
                     When(putaway_type='GRN',
                          then=Cast(Subquery(In.objects.filter(
                              id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
                                  order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
@@ -987,7 +995,8 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects. \
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user', 'inventory_type'). \
         prefetch_related('sku__product_pro_image'). \
@@ -996,6 +1005,11 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
                          then=Cast(Subquery(In.objects.filter(
                              id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
                                             order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
@@ -1251,7 +1265,8 @@ class PerformPutawayView(generics.GenericAPIView):
 class POSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects. \
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         annotate(putaway_type_id_key=Case(
                     When(putaway_type='GRN',
                          then=Cast('putaway_type_id', models.IntegerField())
@@ -1267,6 +1282,11 @@ class POSummaryView(generics.GenericAPIView):
                                  ).order_by('-in_type_id').values('in_type_id')[:1])
                              ).order_by('-order__order_no').values('order__order_no')[:1]), models.CharField())
                          ),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
