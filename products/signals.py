@@ -28,11 +28,14 @@ info_logger = logging.getLogger('file-info')
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product.id).last()
+    can_update_es = True
     if product.status != 'active' and instance.approval_status == 2 and instance.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        product.status = 'active'
-        product.save()
-    else:
+        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+            product.status = 'active'
+            product.save()
+            can_update_es = False
+    if can_update_es:
         info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
         shop_id = instance.seller_shop.id
         product_id = instance.product.id
@@ -43,11 +46,14 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch_on_price_update, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product.id).last()
+    can_update_es = True
     if product.status != 'active' and instance.approval_status == 2 and instance.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        product.status = 'active'
-        product.save()
-    else:
+        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+            product.status = 'active'
+            product.save()
+            can_update_es = False
+    if can_update_es:
         info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
         shop_id = instance.seller_shop.id
         product_id = instance.product.id
@@ -58,11 +64,14 @@ def update_elasticsearch_on_price_update(sender, instance=None, created=False, *
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch_on_price_slab_add, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product_price.product.id).last()
+    can_update_es = True
     if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        product.status = 'active'
-        product.save()
-    else:
+        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+            product.status = 'active'
+            product.save()
+            can_update_es = False
+    if can_update_es:
         info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
         shop_id = instance.product_price.seller_shop.id
         product_id = instance.product_price.product.id
