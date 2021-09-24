@@ -11,6 +11,7 @@ from pos.models import RetailerProduct
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_sp.models import Order
 from pos.models import ShopCustomerMap
+from global_config.views import get_config
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products)
@@ -74,7 +75,8 @@ class ShopView(APIView):
         serializer = UserLocationSerializer(data=self.request.GET)
         if serializer.is_valid():
             data = serializer.data
-            shop = nearby_shops(data['latitude'], data['longitude'])
+            radius = get_config('pos_ecom_delivery_radius', 10)
+            shop = nearby_shops(data['latitude'], data['longitude'], radius)
             return self.serialize(shop) if shop else api_response('No shop found!')
         else:
             return api_response(serializer_error(serializer))

@@ -24,12 +24,12 @@ from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm)
+                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement, Zone, WarehouseAssortment)
+                     ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
 
@@ -1054,6 +1054,29 @@ class WarehouseAssortmentAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+class QCAreaAdmin(admin.ModelAdmin):
+    form = QCAreaForm
+    list_display = ('area_id', 'warehouse', 'area_type', 'is_active','area_barcode_txt', 'download_area_barcode')
+    search_fields = ('area_id',)
+    list_filter = [Warehouse, ('area_type', DropdownFilter),]
+    list_per_page = 50
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(QCAreaAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        js = ('admin/js/picker.js',)
+
+    def download_area_barcode(self, obj):
+        id = getattr(obj, "id")
+        return format_html("<a href= '%s' >Download Barcode</a>" % (reverse('qc_barcode', args=[id])))
+
+    download_area_barcode.short_description = 'Download Area Barcode'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
@@ -1075,4 +1098,5 @@ admin.site.register(Audit, AuditAdmin)
 admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
 admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
+admin.site.register(QCArea, QCAreaAdmin)
 

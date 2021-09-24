@@ -256,3 +256,11 @@ class BannerImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardItem
         fields = ('id','image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.subcategory:
+            representation['sub_id'] = instance.subcategory.id
+        elif instance.subbrand:
+            representation['sub_id'] = instance.subbrand.id
+        return representation

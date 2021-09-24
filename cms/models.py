@@ -54,6 +54,8 @@ class CardItem(models.Model):
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
     row = models.IntegerField(default=1)
+    subcategory = models.ForeignKey(Category, on_delete=models.CASCADE, blank=True, null=True)
+    subbrand = models.ForeignKey(Brand, on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return f"{self.card_data.header[0:16]}..."

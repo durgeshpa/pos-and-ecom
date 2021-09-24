@@ -820,7 +820,8 @@ class AuditInventory(APIView):
                                                   .filter(warehouse=warehouse, batch_id=batch_id,
                                                           bin__bin_id=bin,
                                                           pickup__status__in=['pickup_creation',
-                                                                              'picking_assigned']).order_by('id')
+                                                                              'picking_assigned'],
+                                                          pickup_quantity__isnull=True).order_by('id')
 
         with transaction.atomic():
             for pb in pickup_bin_qs:
