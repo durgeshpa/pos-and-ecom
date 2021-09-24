@@ -1102,6 +1102,7 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id,
                                                          inventory_type=type_normal,
                                                          defaults={'quantity': quantity,
+                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED,
                                                                    'putaway_quantity': 0})
                 # update or create put away bin inventory model
                 PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
@@ -1459,6 +1460,7 @@ def create_putaway(warehouse, sku, batch_id, bin, inventory_type, putaway_type, 
                                              batch_id=batch_id,
                                              inventory_type=inventory_type,
                                              defaults={'quantity': quantity,
+                                                       'status': Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED,
                                                        'putaway_quantity': 0})
     PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
                                                  sku=sku,
