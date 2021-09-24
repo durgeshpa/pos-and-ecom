@@ -716,7 +716,7 @@ class CancelPutawayCrudView(generics.GenericAPIView):
              'warehouse__shop_type__shop_sub_type__retailer_type_name', 'warehouse__shop_owner__first_name',
              'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'putaway_user__id',
              'putaway_user__first_name', 'putaway_user__last_name', 'putaway_user__phone_number', 'inventory_type__id',
-             'inventory_type__inventory_type', 'created_at', 'modified_at',). \
+             'inventory_type__inventory_type', 'created_at', 'modified_at', 'putaway_quantity',). \
         order_by('-id')
     serializer_class = CancelPutawayCrudSerializers
 
@@ -737,7 +737,9 @@ class CancelPutawayCrudView(generics.GenericAPIView):
             return get_response(id_validation['error'])
         putaway_instance = id_validation['data'].last()
         if putaway_instance.status == str(Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED):
-            return get_response("Putaway already cancelled for id: " + str(putaway_instance.pk))
+            return get_response("Putaway id: " + str(putaway_instance.pk) + " is already cancelled.")
+        elif putaway_instance.status not in [Putaway.NEW, Putaway.ASSIGNED] or putaway_instance.putaway_quantity != 0:
+            return get_response("Putaway id: " + str(putaway_instance.pk) + " is not allowed to be cancel.")
         else:
             putaway_instance.status = Putaway.PUTAWAY_STATUS_CHOICE.CANCELLED
 
