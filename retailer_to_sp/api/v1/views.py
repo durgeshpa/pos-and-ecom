@@ -4209,14 +4209,10 @@ class OrderReturns(APIView):
         ordered_product = OrderedProduct.objects.filter(order=order).last()
         cart_redeem_points = order.ordered_cart.redeem_points
         redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
-        order_amount = round(ordered_product.invoice_amount_exact, 2)
-        order_total = order_amount + redeem_value
-        discount = 0
-        offers = order.ordered_cart.offers
-        for offer in offers:
-            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
-                discount += float(offer['discount_value'])
-        discount = round(discount, 2)
+        order_amount = round(ordered_product.invoice_amount_final, 2)
+        order_total = round(ordered_product.invoice_amount_total, 2)
+        invoice_value = ordered_product.invoice_subtotal
+        discount = round(invoice_value - order_total, 2)
 
         # Current total refund value
         total_refund_value = round(order_total - prev_refund_total - float(new_cart_value), 2)
@@ -4228,7 +4224,7 @@ class OrderReturns(APIView):
         # Refund cash first, then points
         else:
             discount_adjusted = max(0, discount - prev_discount_adjusted)
-            refund_amount = min(order_amount - prev_refund_total, total_refund_value)
+            refund_amount = min(round(order_amount - prev_refund_total, 2), total_refund_value)
             refund_amount = max(refund_amount, 0)
             refund_points_value = total_refund_value - refund_amount
             refund_points = int(refund_points_value * redeem_factor)
@@ -4655,7 +4651,7 @@ class OrderReturnComplete(APIView):
             for ret in returns:
                 return_ids += [ret.id]
                 refund_amount += ret.refund_amount
-            new_paid_amount = ordered_product.invoice_amount_exact - refund_amount
+            new_paid_amount = ordered_product.invoice_amount_final - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
                 self.request.user, new_paid_amount, order.order_no, return_ids)
@@ -5146,7 +5142,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = round(ordered_product.invoice_amount_exact, 2)
+        total_amount = round(ordered_product.invoice_amount_final, 2)
         total_amount_int = round(total_amount)
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
