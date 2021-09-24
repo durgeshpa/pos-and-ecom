@@ -859,11 +859,20 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         if putaway_type_id:
-            self.queryset = self.queryset.filter(putaway_type=putaway_type,
-                                                 putaway_type_id__in=In.objects.filter(in_type=putaway_type,
-                                                                                       in_type_id=putaway_type_id)
-                                                 .annotate(id_key=Cast('id', CharField()))
-                                                 .values_list('id_key', flat=True))
+            if putaway_type == 'GRN':
+                self.queryset = self.queryset.filter(putaway_type=putaway_type,
+                                                     putaway_type_id__in=In.objects.filter(in_type=putaway_type,
+                                                                                           in_type_id=putaway_type_id)
+                                                     .annotate(id_key=Cast('id', CharField()))
+                                                     .values_list('id_key', flat=True))
+            if putaway_type == 'picking_cancelled':
+                self.queryset = self.queryset.filter(putaway_type=putaway_type,
+                                                     putaway_type_id__in=Pickup.objects.filter(
+                                                         pickup_type_id=putaway_type_id)
+                                                     .annotate(id_key=Cast('id', CharField()))
+                                                     .values_list('id_key', flat=True))
+            if putaway_type in ['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']:
+                self.queryset = self.queryset.filter(putaway_type=putaway_type, putaway_type_id=putaway_type_id)
         return self.queryset.distinct('id')
 
 
