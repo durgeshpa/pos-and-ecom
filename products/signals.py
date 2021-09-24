@@ -31,7 +31,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     can_update_es = True
     if product.status != 'active' and instance.approval_status == 2 and instance.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+        if product.repackaging_type == Product.NONE:
             product.status = 'active'
             product.save()
             can_update_es = False
@@ -49,7 +49,7 @@ def update_elasticsearch_on_price_update(sender, instance=None, created=False, *
     can_update_es = True
     if product.status != 'active' and instance.approval_status == 2 and instance.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+        if product.repackaging_type == Product.NONE:
             product.status = 'active'
             product.save()
             can_update_es = False
@@ -67,7 +67,7 @@ def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False,
     can_update_es = True
     if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        if product.repackaging_type == Product.REPACKAGING_TYPES.none:
+        if product.repackaging_type == Product.NONE:
             product.status = 'active'
             product.save()
             can_update_es = False
