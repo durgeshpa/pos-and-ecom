@@ -7,7 +7,7 @@ from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Pickup
 
 logger = logging.getLogger(__name__)
 
@@ -168,12 +168,18 @@ def read_warehouse_assortment_file(warehouse, csv_file, upload_type):
 
 def validate_putaways_by_token_id_and_zone(token_id, zone_id):
     """validation warehouse assortment for the selected warehouse and product"""
-    putaways = Putaway.objects. \
+    putaways = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         annotate(token_id=Case(
                     When(putaway_type='GRN',
                          then=Cast(Subquery(In.objects.filter(
                              id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
                                             order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
