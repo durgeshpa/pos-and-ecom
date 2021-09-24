@@ -268,7 +268,7 @@ def order_picklist(order_id, zone_id=None):
             mrp = i.pickup.sku.product_mrp
         else:
             mrp = '-'
-        zone = i.pickup.zone.zone_number if i.pickup.zone else '-'
+        zone = i.bin_zone.zone_number if i.bin_zone else '-'
         # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
         qty = i.quantity
         batch_id = i.batch_id
@@ -1027,6 +1027,12 @@ def pickup_entry_creation_with_cron():
                         bin_lists = obj.sku.rt_product_sku.filter(
                             warehouse=warehouse, bin__zone=obj.zone,quantity__gt=0, inventory_type=inventory_type). \
                             order_by('-batch_id', 'quantity')
+                        if not bin_lists.exists():
+                            cron_logger.info("{}| bin mapping seem to be missing for this product {} and zone {}"
+                                             .format(cron_name, obj.sku_id, obj.zone))
+                            bin_lists = obj.sku.rt_product_sku.filter(
+                            warehouse=warehouse, quantity__gt=0, inventory_type=inventory_type). \
+                            order_by('-batch_id', 'quantity')
                         if bin_lists.exists():
                             for k in bin_lists:
                                 if len(k.batch_id) == 23:
@@ -1038,14 +1044,15 @@ def pickup_entry_creation_with_cron():
                                         datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                           "%d-%m-%Y"))
                         else:
-
                             bin_lists = obj.sku.rt_product_sku.filter(
                                 warehouse=warehouse, quantity=0, bin__zone=obj.zone, inventory_type=inventory_type)\
-                                .order_by('-batch_id', 'quantity').last()
+                                .order_by('-batch_id').last()
                             if not bin_lists:
                                 cron_logger.info("{}| bin mapping seem to be missing for this product {}"
                                                  .format(cron_name, obj.sku_id))
-                                continue
+                                bin_lists = obj.sku.rt_product_sku.filter(
+                                    warehouse=warehouse, quantity=0, inventory_type=inventory_type) \
+                                    .order_by('-batch_id').last()
                             if len(bin_lists.batch_id) == 23:
                                 bin_inv_dict[bin_lists] = str(
                                     datetime.strptime(bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[19:21] + '-'
@@ -1074,9 +1081,9 @@ def pickup_entry_creation_with_cron():
                                 bin_inv.save()
                                 qty = 0
                                 total_to_be_picked += already_picked
-                                CommonPickBinInvFunction.create_pick_bin_inventory(
-                                    shops, obj, batch_id, bin_inv, quantity=already_picked, bin_quantity=qty_in_bin,
-                                    pickup_quantity=None)
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                    shops, bin_inv.bin.zone, obj, batch_id, bin_inv, quantity=already_picked,
+                                    bin_quantity=qty_in_bin, pickup_quantity=None)
                                 InternalInventoryChange.create_bin_internal_inventory_change(
                                     shops, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
                                     tr_id, already_picked)
@@ -1088,9 +1095,9 @@ def pickup_entry_creation_with_cron():
                                 bin_inv.save()
                                 qty = remaining_qty
                                 total_to_be_picked += already_picked
-                                CommonPickBinInvFunction.create_pick_bin_inventory(
-                                    shops, obj, batch_id, bin_inv, quantity=already_picked, bin_quantity=qty_in_bin,
-                                    pickup_quantity=None)
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                    shops, bin_inv.bin.zone, obj, batch_id, bin_inv, quantity=already_picked,
+                                    bin_quantity=qty_in_bin, pickup_quantity=None)
                                 InternalInventoryChange.create_bin_internal_inventory_change(
                                     shops, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
                                     tr_id, already_picked)

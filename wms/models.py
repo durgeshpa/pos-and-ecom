@@ -388,6 +388,7 @@ class PickupBinInventory(models.Model):
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    bin_zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_bin_zone', on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, default=None)
     bin_quantity = models.PositiveIntegerField(null=True, blank=True)

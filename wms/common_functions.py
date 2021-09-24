@@ -422,6 +422,12 @@ class CommonPickBinInvFunction(object):
                                           quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
 
     @classmethod
+    def create_pick_bin_inventory_with_zone(cls, warehouse, zone, pickup, batch_id, bin, quantity, bin_quantity,
+                                            pickup_quantity):
+        PickupBinInventory.objects.create(warehouse=warehouse, bin_zone=zone, pickup=pickup, batch_id=batch_id, bin=bin,
+                                          quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
+
+    @classmethod
     def get_filtered_pick_bin_inv(cls, **kwargs):
         pick_bin_inv = PickupBinInventory.objects.filter(**kwargs).exclude(pickup__status='picking_cancelled')
         return pick_bin_inv
