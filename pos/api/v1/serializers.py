@@ -513,7 +513,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
-        return round(ordered_product.invoice_amount_exact, 2) if ordered_product else obj.order_amount
+        return round(ordered_product.invoice_amount_final, 2) if ordered_product else obj.order_amount
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
@@ -780,22 +780,22 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             return []
         block, cb = dict(), 1
         block[cb] = dict()
-        block[cb][1] = "Paid Amount: " + str(self.get_order_total(obj)).rstrip('0').rstrip('.')
+        block[cb][1] = "Invoice Amount: " + str(self.get_invoice_total(obj)).rstrip('0').rstrip('.')
 
         discount = self.get_discount_amount(obj)
         redeem_points_value = self.get_redeem_points_value(obj)
         if discount and redeem_points_value:
             block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip(
-                '0').rstrip('.') + ') = Rs.' + str(obj.order_amount).rstrip('0').rstrip('.')
+                '0').rstrip('.') + ') = Rs.' + str(self.get_invoice_final(obj)).rstrip('0').rstrip('.')
             block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(
                 redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
         elif discount:
-            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(obj.order_amount).rstrip(
+            block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(self.get_invoice_final(obj)).rstrip(
                 '0').rstrip('.')
             block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon)'
         elif redeem_points_value:
             block[cb][1] += '-' + str(redeem_points_value).rstrip('0').rstrip('.') + ' = Rs.' + str(
-                obj.order_amount).rstrip('0').rstrip('.')
+                self.get_invoice_final(obj)).rstrip('0').rstrip('.')
 
         returns = OrderReturn.objects.filter(order=obj, status='completed')
         return_value, discount_adjusted, points_adjusted, refunded_amount = 0, 0, 0, 0.00
@@ -835,15 +835,17 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             redeem_points_value = round(obj.ordered_cart.redeem_points / obj.ordered_cart.redeem_factor, 2)
         return redeem_points_value
 
-    def get_order_total(self, obj):
-        return round(obj.order_amount + self.get_discount_amount(obj) + self.get_redeem_points_value(obj), 2)
+    def get_invoice_total(self, obj):
+        ordered_product = OrderedProduct.objects.get(order=obj)
+        return round(ordered_product.invoice_subtotal, 2)
+
+    def get_invoice_final(self, obj):
+        ordered_product = OrderedProduct.objects.get(order=obj)
+        return round(ordered_product.invoice_amount_final, 2)
 
     def get_discount_amount(self, obj):
-        discount = 0
-        offers = self.get_cart_offers(obj)
-        for offer in offers:
-            discount += float(offer['discount_value'])
-        return round(discount, 2)
+        ordered_product = OrderedProduct.objects.get(order=obj)
+        return round(ordered_product.invoice_subtotal - ordered_product.invoice_amount_total, 2)
 
     @staticmethod
     def get_cart_offers(obj):
@@ -2186,9 +2188,19 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return ret
 
     @staticmethod
+    def get_invoice_amount_total(obj):
+        ordered_product = OrderedProduct.objects.filter(order=obj).last()
+        return round(ordered_product.invoice_amount_total, 2) if ordered_product else None
+
+    @staticmethod
+    def get_invoice_amount_final(obj):
+        ordered_product = OrderedProduct.objects.filter(order=obj).last()
+        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
+
+    @staticmethod
     def get_invoice_amount(obj):
         ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return round(ordered_product.invoice_amount_exact, 2) if ordered_product else None
+        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
 
     @staticmethod
     def get_invoice_subtotal(obj):
@@ -2216,9 +2228,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         invoice_summary['invoice_value'] = self.get_invoice_subtotal(obj)
         invoice_summary['invoice_amount'], invoice_summary['invoice_discount'] = None, None
         if invoice_summary['invoice_value']:
-            invoice_summary['invoice_amount'] = self.get_invoice_amount(obj)
-            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - invoice_summary[
-                'invoice_amount'], 2)
+            invoice_summary['redeem_points_value'] = self.get_redeem_points_value(obj)
+            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - self.get_invoice_amount_total(obj), 2)
+            invoice_summary['invoice_amount'] = self.get_invoice_amount_final(obj)
         return invoice_summary
 
     @staticmethod
