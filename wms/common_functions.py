@@ -1038,7 +1038,7 @@ def cancel_order_with_pick(instance):
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
-        if pickup_qs.last().status == 'picking_complete':
+        if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
             pickup_id = pickup_qs.last().id
             warehouse = pickup_qs.last().warehouse
             sku = pickup_qs.last().sku
