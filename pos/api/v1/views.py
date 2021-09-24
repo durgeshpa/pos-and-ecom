@@ -1250,6 +1250,13 @@ class GetGrnOrderListView(ListAPIView):
     @check_pos_shop
     def get(self, request, *args, **kwargs):
         grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'])
+        if request.GET.get('id'):
+            """ Get GRN Order for specific ID """
+            id_validation = validate_id(grn_order, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            grn_order = id_validation['data']
+
         search_text = self.request.GET.get('search_text')
         # search using PO number, GRN invoice number and product name on criteria that matches
         if search_text:
