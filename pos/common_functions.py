@@ -706,16 +706,8 @@ class PosAddToCart(object):
             if product.product_pack_type == 'packet':
                 qty = int(qty)
             else:
-                given_qty_unit = self.request.data.get('qty_unit')
-                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
-                qty_unit = default_unit
-                if given_qty_unit:
-                    try:
-                        qty_unit = MeasurementUnit.objects.get(unit=self.request.data.get('qty_unit'))
-                    except:
-                        qty_unit = default_unit
-                qty = round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion
-                kwargs['conversion_unit_id'] = qty_unit.id
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                             product, qty)
 
             # Return with objects
             kwargs['product'] = product
@@ -725,6 +717,18 @@ class PosAddToCart(object):
             return view_func(self, request, *args, **kwargs)
 
         return _wrapped_view_func
+
+
+def get_default_qty(given_qty_unit, product, qty):
+    default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+    qty_unit = default_unit
+    if given_qty_unit:
+        try:
+            qty_unit = MeasurementUnit.objects.get(unit=given_qty_unit)
+        except:
+            qty_unit = default_unit
+    qty = round(round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion, 3)
+    return qty, qty_unit.id
 
 
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):

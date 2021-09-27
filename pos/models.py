@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.utils.safestring import mark_safe
 from django.db import models
 
@@ -255,17 +257,36 @@ class PosCartProductMapping(models.Model):
     qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)], null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
+    qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
+                                            null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('cart', 'product')
 
+    @property
+    def qty_given(self):
+        qty = self.qty
+        if self.product.product_pack_type == 'loose' and qty:
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return self.qty_conversion_unit.unit
+        return None
+
     def total_price(self):
         return round(self.price * self.qty, 2)
 
     def product_name(self):
         return self.product.name
+
+    def product_pack_type(self):
+        return self.product.product_pack_type
 
     def __str__(self):
         return self.product.name
@@ -316,6 +337,23 @@ class PosGRNOrderProductMapping(models.Model):
     received_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def qty_given(self):
+        qty = self.received_qty
+        if self.product.product_pack_type == 'loose' and qty:
+            po_product = PosCartProductMapping.objects.filter(
+                cart=self.grn_order.order.ordered_cart, product=self.product).last()
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                        product=self.product).last().qty_conversion_unit.unit
+        return None
 
 
 class Document(models.Model):
@@ -464,6 +502,23 @@ class PosReturnItems(models.Model):
     class Meta:
         verbose_name = "Store - GRN - Return items"
         unique_together = ('grn_return_id', 'product')
+
+    @property
+    def qty_given(self):
+        qty = self.return_qty
+        if self.product.product_pack_type == 'loose' and qty:
+            po_product = PosCartProductMapping.objects.filter(
+                cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                        product=self.product).last().qty_conversion_unit.unit
+        return None
 
     def save(self, *args, **kwargs):
         if not self.id:

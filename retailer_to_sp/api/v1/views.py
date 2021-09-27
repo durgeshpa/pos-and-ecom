@@ -68,14 +68,14 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState, \
     PosInventoryChange
 from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
-    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart
+    update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop, serializer_error, PosAddToCart, get_default_qty
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
     PosShopSerializer, BasicCartUserViewSerializer, OrderReturnGetSerializer, BasicOrderDetailSerializer, \
     RetailerProductResponseSerializer, PosShopUserMappingListSerializer
 from pos.common_validators import validate_user_type_for_pos_shop
-from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, ShopCustomerMap, PaymentType, MeasurementUnit
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
@@ -3854,6 +3854,12 @@ class OrderReturns(APIView):
                 qty=Sum('return_qty'))['qty']
             previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
+        product = ordered_product_map.retailer_product
+        cart_product = CartProductMapping.objects.filter(cart=ordered_product_map.ordered_product.order.ordered_cart,
+                                                         retailer_product=product).last()
+        if product.product_pack_type == 'loose':
+            qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
+
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
 
@@ -4597,13 +4603,17 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 product_type=m.product_type
             ).last()
             product_pro_price_ptr = cart_product_map.selling_price
+            product = cart_product_map.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp,
-                "qty": m.shipped_qty,
-                "rate": float(product_pro_price_ptr),
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
             product_listing.append(ordered_p)
@@ -4698,12 +4708,18 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_qty = 0
 
         for item in return_items:
+            product = item.ordered_product.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             return_p = {
                 "id": item.id,
                 "product_short_description": item.ordered_product.retailer_product.product_short_description,
-                "mrp": item.ordered_product.retailer_product.mrp,
-                "qty": item.return_qty,
-                "rate": float(item.ordered_product.selling_price),
+                "mrp": item.ordered_product.retailer_product.mrp if product_pack_type == 'packet' else str(
+                    item.ordered_product.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": item.return_qty if product_pack_type == 'packet' else str(item.return_qty) + ' ' + default_unit.unit,
+                "rate": round(float(item.ordered_product.selling_price), 2) if product_pack_type == 'packet' else str(
+                    round(float(item.ordered_product.selling_price), 2)) + '/' + default_unit.unit,
                 "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
             }
             return_qty += item.return_qty
