@@ -385,7 +385,7 @@ class PickupBinInventory(models.Model):
                                     (2, 'FULL', 'Fully Completed'),
                                     (3, 'CANCELLED', 'Pickup Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
+    pickup = models.ForeignKey(Pickup, related_name='bin_inventory', null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin_zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_bin_zone', on_delete=models.DO_NOTHING)
