@@ -10,6 +10,7 @@ from datetime import datetime
 
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission, Group
+from tempus_dominus.widgets import DateTimePicker
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
@@ -1425,3 +1426,45 @@ class QCAreaForm(forms.ModelForm):
     class Meta:
         model = QCArea
         fields = ['warehouse', 'area_id', 'area_type', 'is_active']
+
+
+class InOutLedgerForm(forms.Form):
+    sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-sku-autocomplete', ),
+    )
+    warehouse = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete', ),
+    )
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+
+
+class IncorrectProductBinMappingForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )

@@ -13,7 +13,7 @@ from openpyxl.writer.excel import save_virtual_workbook
 
 import re
 import logging
-from django.db.models import Q, Prefetch, Count, Subquery, OuterRef
+from django.db.models import Q, Prefetch, Count, Subquery, OuterRef, F
 from celery.task import task
 from django.db.models.functions import Length, Cast
 from django.utils import timezone
@@ -63,7 +63,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
-    WarehouseAssortmentCsvViewForm
+    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -2581,3 +2581,155 @@ class PickerUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
                 last_name__icontains=self.q))
         return qs
+
+
+class InOutLedgerReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_in_out_ledger_report(self, product_id, warehouse_id, start_date, end_date, inventory_types_qs):
+        sku_id = Product.objects.filter(id=product_id).last().product_sku
+        ins = In.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                created_at__lte=end_date)
+        outs = Out.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                  created_at__lte=end_date)
+        data = sorted(itertools.chain(ins, outs), key=lambda instance: instance.created_at)
+
+        ins_type_wise_qty = ins.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+        out_type_wise_qty = outs.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+
+        in_type_ids = {x['inventory_type']: x['total_qty'] for x in ins_type_wise_qty}
+        out_type_ids = {x['inventory_type']: x['total_qty'] for x in out_type_wise_qty}
+
+        ins_count_list = ['TOTAL IN QUANTITY']
+        outs_count_list = ['TOTAL OUT QUANTITY']
+        for i in range(len(inventory_types_qs)):
+            if i + 1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i + 1])
+            else:
+                ins_count_list.append('0')
+            if i + 1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i + 1])
+            else:
+                outs_count_list.append('0')
+        return data, ins_count_list, outs_count_list
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        sku_id = self.request.GET.get('sku')
+        warehouse_id = self.request.GET.get('warehouse')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/in-out-ledger.html',
+                {'form': InOutLedgerForm(initial=self.request.GET)}
+            )
+        it_qs = InventoryType.objects.values('id', 'inventory_type').order_by('id')
+        inventory_types = list(x['inventory_type'].upper() for x in it_qs)
+        data, ins_qtylst, outs_qtylst = self.get_in_out_ledger_report(sku_id, warehouse_id, start_date, end_date, it_qs)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="ledger-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow([''] + inventory_types)
+        writer.writerow(ins_qtylst)
+        writer.writerow(outs_qtylst)
+        writer.writerow([])
+        writer.writerow(['TRANSACTION TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'MOVEMENT TYPE',
+                         'TRANSACTION TYPE', 'TRANSACTION ID', 'QUANTITY'])
+        for obj in data:
+            created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
+            if obj.__class__.__name__ == 'In':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "IN", obj.in_type,
+                                 obj.in_type_id, obj.quantity])
+            elif obj.__class__.__name__ == 'Out':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "OUT", obj.out_type,
+                                 obj.out_type_id, obj.quantity])
+            else:
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
+                                 obj.quantity])
+        return response
+
+
+class InOutLedgerFormView(View):
+    def get(self, request):
+        form = InOutLedgerForm()
+        return render(
+            self.request,
+            'admin/services/in-out-ledger.html',
+            {'form': form}
+        )
+
+
+class IncorrectProductBinMappingReport(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def get_report_data(start_date, end_date):
+        data = Pickup.objects.select_related('warehouse', 'sku', 'zone'). \
+            prefetch_related('bin_inventory', 'bin_inventory__bin', 'bin_inventory__bin_zone'). \
+            filter(created_at__gte=start_date, created_at__lte=end_date). \
+            exclude(zone__isnull=True). \
+            exclude(zone=F('bin_inventory__bin_zone')). \
+            values('pickup_type_id', 'sku', 'zone', 'bin_inventory__bin', 'bin_inventory__bin_zone',
+                   'pickup_quantity', 'created_at').order_by('-id')
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/incorrect-product-bin-mapping.html',
+                {'form': IncorrectProductBinMappingForm(initial=self.request.GET)}
+            )
+        data = self.get_report_data(start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE', 'BIN', 'BIN ZONE', 'QUANTITY', 'CREATED DATE'])
+        for obj in data:
+            created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
+            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone'], obj['bin_inventory__bin'],
+                             obj['bin_inventory__bin_zone'], obj['pickup_quantity'], created_at])
+        return response
+
+
+class IncorrectProductBinMappingFormView(View):
+    def get(self, request):
+        form = IncorrectProductBinMappingForm()
+        return render(
+            self.request,
+            'admin/services/incorrect-product-bin-mapping.html',
+            {'form': form}
+        )
