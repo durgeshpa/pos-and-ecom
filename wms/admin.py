@@ -20,8 +20,6 @@ from gram_to_brand.models import GRNOrder
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import Invoice, Trip
 # app imports
-from services.views import InOutLedgerFormView, InOutLedgerReport, IncorrectProductBinMappingReport, \
-    IncorrectProductBinMappingFormView
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
@@ -33,7 +31,8 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
                      ZonePutawayUserAssignmentMapping)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
-    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
+    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
+    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView
 
 # Logger
 info_logger = logging.getLogger('file-info')
