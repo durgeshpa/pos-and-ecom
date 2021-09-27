@@ -50,7 +50,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, Return)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, getShopLicenseNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
                                      )
@@ -4289,7 +4289,8 @@ def pdf_generation(request, ordered_product):
 
     try:
         if ordered_product.invoice.invoice_pdf.url:
-            pass
+            # 
+            raise Exception("hh")
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
@@ -4297,6 +4298,14 @@ def pdf_generation(request, ordered_product):
         buyer_shop_id = ordered_product.order.buyer_shop_id
         paid_amount = 0
         invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(retailer=ordered_product.order.ordered_cart.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = ordered_product.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         for invoice_amount in invoice_details:
             date_time = invoice_amount.created_at
             date = date_time.strftime("%d")
@@ -4332,7 +4341,7 @@ def pdf_generation(request, ordered_product):
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
 
-        if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+        if ordered_product.order.ordered_cart.buyer_shop and ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
@@ -4531,17 +4540,17 @@ def pdf_generation(request, ordered_product):
                 "sum_basic_amount": sum_basic_amount,
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1, "license_number": license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                    "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+                                    context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+                                                    ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
 
