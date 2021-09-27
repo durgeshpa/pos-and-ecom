@@ -5475,6 +5475,15 @@ class DownloadCreditNoteDiscounted(APIView):
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=credit_note.shipment.order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = credit_note.shipment.order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
             "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
@@ -5485,7 +5494,7 @@ class DownloadCreditNoteDiscounted(APIView):
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
             "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin,
-            "hsn_list": list1}
+            "hsn_list": list1, "license_number": license_number}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
