@@ -1407,13 +1407,13 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
 
     def filter_zone_wise_summary_putaways_data(self):
         zone = self.request.GET.get('zone')
-        # date = self.request.GET.get('date')
+        date = self.request.GET.get('date')
 
         '''Filters using zone '''
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
 
-        # if date:
-        #     self.queryset = self.queryset.filter(created_at__date=date)
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
