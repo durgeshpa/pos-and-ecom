@@ -1,4 +1,5 @@
 import logging
+
 from django.contrib.auth import get_user_model, authenticate
 from django.conf import settings
 from django.contrib.auth.forms import SetPasswordForm
@@ -7,10 +8,10 @@ from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 from django.core.validators import RegexValidator
-from rest_framework import serializers, exceptions
+
+from rest_framework import serializers, exceptions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework import status
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -24,21 +25,21 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
+from otp.models import PhoneOTP
+from otp.views import ValidateOTPInternal
+from marketing.models import ReferralCode
+from pos.common_functions import filter_pos_shop
+from shops.models import PosShopUserMapping
+
 from .models import TokenModel
 from .utils import import_callable
 
-from otp.models import PhoneOTP
-from otp.views import ValidateOTPInternal
-from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from pos.common_functions import filter_pos_shop
-
-# Get the UserModel
 UserModel = get_user_model()
 
-# Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
 
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
@@ -206,6 +207,38 @@ class PosOtpLoginSerializer(serializers.Serializer):
         return attrs
 
 
+class EcomOtpLoginSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        number = attrs.get('username')
+
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user:
+            raise serializers.ValidationError("You are not registered. Please sign up.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTPInternal()
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
+        attrs['user'] = user
+        return attrs
+
+
 class MlmResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()
     phone_number = serializers.SerializerMethodField()
@@ -246,6 +279,8 @@ class PosLoginResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+    is_delivery_person = serializers.SerializerMethodField()
 
     @staticmethod
     def get_access_token(obj):
@@ -258,6 +293,14 @@ class PosLoginResponseSerializer(serializers.Serializer):
     @staticmethod
     def get_shop_name(obj):
         return obj['shop_object'].shop_name if obj['shop_object'] else ''
+
+    @staticmethod
+    def get_user_type(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).user_type
+
+    @staticmethod
+    def get_is_delivery_person(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).is_delivery_person
 
 
 class TokenSerializer(serializers.ModelSerializer):
@@ -486,3 +529,8 @@ def api_serializer_errors(s_errors):
             errors.append(error if 'non_field_errors' in field else ''.join('{} : {}'.format(field, error)))
     return Response({'is_success': False, 'message': errors, 'response_data': None},
                     status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class EcomAccessSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_number = serializers.CharField(validators=[phone_regex], max_length=10, required=True)

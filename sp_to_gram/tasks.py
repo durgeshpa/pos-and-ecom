@@ -1,4 +1,3 @@
-
 from celery.task import task
 from elasticsearch import Elasticsearch, NotFoundError
 

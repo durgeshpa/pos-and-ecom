@@ -292,7 +292,6 @@ class Product(BaseTimestampUserStatusModel):
         related_name='product_updated_by',
         on_delete=models.DO_NOTHING
     )
-
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
         super(Product, self).save(*args, **kwargs)
