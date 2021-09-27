@@ -4856,8 +4856,7 @@ def pdf_generation(request, ordered_product):
 
     try:
         if ordered_product.invoice.invoice_pdf.url:
-            # 
-            raise Exception("hh")
+            pass
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
