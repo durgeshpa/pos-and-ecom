@@ -1384,7 +1384,7 @@ class PutawaySummaryView(generics.GenericAPIView):
 class ZoneWiseSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Putaway.objects.filter(putaway_type='GRN'). \
+    queryset = Putaway.objects. \
         annotate(zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
