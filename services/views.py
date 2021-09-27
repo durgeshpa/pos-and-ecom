@@ -940,15 +940,10 @@ class IncorrectProductBinMappingReport(APIView):
         response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
         writer = csv.writer(response)
         writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE', 'BIN', 'BIN ZONE', 'QUANTITY', 'CREATED DATE'])
-        # for obj in data:
-        #     created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
-        #     writer.writerow([obj.pickup_type_id, obj.sku, obj.zone, obj.bin_inventory.last().bin,
-        #                      obj.bin_inventory.last().bin_zone, obj.pickup_quantity, created_at])
         for obj in data:
             created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
             writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone'], obj['bin_inventory__bin'],
                              obj['bin_inventory__bin_zone'], obj['pickup_quantity'], created_at])
-            # writer.writerow(obj)
         return response
 
 
