@@ -521,6 +521,54 @@ class AuditBinsBySKUList(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
 
+class AuditSKUsByBinList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated, IsAuditor)
+
+    def get(self, request):
+        """
+        Returns the list of skus kept in a given bin under audit
+        """
+        audit_no = request.GET.get('audit_no')
+        if not audit_no:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        audit = AuditDetail.objects.filter(audit_no=audit_no).last()
+        if audit is None:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        if not is_audit_started(audit):
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['AUDIT_NOT_STARTED'], 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
+        audit_bin = request.GET.get('bin')
+        if audit_bin is None:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'bin', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        bin = Bin.objects.filter(bin_id=audit_bin).last()
+        if not bin:
+            msg = {'is_success': False, 'message': 'Invalid Bin', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        bin_products = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                                                   sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
+                                                   warehouse=audit.warehouse, bin=bin).only('sku', 'batch_id')\
+                                           .values('sku_id', 'batch_id', 'sku__product_mrp')
+        products_audited = AuditRunItem.objects.filter(audit_run__audit=audit, bin=bin)\
+                                           .values_list('batch_id', flat=True)
+        for b in bin_products:
+            audit_done = False
+            if b['batch_id'] in products_audited:
+                audit_done = True
+            b['audit_done'] = audit_done
+
+
+        audit_started_at = get_audit_start_time(audit)
+        data = {'audit_no': audit_no, 'started_at': audit_started_at, 'current_time': timezone.now(),
+                'product_count': len(bin_products), 'bin': audit_bin,
+                'sku_list': bin_products}
+        msg = {'is_success': True, 'message': 'OK', 'data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
 class AuditInventory(APIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
