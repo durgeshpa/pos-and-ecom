@@ -7,7 +7,7 @@ from itertools import chain
 from django.db import transaction, models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum, F, Subquery, OuterRef, Count
+from django.db.models import Sum, F, Subquery, OuterRef, Count, Q
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
@@ -22,7 +22,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState, BinInventory
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
 
 User = get_user_model()
@@ -1187,10 +1187,14 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
 
                     bin = Bin.objects.filter(bin_id=item['bin'], warehouse=putaway_instance.warehouse,
                                              zone=zone, is_active=True).last()
+                    if BinInventory.objects.filter(~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse,
+                                                bin=bin, sku=putaway_instance.sku, quantity__gt=0).exists():
+                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different expiry date "
+                                                          f"already present in bin")
                     if bin:
                         item['bin'] = bin
                     else:
-                        raise serializers.ValidationError(f'Invalid Bin {bin}')
+                        raise serializers.ValidationError(f"Invalid Bin {item['bin']}")
 
                     if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
                         item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
@@ -1217,12 +1221,12 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
         @return: PutawayActionSerializer serializer object
         """
         try:
-            putaway_instance = super().update(instance, validated_data)
+            putaway_instance = validated_data.pop('putaway')
             putaway_bin_data = validated_data.pop('putaway_bin_data')
             putaway_instance = self.post_putaway_data_update(putaway_instance, putaway_bin_data)
             validated_data['putaway_quantity'] = putaway_instance.putaway_quantity
             if putaway_instance.quantity == putaway_instance.putaway_quantity:
-                putaway_instance.status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
+                validated_data['status'] = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
             putaway_instance = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}

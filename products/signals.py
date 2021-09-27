@@ -389,13 +389,13 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                             status=Putaway.PUTAWAY_STATUS_CHOICE.NEW,
                                             putaway_quantity=0)
 
-                PutawayBinInventory.objects.create(warehouse=rep_obj.seller_shop,
-                                                   sku=rep_obj.destination_sku,
-                                                   batch_id=rep_obj.destination_batch_id,
-                                                   putaway_type='REPACKAGING',
-                                                   putaway=pu,
-                                                   putaway_status=False,
-                                                   putaway_quantity=rep_obj.destination_sku_quantity)
+                # PutawayBinInventory.objects.create(warehouse=rep_obj.seller_shop,
+                #                                    sku=rep_obj.destination_sku,
+                #                                    batch_id=rep_obj.destination_batch_id,
+                #                                    putaway_type='REPACKAGING',
+                #                                    putaway=pu,
+                #                                    putaway_status=False,
+                #                                    putaway_quantity=rep_obj.destination_sku_quantity)
 
                 repackaging_packing_material_inventory(rep_obj)
 
