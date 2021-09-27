@@ -20,7 +20,8 @@ from gram_to_brand.models import GRNOrder
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import Invoice, Trip
 # app imports
-from services.views import InOutLedgerFormView, InOutLedgerReport
+from services.views import InOutLedgerFormView, InOutLedgerReport, IncorrectProductBinMappingReport, \
+    IncorrectProductBinMappingFormView
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
@@ -697,6 +698,24 @@ class PickupAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PickupAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^incorrect-product-bin-mapping-report/$',
+               self.admin_site.admin_view(IncorrectProductBinMappingReport.as_view()),
+               name="incorrect-product-bin-mapping-report"
+           ),
+           url(
+               r'^incorrect-product-bin-mapping-form/$',
+               self.admin_site.admin_view(IncorrectProductBinMappingFormView.as_view()),
+               name="incorrect-product-bin-mapping-form"
+           )
+        ] + urls
+        return urls
 
 
 class PickupBinInventoryAdmin(admin.ModelAdmin):

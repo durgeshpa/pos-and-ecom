@@ -14,10 +14,10 @@ from django.conf import settings
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from shops.models import ParentRetailerMapping
 from shops.models import Shop
-from wms.models import In, Out, InventoryType
-from django.db.models import Sum
+from wms.models import In, Out, InventoryType, Pickup
+from django.db.models import Sum, F
 import csv
-from .forms import InOutLedgerForm, SalesReportForm
+from .forms import InOutLedgerForm, SalesReportForm, IncorrectProductBinMappingForm
 from django.views import View
 from products.models import Product, ProductPrice
 from .models import RetailerReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
@@ -893,5 +893,70 @@ class InOutLedgerFormView(View):
         return render(
             self.request,
             'admin/services/in-out-ledger.html',
+            {'form': form}
+        )
+
+
+class IncorrectProductBinMappingReport(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def get_report_data(start_date, end_date):
+        data = Pickup.objects.select_related('warehouse', 'sku', 'zone'). \
+            prefetch_related('bin_inventory', 'bin_inventory__bin', 'bin_inventory__bin_zone'). \
+            filter(created_at__gte=start_date, created_at__lte=end_date). \
+            exclude(zone__isnull=True). \
+            exclude(zone=F('bin_inventory__bin_zone')). \
+            values('pickup_type_id', 'sku', 'zone', 'bin_inventory__bin', 'bin_inventory__bin_zone',
+                   'pickup_quantity', 'created_at').order_by('-id')
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/incorrect-product-bin-mapping.html',
+                {'form': IncorrectProductBinMappingForm(initial=self.request.GET)}
+            )
+        data = self.get_report_data(start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE', 'BIN', 'BIN ZONE', 'QUANTITY', 'CREATED DATE'])
+        # for obj in data:
+        #     created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
+        #     writer.writerow([obj.pickup_type_id, obj.sku, obj.zone, obj.bin_inventory.last().bin,
+        #                      obj.bin_inventory.last().bin_zone, obj.pickup_quantity, created_at])
+        for obj in data:
+            created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
+            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone'], obj['bin_inventory__bin'],
+                             obj['bin_inventory__bin_zone'], obj['pickup_quantity'], created_at])
+            # writer.writerow(obj)
+        return response
+
+
+class IncorrectProductBinMappingFormView(View):
+    def get(self, request):
+        form = IncorrectProductBinMappingForm()
+        return render(
+            self.request,
+            'admin/services/incorrect-product-bin-mapping.html',
             {'form': form}
         )
