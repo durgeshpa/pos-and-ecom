@@ -9,6 +9,7 @@ from django.db.models import Q
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.db import transaction
 
 from django.views import View
 from rest_framework.permissions import AllowAny
@@ -16,7 +17,7 @@ from rest_framework.views import APIView
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct
+from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, MeasurementCategory
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm
 from pos.tasks import generate_pdf_data
@@ -72,53 +73,58 @@ def download_discounted_products_form_view(request):
         {'form': form}
     )
 
+
 def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list):
-    for row in uploaded_data_by_user_list:
-        if row.get('product_id') == '':
-            # we need to create this product
-            # if else condition for checking whether, Product we are creating is linked with existing product or not
-            # with the help of 'linked_product_id'
-            if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
-                if row.get('linked_product_sku') != '':
-                    # If product is linked with existing product
-                    if Product.objects.filter(product_sku=row.get('linked_product_sku')):
-                        product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                        RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                   row.get('selling_price'), product.id,
-                                                                   2, row.get('description'),
-                                                                   row.get('product_ean_code'),
-                                                                   request.user, 'product', None,
-                                                                   row.get('status'))
+    with transaction.atomic():
+        for row in uploaded_data_by_user_list:
+            if row.get('product_id') == '':
+                # we need to create this product
+                # if else condition for checking whether, Product we are creating is linked with existing product or not
+                # with the help of 'linked_product_id'
+                if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
+                    if row.get('linked_product_sku') != '':
+                        # If product is linked with existing product
+                        if Product.objects.filter(product_sku=row.get('linked_product_sku')):
+                            product = Product.objects.get(product_sku=row.get('linked_product_sku'))
+                            measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+                            RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                                       row.get('selling_price'), product.id,
+                                                                       2, row.get('description'),
+                                                                       row.get('product_ean_code'),
+                                                                       request.user, 'product', row.get('product_pack_type'),
+                                                                       measure_cat_id, None,
+                                                                       row.get('status'))
+                else:
+                    # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
+                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                               row.get('selling_price'), None,
+                                                               1, row.get('description'), row.get('product_ean_code'),
+                                                               request.user, 'product', row.get('product_pack_type'),
+                                                               measure_cat_id, None,
+                                                               row.get('status'))
+
             else:
-                # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                           row.get('selling_price'), None,
-                                                           1, row.get('description'), row.get('product_ean_code'),
-                                                           request.user, 'product', None,
-                                                           row.get('status'))
+                # we need to update existing product
+                try:
 
-        else:
-            # we need to update existing product
-            try:
+                    product = RetailerProduct.objects.get(id=row.get('product_id'))
 
-                product = RetailerProduct.objects.get(id=row.get('product_id'))
-
-                if (row.get('linked_product_sku') != '' and Product.objects.get(
-                        product_sku=row.get('linked_product_sku'))):
-                    linked_product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                    product.linked_product_id = linked_product.id
-                if (product.selling_price != row.get('selling_price')):
-                    product.selling_price = row.get('selling_price')
-                if (product.status != row.get('status')):
-                    if row.get('status') == 'deactivated':
-                        product.status = 'deactivated'
-                    else:
-                        product.status = "active"
-                product.save()
-            except:
-                return render(request, 'admin/pos/retailerproductscsvupload.html',
-                              {'form': form,
-                               'error': "Please check for correct format"})
+                    if (row.get('linked_product_sku') != '' and Product.objects.get(
+                            product_sku=row.get('linked_product_sku'))):
+                        linked_product = Product.objects.get(product_sku=row.get('linked_product_sku'))
+                        product.linked_product_id = linked_product.id
+                    if (product.selling_price != row.get('selling_price')):
+                        product.selling_price = row.get('selling_price')
+                    if (product.status != row.get('status')):
+                        if row.get('status') == 'deactivated':
+                            product.status = 'deactivated'
+                        else:
+                            product.status = "active"
+                    product.save()
+                except:
+                    return render(request, 'admin/pos/retailerproductscsvupload.html',
+                                  {'form': form,
+                                   'error': "Please check for correct format"})
 
 
 def upload_retailer_products_list(request):
@@ -211,7 +217,7 @@ def DownloadRetailerCatalogue(request, *args):
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity', 'discounted_sku', 'discounted_stock'])
+         'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type', 'measurement_category'])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -220,7 +226,9 @@ def DownloadRetailerCatalogue(request, *args):
             .prefetch_related('linked_product__parent_product__parent_brand__brand_parent') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
-            .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price',
+            .select_related('measurement_category')\
+            .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'measurement_category__category'
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
                     'linked_product__parent_product__parent_product_pro_category__category__category_name',
@@ -258,13 +266,15 @@ def DownloadRetailerCatalogue(request, *args):
             discounted_stock = None
             if product['discounted_product']:
                 discounted_stock = inventory_data.get(product['discounted_product'], 0)
+            measurement_category = product['measurement_category__category']
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
-                 product['discounted_product__sku'], discounted_stock])
+                 product['discounted_product__sku'], discounted_stock, product['product_pack_type'],
+                 measurement_category])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -283,7 +293,7 @@ def download_discounted_products(request, *args):
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity'])
+         'quantity', 'product_pack_type', 'measurement_category'])
     product_qs = RetailerProduct.objects.filter(sku_type=4, shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -292,7 +302,9 @@ def download_discounted_products(request, *args):
             .prefetch_related('linked_product__parent_product__parent_brand__brand_parent') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
-            .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price',
+            .select_related('measurement_category') \
+            .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'measurement_category__category',
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
                     'linked_product__parent_product__parent_product_pro_category__category__category_name',
@@ -321,12 +333,14 @@ def download_discounted_products(request, *args):
             if not brand:
                 brand = sub_brand
                 sub_brand = None
+            measurement_category = product['measurement_category__category']
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
-                 category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0)])
+                 category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                 product['product_pack_type'], measurement_category])
     else:
         writer.writerow(["No discounted products for selected shop exists"])
     return response
@@ -343,8 +357,9 @@ def RetailerCatalogueSampleFile(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
-         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity'])
-    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', ''])
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity',
+         'product_pack_type', 'measurement_category'])
+    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', 'loose', 'weight'])
 
     return response
 
