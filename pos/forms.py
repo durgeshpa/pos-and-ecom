@@ -165,6 +165,10 @@ class RetailerProductsCSVUploadForm(forms.Form):
                     MeasurementUnit.objects.get(category=measure_cat)
                 except:
                     raise ValidationError(_(f"Row {row_num} | Invalid measurement_category."))
+                row['purchase_pack_size'] = 1
+
+            if not str(row['purchase_pack_size']).isdigit():
+                raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
 
     def read_file(self, headers, reader):
         """

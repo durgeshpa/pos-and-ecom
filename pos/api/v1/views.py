@@ -96,7 +96,8 @@ class PosProductView(GenericAPIView):
                                                                      description, ean, self.request.user, 'product',
                                                                      data['product_pack_type'], data['measurement_category_id'],
                                                                      None, 'active', offer_price, offer_sd, offer_ed,
-                                                                     None, online_enabled, online_price)
+                                                                     None, online_enabled, online_price,
+                                                                     data['purchase_pack_size'])
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
@@ -144,6 +145,7 @@ class PosProductView(GenericAPIView):
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
+                product.purchase_pack_size = data['purchase_pack_size'] if data['purchase_pack_size'] else product.purchase_pack_size
                 if add_offer_price is not None:
                     product.offer_price = offer_price
                     product.offer_start_date = offer_sd

@@ -132,7 +132,8 @@ def update_es(products, shop_id):
             'combo_available': True if coupons else False,
             'coupons': coupons,
             'online_enabled': product.online_enabled,
-            'online_price': product.online_price if product.online_price else product.selling_price
+            'online_price': product.online_price if product.online_price else product.selling_price,
+            'purchase_pack_size': product.purchase_pack_size
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 

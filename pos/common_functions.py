@@ -68,8 +68,9 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None, product_status='active',
-                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1):
         """
             General Response For API
         """
@@ -81,8 +82,8 @@ class RetailerProductCls(object):
                                                  product_ean_code=product_ean_code, status=product_status,
                                                  product_ref=product_ref, product_pack_type=pack_type,
                                                  measurement_category_id=measure_cat_id,
-                                                 online_enabled=online_enabled, online_price=online_price)
-
+                                                 online_enabled=online_enabled, online_price=online_price,
+                                                 purchase_pack_size=purchase_pack_size)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -782,7 +783,7 @@ class PosAddToCart(object):
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
             # qty w.r.t pack type
-            kwargs['conversion_unit'] = None
+            kwargs['conversion_unit_id'] = None
             if product.product_pack_type == 'packet':
                 qty = int(qty)
             else:
