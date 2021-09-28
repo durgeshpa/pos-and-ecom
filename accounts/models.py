@@ -80,6 +80,7 @@ class User(AbstractUser):
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
     is_whatsapp = models.BooleanField(default=False)
+    is_ecom_user = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()
