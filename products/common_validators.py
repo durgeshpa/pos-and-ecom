@@ -306,14 +306,17 @@ def get_csv_file_data(csv_file, csv_file_headers):
     uploaded_data_by_user_list = []
     csv_dict = {}
     count = 0
+    row_num = 1
     for row in csv_file:
+        row_num += 1
         for ele in row:
+            if ele == '#N/A':
+                raise ValidationError(f"Row {row_num} | column value can't be '#N/A' ")
             csv_dict[csv_file_headers[count]] = ele
             count += 1
         uploaded_data_by_user_list.append(csv_dict)
         csv_dict = {}
         count = 0
-
     return uploaded_data_by_user_list
 
 
@@ -339,7 +342,8 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "parent_product_update":
         required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
-                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
+                                'sub_category_name',
                                 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'brand_case_size',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
                                 'discounted_life_percent']
@@ -1288,5 +1292,3 @@ def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, da
         last_slab_selling_price = price_slab['selling_price']
         if 'offer_price' in price_slab:
             last_slab_offer_price = price_slab['offer_price']
-
-
