@@ -5198,7 +5198,16 @@ def pdf_generation_retailer(request, order_id, delay=True):
             address_contact_number = z.address_contact_number
 
         total = round(total, 2)
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name =shop_name
         license_number = getShopLicenseNumber(shop_name)
+
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
@@ -5206,7 +5215,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "state": state,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number}
-
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
@@ -5324,7 +5332,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "city": city,
             "state": state,
             "pincode": pincode,
-            "address_contact_number": address_contact_number
+            "address_contact_number": address_contact_number,
         }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
