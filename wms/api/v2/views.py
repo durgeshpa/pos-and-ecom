@@ -1346,7 +1346,7 @@ class PutawaySummaryView(generics.GenericAPIView):
         annotate(zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
-        exclude(status__isnull=True).exclude(zone__isnull=True)
+        exclude(status__isnull=True)
     serializer_class = PutawaySummarySerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
