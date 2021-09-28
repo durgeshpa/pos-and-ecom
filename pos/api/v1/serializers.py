@@ -82,7 +82,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
 
         if sp > mrp:
-            raise serializers.ValidationError("Selling Pr<ice should be equal to OR less than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_price' in attrs and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
@@ -2615,24 +2615,15 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_return_qty(obj):
-        total_returned = PosReturnItems.objects.filter(product=obj.product, is_active=True).aggregate(total=Sum('return_qty'))['total']
-        po_product = PosCartProductMapping.objects.filter(
-            cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
-        if total_returned:
-            default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-            return round(Decimal(total_returned) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
-        return 0
+        total_returned = PosReturnItems.objects.filter(
+            grn_return_id__grn_ordered_id=obj.grn_return_id.grn_ordered_id, product=obj.product,
+            is_active=True).aggregate(total=Sum('return_qty'))['total']
+        return total_returned if total_returned else 0
+
 
     @staticmethod
     def get_other_return_qty(obj):
-        other_return = PosReturnItemsSerializer.get_total_return_qty(obj) - (obj.return_qty if obj.is_active else 0)
-        po_product = PosCartProductMapping.objects.filter(
-            cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
-        if other_return:
-            default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-            return round(Decimal(other_return) * default_unit.conversion / po_product.qty_conversion_unit.conversion,
-                         3)
-        return 0
+        return PosReturnItemsSerializer.get_total_return_qty(obj) - (obj.return_qty if obj.is_active else 0)
 
 
 class GrnOrderGetListSerializer(serializers.ModelSerializer):
@@ -2674,13 +2665,13 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
         shop = self.context.get('shop')
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
         po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
-        # grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
-        #     grn_order=obj).values('product_id', 'received_qty')}
-        #
-        # for po_pr in po_products_data:
-        #     po_pr['curr_grn_received_qty'] = 0
-        #     if po_pr['product_id'] in grn_products:
-        #         po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']]
+
+        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
+            grn_order=obj).values('product_id', 'received_qty')}
+
+        for po_pr in po_products_data:
+            po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']] if po_pr['product_id'] in grn_products else 0
+            po_pr['previous_grn_returned_qty'] = self.get_return_products(obj, po_pr['product_id'], shop)
         return po_products_data
 
     class Meta:
@@ -2930,7 +2921,6 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
         if representation['modified_at']:
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
-
 
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
     """
