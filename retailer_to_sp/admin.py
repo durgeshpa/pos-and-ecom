@@ -1040,7 +1040,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     @staticmethod
     def create_purchase_order(obj):
         buyer_shop = obj.buyer_shop
-        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
+        if buyer_shop and buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
                 buyer_shop.pos_enabled == 1:
             user = get_current_user()
             if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
@@ -1055,7 +1055,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         % obj.pk)
 
     def buyer_shop_type(self, obj):
-        return obj.buyer_shop.shop_type
+        if obj.buyer_shop:
+            return obj.buyer_shop.shop_type
 
     def app_type(self, obj):
         """
