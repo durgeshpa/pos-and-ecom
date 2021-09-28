@@ -1346,7 +1346,7 @@ class PutawaySummaryView(generics.GenericAPIView):
         annotate(zone=Subquery(WarehouseAssortment.objects.filter(
                      warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
-        exclude(status__isnull=True)
+        exclude(status__isnull=True).exclude(zone__isnull=True)
     serializer_class = PutawaySummarySerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
@@ -1402,9 +1402,9 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
         """ GET Putaway PO Summary List """
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_zone_wise_summary_putaways_data()
-        putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        zones_list = []
-        for zone, group in groupby(putaways_data, lambda x: x.zone):
+        # putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        zone_wise_data = []
+        for zone, group in groupby(self.queryset, lambda x: x.zone):
             zones_dict = {"zone": zone, "status_count": {"total": 0, "pending": 0, "completed": 0, "cancelled": 0}}
             for status, inner_group in groupby(group, lambda x: x.status):
                 obj_count = len(list(inner_group))
@@ -1417,10 +1417,10 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
                 elif status == Putaway.CANCELLED:
                     zones_dict['status_count']['total'] += obj_count
                     zones_dict['status_count']['cancelled'] += obj_count
-            zones_list.append(zones_dict)
+            zone_wise_data.append(zones_dict)
 
-        serializer = self.serializer_class(zones_list, many=True)
-        msg = "" if zones_list else "no putaway found"
+        serializer = self.serializer_class(zone_wise_data, many=True)
+        msg = "" if zone_wise_data else "no putaway found"
         return get_response(msg, serializer.data, True)
 
     def filter_zone_wise_summary_putaways_data(self):
