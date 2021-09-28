@@ -31,6 +31,32 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+from wms.views import shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer
+                          )
+from products.models import ProductPrice, ProductOption, Product
+from sp_to_gram.models import OrderedProductReserved
+from categories import models as categorymodel
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList
+                                  )
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, Return)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, getShopLicenseNumber
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder
+                                     )
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from brand.models import Brand
 
 from categories import models as categorymodel
@@ -4838,6 +4864,15 @@ def pdf_generation(request, ordered_product):
         buyer_shop_id = ordered_product.order.buyer_shop_id
         paid_amount = 0
         invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(retailer=ordered_product.order.ordered_cart.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = ordered_product.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         for invoice_amount in invoice_details:
             date_time = invoice_amount.created_at
             date = date_time.strftime("%d")
@@ -4873,7 +4908,7 @@ def pdf_generation(request, ordered_product):
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
 
-        if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+        if ordered_product.order.ordered_cart.buyer_shop and ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
@@ -5072,17 +5107,17 @@ def pdf_generation(request, ordered_product):
                 "sum_basic_amount": sum_basic_amount,
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1, "license_number": license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                    "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+                                    context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+                                                    ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
 
@@ -5165,13 +5200,22 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         total = round(total, 2)
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name =shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
-                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value}
-
+                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
+                "license_number": license_number}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
@@ -5270,6 +5314,15 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order.seller_shop.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -5289,7 +5342,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "city": city,
             "state": state,
             "pincode": pincode,
-            "address_contact_number": address_contact_number
+            "address_contact_number": address_contact_number,
+            "license_number": license_number
         }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
@@ -5441,6 +5495,15 @@ class DownloadCreditNoteDiscounted(APIView):
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=credit_note.shipment.order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = credit_note.shipment.order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
             "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
@@ -5451,7 +5514,7 @@ class DownloadCreditNoteDiscounted(APIView):
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
             "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin,
-            "hsn_list": list1}
+            "hsn_list": list1, "license_number": license_number}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -5502,7 +5565,17 @@ class DownloadDebitNote(APIView):
         pk = self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         products = a.rt_order_product_order_product_mapping.all()
-        data = {"object": order_obj, "order": order_obj.order, "products": products}
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order_obj.order.ordered_cart.seller_shop.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order_obj.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
+        data = {"object": order_obj, "order": order_obj.order, "products": products, "license_number":license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
