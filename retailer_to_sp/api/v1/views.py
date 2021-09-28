@@ -4864,6 +4864,7 @@ def pdf_generation(request, ordered_product):
         buyer_shop_id = ordered_product.order.buyer_shop_id
         paid_amount = 0
         invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
+
         # Licence
         shop_mapping = ParentRetailerMapping.objects.filter(retailer=ordered_product.order.ordered_cart.seller_shop).last()
         if shop_mapping:
@@ -5313,6 +5314,15 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order.seller_shop.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -5333,6 +5343,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "state": state,
             "pincode": pincode,
             "address_contact_number": address_contact_number,
+            "license_number": license_number
         }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
@@ -5554,7 +5565,17 @@ class DownloadDebitNote(APIView):
         pk = self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         products = a.rt_order_product_order_product_mapping.all()
-        data = {"object": order_obj, "order": order_obj.order, "products": products}
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order_obj.order.ordered_cart.seller_shop.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order_obj.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
+        data = {"object": order_obj, "order": order_obj.order, "products": products, "license_number":license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
