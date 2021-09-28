@@ -71,6 +71,7 @@ class RetailerProduct(models.Model):
     product_pack_type = models.CharField(choices=(('packet', 'Packet'), ('loose', 'Loose')), max_length=50,
                                          default='packet')
     measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
+    purchase_pack_size = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
@@ -257,6 +258,7 @@ class PosCartProductMapping(models.Model):
     cart = models.ForeignKey(PosCart, related_name='po_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
     qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)], null=True)
+    pack_size = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
     qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
@@ -268,11 +270,19 @@ class PosCartProductMapping(models.Model):
         unique_together = ('cart', 'product')
 
     @property
+    def ordered_packs(self):
+        if self.product.product_pack_type == 'packet':
+            return int(self.qty / self.pack_size)
+        return None
+
+    @property
     def qty_given(self):
         qty = self.qty
         if self.product.product_pack_type == 'loose' and qty:
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+        elif self.product.product_pack_type == 'packet' and qty:
+            return int(qty/ self.pack_size)
         return int(qty)
 
     @property
@@ -337,8 +347,15 @@ class PosGRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(PosGRNOrder, related_name='po_grn_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, related_name='pos_product_grn_order_product', on_delete=models.CASCADE)
     received_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    pack_size = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def received_packs(self):
+        if self.product.product_pack_type == 'packet':
+            return int(self.received_qty / self.pack_size)
+        return None
 
     @property
     def qty_given(self):
@@ -348,7 +365,9 @@ class PosGRNOrderProductMapping(models.Model):
                 cart=self.grn_order.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
-        return int(qty)
+        elif self.product.product_pack_type == 'packet' and qty:
+            return int(qty / self.pack_size)
+        return qty
 
     @property
     def given_qty_unit(self):
@@ -497,6 +516,7 @@ class PosReturnItems(models.Model):
     product = models.ForeignKey(RetailerProduct, related_name='grn_product_return', on_delete=models.CASCADE)
     selling_price = models.FloatField(null=True, blank=True)
     return_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    pack_size = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -513,7 +533,9 @@ class PosReturnItems(models.Model):
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
-        return int(qty)
+        elif self.product.product_pack_type == 'packet' and qty:
+            return int(qty / self.pack_size)
+        return qty
 
     @property
     def given_qty_unit(self):

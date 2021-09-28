@@ -93,7 +93,8 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                        row.get('product_ean_code'),
                                                                        request.user, 'product', row.get('product_pack_type'),
                                                                        measure_cat_id, None,
-                                                                       row.get('status'))
+                                                                       row.get('status'), None, None, None, None,
+                                                                       row.get('purchase_pack_size', 1))
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
@@ -101,7 +102,8 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                1, row.get('description'), row.get('product_ean_code'),
                                                                request.user, 'product', row.get('product_pack_type'),
                                                                measure_cat_id, None,
-                                                               row.get('status'))
+                                                               row.get('status'), None, None, None, None,
+                                                               row.get('purchase_pack_size', 1))
 
             else:
                 # we need to update existing product
@@ -217,7 +219,7 @@ def DownloadRetailerCatalogue(request, *args):
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type', 'measurement_category'])
+         'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -228,6 +230,7 @@ def DownloadRetailerCatalogue(request, *args):
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
             .select_related('measurement_category')\
             .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'purchase_pack_size',
                     'measurement_category__category'
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
@@ -274,7 +277,7 @@ def DownloadRetailerCatalogue(request, *args):
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
                  product['discounted_product__sku'], discounted_stock, product['product_pack_type'],
-                 measurement_category])
+                 measurement_category, product['purchase_pack_size']])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -293,7 +296,7 @@ def download_discounted_products(request, *args):
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity', 'product_pack_type', 'measurement_category'])
+         'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
     product_qs = RetailerProduct.objects.filter(sku_type=4, shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -304,6 +307,7 @@ def download_discounted_products(request, *args):
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
             .select_related('measurement_category') \
             .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'purchase_pack_size',
                     'measurement_category__category',
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
@@ -340,7 +344,7 @@ def download_discounted_products(request, *args):
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
-                 product['product_pack_type'], measurement_category])
+                 product['product_pack_type'], measurement_category, product['purchase_pack_size']])
     else:
         writer.writerow(["No discounted products for selected shop exists"])
     return response
@@ -358,8 +362,8 @@ def RetailerCatalogueSampleFile(request, *args):
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity',
-         'product_pack_type', 'measurement_category'])
-    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', 'loose', 'weight'])
+         'product_pack_type', 'measurement_category', 'purchase_pack_size'])
+    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', 'loose', 'weight', 2])
 
     return response
 
