@@ -2240,7 +2240,7 @@ def assign_putaway_users_to_new_putways():
 
     grouped_objs = objs.values('token_id', 'zone').annotate(count=Count('token_id')).order_by()
     for i, x in enumerate(grouped_objs):
-        putaway_obj = Putaway.objectsobjects.filter(
+        putaway_obj = Putaway.objects.filter(
             putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled'],
             status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED). \
             annotate(token_id=Case(
