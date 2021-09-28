@@ -54,7 +54,7 @@ from marketing.models import ReferralCode
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
@@ -62,7 +62,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer)
-from pos.models import RetailerProduct, Payment as PosPayment, PaymentType
+from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
@@ -288,6 +288,10 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+
+        if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
+            filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -319,6 +323,9 @@ class SearchProducts(APIView):
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+        if self.request.GET.get('product_pack_type', 'packet') == 'loose':
+            filter_list.append({"term": {"product_pack_type": 'loose'}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -1334,7 +1341,7 @@ class CartCentral(GenericAPIView):
             if product is None:
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
-            if int(qty) == 0:
+            if not qty > 0:
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
@@ -1344,7 +1351,8 @@ class CartCentral(GenericAPIView):
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
                 cart_mapping.qty = qty
-                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
@@ -1382,7 +1390,8 @@ class CartCentral(GenericAPIView):
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
-                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+                                                             product_info['ean'], self.request.user, 'cart', 'packet',
+                                                             None, cart_id)
         PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                         self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         return product
@@ -4209,14 +4218,10 @@ class OrderReturns(APIView):
         ordered_product = OrderedProduct.objects.filter(order=order).last()
         cart_redeem_points = order.ordered_cart.redeem_points
         redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
-        order_amount = float(ordered_product.invoice_amount)
-        order_total = order_amount + redeem_value
-        discount = 0
-        offers = order.ordered_cart.offers
-        for offer in offers:
-            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
-                discount += float(offer['discount_value'])
-        discount = round(discount, 2)
+        order_amount = round(ordered_product.invoice_amount_final, 2)
+        order_total = round(ordered_product.invoice_amount_total, 2)
+        invoice_value = ordered_product.invoice_subtotal
+        discount = round(invoice_value - order_total, 2)
 
         # Current total refund value
         total_refund_value = round(order_total - prev_refund_total - float(new_cart_value), 2)
@@ -4228,7 +4233,7 @@ class OrderReturns(APIView):
         # Refund cash first, then points
         else:
             discount_adjusted = max(0, discount - prev_discount_adjusted)
-            refund_amount = min(order_amount - prev_refund_total, total_refund_value)
+            refund_amount = min(round(order_amount - prev_refund_total, 2), total_refund_value)
             refund_amount = max(refund_amount, 0)
             refund_points_value = total_refund_value - refund_amount
             refund_points = int(refund_points_value * redeem_factor)
@@ -4346,6 +4351,12 @@ class OrderReturns(APIView):
                                                           ordered_product=ordered_product_map).aggregate(
                 qty=Sum('return_qty'))['qty']
             previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
+
+        product = ordered_product_map.retailer_product
+        cart_product = CartProductMapping.objects.filter(cart=ordered_product_map.ordered_product.order.ordered_cart,
+                                                         retailer_product=product).last()
+        if product.product_pack_type == 'loose':
+            qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
@@ -4655,7 +4666,7 @@ class OrderReturnComplete(APIView):
             for ret in returns:
                 return_ids += [ret.id]
                 refund_amount += ret.refund_amount
-            new_paid_amount = ordered_product.invoice_amount - refund_amount
+            new_paid_amount = ordered_product.invoice_amount_final - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
                 self.request.user, new_paid_amount, order.order_no, return_ids)
@@ -5133,20 +5144,24 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 product_type=m.product_type
             ).last()
             product_pro_price_ptr = cart_product_map.selling_price
+            product = cart_product_map.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp,
-                "qty": m.shipped_qty,
-                "rate": float(product_pro_price_ptr),
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
             product_listing.append(ordered_p)
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = ordered_product.invoice_amount
+        total_amount = round(ordered_product.invoice_amount_final, 2)
         total_amount_int = round(total_amount)
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
@@ -5234,12 +5249,18 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_qty = 0
 
         for item in return_items:
+            product = item.ordered_product.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             return_p = {
                 "id": item.id,
                 "product_short_description": item.ordered_product.retailer_product.product_short_description,
-                "mrp": item.ordered_product.retailer_product.mrp,
-                "qty": item.return_qty,
-                "rate": float(item.ordered_product.selling_price),
+                "mrp": item.ordered_product.retailer_product.mrp if product_pack_type == 'packet' else str(
+                    item.ordered_product.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": item.return_qty if product_pack_type == 'packet' else str(item.return_qty) + ' ' + default_unit.unit,
+                "rate": round(float(item.ordered_product.selling_price), 2) if product_pack_type == 'packet' else str(
+                    round(float(item.ordered_product.selling_price), 2)) + '/' + default_unit.unit,
                 "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
             }
             return_qty += item.return_qty

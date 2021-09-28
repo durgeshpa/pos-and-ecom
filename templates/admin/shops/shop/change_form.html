@@ -17,8 +17,12 @@
                 shop_type = $("#id_shop_type").children("option:selected").text();
                 if (shop_type == 'Franchise - foco' || shop_type == 'Franchise - fofo'){
                     $('.field-pos_enabled').removeClass('hidden');
+                    $('.field-latitude').removeClass('hidden');
+                    $('.field-longitude').removeClass('hidden');
                 } else {
                     $('.field-pos_enabled').addClass('hidden');
+                    $('.field-latitude').addClass('hidden');
+                    $('.field-longitude').addClass('hidden');
                     $('#id_pos_enabled').prop("checked", false);
                 }
             }

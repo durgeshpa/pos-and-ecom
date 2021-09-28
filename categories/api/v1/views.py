@@ -97,7 +97,7 @@ class GetSubCategoriesListView(APIView):
         data = {}
         if is_success:
             data = {
-                "sub_brands": sub_category_data_serializer.data,
+                "sub_category": sub_category_data_serializer.data,
                 "banner_image": banner_image
             }
         return Response({"message": [""],"response_data": data, "is_success": is_success})

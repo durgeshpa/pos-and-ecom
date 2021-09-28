@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.utils.safestring import mark_safe
 from django.db import models
 
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator
 from model_utils import Choices
 
 from addresses.models import City, State, Pincode
@@ -19,6 +22,23 @@ PAYMENT_MODE_POS = (
     ('online', 'Online Payment'),
     ('credit', 'Credit Payment')
 )
+
+
+class MeasurementCategory(models.Model):
+    category = models.CharField(choices=(('weight', 'Weight'), ('volume', 'Volume')), max_length=50, unique=True)
+
+    def __str__(self):
+        return self.category
+
+
+class MeasurementUnit(models.Model):
+    category = models.ForeignKey(MeasurementCategory, on_delete=models.CASCADE, related_name='measurement_category_unit')
+    unit = models.CharField(max_length=50, unique=True)
+    conversion = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    default = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.category) + self.unit
 
 
 class RetailerProduct(models.Model):
@@ -48,6 +68,9 @@ class RetailerProduct(models.Model):
                                        on_delete=models.CASCADE, verbose_name='Reference Product')
     status = models.CharField(max_length=20, default='active', choices=STATUS_CHOICES, blank=False,
                               verbose_name='Product Status')
+    product_pack_type = models.CharField(choices=(('packet', 'Packet'), ('loose', 'Loose')), max_length=50,
+                                         default='packet')
+    measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
@@ -233,20 +256,39 @@ class PosCart(models.Model):
 class PosCartProductMapping(models.Model):
     cart = models.ForeignKey(PosCart, related_name='po_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(null=True)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)], null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
+    qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
+                                            null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('cart', 'product')
 
+    @property
+    def qty_given(self):
+        qty = self.qty
+        if self.product.product_pack_type == 'loose' and qty:
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return self.qty_conversion_unit.unit
+        return None
+
     def total_price(self):
         return round(self.price * self.qty, 2)
 
     def product_name(self):
         return self.product.name
+
+    def product_pack_type(self):
+        return self.product.product_pack_type
 
     def __str__(self):
         return self.product.name
@@ -294,9 +336,26 @@ class PosGRNOrder(models.Model):
 class PosGRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(PosGRNOrder, related_name='po_grn_products', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, related_name='pos_product_grn_order_product', on_delete=models.CASCADE)
-    received_qty = models.PositiveIntegerField(default=0)
+    received_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def qty_given(self):
+        qty = self.received_qty
+        if self.product.product_pack_type == 'loose' and qty:
+            po_product = PosCartProductMapping.objects.filter(
+                cart=self.grn_order.order.ordered_cart, product=self.product).last()
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                        product=self.product).last().qty_conversion_unit.unit
+        return None
 
 
 class Document(models.Model):
@@ -437,7 +496,7 @@ class PosReturnItems(models.Model):
     grn_return_id = models.ForeignKey(PosReturnGRNOrder, related_name='grn_order_return', on_delete=models.CASCADE)
     product = models.ForeignKey(RetailerProduct, related_name='grn_product_return', on_delete=models.CASCADE)
     selling_price = models.FloatField(null=True, blank=True)
-    return_qty = models.PositiveIntegerField(default=0)
+    return_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -445,6 +504,23 @@ class PosReturnItems(models.Model):
     class Meta:
         verbose_name = "Store - GRN - Return items"
         unique_together = ('grn_return_id', 'product')
+
+    @property
+    def qty_given(self):
+        qty = self.return_qty
+        if self.product.product_pack_type == 'loose' and qty:
+            po_product = PosCartProductMapping.objects.filter(
+                cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+        return int(qty)
+
+    @property
+    def given_qty_unit(self):
+        if self.product.product_pack_type == 'loose':
+            return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                        product=self.product).last().qty_conversion_unit.unit
+        return None
 
     def save(self, *args, **kwargs):
         if not self.id:

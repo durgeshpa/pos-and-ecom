@@ -127,6 +127,8 @@ def update_es(products, shop_id):
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date,
+            'product_pack_type': product.product_pack_type,
+            'measurement_category': product.measurement_category.category,
             'combo_available': True if coupons else False,
             'coupons': coupons,
             'online_enabled': product.online_enabled,

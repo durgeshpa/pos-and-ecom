@@ -33,34 +33,40 @@ def get_product_price(shop_id, products):
 	Returns the dictionary of prices to be updated in ElasticSearch.
 	Any product may have prices at store level, pincode level or city level
 	"""
+	info_logger.info("Inside get_product_price, shop_id: " + str(shop_id) + ", products: " + str(products))
 	if shop_id:
-		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop_id=shop_id,
-													 status=True, approval_status=ProductPrice.APPROVED,
-													 price_slabs__isnull=False)\
-											 .select_related('product')\
-											 .order_by('product_id', '-created_at')
+		products_price = ProductPrice.objects.filter(
+			product__id__in=products, seller_shop_id=shop_id, status=True, approval_status=ProductPrice.APPROVED,
+			price_slabs__isnull=False).select_related('product').order_by('product_id', '-created_at')
 	else:
-		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
-													 approval_status=ProductPrice.APPROVED,
-													 price_slabs__isnull=False)\
-											 .select_related('product')\
-											 .order_by('product_id', '-created_at')
+		products_price = ProductPrice.objects.filter(
+			product__id__in=products, status=True, approval_status=ProductPrice.APPROVED, price_slabs__isnull=False)\
+			.select_related('product').order_by('product_id', '-created_at')
+	info_logger.info("Inside get_product_price, products_price count: " + str(
+		products_price.count()) + ", products_price: " + str(products_price))
+
 	price_dict = {}
 	for price in products_price:
-		product_active_prices = price_dict.get(price.product_id,{'store':{}, 'pincode':{}, 'city':{}})
+		info_logger.info("Inside get_product_price, price: " + str(price) + ", product_mrp: " + str(
+			price.product.product_mrp) + ", product_inner_case_size: " + str(price.product.product_inner_case_size))
+		product_active_prices = price_dict.get(price.product_id, {'store': {}, 'pincode': {}, 'city': {}})
 		if price.buyer_shop_id:
+			info_logger.info("Inside get_product_price, true condition 'price.buyer_shop_id'")
 			product_active_prices['store'][price.buyer_shop_id] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.pincode:
+			info_logger.info("Inside get_product_price, true condition 'price.pincode'")
 			product_active_prices['pincode'][price.pincode.pincode] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.city:
+			info_logger.info("Inside get_product_price, true condition 'price.city'")
 			product_active_prices['city'][price.city_id] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
 		elif price.seller_shop_id :
+			info_logger.info("Inside get_product_price, true condition 'price.seller_shop_id '")
 			product_active_prices['store'][price.seller_shop_id ] = create_slab_price_detail(price,
 																		price.product.product_mrp,
 																		price.product.product_inner_case_size)
@@ -70,6 +76,8 @@ def get_product_price(shop_id, products):
 
 
 def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
+	info_logger.info("Inside get_warehouse_stock, product: " + str(product) + ", shop_id: " + str(
+		shop_id) + ", inventory_type: " + str(inventory_type))
 	type_normal = InventoryType.objects.filter(inventory_type='normal').last()
 	if inventory_type is None:
 		inventory_type = type_normal
@@ -87,6 +95,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_list = CWIF.filtered_warehouse_inventory_items().values('sku__id').distinct()
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	product_price_dict = get_product_price(shop_id, products)
+	info_logger.info("inside get_warehouse_stock, products: " + str(products) + ", product_price_dict: " + str(product_price_dict))
 	for product in products:
 		user_selected_qty = None
 		no_of_pieces = None
@@ -197,6 +206,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"is_discounted": is_discounted,
 			"expiry_date": expiry_date
 		}
+		info_logger.info("inside get_warehouse_stock, product_details: " + str(product_details))
 		yield(product_details)
 
 
@@ -204,6 +214,7 @@ def create_es_index(index):
 	return "{}-{}".format(es_prefix, index)
 
 def upload_shop_stock(shop=None,product=None):
+	info_logger.info("Inside upload_shop_stock, product: " + str(product) + ", shop: " + str(shop))
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	count = 0
@@ -213,16 +224,20 @@ def upload_shop_stock(shop=None,product=None):
 		info_logger.info(product)
 		try:
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+			info_logger.info(
+				"Inside upload_shop_stock, product id: " + str(product['id']) + ", product: " + str(product))
 		except Exception as e:
 			info_logger.info("error in upload_shop_stock index creation")
 			info_logger.info(e)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
+	info_logger.info("Inside update_shop_product_es, product_id: " + str(product_id) + ", shop: " + str(shop))
 	try:
 		#es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 		##Changed to use single function for all updates
 		product= Product.objects.filter(id=product_id).last()
+		info_logger.info("Inside update_shop_product_es, product pk: " + str(product.pk) + ", shop: " + str(shop))
 		upload_shop_stock(shop,product)
 	except Exception as e:
 		pass

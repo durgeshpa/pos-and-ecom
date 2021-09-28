@@ -26,7 +26,7 @@ from products.models import Product
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
 from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
-    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -68,7 +68,7 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, user, event_type, event_id=None, product_status='active',
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None, product_status='active',
                                 offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
         """
             General Response For API
@@ -79,7 +79,10 @@ class RetailerProductCls(object):
                                                  offer_price=offer_price, offer_start_date=offer_sd,
                                                  offer_end_date=offer_ed, description=description,
                                                  product_ean_code=product_ean_code, status=product_status,
-                                                 product_ref=product_ref, online_enabled=online_enabled, online_price=online_price)
+                                                 product_ref=product_ref, product_pack_type=pack_type,
+                                                 measurement_category_id=measure_cat_id,
+                                                 online_enabled=online_enabled, online_price=online_price)
+
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -701,7 +704,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            if qty is None or qty < 0 or (qty == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
@@ -778,6 +781,14 @@ class PosAddToCart(object):
                     elif discounted_stock < qty:
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
+            # qty w.r.t pack type
+            kwargs['conversion_unit'] = None
+            if product.product_pack_type == 'packet':
+                qty = int(qty)
+            else:
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                             product, qty)
+
             # Return with objects
             kwargs['product'] = product
             kwargs['new_product_info'] = new_product_info
@@ -824,6 +835,18 @@ class PosAddToCart(object):
             return view_func(self, request, *args, **kwargs)
 
         return _wrapped_view_func
+
+
+def get_default_qty(given_qty_unit, product, qty):
+    default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+    qty_unit = default_unit
+    if given_qty_unit:
+        try:
+            qty_unit = MeasurementUnit.objects.get(unit=given_qty_unit)
+        except:
+            qty_unit = default_unit
+    qty = round(round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion, 3)
+    return qty, qty_unit.id
 
 
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):

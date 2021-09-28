@@ -18,13 +18,15 @@ from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.views import APIView
 
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
+
+from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
+                        PaymentType, MeasurementCategory, PosReturnGRNOrder)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status)
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
-    PaymentType, \
-    PosReturnGRNOrder
+    PaymentType, PosReturnGRNOrder
 from pos.services import grn_product_search, grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
@@ -41,7 +43,9 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
-                          GrnOrderGetSerializer, ReturnGrnOrderSerializer, GrnOrderGetListSerializer)
+                          GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
+                          GrnOrderGetListSerializer)
+from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -89,14 +93,16 @@ class PosProductView(GenericAPIView):
                 # Create product
                 product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
                                                                      description, ean, self.request.user, 'product',
-                                                                     None, 'active', offer_price, offer_sd, offer_ed, None, online_enabled, online_price)
+                                                                     data['product_pack_type'], data['measurement_category_id'],
+                                                                     None, 'active', offer_price, offer_sd, offer_ed,
+                                                                     None, online_enabled, online_price)
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
                 product.save()
                 # Add Inventory
                 PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
-                                                stock_qty, self.request.user, product.sku,
+                                                round(Decimal(stock_qty), 3), self.request.user, product.sku,
                                                 PosInventoryChange.STOCK_ADD)
                 serializer = RetailerProductResponseSerializer(product)
                 return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
@@ -174,11 +180,18 @@ class PosProductView(GenericAPIView):
                         initial_state = PosInventoryState.NEW
                         tr_type = PosInventoryChange.STOCK_ADD
 
-                        discounted_product = RetailerProductCls.create_retailer_product(product.shop.id, product.name, product.mrp,
-                                                                 discounted_price, product.linked_product_id, 4,
-                                                                 product.description, product.product_ean_code,
-                                                                 self.request.user, 'product', None, product_status,
-                                                                 None, None, None, product, False, None)
+                        discounted_product = RetailerProductCls.create_retailer_product(product.shop.id, product.name,
+                                                                                        product.mrp,
+                                                                                        discounted_price,
+                                                                                        product.linked_product_id, 4,
+                                                                                        product.description,
+                                                                                        product.product_ean_code,
+                                                                                        self.request.user, 'product',
+                                                                                        product.product_pack_type,
+                                                                                        product.measurement_category_id,
+                                                                                        None, product_status,
+                                                                                        None, None, None, product,
+                                                                                        False, None)
                     else:
                         RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
                                                         self.request.user, 'product', discounted_product.sku)
@@ -1239,6 +1252,17 @@ class IncentiveView(GenericAPIView):
             qs = qs.filter(created_at__month__gte=start_month, created_at__month__lte=end_month,
                            created_at__year=start_year)
         return qs
+
+
+class MeasurementCategoryView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = MeasurementCategory.objects.filter(measurement_category_unit__default=True)
+    serializer_class = MeasurementCategorySerializer
+
+    def get(self, request):
+        measure_cat = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(measure_cat, many=True)
+        return api_response('', serializer.data, status.HTTP_200_OK, True)
 
 
 class GetGrnOrderListView(ListAPIView):
