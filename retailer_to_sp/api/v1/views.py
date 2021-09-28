@@ -5198,13 +5198,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
             address_contact_number = z.address_contact_number
 
         total = round(total, 2)
-
+        license_number = getShopLicenseNumber(shop_name)
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
-                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value}
+                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
+                "license_number": license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
