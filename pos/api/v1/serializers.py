@@ -82,7 +82,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
 
         if sp > mrp:
-            raise serializers.ValidationError("Selling Pr<ice should be equal to OR less than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_price' in attrs and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
