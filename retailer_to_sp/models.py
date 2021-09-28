@@ -1584,7 +1584,26 @@ class OrderedProduct(models.Model):  # Shipment
     def invoice_subtotal(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
-            inv_amt=RoundAmount(Sum(F('selling_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
+            inv_amt=Sum(F('selling_price') * F('shipped_qty'), output_field=FloatField())).get('inv_amt')
+
+    @property
+    def invoice_amount_total(self):
+        # with redeem points
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=Sum(F('effective_price') * F('shipped_qty'), output_field=FloatField())).get('inv_amt')
+
+    @property
+    def invoice_amount_final(self):
+        # without rdeeem points
+        inv_amt = self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=Sum(F('effective_price') * F('shipped_qty'), output_field=FloatField())).get('inv_amt')
+        if inv_amt:
+            cart = self.order.ordered_cart
+            if cart.redeem_factor:
+                inv_amt = max(round(inv_amt - (cart.redeem_points / cart.redeem_factor), 2), 0)
+        return inv_amt
 
     @property
     def invoice_amount(self):
