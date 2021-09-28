@@ -1030,12 +1030,9 @@ class DownloadMasterData(object):
                                                                'parent_product__is_lead_time_applicable',
                                                                'parent_product__discounted_life_percent',).filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
-        i=0
         for product in parent_products:
-            print(i)
-            i += 1
             row = []
-            tax_list = ['','','']
+            tax_list = ['', '', '']
             row.append(product['parent_product__parent_id'])
             if product['parent_product__name'][0] == '#':
                 row.append(product['parent_product__name'][1:])
