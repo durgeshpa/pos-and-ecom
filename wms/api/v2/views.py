@@ -1402,7 +1402,6 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
         """ GET Putaway PO Summary List """
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_zone_wise_summary_putaways_data()
-        # putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         zone_wise_data = []
         for zone, group in groupby(self.queryset, lambda x: x.zone):
             zones_dict = {"zone": zone, "status_count": {"total": 0, "pending": 0, "completed": 0, "cancelled": 0}}
