@@ -2022,7 +2022,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                                     product['received_qty'])
                 attrs['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * po_product.purchase_pack_size)
+                product['received_qty'] = int(product['received_qty'] * po_produ.pack_size)
                 attrs['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
@@ -2111,7 +2111,7 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
                                                                     product['received_qty'])
                 product['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * product.purchase_pack_size)
+                product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
                 product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
