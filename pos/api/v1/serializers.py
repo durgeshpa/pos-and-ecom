@@ -1968,10 +1968,11 @@ class POListSerializer(serializers.ModelSerializer):
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField()
+    pack_size = serializers.IntegerField(default=1)
 
     class Meta:
         model = PosGRNOrderProductMapping
-        fields = ('product_id', 'received_qty')
+        fields = ('product_id', 'received_qty', 'pack_size')
 
 
 class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
@@ -2020,10 +2021,10 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             if product_obj.product_pack_type == 'loose':
                 product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
                                                                     product['received_qty'])
-                attrs['pack_size'] = 1
+                product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
-                attrs['pack_size'] = po_product.pack_size
+                product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
             #     raise serializers.ValidationError(
