@@ -1767,7 +1767,7 @@ class POProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'price', 'qty', 'qty_unit')
+        fields = ('product_id', 'price', 'qty', 'qty_unit', 'pack_size')
 
 
 class POSerializer(serializers.ModelSerializer):
