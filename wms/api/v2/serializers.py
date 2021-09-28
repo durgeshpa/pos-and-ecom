@@ -991,47 +991,21 @@ class PutawaySummarySerializers(serializers.Serializer):
     cancelled = serializers.IntegerField()
 
 
+class SummarySerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    cancelled = serializers.IntegerField()
+
+
 class ZonewiseSummarySerializers(serializers.Serializer):
-    total_items = serializers.IntegerField()
-    status_count = serializers.SerializerMethodField()
+    status_count = SummarySerializer(read_only=True)
     zone = serializers.SerializerMethodField()
 
     def get_zone(self, obj):
         if obj['zone']:
             return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
         return None
-
-    def get_status_count(self, obj):
-        if obj['zone']:
-            status_data = Putaway.objects.filter(putaway_type='GRN'). \
-                annotate(zone=Subquery(WarehouseAssortment.objects.filter(
-                warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                         ). \
-                exclude(status__isnull=True). \
-                filter(zone=obj['zone']). \
-                values('status').annotate(count=Count('status')).order_by('-status')
-            return StatusCountSerializer(status_data, read_only=True, many=True).data
-        return []
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        status_list = []
-        pending = 0
-        completed = 0
-        cancelled = 0
-        if representation['status_count']:
-            for obj in representation['status_count']:
-                if obj['status'] in [Putaway.COMPLETED]:
-                    completed += obj['count']
-                elif obj['status'] in [Putaway.NEW, Putaway.ASSIGNED, Putaway.INITIATED]:
-                    pending += obj['count']
-                elif obj['status'] in [Putaway.CANCELLED]:
-                    cancelled += obj['count']
-        status_list.append(StatusCountSerializer({"count": completed, "status": "COMPLETED"}, read_only=True).data)
-        status_list.append(StatusCountSerializer({"count": pending, "status": "PENDING"}, read_only=True).data)
-        status_list.append(StatusCountSerializer({"count": cancelled, "status": "CANCELLED"}, read_only=True).data)
-        representation['status_count'] = status_list
-        return representation
 
 
 class PutawayItemsCrudSerializer(serializers.ModelSerializer):
