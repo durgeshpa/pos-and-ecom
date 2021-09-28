@@ -1007,7 +1007,7 @@ class DownloadMasterData(object):
                    'is_lead_time_applicable', 'discounted_life_percent']
         writer.writerow(columns)
 
-        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'], status=True)
+        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
 
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                                'parent_product__name', 'parent_product__product_type',
