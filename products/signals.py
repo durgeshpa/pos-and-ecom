@@ -28,7 +28,8 @@ info_logger = logging.getLogger('file-info')
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product.id).last()
-    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+    if product.status != 'active' and instance.approval_status == 2 and instance.status and \
+            product.repackaging_type == Product.NONE:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
         product.status = 'active'
         product.save()
@@ -43,7 +44,8 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch_on_price_update, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product.id).last()
-    if product.status != 'active' and instance.approval_status == 2 and instance.status:
+    if product.status != 'active' and instance.approval_status == 2 and instance.status and \
+            product.repackaging_type == Product.NONE:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
         product.status = 'active'
         product.save()
@@ -58,7 +60,8 @@ def update_elasticsearch_on_price_update(sender, instance=None, created=False, *
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch_on_price_slab_add, instance: " + str(instance))
     product = Product.objects.filter(pk=instance.product_price.product.id).last()
-    if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status:
+    if product.status != 'active' and instance.product_price.approval_status == 2 and instance.product_price.status and \
+            product.repackaging_type == Product.NONE:
         info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
         product.status = 'active'
         product.save()
