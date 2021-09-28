@@ -24,7 +24,9 @@ from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, 
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status)
-from pos.common_validators import compareList, validate_user_type_for_pos_shop
+from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
+from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
+    PaymentType, PosReturnGRNOrder
 from pos.services import grn_product_search, grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
@@ -1272,12 +1274,20 @@ class GetGrnOrderListView(ListAPIView):
     @check_pos_shop
     def get(self, request, *args, **kwargs):
         grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'])
+        if request.GET.get('id'):
+            """ Get GRN Order for specific ID """
+            id_validation = validate_id(grn_order, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            grn_order = id_validation['data']
+
         search_text = self.request.GET.get('search_text')
         # search using PO number, GRN invoice number and product name on criteria that matches
         if search_text:
             grn_order = grn_product_search(grn_order, search_text.strip())
         if grn_order:
-            return api_response('', self.serializer_class(grn_order, many=True).data, status.HTTP_200_OK, True)
+            return api_response('', self.serializer_class(
+                grn_order, many=True, context={'shop': kwargs['shop']}).data, status.HTTP_200_OK, True)
         else:
             return api_response("GRN Order not found")
 
@@ -1306,10 +1316,18 @@ class GrnReturnOrderView(GenericAPIView):
     @check_return_status
     def get(self, request, *args, **kwargs):
         """ GET Return Order List """
-        grn_return = PosReturnGRNOrder.objects.filter(grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
-                                                      status=kwargs['status']).\
-            prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return',).\
-            select_related('grn_ordered_id', 'last_modified_by',).order_by('-modified_at')
+        grn_return = PosReturnGRNOrder.objects.filter(
+            grn_ordered_id__order__ordered_cart__retailer_shop=kwargs['shop'],
+            status=kwargs['status']). \
+            prefetch_related('grn_ordered_id', 'grn_ordered_id__po_grn_products', 'grn_order_return', ). \
+            select_related('grn_ordered_id', 'last_modified_by', ).order_by('-modified_at')
+
+        if request.GET.get('id'):
+            """ Get Return Order for specific ID """
+            id_validation = validate_id(grn_return, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            grn_return = id_validation['data']
 
         search_text = self.request.GET.get('search_text')
         if search_text:
@@ -1317,23 +1335,25 @@ class GrnReturnOrderView(GenericAPIView):
 
         if grn_return:
             serializer = ReturnGrnOrderSerializer(grn_return, many=True,
-                                                  context={'status': kwargs['status']})
+                                                  context={'status': kwargs['status'], 'shop': kwargs['shop']})
             return api_response('', serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response("Return GRN Order not found")
 
     @check_pos_shop
+    @check_return_status
     def post(self, request, *args, **kwargs):
         """ Create Return Order """
         serializer = ReturnGrnOrderSerializer(data=request.data,
-                                              context={'shop': kwargs['shop']})
+                                              context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
-            return api_response('GRN returned successfully!', serializer.data, status.HTTP_200_OK, True)
+            return api_response('GRN returned successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
     @check_pos_shop
+    @check_return_status
     def put(self, request, *args, **kwargs):
         """ Update Return Order """
         info_logger.info("Return Order Product PUT api called.")
@@ -1348,7 +1368,7 @@ class GrnReturnOrderView(GenericAPIView):
         except:
             return api_response('please provide a valid id')
         serializer = ReturnGrnOrderSerializer(instance=id_instance, data=request.data,
-                                              context={'shop': kwargs['shop']})
+                                              context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
             return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
