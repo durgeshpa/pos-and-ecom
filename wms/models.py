@@ -91,6 +91,7 @@ class Zone(BaseTimestampUserModel):
     supervisor = models.ForeignKey(get_user_model(), related_name='supervisor_zone_user', on_delete=models.CASCADE)
     coordinator = models.ForeignKey(get_user_model(), related_name='coordinator_zone_user', on_delete=models.CASCADE)
     putaway_users = models.ManyToManyField(get_user_model(), related_name='putaway_zone_users')
+    picker_users = models.ManyToManyField(get_user_model(), related_name='picker_zone_users')
 
     class Meta:
         permissions = (
@@ -499,7 +500,8 @@ class BinInternalInventoryChange(models.Model):
         ('franchise_returns', 'Franchise Returns'),
         ('repackaging', 'Repackaging'),
         ('moved_to_discounted', 'Moved To Discounted'),
-        ('added_as_discounted', 'Added As Discounted')
+        ('added_as_discounted', 'Added As Discounted'),
+        ('bin_shift', 'Bin Shift'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -608,11 +610,12 @@ class ExpiredInventoryMovement(models.Model):
 
 
 class PosInventoryState(models.Model):
-    NEW, AVAILABLE, ORDERED = 'new', 'available', 'ordered'
+    NEW, AVAILABLE, ORDERED, SHIPPED = 'new', 'available', 'ordered', 'shipped'
     POS_INVENTORY_STATES = (
         (NEW, 'New'),
         (AVAILABLE, 'Available'),
-        (ORDERED, 'Ordered')
+        (ORDERED, 'Ordered'),
+        (SHIPPED, 'Shipped')
     )
     inventory_state = models.CharField(max_length=20, choices=POS_INVENTORY_STATES, unique=True)
 
@@ -635,6 +638,7 @@ class PosInventoryChange(models.Model):
     ORDERED, CANCELLED, RETURN, STOCK_ADD, STOCK_UPDATE, GRN_ADD, GRN_UPDATE = 'ordered', 'order_cancelled',\
                                                                                'order_return', 'stock_add',\
                                                                                'stock_update', 'grn_add', 'grn_update'
+    SHIPPED = 'shipped'
     transaction_type = (
         (ORDERED, "Ordered"),
         (CANCELLED, 'Order Cancelled'),
@@ -642,7 +646,8 @@ class PosInventoryChange(models.Model):
         (STOCK_ADD, 'Stock Add'),
         (STOCK_UPDATE, 'Stock Update'),
         (GRN_ADD, 'GRN Add'),
-        (GRN_UPDATE, 'GRN Update')
+        (GRN_UPDATE, 'GRN Update'),
+        (SHIPPED, 'Shipped')
     )
     product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=3)
@@ -654,4 +659,27 @@ class PosInventoryChange(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+class QCArea(BaseTimestampUserModel):
+    QC_AREA_TYPE_CHOICES = Choices(('OA', 'Open Area'), ('RC', 'Rack'), ('PA', 'Pallet'))
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    area_id = models.CharField(max_length=6, null=True, blank=True)
+    area_type = models.CharField(max_length=50, choices=QC_AREA_TYPE_CHOICES)
+    area_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
+    area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+    is_active = models.BooleanField()
 
+    def save(self, *args, **kwargs):
+
+        if not self.id:
+            last_qc_area = QCArea.objects.filter(area_type=self.area_type, warehouse=self.warehouse).last()
+            if not last_qc_area:
+                current_number = 0
+            else:
+                current_number = int(last_qc_area.area_id[2:])
+            current_number += 1
+            self.area_id = self.area_type + str(current_number).zfill(4)
+        super(QCArea, self).save(*args, **kwargs)
+
+    @property
+    def barcode_image(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.area_id, self.area_barcode.url))
