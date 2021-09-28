@@ -949,7 +949,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         exclude(zone__isnull=True). \
         exclude(token_id__isnull=True). \
         values('token_id', 'zone', 'putaway_user', 'status', 'putaway_type', 'created_at__date'). \
-        annotate(total_items=Count('token_id')).order_by('-token_id')
+        annotate(total_items=Count('token_id')).order_by('-created_at__date')
     serializer_class = GroupedByGRNPutawaysSerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
