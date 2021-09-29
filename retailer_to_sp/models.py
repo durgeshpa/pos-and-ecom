@@ -763,8 +763,8 @@ class CartProductMapping(models.Model):
         on_delete=models.DO_NOTHING, null=True, blank=True
     )
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
-    no_of_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    qty = models.DecimalField(max_digits=12, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    no_of_pieces = models.DecimalField(max_digits=12, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False
