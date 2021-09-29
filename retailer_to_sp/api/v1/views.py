@@ -11,6 +11,7 @@ from elasticsearch import Elasticsearch
 from decouple import config
 from hashlib import sha512
 
+from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -6432,4 +6433,4 @@ class EcomPaymentSuccessView(APIView):
     permission_classes = ()
 
     def post(self, request, *args, **kwags):
-        return Response("<html><head></head><body><h1>Success</h1></body></html>")
+        return render(request, "ecom/payment_success.html")
