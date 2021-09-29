@@ -1276,7 +1276,8 @@ class GetGrnOrderListView(ListAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
-        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'])
+        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop']).\
+            order_by('-modified_at')
         if request.GET.get('id'):
             """ Get GRN Order for specific ID """
             id_validation = validate_id(grn_order, int(request.GET.get('id')))

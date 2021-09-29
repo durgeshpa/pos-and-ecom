@@ -2897,7 +2897,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                           grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
                                           PosInventoryChange.RETURN)
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_return_items(self, grn_return_id, grn_products_return):
         self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
@@ -2939,7 +2939,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.save()
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_cancel_return(self, grn_return_id, instance_id,):
 
@@ -2978,6 +2978,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
         if representation['modified_at']:
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
 
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
     """
