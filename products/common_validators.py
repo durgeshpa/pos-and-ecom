@@ -310,8 +310,8 @@ def get_csv_file_data(csv_file, csv_file_headers):
     for row in csv_file:
         row_num += 1
         for ele in row:
-            if ele == '#N/A':
-                raise ValidationError(f"Row {row_num} | column value can't be '#N/A' ")
+            if '#' in ele:
+                raise ValidationError(f"Row {row_num} | column can not contain '#' ")
             csv_dict[csv_file_headers[count]] = ele
             count += 1
         uploaded_data_by_user_list.append(csv_dict)
