@@ -9,7 +9,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView
+                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView
                     )
 
 router = routers.DefaultRouter()
@@ -54,6 +54,7 @@ urlpatterns = [
     url(r'^ecom-shipment/', ShipmentView.as_view(), name='ecom-shipment'),
     # Payment
     url(r'^ecom-payment/', EcomPaymentView.as_view(), name='ecom-payment'),
+    url(r'^ecom-payment-success/', EcomPaymentSuccessView.as_view(), name='ecom-payment-success'),
     # OTHERS
     url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoiceSP.as_view(), name='download_invoice_sp'),
     url('^customer-care-form/$', CustomerCareApi.as_view(), name='customer_care_form'),

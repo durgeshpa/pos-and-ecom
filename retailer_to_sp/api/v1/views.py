@@ -6352,3 +6352,11 @@ class EcomPaymentView(APIView):
         serializer = PaymentTypeSerializer(queryset, many=True)
         msg = "" if queryset else "No payment found"
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
+class EcomPaymentSuccessView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return Response("<html><head></head><body><h1>Success</h1></body></html>")
