@@ -257,7 +257,7 @@ class ZoneFilter(AutocompleteFilter):
 class ParentProductFilter(AutocompleteFilter):
     title = 'Product'
     field_name = 'product'
-    autocomplete_url = 'parent-product-autocomplete'
+    autocomplete_url = 'parent-product-filter'
 
 
 class BinAdmin(admin.ModelAdmin):
