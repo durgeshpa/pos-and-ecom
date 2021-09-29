@@ -1008,6 +1008,7 @@ class DownloadMasterData(object):
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
+
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                                'parent_product__name', 'parent_product__product_type',
                                                                'parent_product__product_hsn__product_hsn_code',
@@ -1029,12 +1030,14 @@ class DownloadMasterData(object):
                                                                'parent_product__is_lead_time_applicable',
                                                                'parent_product__discounted_life_percent',).filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
-
         for product in parent_products:
             row = []
             tax_list = ['', '', '']
             row.append(product['parent_product__parent_id'])
-            row.append(product['parent_product__name'])
+            if product['parent_product__name'][0] == '#':
+                row.append(product['parent_product__name'][1:])
+            else:
+                row.append(product['parent_product__name'])
             row.append(product['parent_product__product_type'])
             row.append(product['parent_product__product_hsn__product_hsn_code'])
             taxes = ParentProductTaxMapping.objects.select_related('tax').filter(
