@@ -2388,9 +2388,19 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return ret
 
     @staticmethod
+    def get_invoice_amount_total(obj):
+        ordered_product = OrderedProduct.objects.filter(order=obj).last()
+        return round(ordered_product.invoice_amount_total, 2) if ordered_product else None
+
+    @staticmethod
+    def get_invoice_amount_final(obj):
+        ordered_product = OrderedProduct.objects.filter(order=obj).last()
+        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
+
+    @staticmethod
     def get_invoice_amount(obj):
         ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return ordered_product.invoice_amount if ordered_product else None
+        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
 
     @staticmethod
     def get_invoice_subtotal(obj):
@@ -2418,9 +2428,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         invoice_summary['invoice_value'] = self.get_invoice_subtotal(obj)
         invoice_summary['invoice_amount'], invoice_summary['invoice_discount'] = None, None
         if invoice_summary['invoice_value']:
-            invoice_summary['invoice_amount'] = self.get_invoice_amount(obj)
-            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - invoice_summary[
-                'invoice_amount'], 2)
+            invoice_summary['redeem_points_value'] = self.get_redeem_points_value(obj)
+            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - self.get_invoice_amount_total(obj), 2)
+            invoice_summary['invoice_amount'] = self.get_invoice_amount_final(obj)
         return invoice_summary
 
     @staticmethod
@@ -2553,6 +2563,8 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
                   'order_status_display')
+
+
 class MeasurementCategorySerializer(serializers.ModelSerializer):
     category = serializers.CharField(source='get_category_display')
     default_unit = serializers.SerializerMethodField()
@@ -2885,7 +2897,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                           grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
                                           PosInventoryChange.RETURN)
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_return_items(self, grn_return_id, grn_products_return):
         self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
@@ -2927,7 +2939,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.save()
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_cancel_return(self, grn_return_id, instance_id,):
 
@@ -2966,6 +2978,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
         if representation['modified_at']:
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
 
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
     """

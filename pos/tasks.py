@@ -2,6 +2,7 @@ import logging
 import random
 import sys
 import os
+from decimal import *
 from celery.task import task
 from django.core.files.base import ContentFile
 from elasticsearch import Elasticsearch
@@ -230,8 +231,8 @@ def genrate_debit_note_pdf(returned_obj, debit_note_number):
         product_dict = {'product_id': return_item.product.pk, 'description': return_item.product.name,
                         'return_qty': return_item.return_qty, 'selling_price': return_item.selling_price,
                         'mrp': return_item.product.mrp,
-                        'return_amount': return_item.return_qty * return_item.selling_price}
-        total_amount += (return_item.return_qty * return_item.selling_price)
+                        'return_amount': Decimal(return_item.return_qty) * Decimal(return_item.selling_price)}
+        total_amount += (Decimal(return_item.return_qty) * Decimal(return_item.selling_price))
         sum_qty += return_item.return_qty
         products_list.append(product_dict)
     amt = [num2words(i) for i in str(total_amount).split('.')]

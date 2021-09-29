@@ -24,6 +24,7 @@ from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, 
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status)
+
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, PosReturnGRNOrder
@@ -1275,7 +1276,8 @@ class GetGrnOrderListView(ListAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
-        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop'])
+        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop']).\
+            order_by('-modified_at')
         if request.GET.get('id'):
             """ Get GRN Order for specific ID """
             id_validation = validate_id(grn_order, int(request.GET.get('id')))
