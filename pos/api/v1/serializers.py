@@ -2979,6 +2979,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
 
+
 class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
     """
         Get single ordered product detail
