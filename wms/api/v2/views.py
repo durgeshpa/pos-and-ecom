@@ -292,6 +292,28 @@ class ZonePutawaysView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class ZonePickersView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("Zone Pickers api called.")
+        """ GET Zone Pickers List """
+        group = Group.objects.get(name='Picker Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        self.queryset = self.queryset. \
+            exclude(id__in=Zone.objects.values_list('picker_users', flat=True).distinct('picker_users'))
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        zone_picker_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_picker_users, many=True)
+        msg = "" if zone_picker_users else "no picker users found"
+        return get_response(msg, serializer.data, True)
+
+
 class WarehouseAssortmentCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1149,6 +1171,36 @@ class PutawayUsersListView(generics.GenericAPIView):
         zone_putaway_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_putaway_users, many=True)
         msg = "" if zone_putaway_users else "no putaway users found"
+        return get_response(msg, serializer.data, True)
+
+
+class PickerUsersListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("Zone Picker users api called.")
+        """ GET Zone Picker users List """
+
+        if not request.GET.get('zone'):
+            return get_response("'zone' | This is mandatory.")
+        zone_validation = validate_zone(request.GET.get('zone'))
+        if 'error' in zone_validation:
+            return get_response(zone_validation['error'])
+        zone = zone_validation['data']
+
+        group = Group.objects.get(name='Picker Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        self.queryset = self.queryset. \
+            filter(picker_zone_users__id=zone.id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        zone_picker_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_picker_users, many=True)
+        msg = "" if zone_picker_users else "no picker users found"
         return get_response(msg, serializer.data, True)
 
 

@@ -3,8 +3,10 @@ import json
 import time
 import random
 
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.db import transaction
+from rest_framework import status
+from rest_framework.response import Response
 
 today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
@@ -105,3 +107,62 @@ def generate_credit_note_id(invoice_no, return_count, prefix='FCR'):
     # cr_id = prefix + time.strftime('%Y%m%d') + str(random.randint(1000000, 9999999))
     cr_id = str(invoice_no).replace('FIV', prefix) + str(return_count).zfill(3)
     return cr_id
+
+
+def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
+    """
+        General Response For API
+    """
+    if success:
+        result = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            result = {"is_success": True,
+                      "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            result = {"is_success": False, "message": msg, "response_data": []}
+
+    return Response(result, status=status_code)
+
+
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    return errors[0]
+
+
+def validate_data_format(request):
+    """ Validate Picker Dashboard data  """
+    try:
+        data = request.data["data"]
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    return data
+
+
+def validate_id(queryset, id):
+    """ validation only ids that belong to a selected related model """
+    if not queryset.filter(id=id).exists():
+        return {'error': 'please provide a valid id'}
+    return {'data': queryset.filter(id=id)}
+
+
+def picker_dashboard_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & product name & supervisor name & coordinator name based on criteria that matches
+    '''
+    queryset = queryset.filter(
+        Q(zone__warehouse__shop_name__icontains=search_text) | Q(picking_status__icontains=search_text) |
+        Q(picker_boy__first_name__icontains=search_text) | Q(picker_boy__phone_number__icontains=search_text))
+    return queryset

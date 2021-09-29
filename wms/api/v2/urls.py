@@ -5,7 +5,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
-    PickupEntryCreationView, UpdateQCAreaView
+    PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -15,6 +15,7 @@ urlpatterns = [
     url('zone-supervisors/', ZoneSupervisorsView.as_view(), name='zone-supervisors'),
     url('zone-coordinators/', ZoneCoordinatorsView.as_view(), name='zone-coordinators'),
     url('zone-putaway-users/', ZonePutawaysView.as_view(), name='zone-putaway-users/'),
+    url('zone-picker-users/', ZonePickersView.as_view(), name='zone-picker-users/'),
     url('download/whc-assortment-sample/', WarehouseAssortmentSampleCSV.as_view(), name='download-whc-asrtmnt-sample'),
     url('upload/whc-assortments/', WarehouseAssortmentUploadView.as_view(), name='upload-whc-assortments'),
     url('export-csv-whc-assortments/', WarehouseAssortmentExportAsCSVView.as_view(), name='export-csv-whc-assortments'),
@@ -31,6 +32,7 @@ urlpatterns = [
     url('grouped-putaways/', GroupedByGRNPutawaysView.as_view(), name='grouped-putaways'),
     url('putaway-items/', PutawayItemsCrudView.as_view(), name='putaway-items'),
     url('putaway-users-under-zone/', PutawayUsersListView.as_view(), name='putaway-users-under-zone'),
+    url('picker-users-under-zone/', PickerUsersListView.as_view(), name='picker-users-under-zone'),
     url('zone-list/', ZoneFilterView.as_view(), name='zone-list'),
     url('putaway-status-list/', PutawayStatusListView.as_view(), name='putaway-status-list'),
     url('user-details/', UserDetailsPostLoginView.as_view(), name='user-details'),
