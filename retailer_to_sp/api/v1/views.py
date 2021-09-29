@@ -6434,3 +6434,11 @@ class EcomPaymentSuccessView(APIView):
 
     def post(self, request, *args, **kwags):
         return render(request, "ecom/payment_success.html")
+
+
+class EcomPaymentFailureView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return render(request, "ecom/payment_failed.html")
