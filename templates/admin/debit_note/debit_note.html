@@ -36,8 +36,16 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
     		<div class="invoice-title">
-    			<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
-    		</div>
+				<div class="col-xs-5">
+    				<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4>
+				</div>
+				<div class="col-xs-4">
+					<h4 class="pull-right order_id">FSSAI License No:- <span class="order_id_no"><strong>{{ license_number }}</strong>
+				</div>
+				<div class="col-xs-3">
+					<h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+				</div>
+			</div>
 
     		<div class="row">
     			<div class="col-xs-6">

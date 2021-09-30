@@ -1639,10 +1639,11 @@ class OrderedProduct(models.Model):  # Shipment
     def shipment_address(self):
         if self.order:
             address = self.order.shipping_address
-            address_line = address.address_line1
-            contact = address.address_contact_number
-            shop_name = address.shop_name.shop_name
-            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+            if address:
+                address_line = address.address_line1
+                contact = address.address_contact_number
+                shop_name = address.shop_name.shop_name
+                return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
     def payment_approval_status(self):
@@ -1706,8 +1707,10 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def invoice_city(self):
-        city = self.order.shipping_address.city
-        return str(city)
+        if self.order.shipping_address:
+            city = self.order.shipping_address.city
+            return str(city)
+        return str("-")
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected

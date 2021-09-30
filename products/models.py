@@ -274,11 +274,12 @@ class Product(BaseTimestampUserStatusModel):
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
+    NONE, SOURCE, DESTINATION, PACKING_MATERIAL = 'none', 'source', 'destination', 'packing_material'
     REPACKAGING_TYPES = (
-        ('none', 'None'),
-        ('source', 'Source'),
-        ('destination', 'Destination'),
-        ('packing_material', 'Packing Material')
+        (NONE, 'None'),
+        (SOURCE, 'Source'),
+        (DESTINATION, 'Destination'),
+        (PACKING_MATERIAL, 'Packing Material')
     )
 
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
