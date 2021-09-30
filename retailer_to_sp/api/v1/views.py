@@ -121,6 +121,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
+from retailer_backend.settings import AWS_MEDIA_URL
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -6433,7 +6434,7 @@ class EcomPaymentSuccessView(APIView):
     permission_classes = ()
 
     def post(self, request, *args, **kwags):
-        return render(request, "ecom/payment_success.html")
+        return render(request, "ecom/payment_success.html", {'media_url': AWS_MEDIA_URL})
 
 
 class EcomPaymentFailureView(APIView):
@@ -6441,4 +6442,4 @@ class EcomPaymentFailureView(APIView):
     permission_classes = ()
 
     def post(self, request, *args, **kwags):
-        return render(request, "ecom/payment_failed.html")
+        return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})
