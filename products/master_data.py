@@ -945,7 +945,10 @@ class DownloadMasterData(object):
         for product in products:
             row = []
             row.append(product['product_sku'])
-            row.append(product['product_name'])
+            if product['product_name'][0] == '#':
+                row.append(product['product_name'][1:])
+            else:
+                row.append(product['product_name'])
             row.append(product['parent_product__parent_id'])
             row.append(product['parent_product__name'])
             row.append(product['product_ean_code'])
