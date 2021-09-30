@@ -123,6 +123,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShopSerializer)
 from retailer_backend.settings import AWS_MEDIA_URL
 
+from retailer_backend.settings import AWS_MEDIA_URL
+
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 User = get_user_model()
