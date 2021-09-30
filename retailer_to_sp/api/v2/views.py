@@ -1,7 +1,7 @@
 import logging
 
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import F
+from django.db.models import F, Count, Q
 from rest_framework import generics
 from rest_framework import permissions, authentication
 from rest_framework import status
@@ -13,7 +13,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_sp.models import (Order, CustomerCare, PickerDashboard)
 from wms.services import check_whc_manager_coordinator_supervisor, check_whc_manager_coordinator_supervisor_picker
 from .serializers import (CustomerCareSerializer, OrderNumberSerializer, PickerDashboardSerializer,
-                          OrderSummarySerializers)
+                          OrderStatusSerializer)
 from ...common_function import get_response, validate_data_format, validate_id, serializer_error, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker
 
@@ -181,7 +181,7 @@ class PickerDashboardCrudView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
-class OrderSummaryView(generics.GenericAPIView):
+class OrderStatusSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = PickerDashboard.objects.filter(
@@ -189,42 +189,83 @@ class OrderSummaryView(generics.GenericAPIView):
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
         exclude(order__isnull=True). \
-        order_by('order').values('order').annotate(status_list=ArrayAgg(F('picking_status')))
-    serializer_class = OrderSummarySerializers
+        values('order').annotate(status_list=ArrayAgg(F('picking_status')))
+    serializer_class = OrderStatusSerializer
 
     @check_whc_manager_coordinator_supervisor_picker
     def get(self, request):
-        """ GET API for PickerDashboards order summary """
-        info_logger.info("PickerDashboard Order Summary GET api called.")
-        """ GET PickerDashboard Order Summary List """
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
         self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
-        self.queryset = self.filter_zone_wise_summary_putaways_data()
-        order_summary_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        order_wise_data = []
-        for obj in order_summary_data:
-            orders_dict = {"order": obj['order'], "status": ""}
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}
+        for obj in self.queryset:
             if PickerDashboard.PICKING_PENDING in obj['status_list'] or \
                     PickerDashboard.PICKING_ASSIGNED in obj['status_list'] or \
                     PickerDashboard.PICKING_IN_PROGRESS in obj['status_list']:
-                orders_dict["status"] = "pending"
+                order_summary_data['total'] += 1
+                order_summary_data['pending'] += 1
             elif PickerDashboard.PICKING_COMPLETE in obj['status_list']:
-                orders_dict["status"] = "completed"
+                order_summary_data['total'] += 1
+                order_summary_data['completed'] += 1
             elif PickerDashboard.MOVED_TO_QC in obj['status_list']:
-                orders_dict["status"] = "moved_to_qc"
-            order_wise_data.append(orders_dict)
-
-        serializer = self.serializer_class(order_wise_data, many=True)
-        msg = "" if order_wise_data else "no order found"
+                order_summary_data['total'] += 1
+                order_summary_data['moved_to_qc'] += 1
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
         return get_response(msg, serializer.data, True)
 
-    def filter_zone_wise_summary_putaways_data(self):
-        order = self.request.GET.get('order')
+    def filter_picker_summary_data(self):
         date = self.request.GET.get('date')
 
-        '''Filters using order, date '''
-        if order:
-            self.queryset = self.queryset.filter(order=order)
+        '''Filters using date'''
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
 
+        return self.queryset
+
+
+class CountDistinctOrder(Count):
+    allow_distinct = True
+
+
+class PickerDashboardStatusSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        exclude(order__isnull=True)
+
+    serializer_class = OrderStatusSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = self.queryset.aggregate(
+            total=CountDistinctOrder('order'),
+            pending=CountDistinctOrder('order', filter=(Q(
+                picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                                    PickerDashboard.PICKING_IN_PROGRESS]))),
+            completed=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
+            moved_to_qc=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
+        )
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        date = self.request.GET.get('date')
+
+        '''Filters using date'''
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 

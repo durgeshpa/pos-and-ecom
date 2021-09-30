@@ -141,6 +141,13 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
         return picker_dashboard_instance
 
 
+class OrderStatusSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
+
+
 class OrderSummarySerializers(serializers.Serializer):
     order = serializers.SerializerMethodField()
     status = serializers.CharField()
