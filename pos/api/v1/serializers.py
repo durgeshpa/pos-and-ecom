@@ -2195,6 +2195,12 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
     curr_grn_received_qty = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
     qty_unit = serializers.SerializerMethodField()
+    previous_grn_returned_qty = serializers.SerializerMethodField()
+    product_pack_type = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_pack_type(obj):
+        return obj.product.product_pack_type
 
     @staticmethod
     def get_curr_grn_received_qty(obj):
@@ -2206,6 +2212,22 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 return Decimal(grn_product.received_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
             else:
                 return int(grn_product.received_qty / obj.pack_size)
+        return 0
+
+    @staticmethod
+    def get_previous_grn_returned_qty(obj):
+        grn_order = PosGRNOrder.objects.filter(order=obj.cart.pos_po_order).last()
+        previous_return_qty = PosReturnItems.objects.filter(
+            grn_return_id__grn_ordered_id=grn_order, product=obj.product,
+            grn_return_id__status=PosReturnGRNOrder.RETURN_STATUS.RETURNED, is_active=True). \
+            aggregate(total_qty=Sum('return_qty'))
+        previous_return_qty = previous_return_qty.get('total_qty', None)
+        if previous_return_qty:
+            if obj.product.product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
+                return Decimal(previous_return_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+            else:
+                return int(previous_return_qty / obj.pack_size)
         return 0
 
     @staticmethod
@@ -2232,7 +2254,7 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosCartProductMapping
         fields = ('product_id', 'product_name', 'price', 'qty', 'qty_unit', 'other_grned_qty', 'curr_grn_received_qty',
-                  'pack_size')
+                  'pack_size', 'previous_grn_returned_qty', 'product_pack_type')
 
 
 class GrnInvoiceSerializer(serializers.ModelSerializer):
@@ -2277,14 +2299,6 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
         po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
 
-        # grn_products = {int(i['product_id']): [i['received_qty'], i['product__measurement_category_id'], i['product__product_pack_type']] for i in PosGRNOrderProductMapping.objects.filter(
-        #     grn_order=obj).values('product_id', 'received_qty', 'product__measurement_category_id', 'product__product_pack_type')}
-        #
-        # for po_pr in po_products_data:
-        #     po_pr['curr_grn_received_qty'] = 0
-        #     if po_pr['product_id'] in grn_products:
-        #         po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']]
-
         return po_products_data
 
     class Meta:
@@ -2316,255 +2330,6 @@ class PosShopUserMappingListSerializer(serializers.ModelSerializer):
         fields = ('id', 'user_id', 'phone_number', 'name', 'email', 'user_type', 'status', 'is_delivery_person')
 
 
-class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
-    """
-        Get single ordered product detail
-    """
-    retailer_product = RetailerProductsSearchSerializer()
-    product_subtotal = serializers.SerializerMethodField()
-    product_invoice_subtotal = serializers.SerializerMethodField()
-    picked_qty = serializers.SerializerMethodField()
-    rt_return_ordered_product = serializers.SerializerMethodField()
-
-    def get_rt_return_ordered_product(self, obj):
-        ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__ordered_cart=obj.cart,
-                                                               product_type=obj.product_type,
-                                                               retailer_product=obj.retailer_product).last()
-        if ordered_product:
-            return ReturnItemsSerializer(ordered_product.rt_return_ordered_product, many=True).data
-        else:
-            return None
-
-    def get_picked_qty(self, obj):
-        """
-            qty purchased
-        """
-        ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__ordered_cart=obj.cart,
-                                                               product_type=obj.product_type,
-                                                               retailer_product=obj.retailer_product).last()
-        return ordered_product.shipped_qty if ordered_product else None
-
-    def get_product_subtotal(self, obj):
-        """
-            order subtotal
-        """
-        return obj.selling_price * obj.qty
-
-    def get_product_invoice_subtotal(self, obj):
-        """
-            Received amount for product
-        """
-        picked_qty = self.get_picked_qty(obj)
-        return obj.selling_price * picked_qty if picked_qty else None
-
-    class Meta:
-        model = CartProductMapping
-        fields = ('retailer_product', 'selling_price', 'qty', 'picked_qty', 'product_subtotal',
-                  'product_invoice_subtotal', 'rt_return_ordered_product')
-
-
-class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
-    """
-        Pos-Ecom Order detail
-    """
-    order_summary = serializers.SerializerMethodField()
-    return_summary = serializers.SerializerMethodField()
-    invoice_summary = serializers.SerializerMethodField()
-    invoice_amount = serializers.SerializerMethodField()
-    items = serializers.SerializerMethodField()
-    creation_date = serializers.SerializerMethodField()
-    address = serializers.SerializerMethodField()
-    order_update = serializers.SerializerMethodField()
-    delivery_person = serializers.SerializerMethodField()
-    order_status_display = serializers.CharField(source='get_order_status_display')
-
-    @staticmethod
-    def get_order_update(obj):
-        ret = dict()
-        if obj.order_status == Order.PICKUP_CREATED:
-            return {Order.OUT_FOR_DELIVERY: 'Mark Out For Delivery'}
-        elif obj.order_status == Order.OUT_FOR_DELIVERY:
-            return {Order.DELIVERED: 'Mark Delivered'}
-        return ret
-
-    @staticmethod
-    def get_invoice_amount_total(obj):
-        ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return round(ordered_product.invoice_amount_total, 2) if ordered_product else None
-
-    @staticmethod
-    def get_invoice_amount_final(obj):
-        ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
-
-    @staticmethod
-    def get_invoice_amount(obj):
-        ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return round(ordered_product.invoice_amount_final, 2) if ordered_product else None
-
-    @staticmethod
-    def get_invoice_subtotal(obj):
-        ordered_product = OrderedProduct.objects.filter(order=obj).last()
-        return ordered_product.invoice_subtotal if ordered_product else None
-
-    @staticmethod
-    def get_creation_date(obj):
-        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
-
-    def get_order_summary(self, obj):
-        order_summary = dict()
-        discount = self.get_discount(obj)
-        redeem_points_value = self.get_redeem_points_value(obj)
-        order_value = round(obj.order_amount + discount + redeem_points_value, 2)
-        order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
-            'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
-        payment_obj = obj.rt_payment_retailer_order.all().last()
-        order_summary['payment_type'] = payment_obj.payment_type.type
-        order_summary['transaction_id'] = payment_obj.transaction_id
-        return order_summary
-
-    def get_invoice_summary(self, obj):
-        invoice_summary = dict()
-        invoice_summary['invoice_value'] = self.get_invoice_subtotal(obj)
-        invoice_summary['invoice_amount'], invoice_summary['invoice_discount'] = None, None
-        if invoice_summary['invoice_value']:
-            invoice_summary['redeem_points_value'] = self.get_redeem_points_value(obj)
-            invoice_summary['invoice_discount'] = round(invoice_summary['invoice_value'] - self.get_invoice_amount_total(obj), 2)
-            invoice_summary['invoice_amount'] = self.get_invoice_amount_final(obj)
-        return invoice_summary
-
-    @staticmethod
-    def get_return_summary(obj):
-        returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_value, discount_adjusted, points_adjusted, refund_amount = 0, 0, 0, 0
-        for ret in returns:
-            return_value += ret.return_value
-            discount_adjusted += ret.discount_adjusted
-            points_adjusted += ret.refund_points
-            refund_amount += max(0, ret.refund_amount)
-        points_value = 0
-        if obj.ordered_cart.redeem_factor:
-            points_value = round(points_adjusted / obj.ordered_cart.redeem_factor, 2)
-        return_summary = dict()
-        return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
-            'points_adjusted'], return_summary[
-            'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
-        return return_summary
-
-    def get_items(self, obj):
-        """
-            Get cart/ordered products details
-        """
-        qs = obj.ordered_cart.rt_cart_list.filter(product_type=1)
-        products = PosEcomOrderProductDetailSerializer(qs, many=True).data
-        # cart offers - map free product to purchased
-        product_offer_map, cart_free_product = {}, {}
-        for offer in obj.ordered_cart.offers:
-            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
-                product_offer_map[offer['item_id']] = offer
-            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
-                cart_free_product = {'cart_free_product': 1, 'id': offer['free_item_id'], 'mrp': offer['free_item_mrp'],
-                                     'name': offer['free_item_name'], 'qty': offer['free_item_qty'],
-                                     'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip(
-                                         '0').rstrip('.')}
-
-        completed_returns = OrderReturn.objects.filter(order=obj, status='completed')
-        return_item_map = {}
-        for return_obj in completed_returns:
-            return_item_detail = return_obj.free_qty_map
-            if return_item_detail:
-                for combo in return_item_detail:
-                    if combo['item_id'] in return_item_map:
-                        return_item_map[combo['item_id']] += combo['free_item_return_qty']
-                    else:
-                        return_item_map[combo['item_id']] = combo['free_item_return_qty']
-
-        free_picked_map = {}
-        free_picked_products = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=0)
-        for pp in free_picked_products:
-            free_picked_map[pp.retailer_product.id] = pp.shipped_qty
-
-        for product in products:
-            product['returned_qty'] = 0
-            rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
-            if rt_return_ordered_product:
-                for return_item in rt_return_ordered_product:
-                    if return_item['status'] != 'created':
-                        product['returned_qty'] = product['returned_qty'] + return_item['return_qty'
-                        ] if 'returned_qty' in product else return_item['return_qty']
-            product['returned_subtotal'] = round(float(product['selling_price']) * product['returned_qty'], 2)
-            # map purchased product with free product
-            if product['retailer_product']['id'] in product_offer_map:
-                free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product, free_picked_map)
-                if free_prod_info:
-                    product.update(free_prod_info)
-
-        if cart_free_product:
-            cart_free_product['picked_qty'] = 0
-            cart_free_product['returned_qty'] = return_item_map[
-                'free_product'] if 'free_product' in return_item_map else 0
-            if int(cart_free_product['id']) in free_picked_map:
-                cart_free_product['picked_qty'] = free_picked_map[int(cart_free_product['id'])]
-            products.append(cart_free_product)
-        return products
-
-    @staticmethod
-    def get_free_product_text(product_offer_map, return_item_map, product, free_picked_map):
-        offer = product_offer_map[product['retailer_product']['id']]
-        free_already_return_qty = return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0
-        display_text = ['Free - ' + str(offer['free_item_qty_added']) + ' items of ' + str(
-            offer['free_item_name']) + ' on purchase of ' + str(product['qty']) + ' items | Buy ' + str(offer[
-                                                                                                            'item_qty']) + ' Get ' + str(
-            offer['free_item_qty'])]
-
-        if int(offer['free_item_id']) in free_picked_map:
-            display_text += ['Picked ' + str(free_picked_map[int(offer['free_item_id'])]) + ' items']
-        if free_already_return_qty:
-            display_text += ['Free return - ' + str(free_already_return_qty) + ' items of ' + str(
-                offer['free_item_name']) + ' on return of ' + str(product['returned_qty']) + ' items']
-        return {'free_product': 1, 'display_text': display_text}
-
-    @staticmethod
-    def get_redeem_points_value(obj):
-        redeem_points_value = 0
-        if obj.ordered_cart.redeem_factor:
-            redeem_points_value = round(obj.ordered_cart.redeem_points / obj.ordered_cart.redeem_factor, 2)
-        return redeem_points_value
-
-    def get_discount(self, obj):
-        discount = 0
-        offers = self.get_cart_offers(obj)
-        for offer in offers:
-            discount += float(offer['discount_value'])
-        return round(discount, 2)
-
-    @staticmethod
-    def get_cart_offers(obj):
-        offers = obj.ordered_cart.offers
-        cart_offers = []
-        for offer in offers:
-            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
-                cart_offers.append(offer)
-        return cart_offers
-
-    @staticmethod
-    def get_address(obj):
-        if obj.ordered_cart.cart_type == 'ECOM' and hasattr(obj, 'ecom_address_order'):
-            return EcomOrderAddressSerializer(obj.ecom_address_order).data
-        return None
-
-    @staticmethod
-    def get_delivery_person(obj):
-        return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
-
-    class Meta:
-        model = Order
-        fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary',
-                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display')
-
-
 class MeasurementCategorySerializer(serializers.ModelSerializer):
     category = serializers.CharField(source='get_category_display')
     default_unit = serializers.SerializerMethodField()
@@ -2588,13 +2353,14 @@ class RetailerProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name',)
+        fields = ('id', 'name', 'product_pack_type')
 
 
 class PosGRNOrderProductMappingSerializer(serializers.ModelSerializer):
     product = RetailerProductSerializer(read_only=True)
     received_qty = serializers.SerializerMethodField()
     qty_unit = serializers.SerializerMethodField()
+    product_pack_type = serializers.SerializerMethodField()
 
     @staticmethod
     def get_qty_unit(obj):
@@ -2606,7 +2372,11 @@ class PosGRNOrderProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosGRNOrderProductMapping
-        fields = ('product', 'received_qty', 'qty_unit', 'pack_size')
+        fields = ('product', 'received_qty', 'qty_unit', 'pack_size', 'product_pack_type')
+
+    @staticmethod
+    def get_product_pack_type(obj):
+        return obj.product.product_pack_type
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -2703,25 +2473,10 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
                                                                           output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 
-    def get_return_products(self, grn_ordered_id, product_id, shop):
-        previous_return_qty = PosReturnItems.objects.filter(
-            grn_return_id__grn_ordered_id=grn_ordered_id, product_id=product_id,
-            grn_return_id__status=PosReturnGRNOrder.RETURN_STATUS.RETURNED, is_active=True,
-            grn_return_id__grn_ordered_id__order__ordered_cart__retailer_shop=shop). \
-            aggregate(total_qty=Sum('return_qty'))
-        return previous_return_qty['total_qty'] if previous_return_qty['total_qty'] else 0
-
     def get_products(self, obj):
-        shop = self.context.get('shop')
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
         po_products_data = GrnOrderProductGetSerializer(po_products, context={'exclude_grn': obj}, many=True).data
 
-        grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
-            grn_order=obj).values('product_id', 'received_qty')}
-
-        for po_pr in po_products_data:
-            po_pr['curr_grn_received_qty'] = grn_products[po_pr['product_id']] if po_pr['product_id'] in grn_products else 0
-            po_pr['previous_grn_returned_qty'] = self.get_return_products(obj, po_pr['product_id'], shop)
         return po_products_data
 
     class Meta:

@@ -737,6 +737,7 @@ class PosAddToCart(object):
 
                 new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
                 new_product_info['ean'] = ean
+                product_pack_type = 'packet'
             # Add by Product Id
             else:
                 try:
@@ -782,13 +783,15 @@ class PosAddToCart(object):
                     elif discounted_stock < qty:
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
+                product_pack_type = product.product_pack_type
+
             # qty w.r.t pack type
             kwargs['conversion_unit_id'] = None
-            if product.product_pack_type == 'packet':
+            if product_pack_type == 'packet':
                 qty = int(qty)
             else:
                 qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
-                                                                             product, qty)
+                                                                    product, qty)
 
             # Return with objects
             kwargs['product'] = product

@@ -16,7 +16,7 @@ from django.core.mail import EmailMessage
 from global_config.models import GlobalConfig
 from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems
+from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
@@ -104,6 +104,10 @@ def update_es(products, shop_id):
                 }
             ]
 
+        units = None
+        if product.product_pack_type == 'loose':
+            units = list(MeasurementUnit.objects.filter(category=product.measurement_category).values_list('unit', flat=True))
+
         params = {
             'id': product.id,
             'name': product.name,
@@ -129,7 +133,8 @@ def update_es(products, shop_id):
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date,
             'product_pack_type': product.product_pack_type,
-            'measurement_category': product.measurement_category.category,
+            'measurement_category': product.measurement_category.category if product.measurement_category else None,
+            'units': units,
             'combo_available': True if coupons else False,
             'coupons': coupons,
             'online_enabled': product.online_enabled,
