@@ -11,6 +11,7 @@ from elasticsearch import Elasticsearch
 from decouple import config
 from hashlib import sha512
 
+from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -94,6 +95,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
+
+from retailer_backend.settings import AWS_MEDIA_URL
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -6377,3 +6380,19 @@ class EcomPaymentView(APIView):
         serializer = PaymentTypeSerializer(queryset, many=True)
         msg = "" if queryset else "No payment found"
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
+class EcomPaymentSuccessView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return render(request, "ecom/payment_success.html", {'media_url': AWS_MEDIA_URL})
+
+
+class EcomPaymentFailureView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})
