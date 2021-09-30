@@ -950,7 +950,10 @@ class DownloadMasterData(object):
             else:
                 row.append(product['product_name'])
             row.append(product['parent_product__parent_id'])
-            row.append(product['parent_product__name'])
+            if product['parent_product__name'][0] == '#':
+                row.append(product['parent_product__name'][1:])
+            else:
+                row.append(product['parent_product__name'])
             row.append(product['product_ean_code'])
             row.append(product['product_mrp'])
             row.append(product['weight_unit'])
