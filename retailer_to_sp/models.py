@@ -1839,16 +1839,16 @@ class Invoice(models.Model):
 
 
 class PickerDashboard(models.Model):
-    PICKING_ASSIGNED = 'picking_assigned'
-
+    PICKING_PENDING, PICKING_ASSIGNED = 'picking_pending', 'picking_assigned'
+    PICKING_IN_PROGRESS, PICKING_COMPLETE = 'picking_in_progress', 'picking_complete'
+    PICKING_CANCELLED, MOVED_TO_QC = 'picking_cancelled', 'moved_to_qc'
     PICKING_STATUS = (
-        ('picking_pending', 'Picking Pending'),
+        (PICKING_PENDING, 'Picking Pending'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
-        ('picking_in_progress', 'Picking In Progress'),
-        ('picking_complete', 'Picking Complete'),
-        ('picking_cancelled', 'Picking Cancelled'),
-        ('moved_to_qc', 'Moved To QC Area'),
-
+        (PICKING_IN_PROGRESS, 'Picking In Progress'),
+        (PICKING_COMPLETE, 'Picking Complete'),
+        (PICKING_CANCELLED, 'Picking Cancelled'),
+        (MOVED_TO_QC, 'Moved To QC Area'),
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)

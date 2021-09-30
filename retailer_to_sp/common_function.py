@@ -1,19 +1,19 @@
 import datetime
 import json
-import time
-import random
 
-from django.db.models import Sum, Q
-from django.db import transaction
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 
-today = datetime.datetime.today()
+from wms.models import Zone
+
 from django.core.exceptions import ObjectDoesNotExist
 
 from shops.models import ParentRetailerMapping
 
+
 today = datetime.datetime.today()
+
 
 def getShopMapping(shop_id):
     try:
@@ -165,4 +165,20 @@ def picker_dashboard_search(queryset, search_text):
     queryset = queryset.filter(
         Q(zone__warehouse__shop_name__icontains=search_text) | Q(picking_status__icontains=search_text) |
         Q(picker_boy__first_name__icontains=search_text) | Q(picker_boy__phone_number__icontains=search_text))
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_picker(user, queryset):
+    '''
+        GET Logged-in user wise queryset for picker dashboard based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Picker Boy').exists():
+        queryset = queryset.filter(picker_user=user)
     return queryset

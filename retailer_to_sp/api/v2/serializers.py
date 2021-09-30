@@ -21,7 +21,7 @@ class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$')
     phone_number = serializers.CharField(validators=[phone_regex])
-    
+
     class Meta:
         model=CustomerCare
         fields=('phone_number', 'complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
@@ -140,3 +140,20 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
 
         return picker_dashboard_instance
 
+
+class SummarySerializer(serializers.Serializer):
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
+
+
+class OrderSummarySerializers(serializers.Serializer):
+    # status_count = SummarySerializer(read_only=True)
+    # order = OrderSerializer(read_only=True)
+    order = serializers.SerializerMethodField()
+    status = serializers.CharField()
+
+    def get_order(self, obj):
+        if obj['order']:
+            return OrderSerializer(Order.objects.filter(id=obj['order']).last(), read_only=True).data
+        return None
