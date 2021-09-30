@@ -1285,7 +1285,7 @@ class WarehouseAssortmentForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
-                                     widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
+                                     widget=autocomplete.ModelSelect2(url='parent-product-filter'))
     zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
                                   widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
 
