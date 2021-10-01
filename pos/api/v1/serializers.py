@@ -2667,13 +2667,16 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
                 grn_return_id=grn_return_id, product_id=grn_product_return['product_id'], defaults={})
             pos_return_items_obj.pack_size = grn_product_return['pack_size']
+
+            current_return_qty = 0
+            existing_return_qty = 0
+
             if pos_return_items_obj.is_active:
                 existing_return_qty = pos_return_items_obj.return_qty
                 current_return_qty = grn_product_return['return_qty']
                 pos_return_items_obj.return_qty = current_return_qty
                 pos_return_items_obj.save()
             else:
-                existing_return_qty = 0
                 pos_return_items_obj.is_active = True
                 pos_return_items_obj.return_qty = grn_product_return['return_qty']
                 pos_return_items_obj.save()
