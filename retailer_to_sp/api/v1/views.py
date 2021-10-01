@@ -3507,7 +3507,10 @@ class OrderCentral(APIView):
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
-        pdf_generation_retailer(self.request, order.id)
+        try:
+            pdf_generation_retailer(self.request, order.id, False)
+        except Exception as e:
+            logger.exception(e)
 
     def auto_process_ecom_order(self, order):
 
@@ -5205,12 +5208,13 @@ def pdf_generation_retailer(request, order_id, delay=True):
         total = round(total, 2)
 
         # Licence
+        shop_name = order.seller_shop.shop_name
         shop_mapping = ParentRetailerMapping.objects.filter(
-            retailer=shop_name).last()
+            retailer=order.seller_shop).last()
         if shop_mapping:
             shop_name = shop_mapping.parent.shop_name
         else:
-            shop_name =shop_name
+            shop_name = shop_name
         license_number = getShopLicenseNumber(shop_name)
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
