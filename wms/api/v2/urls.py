@@ -5,7 +5,8 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
-    PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView
+    PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerDashboardCrudView, \
+    OrderStatusSummaryView, PickerDashboardStatusSummaryView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -40,4 +41,7 @@ urlpatterns = [
     url('putaway-remark/', PutawayRemarkView.as_view(), name='putaway-remark'),
     url('temp/', PickupEntryCreationView.as_view(), name='temp'),
     url('move-to-qc/', UpdateQCAreaView.as_view(), name='move-to-qc'),
+    url('^picker-dashboards/$', PickerDashboardCrudView.as_view(), name='picker-dashboards'),
+    url('order-status-summary/', OrderStatusSummaryView.as_view(), name='order-status-summary'),
+    url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),
 ]

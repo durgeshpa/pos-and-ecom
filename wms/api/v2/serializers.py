@@ -14,8 +14,8 @@ from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct, ProductImage
-from retailer_to_sp.models import PickerDashboard
+from products.models import Product, ParentProduct, ProductImage, Repackaging
+from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
 from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
@@ -1311,4 +1311,86 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return picker_dashboard_instance
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', )
+
+
+class RepackagingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Repackaging
+        fields = ('id', 'repackaging_no', 'source_picking_status', 'created_at',)
+
+
+class ShipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_number', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
+                  'no_of_packets_check', 'no_of_sacks_check', )
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+    order = OrderSerializer(read_only=True)
+    repackaging = RepackagingSerializer(read_only=True)
+    shipment = ShipmentSerializer(read_only=True)
+    picker_boy = UserSerializers(read_only=True)
+    qc_area = QCAreaSerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+    class Meta:
+        model = PickerDashboard
+        fields = ('id', 'order', 'repackaging', 'shipment', 'picking_status', 'picklist_id', 'picker_boy',
+                  'pick_list_pdf', 'picker_assigned_date', 'zone', 'qc_area', 'is_valid', 'refreshed_at', 'created_at',
+                  'modified_at', 'completed_at', 'moved_to_qc_at', )
+
+    def validate(self, data):
+        """Validates the PickerDashboard requests"""
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if 'picker_boy' in self.initial_data and self.initial_data['picker_boy']:
+                try:
+                    picker_dashboard_obj = PickerDashboard.objects.get(id=self.initial_data['id'])
+                    existing_picker_boy = picker_dashboard_obj.picker_boy
+                except Exception as e:
+                    raise serializers.ValidationError("Invalid Putaway")
+                try:
+                    picker_boy = User.objects.get(id=self.initial_data['picker_boy'], groups__name='Picker Boy')
+                except Exception:
+                    raise serializers.ValidationError("Invalid picker boy | user not found / not a picker boy.")
+                if picker_boy == existing_picker_boy:
+                    raise serializers.ValidationError(f'Picker Boy {picker_boy} is already assigned.')
+                elif picker_dashboard_obj.zone is None:
+                    raise serializers.ValidationError(f'Zone not mapped to the selected entry.')
+                elif picker_boy not in picker_dashboard_obj.zone.picker_users.all():
+                    raise serializers.ValidationError(f'Invalid picker_boy | {picker_boy} is not mapped to the zone.')
+                data['picker_boy'] = picker_boy
+            else:
+                raise serializers.ValidationError(f"Invalid Picker boy | 'picker_boy' can't be empty.")
+        else:
+            raise serializers.ValidationError("PickerDashboard creation is not allowed.")
+
+        if sorted(list(self.initial_data.keys())) != ['id', 'picker_boy']:
+            raise serializers.ValidationError("Only Picker boy update is allowed")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            picker_dashboard_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return picker_dashboard_instance
+
+
+class OrderStatusSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
 

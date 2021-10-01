@@ -5,9 +5,10 @@ from datetime import datetime
 from dal import autocomplete
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, F
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
@@ -21,14 +22,16 @@ from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
-from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
+from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
+    picker_dashboard_search, get_logged_user_wise_query_set_for_picker
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_grn_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, ZonePickerUserAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker
+    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
+    check_whc_manager_coordinator_supervisor_picker
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -36,9 +39,9 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     BinExportBarcodeSerializers, ZonePutawayAssignmentsCrudSerializers, CancelPutawayCrudSerializers, \
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
-    PostLoginUserSerializers, PutawayActionSerializer, ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer
+    PostLoginUserSerializers, PutawayActionSerializer, ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, \
+    PickerDashboardSerializer, OrderStatusSerializer
 from ...views import pickup_entry_creation_with_cron
-
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1357,3 +1360,200 @@ class UpdateQCAreaView(generics.GenericAPIView):
         # return get_response(serializer_error(serializer), modified_data, False)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
         return Response(result, status=status.HTTP_200_OK)
+
+
+class PickerDashboardCrudView(generics.GenericAPIView):
+    """API view for PickerDashboard"""
+    # authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects. \
+        select_related('order', 'repackaging', 'shipment', 'picker_boy', 'zone', 'zone__warehouse',
+                       'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                       'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator',
+                       'zone__warehouse', 'qc_area'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
+        order_by('-id')
+    serializer_class = PickerDashboardSerializer
+
+    def get(self, request):
+        """ GET API for PickerDashboard """
+        picker_dashboard_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get PickerDashboards for specific id """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            picker_dashboard_data = id_validation['data']
+
+        else:
+            """ GET PickerDashboard List """
+            self.queryset = self.search_filter_picker_dashboard_data()
+            picker_dashboard_total_count = self.queryset.count()
+            picker_dashboard_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(picker_dashboard_data, many=True)
+        msg = f"total count {picker_dashboard_total_count}" if picker_dashboard_data else "no picker_dashboard found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_coordinator_supervisor
+    def put(self, request):
+        """ Updates the given PickerDashboard"""
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update picker_dashboard', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        picker_dashboard_instance = id_validation['data'].last()
+        serializer = self.serializer_class(instance=picker_dashboard_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("PickerDashboard Updated Successfully.")
+            return get_response('PickerDashboard updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_picker_dashboard_data(self):
+        """ Filters the PickerDashboard data based on request"""
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        zone = self.request.GET.get('zone')
+        qc_area = self.request.GET.get('qc_area')
+        date = self.request.GET.get('date')
+        picking_status = self.request.GET.get('picking_status')
+        repackaging = self.request.GET.get('repackaging')
+        order = self.request.GET.get('order')
+        shipment = self.request.GET.get('shipment')
+        picker_boy = self.request.GET.get('picker_boy')
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = picker_dashboard_search(self.queryset, search_text)
+
+        '''
+            Filters using warehouse, product, zone, qc_area, date, picking_status, 
+            repackaging, order, shipment, picker_boy
+        '''
+        if warehouse:
+            self.queryset = self.queryset.filter(zone__warehouse__id=warehouse)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__id=qc_area)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if picking_status:
+            self.queryset = self.queryset.filter(picking_status=picking_status)
+
+        if repackaging:
+            self.queryset = self.queryset.filter(repackaging__id=repackaging)
+
+        if order:
+            self.queryset = self.queryset.filter(order__id=order)
+
+        if shipment:
+            self.queryset = self.queryset.filter(shipment__id=shipment)
+
+        if picker_boy:
+            self.queryset = self.queryset.filter(picker_boy__id=picker_boy)
+
+        return self.queryset.distinct('id')
+
+
+class OrderStatusSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        exclude(order__isnull=True). \
+        values('order').annotate(status_list=ArrayAgg(F('picking_status')))
+    serializer_class = OrderStatusSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}
+        for obj in self.queryset:
+            if PickerDashboard.PICKING_PENDING in obj['status_list'] or \
+                    PickerDashboard.PICKING_ASSIGNED in obj['status_list'] or \
+                    PickerDashboard.PICKING_IN_PROGRESS in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['pending'] += 1
+            elif PickerDashboard.PICKING_COMPLETE in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['completed'] += 1
+            elif PickerDashboard.MOVED_TO_QC in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['moved_to_qc'] += 1
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        date = self.request.GET.get('date')
+
+        '''Filters using date'''
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        return self.queryset
+
+
+class CountDistinctOrder(Count):
+    allow_distinct = True
+
+
+class PickerDashboardStatusSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        exclude(order__isnull=True)
+
+    serializer_class = OrderStatusSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = self.queryset.aggregate(
+            total=CountDistinctOrder('order'),
+            pending=CountDistinctOrder('order', filter=(Q(
+                picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                                    PickerDashboard.PICKING_IN_PROGRESS]))),
+            completed=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
+            moved_to_qc=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
+        )
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        date = self.request.GET.get('date')
+
+        '''Filters using date'''
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        return self.queryset
