@@ -1,16 +1,9 @@
 import datetime
 import json
 
-from django.db.models import Q
-from rest_framework import status
-from rest_framework.response import Response
-
-from wms.models import Zone
-
 from django.core.exceptions import ObjectDoesNotExist
 
 from shops.models import ParentRetailerMapping
-
 
 today = datetime.datetime.today()
 
