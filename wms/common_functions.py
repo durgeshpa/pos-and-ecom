@@ -2280,6 +2280,7 @@ class WarehouseAssortmentCommonFunction(object):
             zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
         return zone
 
+
 def post_picking_order_update(picker_dashboard_instance):
 
     if picker_dashboard_instance.picking_status == 'moved_to_qc':
@@ -2292,3 +2293,29 @@ def post_picking_order_update(picker_dashboard_instance):
             else:
                 picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'
             picker_dashboard_instance.order.save()
+
+
+def picker_dashboard_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & product name & supervisor name & coordinator name based on criteria that matches
+    '''
+    queryset = queryset.filter(
+        Q(zone__warehouse__shop_name__icontains=search_text) | Q(picking_status__icontains=search_text) |
+        Q(picker_boy__first_name__icontains=search_text) | Q(picker_boy__phone_number__icontains=search_text))
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_picker(user, queryset):
+    '''
+        GET Logged-in user wise queryset for picker dashboard based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Picker Boy').exists():
+        queryset = queryset.filter(picker_user=user)
+    return queryset
