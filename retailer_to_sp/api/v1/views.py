@@ -3508,7 +3508,7 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         try:
-            pdf_generation_retailer(self.request, order.id, False)
+            pdf_generation_retailer(self.request, order.id)
         except Exception as e:
             logger.exception(e)
 
