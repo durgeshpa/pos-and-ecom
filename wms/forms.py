@@ -14,7 +14,7 @@ from tempus_dominus.widgets import DateTimePicker
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea, Crate
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1426,6 +1426,41 @@ class QCAreaForm(forms.ModelForm):
     class Meta:
         model = QCArea
         fields = ['warehouse', 'area_id', 'area_type', 'is_active']
+
+
+class CrateForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
+    crate_id = forms.CharField(required=False, max_length=20)
+    crate_type = forms.ChoiceField(choices=Crate.CRATE_TYPE_CHOICES)
+
+    def __init__(self, *args, **kwargs):
+        super(CrateForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance.id is not None:
+            self.fields['warehouse'].disabled = True
+            self.fields['zone'].disabled = True
+            self.fields['crate_type'].disabled = True
+        self.fields['crate_id'].disabled = True
+
+    class Meta:
+        model = QCArea
+        fields = ['warehouse', 'zone', 'crate_id', 'crate_type']
+
+
+class BulkCrateForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+                                  widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
+    crate_type = forms.ChoiceField(choices=Crate.CRATE_TYPE_CHOICES)
+    quantity = forms.IntegerField(min_value=1, max_value=100)
+
+    class Meta:
+        model = Crate
+        fields = ['warehouse', 'zone', 'crate_type', 'quantity']
 
 
 class InOutLedgerForm(forms.Form):

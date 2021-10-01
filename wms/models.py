@@ -697,3 +697,35 @@ class QCArea(BaseTimestampUserModel):
     @property
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.area_id, self.area_barcode.url))
+
+
+class Crate(BaseTimestampUserModel):
+    STORAGE, PICKING, DISPATCH = 'SR', 'PK', 'DP'
+    CRATE_TYPE_CHOICES = Choices((DISPATCH, 'Dispatch'), (PICKING, 'Picking'), (STORAGE, 'Storage'))
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, null=True, on_delete=models.DO_NOTHING)
+    crate_id = models.CharField(max_length=16, null=True, blank=True)
+    crate_type = models.CharField(max_length=50, choices=CRATE_TYPE_CHOICES)
+    crate_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
+    crate_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+
+    def __str__(self):
+        return self.crate_id
+
+    def save(self, *args, **kwargs):
+
+        if not self.id:
+            last_crate = Crate.objects.filter(
+                crate_type=self.crate_type, warehouse=self.warehouse, zone=self.zone).last()
+            if not last_crate:
+                current_number = 0
+            else:
+                current_number = int(last_crate.crate_id[11:])
+            current_number += 1
+            self.crate_id = self.crate_type + str(self.warehouse.pk).zfill(6) + str(
+                self.zone.pk).zfill(3) + str(current_number).zfill(4)
+        super(Crate, self).save(*args, **kwargs)
+
+    @property
+    def barcode_image(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.crate_id, self.crate_barcode.url))

@@ -23,16 +23,16 @@ from retailer_to_sp.models import Invoice, Trip
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm)
+                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm, CrateForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping)
+                     ZonePutawayUserAssignmentMapping, Crate)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
-    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView
+    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -1118,6 +1118,44 @@ class QCAreaAdmin(admin.ModelAdmin):
         return False
 
 
+class CrateAdmin(admin.ModelAdmin):
+    form = CrateForm
+    list_display = ('crate_id', 'warehouse', 'zone', 'crate_type', 'crate_barcode_txt', 'download_crate_barcode')
+    search_fields = ('crate_id', 'crate_barcode_txt')
+    list_filter = [Warehouse, ZoneFilter, ('crate_type', DropdownFilter)]
+    list_per_page = 50
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(CrateAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        js = ('admin/js/picker.js',)
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(CrateAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^bulk-crate-creation/$',
+                       self.admin_site.admin_view(bulk_crate_creation),
+                       name="bulk-crate-creation"
+                   )
+               ] + urls
+        return urls
+
+    def download_crate_barcode(self, obj):
+        id = getattr(obj, "id")
+        return format_html("<a href= '%s' >Download Barcode</a>" % (reverse('crate_barcode', args=[id])))
+
+    download_crate_barcode.short_description = 'Download Crate Barcode'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
     list_display = ('zone', 'user', 'last_assigned_at')
     list_filter = [ZoneFilter, PutawayUserFilter]
@@ -1177,5 +1215,6 @@ admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
 admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
+admin.site.register(Crate, CrateAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
