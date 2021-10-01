@@ -61,6 +61,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
+    measurement_category = serializers.CharField(required=False, default=None)
     measurement_category_id = serializers.IntegerField(required=False, default=None)
     purchase_pack_size = serializers.IntegerField(default=1)
 
@@ -110,7 +111,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
         if attrs['product_pack_type'] == 'loose':
             try:
-                measurement_category = MeasurementCategory.objects.get(id=attrs['measurement_category_id'])
+                measurement_category = MeasurementCategory.objects.get(category=attrs['measurement_category'].lower())
+                attrs['measurement_category_id'] = measurement_category.id
                 measurement_unit = MeasurementUnit.objects.get(category=measurement_category, default=True)
             except:
                 raise serializers.ValidationError("Please provide a valid measurement category for Loose Product")
@@ -1946,6 +1948,11 @@ class POListSerializer(serializers.ModelSerializer):
     grn_id = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
+    total_qty = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_qty(obj):
+        return obj.po_products.aggregate(Sum('qty')).get('qty__sum')
 
     @staticmethod
     def get_total_price(obj):
@@ -1963,7 +1970,7 @@ class POListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date')
+        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date', 'total_qty')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
