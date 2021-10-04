@@ -231,7 +231,7 @@ def DownloadRetailerCatalogue(request, *args):
             .select_related('measurement_category')\
             .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
                     'purchase_pack_size',
-                    'measurement_category__category'
+                    'measurement_category__category',
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
                     'linked_product__parent_product__parent_product_pro_category__category__category_name',
