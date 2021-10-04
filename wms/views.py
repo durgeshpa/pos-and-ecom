@@ -2580,7 +2580,8 @@ class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_employee__shop_id=warehouse)
 
         if self.q:
-            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
         return qs
 
 
@@ -2607,7 +2608,8 @@ class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_employee__shop_id=warehouse)
 
         if self.q:
-            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
         return qs.distinct()
 
 
