@@ -6,7 +6,7 @@ from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload, In, QCArea, Crate
+    PickupBinInventory, StockMovementCSVUpload, In, QCArea, Crate, PickupCrateInventory
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
@@ -30,6 +30,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 
 # Logger
 from ..v2.serializers import PicklistSerializer
+from ...common_validators import validate_crates_list
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -553,8 +554,24 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
-        diction = {i[1]: {'pickup_quantity': i[0], 'total_to_be_picked_qty' : i[2]}
-                   for i in zip(pickup_quantity, sku_id, total_to_be_picked_qty)}
+
+        crates = request.data.get('crates')
+        if not crates:
+            return Response(msg, status=status.HTTP_200_OK)
+        if len(crates) != len(sku_id):
+            return Response({'is_success': False,
+                             'message': 'The number of crates entered should be equal to number of sku ids entered.',
+                             'data': None}, status=status.HTTP_200_OK)
+        for cnt, crate_list in enumerate(crates):
+            if not crate_list:
+                return Response(msg, status=status.HTTP_200_OK)
+            validated_data = validate_crates_list(crate_list, warehouse, pickup_quantity[cnt])
+            if 'error' in validated_data:
+                msg['message'] = validated_data['error']
+                return Response(msg, status=status.HTTP_200_OK)
+
+        diction = {i[1]: {'pickup_quantity': i[0], 'total_to_be_picked_qty': i[2], 'crates': i[3]}
+                   for i in zip(pickup_quantity, sku_id, total_to_be_picked_qty, crates)}
         remarks = request.data.get('remarks')
         remarks_dict = {}
         if remarks is not None:
@@ -599,8 +616,9 @@ class PickupDetail(APIView):
                     pick_qty = picking_details.last().pickup_quantity
                     info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
                                      .format(j, pick_qty))
-                    if pick_qty is None:
-                        pick_qty = 0
+                    if pick_qty is not None:
+                        return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
+                                         'data': None}, status=status.HTTP_200_OK)
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
@@ -638,6 +656,10 @@ class PickupDetail(APIView):
 
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
+                        for crate in i['crates']:
+                            PickupCrateInventory.objects.create(
+                                pick_bin_inventory=picking_details.last(), crate_id=crate['crate_id'],
+                                crate_qty=crate['crate_qty'], created_by=request.user, updated_by=request.user)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__zone__picker_users=request.user,
                                                                         pickup__sku__id=j)\

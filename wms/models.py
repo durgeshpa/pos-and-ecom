@@ -729,3 +729,13 @@ class Crate(BaseTimestampUserModel):
     @property
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.crate_id, self.crate_barcode.url))
+
+
+class PickupCrateInventory(BaseTimestampUserModel):
+    pick_bin_inventory = models.ForeignKey(PickupBinInventory, related_name='crate_inventory',
+                                           on_delete=models.DO_NOTHING)
+    crate = models.ForeignKey(Crate, related_name='pickup_crates', on_delete=models.DO_NOTHING)
+    crate_qty = models.IntegerField(verbose_name="Crate Quantity")
+
+
+
