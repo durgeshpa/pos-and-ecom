@@ -233,7 +233,7 @@ class UploadMasterData(object):
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
+                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
                               'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
                               'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
@@ -245,6 +245,8 @@ class UploadMasterData(object):
                                 available_fields.append(col)
 
                     for col in available_fields:
+                        if col == 'parent_name':
+                            parent_product.update(name=str(row['parent_name']).strip())
 
                         if col == 'product_type':
                             parent_product.update(product_type=str(row['product_type'].lower()))
@@ -253,8 +255,11 @@ class UploadMasterData(object):
                             parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
-                            parent_product.update(
-                                product_hsn=ProductHSN.objects.filter(product_hsn_code=str(row['hsn'])).last())
+                            try:
+                                product_hsn_obj = ProductHSN.objects.get(product_hsn_code=str(row['hsn']))
+                            except:
+                                product_hsn_obj = ProductHSN.objects.get(product_hsn_code='0' + str(row['hsn']))
+                            parent_product.update(product_hsn=product_hsn_obj)
 
                         if col == 'tax_1(gst)':
                             tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -549,10 +554,15 @@ class UploadMasterData(object):
         try:
             info_logger.info('Method Start to create Parent Product')
             for row in csv_file_data_list:
+                try:
+                    product_hsn_obj = ProductHSN.objects.get(product_hsn_code=str(row['hsn'].replace("'", '')))
+                except:
+                    product_hsn_obj = ProductHSN.objects.get(product_hsn_code='0' + str(row['hsn'].replace("'", '')))
+
                 parent_product = ParentProduct.objects.create(
                     name=row['product_name'].strip(),
                     parent_brand=Brand.objects.filter(id=int(row['brand_id'])).last(),
-                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
+                    product_hsn=product_hsn_obj,
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
                     ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
