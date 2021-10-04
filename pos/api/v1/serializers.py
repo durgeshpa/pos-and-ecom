@@ -1645,7 +1645,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
                     if return_item['status'] != 'created':
                         product['returned_qty'] = product['returned_qty'] + return_item['return_qty'
                         ] if 'returned_qty' in product else return_item['return_qty']
-            product['returned_subtotal'] = round(float(product['selling_price']) * product['returned_qty'], 2)
+            product['returned_subtotal'] = round(Decimal(product['selling_price']) * product['returned_qty'], 2)
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product)
