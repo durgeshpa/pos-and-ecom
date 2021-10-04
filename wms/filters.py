@@ -57,7 +57,7 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(first_name__icontains=self.q)
-        return qs
+        return qs.distinct()
 
 
 class SupervisorFilter(autocomplete.Select2QuerySetView):
@@ -69,7 +69,7 @@ class SupervisorFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class CoordinatorFilter(autocomplete.Select2QuerySetView):
@@ -81,7 +81,7 @@ class CoordinatorFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
@@ -94,7 +94,7 @@ class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class ParentProductFilter(autocomplete.Select2QuerySetView):

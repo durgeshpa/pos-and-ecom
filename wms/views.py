@@ -2608,7 +2608,7 @@ class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class PickerUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
