@@ -29,7 +29,7 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping, Crate)
+                     ZonePutawayUserAssignmentMapping, Crate, PickupCrateInventory)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
     IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
@@ -1156,6 +1156,56 @@ class CrateAdmin(admin.ModelAdmin):
         return False
 
 
+class PickupCrateInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Crate Inventory Admin has been called.")
+
+    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'quantity', 'pickup_quantity',
+                    'crate', 'crate_qty', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('crate', 'crate_qty', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    search_fields = ('pick_bin_inventory__warehouse__id', 'pick_bin_inventory__warehouse__shop_name',
+                     'pick_bin_inventory__batch_id', 'pick_bin_inventory__bin__bin__bin_id')
+    list_filter = [('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    def warehouse(self, obj):
+        return obj.pick_bin_inventory.warehouse
+
+    def batch_id(self, obj):
+        return obj.pick_bin_inventory.batch_id
+
+    def bin_id(self, obj):
+        return obj.pick_bin_inventory.bin_id
+
+    def quantity(self, obj):
+        return obj.pick_bin_inventory.quantity
+
+    def pickup_quantity(self, obj):
+        return obj.pick_bin_inventory.pickup_quantity
+
+    def order_number(self, obj):
+        return obj.pick_bin_inventory.pickup.pickup_type_id
+
+    def pickup_type(self, obj):
+        return obj.pick_bin_inventory.pickup.pickup_type
+
+    class Media:
+        pass
+
+    order_number.short_description = 'Order / Repackaging Number'
+    bin_id.short_description = 'Bin Id'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
     list_display = ('zone', 'user', 'last_assigned_at')
     list_filter = [ZoneFilter, PutawayUserFilter]
@@ -1216,5 +1266,6 @@ admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
 admin.site.register(Crate, CrateAdmin)
+admin.site.register(PickupCrateInventory, PickupCrateInventoryAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
