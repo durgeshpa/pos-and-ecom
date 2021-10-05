@@ -2,12 +2,12 @@ import logging
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Subquery, OuterRef
+from django.db.models import Subquery, OuterRef, Case, When
 from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Pickup
 
 logger = logging.getLogger(__name__)
 
@@ -187,18 +187,30 @@ def read_warehouse_assortment_file(warehouse, csv_file, upload_type):
             "Please add some data below the headers to upload it!")
 
 
-def validate_putaways_by_grn_and_zone(grn_id, zone_id):
+def validate_putaways_by_token_id_and_zone(token_id, zone_id):
     """validation warehouse assortment for the selected warehouse and product"""
-    putaways = Putaway.objects.filter(putaway_type='GRN'). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
-                 zone_id=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
-        filter(zone_id=zone_id, grn_id=grn_id)
+    putaways = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                ),
+                    zone_id=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                ). \
+        filter(zone_id=zone_id, token_id=token_id)
     if not putaways.exists():
-        return {'error': 'please provide a valid GRN Id / Zone Id.'}
+        return {'error': 'please provide a valid Token Id / Zone Id.'}
     return {'data': putaways.all()}
 
 

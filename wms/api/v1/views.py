@@ -157,6 +157,11 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
+
+        return Response({'is_success': False,
+                         'message': 'Deprecated.',
+                         'data': None}, status=status.HTTP_200_OK)
+
         info_logger.info("Put Away View POST api called.")
         data, key = {}, 0
         lis_data = []

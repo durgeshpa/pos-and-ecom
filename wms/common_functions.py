@@ -1,31 +1,29 @@
 # python imports
-import csv
 import codecs
+import csv
+import datetime
 import functools
 import json
 import logging
-import datetime
+
 from celery.task import task
 from decouple import config
+# django imports
+from django import forms
+from django.db import transaction
+from django.db.models import Sum, Q
 from rest_framework import status
 from rest_framework.response import Response
 
-# django imports
-from django import forms
-from django.db.models import Sum, Q, ExpressionWrapper, F, IntegerField
-from django.db import transaction
-
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
-from global_config.models import GlobalConfig
+from products.models import Product, ParentProduct, ProductPrice
+from shops.models import Shop
+from wms.common_validators import get_csv_file_data
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
                      Audit, Out, Zone, WarehouseAssortment)
-from wms.common_validators import get_csv_file_data
-
-from shops.models import Shop
-from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -80,11 +78,11 @@ class PutawayCommonFunctions(object):
 
         pu_obj = cls.create_putaway(bi.warehouse, putaway_type, putaway_type_id, bi.sku, bi.batch_id, qty,
                                     0, inventory_type)
-        PutawayBinInventory.objects.create(warehouse=pu_obj.warehouse, sku=pu_obj.sku,
-                                           batch_id=pu_obj.batch_id, bin=bi,
-                                           putaway_type=putaway_type, putaway=pu_obj,
-                                           putaway_status=putaway_status,
-                                           putaway_quantity=qty)
+        # PutawayBinInventory.objects.create(warehouse=pu_obj.warehouse, sku=pu_obj.sku,
+        #                                    batch_id=pu_obj.batch_id, bin=bi,
+        #                                    putaway_type=putaway_type, putaway=pu_obj,
+        #                                    putaway_status=putaway_status,
+        #                                    putaway_quantity=qty)
 
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
@@ -125,12 +123,13 @@ class PutawayCommonFunctions(object):
     def get_suggested_bins_for_putaway(cls, warehouse, sku, batch_id, inventory_type):
         """ Returns the Bins suggested where the given SKU can be kept"""
         suggested_bins = set()
-        queryset = BinInventory.objects.filter(warehouse=warehouse, inventory_type=inventory_type, sku=sku)
+        zone = WarehouseAssortmentCommonFunction.get_product_zone(warehouse, sku)
+        queryset = BinInventory.objects.filter(warehouse=warehouse, bin__zone=zone, inventory_type=inventory_type, sku=sku)
         if queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), batch_id=batch_id).exists():
             bin_list = queryset.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0),sku=sku, batch_id=batch_id)\
                                .values_list('bin__bin_id', flat=True).distinct('bin')[:3]
             suggested_bins.update(bin_list)
-        if len(suggested_bins) < 3:
+        if len(suggested_bins) == 0:
             bins_to_exclude = queryset.filter(~Q(batch_id=batch_id),Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0))\
                                       .values_list('bin_id', flat=True)
             bin_list = queryset.exclude(bin_id__in=bins_to_exclude)\
@@ -1213,18 +1212,18 @@ def cancel_order_with_pick(instance):
                         status = 'Pickup_Cancelled'
 
             # update or create put away model
-                pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
-                                                         warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
+                pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                          putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                                          batch_id=pickup_bin.batch_id,
                                                          inventory_type=type_normal,
                                                          defaults={'quantity': quantity,
+                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
                                                                    'putaway_quantity': 0})
                 # update or create put away bin inventory model
-                PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                                                             batch_id=pickup_bin.batch_id, putaway_type=status,
-                                                             putaway=pu, bin=pickup_bin.bin, putaway_status=False,
-                                                             defaults={'putaway_quantity': pick_up_bin_quantity})
+                # PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
+                #                                              batch_id=pickup_bin.batch_id, putaway_type=status,
+                #                                              putaway=pu, bin=pickup_bin.bin, putaway_status=False,
+                #                                              defaults={'putaway_quantity': pick_up_bin_quantity})
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     warehouse, pickup_bin.bin.sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
@@ -1568,22 +1567,22 @@ def create_in(warehouse, batch_id, sku, in_type, in_type_id, inventory_type, qua
 
 
 def create_putaway(warehouse, sku, batch_id, bin, inventory_type, putaway_type, putaway_type_id, putaway_user, quantity):
-    pu, _ = Putaway.objects.update_or_create(putaway_user=putaway_user,
-                                             warehouse=warehouse,
+    pu, _ = Putaway.objects.update_or_create(warehouse=warehouse,
                                              putaway_type=putaway_type,
                                              putaway_type_id=putaway_type_id,
                                              sku=sku,
                                              batch_id=batch_id,
                                              inventory_type=inventory_type,
                                              defaults={'quantity': quantity,
+                                                       'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
                                                        'putaway_quantity': 0})
-    PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
-                                                 sku=sku,
-                                                 batch_id=batch_id,
-                                                 putaway_type=putaway_type,
-                                                 putaway=pu, bin=bin,
-                                                 putaway_status=False,
-                                                 defaults={'putaway_quantity': quantity})
+    # PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
+    #                                              sku=sku,
+    #                                              batch_id=batch_id,
+    #                                              putaway_type=putaway_type,
+    #                                              putaway=pu, bin=bin,
+    #                                              putaway_status=False,
+    #                                              defaults={'putaway_quantity': quantity})
 
 
 def create_batch_id(sku, expiry_date):
@@ -2313,7 +2312,8 @@ def get_logged_user_wise_query_set(user, queryset):
         GET Logged-in user wise queryset for grouped puaways based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        pass
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
     elif user.has_perm('wms.can_have_zone_supervisor_permission'):
         queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
     elif user.has_perm('wms.can_have_zone_coordinator_permission'):

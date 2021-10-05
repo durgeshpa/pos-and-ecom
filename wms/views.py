@@ -12,7 +12,7 @@ from openpyxl.writer.excel import save_virtual_workbook
 
 import re
 import logging
-from django.db.models import Q, Prefetch, Count, Subquery, OuterRef
+from django.db.models import Q, Prefetch, Count, Subquery, OuterRef, Case, When
 from celery.task import task
 from django.db.models.functions import Length, Cast
 from django.utils import timezone
@@ -2215,31 +2215,64 @@ def assign_putaway_users_to_new_putways():
     """
         Assign Putaway users to all those putaways whose zone exists but putaway user not assigned
     """
-    objs = Putaway.objects.filter(putaway_type='GRN', putaway_user=None, status=Putaway.PUTAWAY_STATUS_CHOICE.NEW). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
+    objs = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled'],
+        putaway_user=None, status=Putaway.PUTAWAY_STATUS_CHOICE.NEW). \
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                ),
+                zone=Subquery(WarehouseAssortment.objects.filter(
+                    warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                ). \
         exclude(zone__isnull=True)
     cron_logger.info(objs.count())
 
-    grouped_objs = objs.values('grn_id', 'zone').annotate(count=Count('grn_id')).order_by()
+    grouped_objs = objs.values('token_id', 'zone').annotate(count=Count('token_id')).order_by()
     for i, x in enumerate(grouped_objs):
-        zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
-            zone=x['zone'], last_assigned_at=None).last()
-        if not zone_putaway_assigned_user:
-            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
-                order_by('-last_assigned_at').last()
-        if zone_putaway_assigned_user:
-            putaway_user = zone_putaway_assigned_user.user
-            zone_putaway_assigned_user.last_assigned_at = datetime.now()
-            zone_putaway_assigned_user.save()
-            reflected_putaways = objs.filter(grn_id=x['grn_id'], zone=x['zone'])
+        putaway_obj = Putaway.objects.filter(
+            putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled'],
+            status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED). \
+            annotate(token_id=Case(
+                        When(putaway_type='GRN',
+                             then=Cast(Subquery(In.objects.filter(
+                                 id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                                order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                        When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                             then=Cast('putaway_type_id', models.CharField())),
+                        output_field=models.CharField(),
+                    ),
+                    zone=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                    ). \
+            filter(token_id=x['token_id'], zone=x['zone'])
+        if putaway_obj:
+            putaway_user = putaway_obj.last().putaway_user
+        else:
+            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
+                zone=x['zone'], last_assigned_at=None).last()
+            if not zone_putaway_assigned_user:
+                zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
+                    order_by('-last_assigned_at').last()
+            if zone_putaway_assigned_user:
+                putaway_user = zone_putaway_assigned_user.user
+                zone_putaway_assigned_user.last_assigned_at = datetime.now()
+                zone_putaway_assigned_user.save()
+        if putaway_user:
+            reflected_putaways = objs.filter(token_id=x['token_id'], zone=x['zone'])
             reflected_list = list(reflected_putaways.values_list('id', flat=True))
             reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
-            cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for GRN Id: " + str(x['grn_id']) +
+            cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for Token Id: " + str(x['token_id']) +
                              ", Zone Id: " + str(x['zone']) + ", Putaway ids reflected: " + str(reflected_list) + ".")
 
 
