@@ -42,7 +42,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES
 
 import logging
 
-from retailer_to_sp.common_function import getShopLicenseNumber
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber
 from shops.models import ParentRetailerMapping
 
 logger = logging.getLogger(__name__)
@@ -245,6 +245,9 @@ class DownloadPurchaseOrder(APIView):
             shop_name = shop.gf_billing_address.shop_name.shop_name
         license_number = getShopLicenseNumber(shop_name)
 
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
         data = {
             "object": order_obj,
             "products": products,
@@ -263,9 +266,9 @@ class DownloadPurchaseOrder(APIView):
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
             "is_gf_shop" : is_gf_shop,
-            "license_number": license_number
+            "license_number": license_number,
+            "cin": cin_number
         }
-
 
         cmd_option = {
             'encoding': 'utf8',
@@ -297,6 +300,10 @@ class DownloadDebitNote(APIView):
         else:
             shop_name = order_obj.order.ordered_cart.gf_billing_address.shop_name.shop_name
         license_number = getShopLicenseNumber(shop_name)
+
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
         pk = self.kwargs.get('pk')
         a = GRNOrder.objects.get(pk=pk)
         shop = a
@@ -370,7 +377,8 @@ class DownloadDebitNote(APIView):
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
             "is_gf_shop": is_gf_shop,
-            "license_number": license_number
+            "license_number": license_number,
+            "cin": cin_number
         }
         cmd_option = {'encoding': 'utf8', 'margin-top': 3}
         response = PDFTemplateResponse(
