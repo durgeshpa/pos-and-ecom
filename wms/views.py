@@ -49,7 +49,8 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
-    BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, ZonePutawayUserAssignmentMapping
+    BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
+    ZonePutawayUserAssignmentMapping, Zone
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -2282,9 +2283,9 @@ def WarehouseAssortmentDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
-                     'zone_id', 'zone_supervisor', 'zone_coordinator'])
+                     'zone_number', 'zone_supervisor', 'zone_coordinator'])
     writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "PSNGLOC8204", "Zoff Meat Masala 7",
-                     "8", "7763886418 - PAL", "8368222416 - Baljeet"])
+                     "W000600Z01", "7763886418 - PAL", "8368222416 - Baljeet"])
     return response
 
 
@@ -2305,7 +2306,7 @@ def WarehouseAssortmentUploadCsvView(request):
                 for row, data in enumerate(reader):
                     warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
                         warehouse_id=data[0], product=ParentProduct.objects.get(parent_id=data[2]),
-                        defaults={'zone_id': data[4]})
+                        defaults={'zone': Zone.objects.filter(zone_number=data[4]).last()})
 
                     if created:
                         warehouse_assortment_object.created_by = request.user
