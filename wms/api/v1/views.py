@@ -6,7 +6,7 @@ from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload, In, QCArea, Crate, PickupCrateInventory
+    PickupBinInventory, StockMovementCSVUpload, In, QCArea, Crate, PickupCrates
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
@@ -657,7 +657,7 @@ class PickupDetail(APIView):
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         for crate in i['crates']:
-                            PickupCrateInventory.objects.create(
+                            PickupCrates.objects.create(
                                 pick_bin_inventory=picking_details.last(), crate_id=crate['crate_id'],
                                 crate_qty=crate['crate_qty'], created_by=request.user, updated_by=request.user)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
