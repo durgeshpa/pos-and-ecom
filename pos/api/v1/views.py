@@ -136,7 +136,6 @@ class PosProductView(GenericAPIView):
             add_offer_price = data['add_offer_price']
             ean_not_available = data['ean_not_available']
 
-
             with transaction.atomic():
                 old_product = deepcopy(product)
                 # Update product

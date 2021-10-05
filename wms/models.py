@@ -659,6 +659,7 @@ class PosInventoryChange(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+
 class QCArea(BaseTimestampUserModel):
     QC_AREA_TYPE_CHOICES = Choices(('OA', 'Open Area'), ('RC', 'Rack'), ('PA', 'Pallet'))
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
