@@ -8,7 +8,7 @@ from django.contrib.auth.models import Permission, Group
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField, F
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, F, Case, When
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
@@ -1475,8 +1475,15 @@ class OrderStatusSummaryView(generics.GenericAPIView):
         picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
-        exclude(order__isnull=True). \
-        values('order').annotate(status_list=ArrayAgg(F('picking_status')))
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True). \
+        values('token_id').annotate(status_list=ArrayAgg(F('picking_status')))
     serializer_class = OrderStatusSerializer
 
     @check_whc_manager_coordinator_supervisor_picker
@@ -1525,8 +1532,14 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
-        exclude(order__isnull=True)
-
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True)
     serializer_class = OrderStatusSerializer
 
     @check_whc_manager_coordinator_supervisor_picker
@@ -1538,12 +1551,12 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
         self.queryset = self.filter_picker_summary_data()
         order_summary_data = self.queryset.aggregate(
-            total=CountDistinctOrder('order'),
-            pending=CountDistinctOrder('order', filter=(Q(
+            total=CountDistinctOrder('token_id'),
+            pending=CountDistinctOrder('token_id', filter=(Q(
                 picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                                     PickerDashboard.PICKING_IN_PROGRESS]))),
-            completed=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
-            moved_to_qc=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
+            completed=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
+            moved_to_qc=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
         )
         serializer = self.serializer_class(order_summary_data)
         msg = "" if order_summary_data else "no order status found"
