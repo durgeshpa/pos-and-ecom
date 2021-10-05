@@ -618,9 +618,9 @@ class PickupDetail(APIView):
                     pick_qty = picking_details.last().pickup_quantity
                     info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
                                      .format(j, pick_qty))
-                    # if pick_qty is not None:
-                    #     return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
-                    #                      'data': None}, status=status.HTTP_200_OK)
+                    if pick_qty is not None:
+                        return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
+                                         'data': None}, status=status.HTTP_200_OK)
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
