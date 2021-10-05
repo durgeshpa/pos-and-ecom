@@ -694,9 +694,9 @@ class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'zone', 'inventory_type', 'quantity',
-                    'pickup_quantity', 'status', 'completed_at')
-    readonly_fields = (
-    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
+                    'pickup_quantity', 'status', 'is_crate_applicable', 'completed_at')
+    readonly_fields = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+                       'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ZoneFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
@@ -1164,14 +1164,13 @@ class CrateAdmin(admin.ModelAdmin):
 
 class PickupCrateAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Crate Admin has been called.")
-
-    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku',
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'currently_in_use',
                     'created_at', 'created_by', 'updated_at', 'updated_by')
     # list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')
     search_fields = ('crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
                      'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
-    list_filter = [CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_filter = ['currently_in_use', CrateFilter, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
     actions = ['download_csv']
 

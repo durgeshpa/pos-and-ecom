@@ -618,9 +618,9 @@ class PickupDetail(APIView):
                     pick_qty = picking_details.last().pickup_quantity
                     info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
                                      .format(j, pick_qty))
-                    if pick_qty is not None:
-                        return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
-                                         'data': None}, status=status.HTTP_200_OK)
+                    # if pick_qty is not None:
+                    #     return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
+                    #                      'data': None}, status=status.HTTP_200_OK)
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
@@ -658,7 +658,9 @@ class PickupDetail(APIView):
 
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
+                        is_crate_applicable = False
                         if i['pickup_crates']['is_crate_applicable'] is True:
+                            is_crate_applicable = True
                             for crate_id in i['pickup_crates']['crates']:
                                 PickupCrate.objects.create(
                                     pickup=picking_details.last().pickup, crate_id=crate_id,
@@ -670,7 +672,7 @@ class PickupDetail(APIView):
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
                                       .exclude(status='picking_cancelled')\
-                                      .update(pickup_quantity=sum_total)
+                                      .update(pickup_quantity=sum_total, is_crate_applicable=is_crate_applicable)
 
                         info_logger.info("PickupDetail|POST|Picking Done for SKU-{}, Total Qty Picked-{}"
                                          .format(j, sum_total))

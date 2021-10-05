@@ -366,6 +366,7 @@ class Pickup(models.Model):
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
     zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_zone', on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
+    is_crate_applicable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
@@ -734,5 +735,6 @@ class Crate(BaseTimestampUserModel):
 class PickupCrate(BaseTimestampUserModel):
     pickup = models.ForeignKey(Pickup, related_name='pickup_crates', on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_pickup', on_delete=models.DO_NOTHING)
+    currently_in_use = models.BooleanField(default=True)
 
 
