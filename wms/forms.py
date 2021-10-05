@@ -13,7 +13,7 @@ from django.contrib.auth.models import Permission, Group
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1170,9 +1170,10 @@ class UploadAuditAdminForm(forms.Form):
         return form_data_list
 
 
-supervisor_perm = Permission.objects.get(codename='can_have_zone_supervisor_permission')
-coordinator_perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
-putaway_group = Group.objects.get(name='Putaway')
+supervisor_perm = Permission.objects.filter(codename='can_have_zone_supervisor_permission').last()
+coordinator_perm = Permission.objects.filter(codename='can_have_zone_coordinator_permission').last()
+putaway_group = Group.objects.filter(name='Putaway').last()
+picker_group = Group.objects.filter(name='Picker Boy').last()
 
 
 class ZoneForm(forms.ModelForm):
@@ -1185,17 +1186,15 @@ class ZoneForm(forms.ModelForm):
     coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
     putaway_users = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
-        required=True,
-        widget=FilteredSelectMultiple(
-            verbose_name=_('Putaway users'),
-            is_stacked=False
-        )
-    )
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='putaway-users-autocomplete', forward=('warehouse',)))
+    picker_users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='picker-users-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = Zone
-        fields = ['name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users']
+        fields = ['name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
@@ -1215,10 +1214,28 @@ class ZoneForm(forms.ModelForm):
     def clean_putaway_users(self):
         if self.cleaned_data['putaway_users']:
             if len(self.cleaned_data['putaway_users']) <= 0 or \
-                    len(self.cleaned_data['putaway_users']) >= get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
+                    len(self.cleaned_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['putaway_users']:
+                if (not user.groups.filter(name='Putaway').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as putaway users."))
         return self.cleaned_data['putaway_users']
+
+    def clean_picker_users(self):
+        if self.cleaned_data['picker_users']:
+            if len(self.cleaned_data['picker_users']) <= 0 or \
+                    len(self.cleaned_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
+                raise ValidationError(_(
+                    "Select up to " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['picker_users']:
+                if (not user.groups.filter(name='Picker Boy').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as picker users."))
+        return self.cleaned_data['picker_users']
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1226,12 +1243,12 @@ class ZoneForm(forms.ModelForm):
         supervisor = cleaned_data.get("supervisor")
         coordinator = cleaned_data.get("coordinator")
         instance = getattr(self, 'instance', None)
-        if not instance.pk:
-            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
-                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
-        else:
+        if instance.pk and warehouse and supervisor and coordinator:
             if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
                     exclude(id=instance.pk).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        elif warehouse and supervisor and coordinator:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
                 raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
     def __init__(self, *args, **kwargs):
@@ -1240,20 +1257,14 @@ class ZoneForm(forms.ModelForm):
         perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
 
         if instance.pk:
-            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
-            self.fields['putaway_users'].queryset = (queryset | instance.putaway_users.all()).distinct()
-
-            queryset = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
-                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
+            queryset = User.objects.filter(is_active=True).filter(
+                Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(coordinator_zone_user__isnull=False)
             self.fields['coordinator'].queryset = (queryset | User.objects.filter(id=instance.coordinator.pk)).distinct()
         else:
-            self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                id__in=Zone.objects.values_list('putaway_users', flat=True).distinct('putaway_users'))
-
-            self.fields['coordinator'].queryset = User.objects.filter(
+            self.fields['coordinator'].queryset = User.objects.filter(is_active=True).filter(
                 Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
-                id__in=Zone.objects.values_list('coordinator', flat=True).distinct('coordinator'))
+                coordinator_zone_user__isnull=False).distinct()
+
 
 
 class WarehouseAssortmentForm(forms.ModelForm):
@@ -1261,7 +1272,7 @@ class WarehouseAssortmentForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
-                                     widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
+                                     widget=autocomplete.ModelSelect2(url='parent-product-filter'))
     zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
                                   widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
 
@@ -1379,3 +1390,22 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         # Check logged in user permissions
         if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
             raise forms.ValidationError(_("Required permissions missing to perform this task."))
+
+class QCAreaForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+
+    area_id = forms.CharField(required=False, max_length=16)
+    area_type = forms.ChoiceField(choices=QCArea.QC_AREA_TYPE_CHOICES)
+
+    def __init__(self, *args, **kwargs):
+        super(QCAreaForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance.id is not None:
+            self.fields['warehouse'].disabled = True
+            self.fields['area_type'].disabled = True
+        self.fields['area_id'].disabled = True
+
+    class Meta:
+        model = QCArea
+        fields = ['warehouse', 'area_id', 'area_type', 'is_active']

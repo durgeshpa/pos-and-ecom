@@ -246,6 +246,105 @@ class CommonBinInventoryFunctions(object):
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
 
+    @classmethod
+    @transaction.atomic
+    def product_shift_across_bins(cls, data):
+        """
+        Move product from one bin to the other bin
+        Refreshes the pickup list if required
+        """
+        warehouse = data['warehouse']
+        source_bin = data['s_bin']
+        target_bin = data['t_bin']
+        batch_id = data['batch_id']
+        sku = get_sku_from_batch(batch_id)
+        qty = data['qty']
+        inventory_type = data['inventory_type']
+        tr_type = 'bin_shift'
+        tr_id = 'bin_shift'
+        try:
+            with transaction.atomic():
+                source_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                    warehouse=warehouse, bin_id=source_bin, batch_id=batch_id,
+                    inventory_type=inventory_type,
+                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+
+                target_bin_inv_object = BinInventory.objects.select_for_update().filter(
+                    warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
+                    inventory_type=inventory_type,
+                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                if source_bin_inv_object.quantity < qty:
+                    qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
+                    total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
+                else:
+                    qty_to_deduct_from_bin_inv = qty
+                    total_qty_to_move_from_pickup = 0
+
+                if qty_to_deduct_from_bin_inv > 0:
+                    # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
+                    #                                                                       batch_id,
+                    #                                                                       inventory_type,
+                    #                                                                       inventory_type,
+                    #                                                                       -1 * qty_to_deduct_from_bin_inv,
+                    #                                                                       True, tr_type_deduct, tr_id)
+                    #
+                    # target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
+                    #     warehouse, target_bin, sku, batch_id, inventory_type, inventory_type,
+                    #     qty_to_deduct_from_bin_inv,
+                    #     True, tr_type_add, tr_id)
+
+                    source_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, source_bin, sku, batch_id,
+                                                                        inventory_type, -1*qty_to_deduct_from_bin_inv,
+                                                                        True)
+
+                    target_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, target_bin, sku, batch_id,
+                                                                        inventory_type, qty_to_deduct_from_bin_inv,
+                                                                        True)
+                    BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
+                                                              batch_id=batch_id,
+                                                              initial_bin=source_bin,
+                                                              final_bin=target_bin,
+                                                              initial_inventory_type=inventory_type,
+                                                              final_inventory_type=inventory_type,
+                                                              transaction_type=tr_type,
+                                                              transaction_id=tr_id,
+                                                              quantity=abs(qty))
+
+                if total_qty_to_move_from_pickup > 0:
+                    CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup,
+                                                                             source_bin_inv_object)
+                    CommonBinInventoryFunctions.add_to_be_picked_to_bin(total_qty_to_move_from_pickup,
+                                                                            target_bin_inv_object)
+                    pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
+                        warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
+                        pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
+                        pickup_quantity__isnull=True).order_by('id')
+                    for pb in pickup_bin_qs:
+                        qty_to_move_from_pickup = 0
+                        if total_qty_to_move_from_pickup > pb.quantity:
+                            qty_to_move_from_pickup = pb.quantity
+                            total_qty_to_move_from_pickup -= qty_to_move_from_pickup
+                            pb.quantity = 0
+                            pb.save()
+                        elif total_qty_to_move_from_pickup > 0:
+                            qty_to_move_from_pickup = total_qty_to_move_from_pickup
+                            pb.quantity = pb.quantity - qty_to_move_from_pickup
+                            total_qty_to_move_from_pickup = 0
+                            pb.save()
+
+                        pbi = PickupBinInventory.objects.filter(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                                                                pickup=pb.pickup, bin=target_bin_inv_object).last()
+                        if not pbi:
+                            PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                                                              pickup=pb.pickup, bin=target_bin_inv_object,
+                                                              quantity=qty_to_move_from_pickup)
+                        else:
+                            pbi.quantity += qty_to_move_from_pickup
+                            pbi.save()
+        except Exception as e:
+            info_logger.error('product_shift_across_bins | '.join(e.args) if len(e.args) > 0 else 'Unknown Error')
+            raise Exception('Product movement failed!')
+
 
 class CommonPickupFunctions(object):
 
@@ -440,6 +539,23 @@ def get_brand_in_shop_stock(shop_id, brand):
         Q(sku__product_brand__brand_parent=brand))
 
     return shop_stock
+
+
+def add_discounted_product_quantity(shop, inventory_type, sku_qty_dict):
+    """
+    Taken in the dictionary of product and their stock,
+    checks and add in that if any discounted product stock is available
+    """
+
+    product_ids = sku_qty_dict.keys()
+    discounted_products = Product.objects.filter(id__in=product_ids, discounted_sku__isnull=False)\
+                                         .values('id','discounted_sku__id')
+    discounted_product_dict = {p['discounted_sku__id']:p['id'] for p in discounted_products}
+    if len(discounted_product_dict) > 0:
+        stock = get_stock(shop, inventory_type, discounted_product_dict.keys())
+        for product_id, qty in stock.items():
+            sku_qty_dict[discounted_product_dict[product_id]] += qty
+    return sku_qty_dict
 
 
 def get_stock(shop, inventory_type, product_id_list=None):
@@ -1534,7 +1650,6 @@ def set_expiry_date(batch_id):
         expiry_date = '30/' + batch_id[17:19] + '/' + batch_id[19:21]
     return expiry_date
 
-
 def cancel_ordered(request, obj, initial_state, bin_id):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
@@ -2218,12 +2333,23 @@ class ZoneCommonFunction(object):
     @classmethod
     def update_putaway_users(cls, zone, putaway_users):
         """
-            Update Putaway users of the Shop
+            Update Putaway users of the Zone
         """
         zone.putaway_users.clear()
         if putaway_users:
             for user in putaway_users:
                 zone.putaway_users.add(user)
+        zone.save()
+
+    @ classmethod
+    def update_picker_users(cls, zone, picker_users):
+        """
+        Update Picker users of the Zone
+        """
+        zone.picker_users.clear()
+        if picker_users:
+            for user in picker_users:
+                zone.picker_users.add(user)
         zone.save()
 
 
@@ -2256,4 +2382,9 @@ class WarehouseAssortmentCommonFunction(object):
             zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
         return zone
 
-
+def get_sku_from_batch(batch_id):
+    sku = None
+    if not sku:
+        sku_id = batch_id[:-6]
+        sku = Product.objects.filter(product_sku=sku_id).last()
+    return sku

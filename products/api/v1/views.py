@@ -360,7 +360,7 @@ class ParentProductView(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
-        return self.queryset
+        return self.queryset.distinct()
 
 
 class SourceProductMappingView(GenericAPIView):

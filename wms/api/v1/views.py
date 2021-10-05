@@ -6,7 +6,7 @@ from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload, In
+    PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
@@ -790,8 +790,8 @@ class DecodeBarcode(APIView):
                              'data': barcode_data}
                 data.append(data_item)
                 continue;
-            type_identifier = barcode[0]
-            if type_identifier == '1':
+            type_identifier = barcode[0:2]
+            if type_identifier[0] == '1':
                 id = barcode[1:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -808,7 +808,7 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
 
-            elif type_identifier == '2':
+            elif type_identifier[0] == '2':
                 id = barcode[0:12]
                 grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id, batch_id__isnull=False).last()
 
@@ -829,6 +829,23 @@ class DecodeBarcode(APIView):
                 else:
                     batch_id = grn_product.batch_id
                     barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                    data.append(data_item)
+
+            elif type_identifier == '30':
+                id = barcode[2:12].lstrip('0')
+                if id is not None:
+                    id = int(id)
+                else:
+                    id = 0
+                area = QCArea.objects.filter(pk=id).last()
+                if area is None:
+                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                    data_item = {'is_success': False, 'message': 'QC Area not found', 'data': barcode_data}
+                    data.append(data_item)
+                else:
+                    area_id = area.area_id
+                    barcode_data = {'type': 'qc area', 'id': area_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:

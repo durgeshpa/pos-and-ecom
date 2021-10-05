@@ -15,7 +15,7 @@ from model_utils import Choices
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
-from coupon.models import Coupon
+from coupon.models import Coupon, Discount
 from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
@@ -274,11 +274,12 @@ class Product(BaseTimestampUserStatusModel):
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
+    NONE, SOURCE, DESTINATION, PACKING_MATERIAL = 'none', 'source', 'destination', 'packing_material'
     REPACKAGING_TYPES = (
-        ('none', 'None'),
-        ('source', 'Source'),
-        ('destination', 'Destination'),
-        ('packing_material', 'Packing Material')
+        (NONE, 'None'),
+        (SOURCE, 'Source'),
+        (DESTINATION, 'Destination'),
+        (PACKING_MATERIAL, 'Packing Material')
     )
 
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
@@ -292,7 +293,6 @@ class Product(BaseTimestampUserStatusModel):
         related_name='product_updated_by',
         on_delete=models.DO_NOTHING
     )
-
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
         super(Product, self).save(*args, **kwargs)
@@ -660,13 +660,28 @@ class ProductPrice(models.Model):
         """
         Returns the price applicable per piece
         """
-
         slabs = self.price_slabs.all()
         for slab in slabs:
             if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
-                return slab.ptr
+                selling_price = slab.ptr
+                brand_discount_value, category_discount_value = 0, 0
+                product = self.product
+                product_brand = product.product_brand
+                brand_discount = Discount.objects.filter(
+                    brand=product_brand, is_active=True, end_date__gte=datetime.date.today()).last()
+                if brand_discount and product.product_mrp > brand_discount.start_price and product.product_mrp < brand_discount.end_price:
+                    brand_discount_value = ((brand_discount.discount_value.discount_value / 100) * float(1) * float(selling_price), 2)[0]
+                product_category_mapping = product.parent_product.parent_product_pro_category.last()
+                if product_category_mapping:
+                    product_category = product_category_mapping.category
+                    category_discount = Discount.objects.filter(
+                        category=product_category, is_active=True, end_date__gte=datetime.date.today()).last()
+                    if category_discount and product.product_mrp > category_discount.start_price and product.product_mrp < category_discount.end_price:
+                        category_discount_value =((category_discount.discount_value.discount_value / 100) * float(1) * float(selling_price),
+                             2)[0]
+                return (slab.ptr-brand_discount_value-category_discount_value)
         return 0
-
+        
     # @property
     # def mrp(self):
     #     return self.product.product_mrp
