@@ -1388,6 +1388,18 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
         return picker_dashboard_instance
 
 
+class PickerSummarySerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
+
+
+class ZonewisePickerSummarySerializers(serializers.Serializer):
+    status_count = PickerSummarySerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+
 class OrderStatusSerializer(serializers.Serializer):
     total = serializers.IntegerField()
     pending = serializers.IntegerField()
