@@ -715,7 +715,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
             default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             return obj.shipped_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
         else:
-            return int(obj.qty)
+            return int(obj.shipped_qty)
 
     @staticmethod
     def get_qty_unit(obj):
