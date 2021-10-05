@@ -3,6 +3,7 @@ import json
 from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
+import datetime
 
 from django.db import transaction
 from rest_framework.response import Response
@@ -33,6 +34,28 @@ ORDER_STATUS_MAP = {
     4: Order.CANCELLED
 }
 
+ONLINE_ORDER_STATUS_MAP = {
+    1: [Order.ORDERED],
+    2: [Order.OUT_FOR_DELIVERY, Order.PICKUP_CREATED],
+    3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED],
+    4: [Order.CANCELLED],
+    5: [Order.OUT_FOR_DELIVERY],
+    6: [Order.PICKUP_CREATED],
+    7: [Order.DELIVERED],
+    8: [Order.PARTIALLY_RETURNED],
+    9: [Order.FULLY_RETURNED]
+}
+
+ECOM_ORDER_STATUS_MAP = {
+    1: [Order.ORDERED, Order.PICKUP_CREATED],
+    2: [Order.OUT_FOR_DELIVERY],
+    3: [Order.DELIVERED],
+    4: [Order.PARTIALLY_RETURNED],
+    5: [Order.FULLY_RETURNED],
+    6: [Order.CLOSED],
+    7: [Order.CANCELLED]
+}
+
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -45,7 +68,7 @@ class RetailerProductCls(object):
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
                                 product_ean_code, user, event_type, event_id=None, product_status='active',
-                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None):
+                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
         """
             General Response For API
         """
@@ -55,7 +78,7 @@ class RetailerProductCls(object):
                                                  offer_price=offer_price, offer_start_date=offer_sd,
                                                  offer_end_date=offer_ed, description=description,
                                                  product_ean_code=product_ean_code, status=product_status,
-                                                 product_ref=product_ref)
+                                                 product_ref=product_ref, online_enabled=online_enabled, online_price=online_price)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -238,6 +261,7 @@ class PosInventoryCls(object):
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
         return inventory_object.quantity if inventory_object else 0
 
+
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
     if extra_params:
@@ -255,7 +279,7 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     elif cart_type == 'retail_gf':
         if GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
             GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
-    elif cart_type == 'basic':
+    elif cart_type in ['basic', 'ecom']:
         if CartProductMapping.objects.filter(cart=cart, retailer_product=product).exists():
             CartProductMapping.objects.filter(cart=cart, retailer_product=product).delete()
 
@@ -314,6 +338,42 @@ def update_customer_pos_cart(ph_no, shop_id, changed_by, email=None, name=None, 
     return customer
 
 
+class PosCartCls(object):
+
+    @classmethod
+    def refresh_prices(cls, cart_products):
+        for cart_product in cart_products:
+            product = cart_product.retailer_product
+            if product.offer_price and product.offer_start_date and product.offer_end_date and \
+                    product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
+                cart_product.selling_price = cart_product.retailer_product.offer_price
+            else:
+                cart_product.selling_price = cart_product.retailer_product.selling_price
+            cart_product.save()
+        return cart_products
+
+    @classmethod
+    def out_of_stock_items(cls, cart_products, remove_unavailable=0):
+        out_of_stock_items = []
+
+        for cart_product in cart_products:
+            product = cart_product.retailer_product
+            available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+            if available_inventory < cart_product.qty:
+                if remove_unavailable:
+                    CartProductMapping.objects.filter(id=cart_product.id).delete()
+                else:
+                    out_of_stock_items += [{
+                        "id": product.id,
+                        "name": product.name,
+                        "qty": cart_product.qty,
+                        "available_qty": available_inventory,
+                        "mrp": product.mrp,
+                        "selling_price": cart_product.selling_price,
+                    }]
+        return out_of_stock_items
+
+
 class RewardCls(object):
 
     @classmethod
@@ -327,12 +387,14 @@ class RewardCls(object):
         return points, value_factor
 
     @classmethod
-    def checkout_redeem_points(cls, cart, redeem_points):
+    def checkout_redeem_points(cls, cart, redeem_points, use_all=None):
         value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+                if use_all is not None:
+                    redeem_points = points if int(use_all) else 0
                 redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0
@@ -521,16 +583,23 @@ def check_pos_shop(view_func):
             msg = validate_data_format(request)
             if msg:
                 return api_response(msg)
+        app_type = request.META.get('HTTP_APP_TYPE', None)
         shop_id = request.META.get('HTTP_SHOP_ID', None)
         if not shop_id:
             return api_response("No Shop Selected!")
-        user = request.user
-        qs = filter_pos_shop(user)
-        qs = qs.filter(id=shop_id)
-        shop = qs.last()
-        if not shop:
-            return api_response("Franchise Shop Id Not Approved / Invalid!")
+        # E-commerce
+        if app_type == '3':
+            shop = Shop.objects.filter(id=shop_id).last()
+            if not shop:
+                return api_response("Shop not available!")
+        else:
+            qs = filter_pos_shop(request.user)
+            qs = qs.filter(id=shop_id)
+            shop = qs.last()
+            if not shop:
+                return api_response("Franchise Shop Id Not Approved / Invalid!")
         kwargs['shop'] = shop
+        kwargs['app_type'] = app_type
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
@@ -541,6 +610,17 @@ def pos_check_permission(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
                                                  user_type='manager').exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
+def pos_check_permission_delivery_person(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type__in=['manager', 'cashier']).exists():
             return api_response("You are not authorised to make this change!")
         return view_func(self, request, *args, **kwargs)
 
@@ -590,7 +670,7 @@ class PosAddToCart(object):
             # Check if existing or new cart
             cart = None
             if cart_id:
-                cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+                cart = Cart.objects.filter(id=cart_id, seller_shop=shop, cart_type='BASIC').last()
                 if not cart:
                     return api_response("Cart Doesn't Exist")
                 elif cart.cart_status == Cart.ORDERED:
@@ -686,6 +766,44 @@ class PosAddToCart(object):
             kwargs['new_product_info'] = new_product_info
             kwargs['quantity'] = qty
             kwargs['cart'] = cart
+            return view_func(self, request, *args, **kwargs)
+
+        return _wrapped_view_func
+
+    @staticmethod
+    def validate_request_body_ecom(view_func):
+
+        @wraps(view_func)
+        def _wrapped_view_func(self, request, *args, **kwargs):
+            shop = kwargs['shop']
+            # Quantity check
+            qty = request.data.get('qty')
+            if qty is None or not str(qty).isdigit() or qty < 0:
+                return api_response("Qty Invalid!")
+
+            # Product check
+            try:
+                product = RetailerProduct.objects.get(id=request.data.get('product_id'), status='active',
+                                                      shop=kwargs['shop'], online_enabled=True)
+            except ObjectDoesNotExist:
+                return api_response("Product Not Found!")
+
+            # Inventory check
+            cart_product = CartProductMapping.objects.filter(cart__cart_type='ECOM', cart__buyer=self.request.user,
+                                                             retailer_product=product, product_type=1,
+                                                             cart__seller_shop=kwargs['shop'],
+                                                             cart__cart_status='active').last()
+            existing_cart_qty = 0
+            if cart_product:
+                existing_cart_qty = cart_product.qty
+            if qty > existing_cart_qty and shop.online_inventory_enabled:
+                available_inventory = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
+                if available_inventory < qty:
+                    return api_response("You cannot add any more quantities for this product!")
+
+            # Return with objects
+            kwargs['product'] = product
+            kwargs['quantity'] = qty
             return view_func(self, request, *args, **kwargs)
 
         return _wrapped_view_func

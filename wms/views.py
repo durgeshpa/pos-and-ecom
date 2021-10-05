@@ -50,7 +50,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone
+    ZonePutawayUserAssignmentMapping, QCArea, Zone
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -888,9 +888,8 @@ def pickup_entry_creation_with_cron():
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time) \
-        .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
-
+                                     created_at__gt=start_time)\
+                             .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM'])
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
@@ -2330,3 +2329,14 @@ def WarehouseAssortmentUploadCsvView(request):
         form = WarehouseAssortmentCsvViewForm(auto_id={"user": request.user})
     return render(request, 'admin/wms/warehouse-assortment-upload.html', {'form': form})
 
+
+class QCAreaBarcodeGenerator(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        qcarea = QCArea.objects.filter(pk=self.kwargs.get('id')).last()
+        area_barcode_txt = qcarea.area_barcode_txt
+        if qcarea and qcarea.area_barcode_txt is None:
+            area_barcode_txt = '30' + str(qcarea.id).zfill(10)
+        qcarea_data = {area_barcode_txt: {"qty": 1, "data": {"QC Area": qcarea.area_id}}}
+        return merged_barcode_gen(qcarea_data)

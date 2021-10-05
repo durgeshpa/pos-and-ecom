@@ -9,21 +9,23 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum, F, Subquery, OuterRef, Count, Q
 from django.db.models.functions import Cast
+from django.db import transaction
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
+
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
-from shops.models import Shop, ShopUserMapping
+from shops.models import Shop
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
-    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, InventoryState, BinInventory
-from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file
+    ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState
+from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
 
@@ -184,7 +186,7 @@ class ChildProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('product_sku', 'product_name', 'product_pro_image')
+        fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -195,8 +197,8 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'created_at',
-                  'updated_at')
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users',
+                  'created_at', 'updated_at')
 
     def validate(self, data):
 
@@ -255,6 +257,18 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("'putaway_users' | This is mandatory")
 
+        if 'picker_users' in self.initial_data and self.initial_data['picker_users']:
+            if len(self.initial_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
+                raise serializers.ValidationError(
+                    "Maximum " + str(
+                        get_config('MAX_PICKER_USERS_PER_ZONE')) + " putaway users are allowed.")
+            picker_users = get_validate_picker_users(self.initial_data['picker_users'])
+            if 'error' in picker_users:
+                raise serializers.ValidationError((picker_users["error"]))
+            data['picker_users'] = picker_users['picker_users']
+        else:
+            raise serializers.ValidationError("'picker_users' | This is mandatory")
+
         if 'id' in self.initial_data and self.initial_data['id']:
             if not Zone.objects.filter(id=self.initial_data['id'], warehouse=warehouse).exists():
                 raise serializers.ValidationError("Warehouse updation is not allowed.")
@@ -265,6 +279,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Zone with Putaway Users"""
         putaway_users = validated_data.pop('putaway_users', None)
+        picker_users = validated_data.pop('picker_users', None)
 
         try:
             zone_instance = Zone.objects.create(**validated_data)
@@ -273,12 +288,14 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        ZoneCommonFunction.update_picker_users(zone_instance, picker_users)
         return zone_instance
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Zone with Putaway Users"""
         putaway_users = validated_data.pop('putaway_users', None)
+        picker_users = validated_data.pop('picker_users', None)
 
         try:
             zone_instance = super().update(instance, validated_data)
@@ -287,6 +304,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         ZoneCommonFunction.update_putaway_users(zone_instance, putaway_users)
+        ZoneCommonFunction.update_picker_users(zone_instance, picker_users)
         return zone_instance
 
 
@@ -301,10 +319,11 @@ class ZoneSerializer(serializers.ModelSerializer):
     supervisor = UserSerializers(read_only=True)
     coordinator = UserSerializers(read_only=True)
     putaway_users = UserSerializers(read_only=True, many=True)
+    picker_users = UserSerializers(read_only=True, many=True)
 
     class Meta:
         model = Zone
-        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users')
+        fields = ('id', 'zone_number', 'name', 'warehouse', 'supervisor', 'coordinator', 'putaway_users', 'picker_users')
 
 
 class WarehouseAssortmentCrudSerializers(serializers.ModelSerializer):
@@ -1079,7 +1098,6 @@ class PutawayItemsCrudSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
         return putaway_instance
 
 
@@ -1135,6 +1153,98 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
                   'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')
+
+
+class BinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bin
+        fields = ('id', 'bin_id', 'warehouse_id')
+
+
+class InventoryTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryType
+        fields = ('id', 'inventory_type')
+
+
+class BinInventorySerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer()
+    bin = BinSerializer()
+    inventory_type = InventoryTypeSerializer()
+    sku = ChildProductSerializer()
+    bin_quantity = serializers.SerializerMethodField()
+
+    def get_bin_quantity(self, obj):
+        return obj.quantity+obj.to_be_picked_qty
+
+    class Meta:
+        model = BinInventory
+        fields = ('warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'bin_quantity')
+
+class BinShiftPostSerializer(serializers.ModelSerializer):
+    s_bin = serializers.IntegerField()
+    t_bin = serializers.IntegerField()
+    batch_id = serializers.CharField()
+    qty = serializers.IntegerField()
+    inventory_type = serializers.IntegerField()
+
+    class Meta:
+        model = BinInventory
+        fields = ('s_bin', 't_bin', 'batch_id', 'qty', 'inventory_type')
+
+
+
+    def validate(self, data):
+        data['warehouse'] = self.initial_data['warehouse']
+        try:
+            s_bin = Bin.objects.get(id=self.initial_data['s_bin'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid source Bin")
+        data['s_bin'] = s_bin
+
+        try:
+            t_bin = Bin.objects.get(id=self.initial_data['t_bin'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid target Bin")
+        if s_bin == t_bin:
+            raise serializers.ValidationError("Source and target bins are same.")
+        data['t_bin'] = t_bin
+        data['batch_id'] = self.initial_data['batch_id']
+
+
+        if self.initial_data['qty'] <= 0:
+            raise serializers.ValidationError(f"Invalid Quantity {self.initial_data['qty']}")
+        data['qty'] = self.initial_data['qty']
+
+        try:
+            inventory_type = InventoryType.objects.get(id=self.initial_data['inventory_type'])
+        except Exception as e:
+            raise serializers.ValidationError("Invalid Inventory Type")
+        data['inventory_type'] = inventory_type
+
+        bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
+                                              inventory_type=inventory_type).last()
+        if bin_inv:
+            if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
+                raise serializers.ValidationError(f"Invalid Quantity to move | "
+                                                  f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
+        else:
+            raise serializers.ValidationError("Invalid s_bin or batch_id")
+        sku = get_sku_from_batch(self.initial_data['batch_id'])
+        if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
+                                    Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
+            raise serializers.ValidationError("Invalid Movement | "
+                                              "Target bin already has same product with different batch ID")
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            CommonBinInventoryFunctions.product_shift_across_bins(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return validated_data
 
 
 class PutawayActionSerializer(PutawayItemsCrudSerializer):
