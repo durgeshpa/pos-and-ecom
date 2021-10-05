@@ -29,7 +29,7 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping, Crate, PickupCrates)
+                     ZonePutawayUserAssignmentMapping, Crate, PickupCrate)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
     IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
@@ -1162,8 +1162,8 @@ class CrateAdmin(admin.ModelAdmin):
         return False
 
 
-class PickupCratesAdmin(admin.ModelAdmin):
-    info_logger.info("Pick up Crate Inventory Admin has been called.")
+class PickupCrateAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Crate Admin has been called.")
 
     list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku',
                     'created_at', 'created_by', 'updated_at', 'updated_by')
@@ -1262,6 +1262,6 @@ admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
 admin.site.register(Crate, CrateAdmin)
-admin.site.register(PickupCrates, PickupCratesAdmin)
+admin.site.register(PickupCrate, PickupCrateAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
