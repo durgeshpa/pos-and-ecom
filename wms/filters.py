@@ -7,7 +7,7 @@ from django.db.models import Q, F
 
 from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone, Crate
 from accounts.models import User
 
 
@@ -133,6 +133,33 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
                 supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
                 coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q) | Q(
                 warehouse__id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q))
+        return qs
+
+
+class CrateFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Crate.objects.none()
+
+        if self.request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            qs = Crate.objects.filter(warehouse=self.request.user.shop_employee.all().last().shop_id)
+        elif self.request.user.has_perm('wms.can_have_zone_supervisor_permission'):
+            qs = Crate.objects.filter(zone__supervisor=self.request.user)
+        elif self.request.user.has_perm('wms.can_have_zone_coordinator_permission'):
+            qs = Crate.objects.filter(zone__coordinator=self.request.user)
+        else:
+            qs = Crate.objects.none()
+
+        # qs = Zone.objects.all()
+
+        crate_type = self.forwarded.get('crate_type', None)
+        if crate_type:
+            qs = qs.filter(crate_type=crate_type)
+
+        if self.q:
+            qs = qs.filter(Q(crate_id__icontains=self.q) | Q(zone__zone_number__icontains=self.q) |
+                           Q(zone__name__icontains=self.q) | Q(warehouse__id__icontains=self.q) |
+                           Q(warehouse__shop_name__icontains=self.q))
         return qs
 
 

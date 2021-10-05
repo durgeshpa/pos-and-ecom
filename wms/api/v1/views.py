@@ -30,7 +30,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 
 # Logger
 from ..v2.serializers import PicklistSerializer
-from ...common_validators import validate_crates_list
+from ...common_validators import validate_pickup_crates_list
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -555,23 +555,25 @@ class PickupDetail(APIView):
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
 
-        crates = request.data.get('crates')
-        if not crates:
+        pickup_crates = request.data.get('pickup_crates')
+        if not pickup_crates:
             return Response(msg, status=status.HTTP_200_OK)
-        if len(crates) != len(sku_id):
+        if len(pickup_crates) != len(sku_id):
             return Response({'is_success': False,
-                             'message': 'The number of crates entered should be equal to number of sku ids entered.',
+                             'message': 'The number of pickup_crates entered should be equal to number of sku ids entered.',
                              'data': None}, status=status.HTTP_200_OK)
-        for cnt, crate_list in enumerate(crates):
-            if not crate_list:
+        for cnt, crate_obj in enumerate(pickup_crates):
+            if not crate_obj:
                 return Response(msg, status=status.HTTP_200_OK)
-            validated_data = validate_crates_list(crate_list, warehouse, pickup_quantity[cnt])
+            if not isinstance(crate_obj, dict):
+                return {"error": "Key 'pickup_crates' can be of object type only."}
+            validated_data = validate_pickup_crates_list(crate_obj, warehouse)
             if 'error' in validated_data:
                 msg['message'] = validated_data['error']
                 return Response(msg, status=status.HTTP_200_OK)
 
-        diction = {i[1]: {'pickup_quantity': i[0], 'total_to_be_picked_qty': i[2], 'crates': i[3]}
-                   for i in zip(pickup_quantity, sku_id, total_to_be_picked_qty, crates)}
+        diction = {i[1]: {'pickup_quantity': i[0], 'total_to_be_picked_qty': i[2], 'pickup_crates': i[3]}
+                   for i in zip(pickup_quantity, sku_id, total_to_be_picked_qty, pickup_crates)}
         remarks = request.data.get('remarks')
         remarks_dict = {}
         if remarks is not None:
@@ -616,9 +618,9 @@ class PickupDetail(APIView):
                     pick_qty = picking_details.last().pickup_quantity
                     info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
                                      .format(j, pick_qty))
-                    if pick_qty is not None:
-                        return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
-                                         'data': None}, status=status.HTTP_200_OK)
+                    # if pick_qty is not None:
+                    #     return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
+                    #                      'data': None}, status=status.HTTP_200_OK)
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
@@ -656,10 +658,11 @@ class PickupDetail(APIView):
 
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
-                        for crate in i['crates']:
-                            PickupCrates.objects.create(
-                                pick_bin_inventory=picking_details.last(), crate_id=crate['crate_id'],
-                                crate_qty=crate['crate_qty'], created_by=request.user, updated_by=request.user)
+                        if i['pickup_crates']['is_crate_applicable'] is True:
+                            for crate_id in i['pickup_crates']['crates']:
+                                PickupCrates.objects.create(
+                                    pickup=picking_details.last().pickup, crate_id=crate_id,
+                                    created_by=request.user, updated_by=request.user)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__zone__picker_users=request.user,
                                                                         pickup__sku__id=j)\

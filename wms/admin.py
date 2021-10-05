@@ -279,6 +279,12 @@ class ParentProductFilter(AutocompleteFilter):
     autocomplete_url = 'parent-product-autocomplete'
 
 
+class CrateFilter(AutocompleteFilter):
+    title = 'Crate'
+    field_name = 'crate'
+    autocomplete_url = 'crate-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -1159,13 +1165,13 @@ class CrateAdmin(admin.ModelAdmin):
 class PickupCratesAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Crate Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate',
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku',
                     'created_at', 'created_by', 'updated_at', 'updated_by')
     # list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')
     search_fields = ('crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
                      'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
-    list_filter = [('created_at', DateTimeRangeFilter)]
+    list_filter = [CrateFilter, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
     actions = ['download_csv']
 
@@ -1177,6 +1183,9 @@ class PickupCratesAdmin(admin.ModelAdmin):
 
     def pickup_type(self, obj):
         return obj.pickup.pickup_type
+
+    def sku(self, obj):
+        return obj.pickup.sku
 
     class Media:
         pass

@@ -7,7 +7,8 @@ from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMov
     MergeBarcode, QCAreaBarcodeGenerator, PutawayUserAutcomplete, PickerUserAutcomplete, PickerUsersCompleteAutcomplete, \
     PutawayUsersCompleteAutcomplete, CrateBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
-    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, UserFilter, CoordinatorAvailableFilter
+    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, UserFilter, CoordinatorAvailableFilter, \
+    CrateFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -36,6 +37,7 @@ urlpatterns = [
         name='coordinator-available-autocomplete'),
     url(r'^parent-product-autocomplete/$', ParentProductFilter.as_view(), name='parent-product-autocomplete'),
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
+    url(r'^crate-autocomplete/$', CrateFilter.as_view(), name='crate-autocomplete'),
     url(r'^users-autocomplete/$', UserFilter.as_view(), name='users-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
