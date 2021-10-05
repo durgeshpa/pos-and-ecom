@@ -221,8 +221,10 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-        BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                           inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+        bin_inventory_obj, created = BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku,
+                                                                        batch_id=batch_id, inventory_type=inventory_type,
+                                                                        quantity=quantity, in_stock=in_stock)
+        return bin_inventory_obj
 
     @classmethod
     def filter_bin_inventory(cls, warehouse, sku, batch_id, bin_obj, inventory_type):
@@ -273,6 +275,10 @@ class CommonBinInventoryFunctions(object):
                     warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
                     inventory_type=inventory_type,
                     sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                if target_bin_inv_object is None:
+                    target_bin_inv_object = cls.create_bin_inventory(warehouse, target_bin, sku, batch_id,
+                                                                     inventory_type, 0, True)
+
                 if source_bin_inv_object.quantity < qty:
                     qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
                     total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
