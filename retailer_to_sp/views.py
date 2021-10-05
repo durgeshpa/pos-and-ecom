@@ -59,8 +59,7 @@ from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
-from retailer_to_sp.common_function import getShopLicenseNumber
-
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber
 
 logger = logging.getLogger('django')
 
@@ -101,9 +100,11 @@ class DownloadCreditNote(APIView):
         else:
             shop_name = credit_note.shipment.order.seller_shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
 
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
-            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
+            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber()
 
         for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
@@ -143,8 +144,9 @@ class DownloadCreditNote(APIView):
         surcharge_tax_list = []
         list1 = []
 
+        pan_no = 'AAHCG4891M'
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
-            pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            # pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
             cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
             shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
             nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
@@ -301,7 +303,8 @@ class DownloadCreditNote(APIView):
             "city_gram": city_gram, "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram,
             "state_gram": state_gram,"amount":amount, "gstinn1": gstinn1, "gstinn2": gstinn2, "gstinn3": gstinn3,
             "reason": reason, "rupees": rupees, "tax_rupees": tax_rupees, "cin": cin, "pan_no": pan_no,
-            'shipment_cancelled': shipment_cancelled, "hsn_list": list1, "license_number": license_number}
+            'shipment_cancelled': shipment_cancelled, "hsn_list": list1, "license_number": license_number,
+            "cin":cin_number}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
