@@ -172,7 +172,7 @@ class PosProductView(GenericAPIView):
                 if data['is_discounted']:
                     discounted_price = data['discounted_price']
                     discounted_stock = data['discounted_stock']
-                    product_status = 'active' if discounted_stock > 0 else 'deactivated'
+                    product_status = 'active' if Decimal(discounted_stock) > 0 else 'deactivated'
 
                     initial_state = PosInventoryState.AVAILABLE
                     tr_type = PosInventoryChange.STOCK_UPDATE
