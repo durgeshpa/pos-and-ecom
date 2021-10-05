@@ -199,10 +199,10 @@ class PosInventoryCls(object):
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
-        if not created and qty == pos_inv.quantity:
+        if not created and Decimal(qty) == pos_inv.quantity:
             return
-        qty_change = qty - pos_inv.quantity
-        pos_inv.quantity = qty
+        qty_change = Decimal(qty) - pos_inv.quantity
+        pos_inv.quantity = Decimal(qty)
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
                                                 f_state_obj, user)
