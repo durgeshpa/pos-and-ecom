@@ -10,6 +10,7 @@ from datetime import datetime
 
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission, Group
+from tempus_dominus.widgets import DateTimePicker
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
@@ -1185,6 +1186,22 @@ class ZoneForm(forms.ModelForm):
                                         widget=autocomplete.ModelSelect2(url='supervisor-autocomplete'))
     coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
+    # putaway_users = forms.ModelMultipleChoiceField(
+    #     queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
+    #     required=True,
+    #     widget=FilteredSelectMultiple(
+    #         verbose_name=_('Putaway users'),
+    #         is_stacked=False
+    #     )
+    # )
+    # picker_users = forms.ModelMultipleChoiceField(
+    #     queryset=User.objects.filter(Q(groups=picker_group)).distinct(),
+    #     required=True,
+    #     widget=FilteredSelectMultiple(
+    #         verbose_name=_('Picker users'),
+    #         is_stacked=False
+    #     )
+    # )
     putaway_users = forms.ModelMultipleChoiceField(
         queryset=User.objects.all(), required=True,
         widget=autocomplete.ModelSelect2Multiple(url='putaway-users-autocomplete', forward=('warehouse',)))
@@ -1264,7 +1281,6 @@ class ZoneForm(forms.ModelForm):
             self.fields['coordinator'].queryset = User.objects.filter(is_active=True).filter(
                 Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
                 coordinator_zone_user__isnull=False).distinct()
-
 
 
 class WarehouseAssortmentForm(forms.ModelForm):
@@ -1391,6 +1407,7 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
             raise forms.ValidationError(_("Required permissions missing to perform this task."))
 
+
 class QCAreaForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
@@ -1409,3 +1426,45 @@ class QCAreaForm(forms.ModelForm):
     class Meta:
         model = QCArea
         fields = ['warehouse', 'area_id', 'area_type', 'is_active']
+
+
+class InOutLedgerForm(forms.Form):
+    sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-sku-autocomplete', ),
+    )
+    warehouse = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete', ),
+    )
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+
+
+class IncorrectProductBinMappingForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )

@@ -981,11 +981,12 @@ def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefi
                 mrp = i.pickup.sku.product_mrp
             else:
                 mrp = '-'
+            zone = i.pickup.zone.zone_no if i.pickup.zone else '-'
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
-                         "bin": bin_id}
+                         "bin": bin_id, "zone": zone}
             data_list.append(prod_list)
 
         if obj_type == 'repackaging':
@@ -1751,7 +1752,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status__in=["SHIPMENT_CREATED","READY_TO_SHIP"]).values('order')
         qs = Order.objects.filter(
             # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
-            order_status='picking_complete',
+            order_status=Order.MOVED_TO_QC,
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders) | Q(ordered_cart__cart_type='DISCOUNTED',

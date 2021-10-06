@@ -54,7 +54,7 @@ def validate_data_format(request):
     return data
 
 
-def get_validate_putaway_users(putaway_users):
+def get_validate_putaway_users(putaway_users, warehouse_id):
     """
     validate ids that belong to a User model also
     checking putaway_user shouldn't repeat else through error
@@ -66,7 +66,9 @@ def get_validate_putaway_users(putaway_users):
             putaway_user = get_user_model().objects.get(
                 id=int(putaway_users_data['id']))
             if not putaway_user.groups.filter(name='Putaway').exists():
-                return {'error': '{} putaway_user does not have required permission.'.format(putaway_users_data['id'])}
+                return {'error': '{} putaway_user does not have required permission.'.format(str(putaway_user.id))}
+            if putaway_user.shop_employee.last().shop_id != warehouse_id:
+                return {'error': '{} putaway_user does not mapped to selected warehouse.'.format(str(putaway_user.id))}
         except Exception as e:
             logger.error(e)
             return {'error': '{} putaway_user not found'.format(putaway_users_data['id'])}
@@ -97,6 +99,31 @@ def get_validate_picker_users(picker_users):
             return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
+
+def get_validate_picker_users(picker_users, warehouse_id):
+    """
+    validate ids that belong to a User model also
+    checking picker_user shouldn't repeat else through error
+    """
+    picker_users_list = []
+    picker_users_obj = []
+    for picker_users_data in picker_users:
+        try:
+            picker_user = get_user_model().objects.get(
+                id=int(picker_users_data['id']))
+            if not picker_user.groups.filter(name='Picker Boy').exists():
+                return {'error': '{} picker_user does not have required permission.'.format(picker_users_data['id'])}
+            if picker_user.shop_employee.last().shop_id != warehouse_id:
+                return {'error': '{} picker_user does not mapped to selected warehouse.'.format(str(picker_user.id))}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} picker_user not found'.format(picker_users_data['id'])}
+        picker_users_obj.append(picker_user)
+        if picker_user in picker_users_list:
+            return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
+        picker_users_list.append(picker_user)
+    return {'picker_users': picker_users_obj}
+
 
 def get_csv_file_data(csv_file, csv_file_headers):
     uploaded_data_by_user_list = []

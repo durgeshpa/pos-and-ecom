@@ -20,7 +20,6 @@ from gram_to_brand.models import GRNOrder
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import Invoice, Trip
 # app imports
-from services.views import InOutLedgerFormView, InOutLedgerReport
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
@@ -29,9 +28,11 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
-                     ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea)
+                     ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
+                     ZonePutawayUserAssignmentMapping)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
-    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView
+    WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
+    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -252,6 +253,24 @@ class ZoneFilter(AutocompleteFilter):
     title = 'Zone'
     field_name = 'zone'
     autocomplete_url = 'zone-autocomplete'
+
+
+class UserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'users-autocomplete'
+
+
+class PutawayUserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'all-putaway-users-autocomplete'
+
+
+class PickerUserFilter(AutocompleteFilter):
+    title = 'User'
+    field_name = 'user'
+    autocomplete_url = 'all-picker-users-autocomplete'
 
 
 class ParentProductFilter(AutocompleteFilter):
@@ -667,16 +686,34 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'zone', 'inventory_type', 'quantity',
                     'pickup_quantity', 'status', 'completed_at')
     readonly_fields = (
     'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
+    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ZoneFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
 
     class Media:
         pass
+
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PickupAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^incorrect-product-bin-mapping-report/$',
+               self.admin_site.admin_view(IncorrectProductBinMappingReport.as_view()),
+               name="incorrect-product-bin-mapping-report"
+           ),
+           url(
+               r'^incorrect-product-bin-mapping-form/$',
+               self.admin_site.admin_view(IncorrectProductBinMappingFormView.as_view()),
+               name="incorrect-product-bin-mapping-form"
+           )
+        ] + urls
+        return urls
 
 
 class PickupBinInventoryAdmin(admin.ModelAdmin):
@@ -1004,6 +1041,7 @@ class ZoneAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
     list_filter = [Warehouse, SupervisorFilter, CoordinatorFilter,
                    ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    search_fields = ('zone_number', 'name')
     list_per_page = 50
 
     def save_model(self, request, obj, form, change):
@@ -1053,10 +1091,11 @@ class WarehouseAssortmentAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class QCAreaAdmin(admin.ModelAdmin):
     form = QCAreaForm
     list_display = ('area_id', 'warehouse', 'area_type', 'is_active','area_barcode_txt', 'download_area_barcode')
-    search_fields = ('area_id',)
+    search_fields = ('area_id', 'area_barcode_txt')
     list_filter = [Warehouse, ('area_type', DropdownFilter),]
     list_per_page = 50
     def save_model(self, request, obj, form, change):
@@ -1076,6 +1115,45 @@ class QCAreaAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
+    list_display = ('zone', 'user', 'last_assigned_at')
+    list_filter = [ZoneFilter, PutawayUserFilter]
+    list_per_page = 50
+    ordering = ('-zone',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class ZonePickerUserAssignmentMappingAdmin(admin.ModelAdmin):
+    list_display = ('zone', 'user', 'last_assigned_at')
+    list_filter = [ZoneFilter, PickerUserFilter]
+    list_per_page = 50
+    ordering = ('-zone',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
 
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
@@ -1098,4 +1176,5 @@ admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
 admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
-
+admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
+admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
