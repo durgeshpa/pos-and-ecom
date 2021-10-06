@@ -106,7 +106,7 @@ class DownloadCreditNote(APIView):
         pan_number = getShopPANNumber(shop_name)
 
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
-            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber()
+            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber(shop_name)
 
         for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'

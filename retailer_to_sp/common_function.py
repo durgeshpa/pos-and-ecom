@@ -137,8 +137,13 @@ def getShopPANNumber(shop_name):
     return pan_number
 
 
-def getGSTINNumber():
-    return get_config('gstin_number', None)
+def getGSTINNumber(shop_name):
+    gstin_number = None
+    if 'gfdn' in shop_name.lower():
+        gstin_number = get_config('gfdn_gstin_no', None)
+    if 'addistro' in shop_name.lower():
+        gstin_number = get_config('addistro_gstin_no', None)
+    return gstin_number
 
 # def getShopLicenseNumber(shop_id):
 #     if shop_id == 32154:
