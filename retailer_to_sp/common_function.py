@@ -12,6 +12,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from shops.models import ParentRetailerMapping
 
 today = datetime.datetime.today()
+from global_config.views import get_config
+
 
 def getShopMapping(shop_id):
     try:
@@ -101,7 +103,37 @@ def reserved_args_json_data(shop_id, transaction_id, products, transaction_type,
     })
     return reserved_args
 
+
 def generate_credit_note_id(invoice_no, return_count, prefix='FCR'):
     # cr_id = prefix + time.strftime('%Y%m%d') + str(random.randint(1000000, 9999999))
     cr_id = str(invoice_no).replace('FIV', prefix) + str(return_count).zfill(3)
     return cr_id
+
+
+def getShopLicenseNumber(shop_name):
+    license_number = None
+    if 'gfdn' in shop_name.lower():
+        license_number = get_config('gfdn_license_no', None)
+    if 'addistro' in shop_name.lower():
+        license_number = get_config('addistro_license_no', None)
+    return license_number
+
+
+def getShopCINNumber(shop_name):
+    cin_number = None
+    if 'gfdn' in shop_name.lower():
+        cin_number = get_config('gfdn_cin_no', None)
+    if 'addistro' in shop_name.lower():
+        cin_number = get_config('addistro_cin_no', None)
+    return cin_number
+
+
+def getGSTINNumber():
+    return get_config('gstin_number', None)
+
+# def getShopLicenseNumber(shop_id):
+#     if shop_id == 32154:
+#         return get_config('addistro_license_no', None)
+#     if shop_id == 600:
+#         return get_config('gfdn_license_no', None)
+#     return get_config('addistro_license_no', None)

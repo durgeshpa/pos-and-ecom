@@ -276,7 +276,7 @@ class PickerUserFilter(AutocompleteFilter):
 class ParentProductFilter(AutocompleteFilter):
     title = 'Product'
     field_name = 'product'
-    autocomplete_url = 'parent-product-autocomplete'
+    autocomplete_url = 'parent-product-filter'
 
 
 class BinAdmin(admin.ModelAdmin):
@@ -422,13 +422,12 @@ class PutAwayAdmin(admin.ModelAdmin):
     form = PutAwayForm
     list_display = (
         'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id',
-        'inventory_type', 'quantity',
-        'putaway_quantity', 'created_at', 'modified_at')
+        'inventory_type', 'quantity', 'status', 'putaway_quantity', 'created_at', 'modified_at')
     actions = ['download_bulk_put_away_csv']
     readonly_fields = ('warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter,
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, 'status', ('putaway_type', DropdownFilter), PutawayuserFilter,
                    ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 

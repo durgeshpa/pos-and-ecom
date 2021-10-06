@@ -2,12 +2,14 @@ import logging
 import sys
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
+
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from common.common_utils import barcode_gen
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
+
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -38,6 +40,7 @@ def create_zone_putaway_user_assignment_mapping(sender, instance=None, created=F
         for user in instance.putaway_users.all():
             ZonePutawayUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
             info_logger.info("ZonePutawayUser mapping created for zone " + str(instance) + ", user:" + str(user))
+
         # Picker user mapping update
         picker_mappings = ZonePickerUserAssignmentMapping.objects.filter(zone=instance). \
             exclude(user__in=instance.picker_users.all())

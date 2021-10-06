@@ -37,7 +37,15 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
     		<div class="invoice-title">
-    			<h4 class="invoice">Purchase Order No:- <span class="invoice_no"> <strong>{{shop.po_no}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+				<div class="col-xs-6">
+    				<h4 class="invoice">Purchase Order No:- <span class="invoice_no"> <strong>{{shop.po_no}}</strong></span></h4>
+				</div>
+				<div class="col-xs-3">
+					<h4 class="pull-right licence">FSSAI License No: <span class=""><strong>{{ license_number }}</strong></span></h4>
+				</div>
+				<div class="col-xs-3">
+					<h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+				</div>
     		</div>
 
     		<div class="row">
@@ -48,7 +56,7 @@ table tr td,th,h4,span,address{
     				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 
 					<address>
@@ -57,7 +65,7 @@ table tr td,th,h4,span,address{
     				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 					<address>
 						<span>Party :</span><br>
@@ -65,7 +73,7 @@ table tr td,th,h4,span,address{
     				{{shop.supplier_name.company_name}}, {{shop.supplier_name.address_line1}}, {{shop.supplier_name.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{shop.supplier_name.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.supplier_name.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">
@@ -306,7 +314,7 @@ table tr td,th,h4,span,address{
 
 
 						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
-										<strong>Company's PAN:</strong> <span>NA</span><br>
+										<strong>Pan No.:</strong> <span>AAQCA9570J</span><br>
 
 									</td>
 

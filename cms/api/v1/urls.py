@@ -9,5 +9,9 @@ urlpatterns = [
     path("items/", views.ItemsView.as_view(), name="items"),
     path("pages/", views.PageView.as_view(), name = 'pages'),
     path("pages/<id>/", views.PageDetailView.as_view(), name = 'page_detail'),
-    path('pages/<id>/latest/', views.PageVersionDetailView.as_view(), name = 'page_version_latest')
+    path('pages/<id>/latest/', views.PageVersionDetailView.as_view(), name = 'page_version_latest'),
+    path('category/', views.CategoryListView.as_view(), name = 'cms-category-list'),
+    path('subcategory-banner/', views.SubCategoryListView.as_view(), name = 'cms-subcategory-list'),
+    path('brand/', views.BrandListView.as_view(), name = 'cms-brand-list'),
+    path('subbrand-banner/', views.SubBrandListView.as_view(), name = 'cms-subbrand-list')
 ]
