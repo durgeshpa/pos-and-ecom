@@ -17,7 +17,7 @@ from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct, ProductImage
+from products.models import Product, ParentProduct, ProductImage, ParentProductImage
 from shops.models import Shop
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
@@ -174,6 +174,16 @@ class WarehouseSerializer(serializers.ModelSerializer):
         return representation['warehouse']
 
 
+class ParentProductImageSerializers(serializers.ModelSerializer):
+    image = serializers.ImageField(
+        max_length=None, use_url=True,
+    )
+
+    class Meta:
+        model = ParentProductImage
+        fields = ('id', 'image_name', 'image',)
+
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -182,11 +192,18 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ChildProductSerializer(serializers.ModelSerializer):
     """ Serializer for Product"""
-    product_pro_image = ProductImageSerializer(read_only=True, many=True)
+    product_pro_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
+
+    def get_product_pro_image(self, obj):
+        if not obj.use_parent_image:
+            return ProductImageSerializer(obj.product_pro_image, read_only=True, many=True).data
+        else:
+            return ParentProductImageSerializers(
+                obj.parent_product.parent_product_pro_image, read_only=True, many=True).data
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
