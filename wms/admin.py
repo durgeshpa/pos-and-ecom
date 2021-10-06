@@ -1164,13 +1164,13 @@ class CrateAdmin(admin.ModelAdmin):
 
 class PickupCrateAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Crate Admin has been called.")
-    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'currently_in_use',
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'is_in_use',
                     'created_at', 'created_by', 'updated_at', 'updated_by')
     # list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')
     search_fields = ('crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
                      'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
-    list_filter = ['currently_in_use', CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_filter = ['is_in_use', CrateFilter, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
     actions = ['download_csv']
 
