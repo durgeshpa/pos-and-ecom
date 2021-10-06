@@ -343,8 +343,8 @@ class PickupList(APIView):
                             status=status.HTTP_200_OK)
 
         if pickuptype == 1:
-            self.serializer_class = OrderSerializer
-            self.queryset = Order.objects.all()
+            self.serializer_class = PicklistSerializer
+            self.queryset = PickerDashboard.objects.all()
 
         if pickuptype == 2:
             self.serializer_class = RepackagingSerializer
@@ -355,11 +355,9 @@ class PickupList(APIView):
 
         # picking_complete count
         if pickuptype == 1:
-            picking_complete = self.queryset.filter(Q(picker_order__picking_status__in=['picking_complete']),
-                                                    Q(order_status__in=['picking_complete'])).count()
+            picking_complete = self.queryset.filter(picking_status='picking_complete').count()
             self.queryset = self.queryset.filter(
-                Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete'])).order_by('-created_at')
+                Q(picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc'])).order_by('-created_at')
 
         if pickuptype == 2:
             picking_complete = self.queryset.filter(Q(picker_repacks__picking_status__in=['picking_complete'])).count()
@@ -385,12 +383,12 @@ class PickupList(APIView):
         '''Filters using picker_boy, selected_date'''
         if pickup_type == 1:
             if picker_boy:
-                self.queryset = self.queryset.filter(picker_order__picker_boy__phone_number=picker_boy)
+                self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
 
             if selected_date:
                 try:
                     date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                    self.queryset = self.queryset.filter(picker_order__picker_assigned_date__startswith=date.date())
+                    self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
                 except Exception as e:
                     error_logger.error(e)
 
