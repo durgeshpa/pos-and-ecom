@@ -7,7 +7,7 @@ from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate
 
 logger = logging.getLogger(__name__)
 
@@ -227,3 +227,18 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     if not putaway:
         return {'error': 'Putaway is not assigned to the logged in user.'}
     return {'data': putaway}
+
+
+def validate_pickup_crates_list(crates_dict, warehouse_id):
+    if 'is_crate_applicable' not in crates_dict:
+        return {"error": "Missing 'is_crate_applicable' in pickup_crates."}
+    if crates_dict['is_crate_applicable'] is True:
+        if 'crates' not in crates_dict or not crates_dict['crates']:
+            return {"error": "Missing 'crates' in pickup_crates for 'is_crate_applicable' is True."}
+        if not isinstance(crates_dict['crates'], list):
+            return {"error": "Key 'crates' can be of list type only."}
+        if len(crates_dict['crates']) != Crate.objects.filter(
+                id__in=crates_dict['crates'], warehouse__id=warehouse_id, crate_type=Crate.PICKING).count():
+            return {"error": "Invalid crates selected in pickup_crates."}
+    return {"data": crates_dict}
+

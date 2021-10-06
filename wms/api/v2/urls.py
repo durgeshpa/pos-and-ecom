@@ -6,7 +6,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
     PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerDashboardCrudView, \
-    OrderStatusSummaryView, PickerDashboardStatusSummaryView
+    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -44,4 +44,5 @@ urlpatterns = [
     url('^picker-dashboards/$', PickerDashboardCrudView.as_view(), name='picker-dashboards'),
     url('order-status-summary/', OrderStatusSummaryView.as_view(), name='order-status-summary'),
     url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),
+    url('zone-wise-picker-summary/', ZoneWisePickerSummaryView.as_view(), name='zone-wise-picker-summary'),
 ]

@@ -29,7 +29,7 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping, Crate)
+                     ZonePutawayUserAssignmentMapping, Crate, PickupCrate)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
     IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
@@ -277,6 +277,12 @@ class ParentProductFilter(AutocompleteFilter):
     title = 'Product'
     field_name = 'product'
     autocomplete_url = 'parent-product-autocomplete'
+
+
+class CrateFilter(AutocompleteFilter):
+    title = 'Crate'
+    field_name = 'crate'
+    autocomplete_url = 'crate-autocomplete'
 
 
 class BinAdmin(admin.ModelAdmin):
@@ -688,9 +694,9 @@ class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'zone', 'inventory_type', 'quantity',
-                    'pickup_quantity', 'status', 'completed_at')
-    readonly_fields = (
-    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
+                    'pickup_quantity', 'status', 'is_crate_applicable', 'completed_at')
+    readonly_fields = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+                       'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ZoneFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
@@ -1156,6 +1162,45 @@ class CrateAdmin(admin.ModelAdmin):
         return False
 
 
+class PickupCrateAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Crate Admin has been called.")
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'is_in_use',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    search_fields = ('crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
+                     'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
+    list_filter = ['is_in_use', CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    def warehouse(self, obj):
+        return obj.crate.warehouse
+
+    def order_number(self, obj):
+        return obj.pickup.pickup_type_id
+
+    def pickup_type(self, obj):
+        return obj.pickup.pickup_type
+
+    def sku(self, obj):
+        return obj.pickup.sku
+
+    class Media:
+        pass
+
+    order_number.short_description = 'Order / Repackaging Number'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
     list_display = ('zone', 'user', 'last_assigned_at')
     list_filter = [ZoneFilter, PutawayUserFilter]
@@ -1216,5 +1261,6 @@ admin.site.register(WarehouseAssortment, WarehouseAssortmentAdmin)
 admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
 admin.site.register(Crate, CrateAdmin)
+admin.site.register(PickupCrate, PickupCrateAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)

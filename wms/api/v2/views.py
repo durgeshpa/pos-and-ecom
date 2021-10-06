@@ -1,6 +1,7 @@
 import copy
 import logging
 from datetime import datetime
+from itertools import groupby
 
 from dal import autocomplete
 from django.contrib.auth import get_user_model
@@ -8,7 +9,7 @@ from django.contrib.auth.models import Permission, Group
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField, F
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, F, Case, When
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
@@ -40,7 +41,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
     PostLoginUserSerializers, PutawayActionSerializer, ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, \
-    PickerDashboardSerializer, OrderStatusSerializer
+    PickerDashboardSerializer, OrderStatusSerializer, ZonewisePickerSummarySerializers
 from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
@@ -1475,8 +1476,15 @@ class OrderStatusSummaryView(generics.GenericAPIView):
         picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
-        exclude(order__isnull=True). \
-        values('order').annotate(status_list=ArrayAgg(F('picking_status')))
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True). \
+        values('token_id').annotate(status_list=ArrayAgg(F('picking_status')))
     serializer_class = OrderStatusSerializer
 
     @check_whc_manager_coordinator_supervisor_picker
@@ -1505,9 +1513,84 @@ class OrderStatusSummaryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
 
-        '''Filters using date'''
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        return self.queryset
+
+
+class ZoneWisePickerSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging__repackaging_no')),
+            default=F('order__order_no'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True). \
+        order_by('zone', 'token_id', 'picking_status')
+    serializer_class = ZonewisePickerSummarySerializers
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        zone_wise_data = []
+        for zone, group in groupby(self.queryset, lambda x: x.zone):
+            zones_dict = {"zone": zone, "status_count": {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}}
+            for token_id, middle_group in groupby(group, lambda x: x.token_id):
+                p_status = None
+                for picking_status, inner_group in groupby(middle_group, lambda x: x.picking_status):
+                    if picking_status in [PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                                          PickerDashboard.PICKING_IN_PROGRESS]:
+                        p_status = "pending"
+                        break
+                    elif picking_status == PickerDashboard.PICKING_COMPLETE:
+                        p_status = "completed"
+                        continue
+                    elif p_status is None and picking_status == PickerDashboard.MOVED_TO_QC:
+                        p_status = "moved_to_qc"
+                zones_dict['status_count']['total'] += 1
+                zones_dict['status_count'][p_status] += 1
+            zone_wise_data.append(zones_dict)
+
+        serializer = self.serializer_class(zone_wise_data, many=True)
+        msg = "" if zone_wise_data else "no picker found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
+        date = self.request.GET.get('date')
+
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
@@ -1525,8 +1608,14 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
-        exclude(order__isnull=True)
-
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True)
     serializer_class = OrderStatusSerializer
 
     @check_whc_manager_coordinator_supervisor_picker
@@ -1538,21 +1627,29 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
         self.queryset = self.filter_picker_summary_data()
         order_summary_data = self.queryset.aggregate(
-            total=CountDistinctOrder('order'),
-            pending=CountDistinctOrder('order', filter=(Q(
+            total=CountDistinctOrder('token_id'),
+            pending=CountDistinctOrder('token_id', filter=(Q(
                 picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                                     PickerDashboard.PICKING_IN_PROGRESS]))),
-            completed=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
-            moved_to_qc=CountDistinctOrder('order', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
+            completed=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
+            moved_to_qc=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
         )
         serializer = self.serializer_class(order_summary_data)
         msg = "" if order_summary_data else "no order status found"
         return get_response(msg, serializer.data, True)
 
     def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
 
-        '''Filters using date'''
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
