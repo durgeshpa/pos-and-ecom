@@ -1513,9 +1513,17 @@ class OrderStatusSummaryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
 
-        '''Filters using date'''
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
@@ -1572,9 +1580,17 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
 
-        '''Filters using date'''
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
@@ -1623,9 +1639,17 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
 
-        '''Filters using date'''
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
