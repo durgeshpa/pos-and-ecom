@@ -54,7 +54,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, Return)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
-    getShopLicenseNumber, getShopCINNumber, getGSTINNumber
+    getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
                                      )
@@ -4916,7 +4916,7 @@ def pdf_generation(request, ordered_product):
         if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').exists() else 'unregistered'
+                shop_document_type='gstin').exists() else getGSTINNumber(shop_name)
 
         if ordered_product.order.ordered_cart.buyer_shop and ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
@@ -5222,6 +5222,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
+        # GSTIN
+        gstin_number = getShopCINNumber(shop_name)
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -5229,7 +5231,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
-                "license_number": license_number,
+                "license_number": license_number, "seller_gstin_number": gstin_number,
                 "cin": cin_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
@@ -5399,8 +5401,21 @@ class DownloadCreditNoteDiscounted(APIView):
 
     def get(self, request, *args, **kwargs):
         credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=credit_note.shipment.order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = credit_note.shipment.order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
-            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber()
+            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber(shop_name)
         for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
@@ -5514,17 +5529,6 @@ class DownloadCreditNoteDiscounted(APIView):
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
-        # Licence
-        shop_mapping = ParentRetailerMapping.objects.filter(
-            retailer=credit_note.shipment.order.seller_shop).last()
-        if shop_mapping:
-            shop_name = shop_mapping.parent.shop_name
-        else:
-            shop_name = credit_note.shipment.order.seller_shop.shop_name
-        license_number = getShopLicenseNumber(shop_name)
-        # CIN
-        cin_number = getShopCINNumber(shop_name)
-
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
             "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
@@ -5534,7 +5538,7 @@ class DownloadCreditNoteDiscounted(APIView):
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no,
+            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_number,
             "cin": cin_number,
             "hsn_list": list1, "license_number": license_number}
 
@@ -5600,7 +5604,7 @@ class DownloadDebitNote(APIView):
         cin_number = getShopCINNumber(shop_name)
 
         data = {"object": order_obj, "order": order_obj.order, "products": products,
-                "license_number":license_number, "cin": cin_number}
+                "license_number": license_number, "cin": cin_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
