@@ -128,6 +128,15 @@ def getShopCINNumber(shop_name):
     return cin_number
 
 
+def getShopPANNumber(shop_name):
+    pan_number = None
+    if 'gfdn' in shop_name.lower():
+        pan_number = get_config('gfdn_pan_no', None)
+    if 'addistro' in shop_name.lower():
+        pan_number = get_config('addistro_pan_no', None)
+    return pan_number
+
+
 def getGSTINNumber():
     return get_config('gstin_number', None)
 

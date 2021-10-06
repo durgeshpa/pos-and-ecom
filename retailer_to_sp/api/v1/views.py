@@ -54,7 +54,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, Return)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
-    getShopLicenseNumber, getShopCINNumber, getGSTINNumber
+    getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
                                      )
@@ -5524,6 +5524,8 @@ class DownloadCreditNoteDiscounted(APIView):
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
 
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
@@ -5534,7 +5536,7 @@ class DownloadCreditNoteDiscounted(APIView):
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no,
+            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_number,
             "cin": cin_number,
             "hsn_list": list1, "license_number": license_number}
 
