@@ -120,7 +120,6 @@ class RetailerProductsCSVUploadForm(forms.Form):
             if row[key_string] == '':
                 raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
 
-
     def validate_data(self, uploaded_data_by_user_list):
         """
             Validation for create Products Catalogue
@@ -162,7 +161,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 self.check_mandatory_data(row, 'measurement_category', row_num)
                 try:
                     measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
-                    MeasurementUnit.objects.get(category=measure_cat)
+                    # MeasurementUnit.objects.filter(category=measure_cat).last()
                 except:
                     raise ValidationError(_(f"Row {row_num} | Invalid measurement_category."))
                 row['purchase_pack_size'] = 1

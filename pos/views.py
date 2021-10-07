@@ -81,12 +81,13 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 # we need to create this product
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
+                measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+
                 if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
                     if row.get('linked_product_sku') != '':
                         # If product is linked with existing product
                         if Product.objects.filter(product_sku=row.get('linked_product_sku')):
                             product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                            measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
                             RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                        row.get('selling_price'), product.id,
                                                                        2, row.get('description'),
@@ -94,7 +95,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                        request.user, 'product', row.get('product_pack_type'),
                                                                        measure_cat_id, None,
                                                                        row.get('status'), None, None, None, None,
-                                                                       row.get('purchase_pack_size', 1))
+                                                                       True, None, row.get('purchase_pack_size', 1))
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
@@ -103,7 +104,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                request.user, 'product', row.get('product_pack_type'),
                                                                measure_cat_id, None,
                                                                row.get('status'), None, None, None, None,
-                                                               row.get('purchase_pack_size', 1))
+                                                               True, None, row.get('purchase_pack_size', 1))
 
             else:
                 # we need to update existing product
@@ -361,9 +362,10 @@ def RetailerCatalogueSampleFile(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
-         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status', 'quantity',
-         'product_pack_type', 'measurement_category', 'purchase_pack_size'])
-    writer.writerow(['', 36966, '', '', 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', '','', '','','', 'active', 'loose', 'weight', 2])
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
+         'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
+    writer.writerow(["", 36966, "", "", 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
+                     "", "", "", "", 'active', 2, 'loose', 'weight', 2])
 
     return response
 
