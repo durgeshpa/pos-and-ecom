@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When, F, Value
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
@@ -947,12 +947,17 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                     output_field=models.CharField(),
                  ),
                  zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1]),
+                 putaway_status=Case(
+                     When(status__in=[Putaway.ASSIGNED, Putaway.INITIATED], then=Value(Putaway.ASSIGNED)),
+                     default=F('status'),
+                     output_field=models.CharField(),
+                 )
                  ). \
         exclude(zone__isnull=True). \
         exclude(token_id__isnull=True). \
-        values('token_id', 'zone', 'putaway_user', 'status', 'putaway_type', 'created_at__date'). \
-        annotate(total_items=Count('token_id')).order_by('-created_at__date')
+        values('token_id', 'zone', 'putaway_user', 'putaway_status', 'putaway_type', 'created_at__date'). \
+        annotate(total_items=Count('token_id')).order_by('-created_at')
     serializer_class = GroupedByGRNPutawaysSerializers
 
     @check_whc_manager_coordinator_supervisor_putaway
@@ -991,10 +996,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_type=putaway_type)
 
         if status:
-            if status == Putaway.ASSIGNED:
-                self.queryset = self.queryset.filter(status__in=[Putaway.ASSIGNED, Putaway.INITIATED])
-            else:
-                self.queryset = self.queryset.filter(status=status)
+            self.queryset = self.queryset.filter(putaway_status=status)
 
         if created_at:
             try:
