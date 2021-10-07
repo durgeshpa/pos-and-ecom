@@ -2719,8 +2719,9 @@ class IncorrectProductBinMappingReport(APIView):
             filter(created_at__gte=start_date, created_at__lte=end_date). \
             exclude(zone__isnull=True). \
             exclude(zone=F('bin_inventory__bin_zone')). \
-            values('pickup_type_id', 'sku', 'zone', 'bin_inventory__bin', 'bin_inventory__bin_zone',
-                   'pickup_quantity', 'created_at').order_by('-id')
+            values('pickup_type_id', 'sku', 'zone__zone_number', 'zone__name', 'bin_inventory__bin__bin__bin_id',
+                   'bin_inventory__bin_zone__zone_number', 'bin_inventory__bin_zone__name', 'pickup_quantity',
+                   'created_at').order_by('-id')
         return data
 
     def get(self, *args, **kwargs):
@@ -2751,11 +2752,13 @@ class IncorrectProductBinMappingReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE', 'BIN', 'BIN ZONE', 'QUANTITY', 'CREATED DATE'])
+        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE NUMBER', 'SKU ZONE NAME', 'BIN', 'BIN ZONE NUMBER',
+                         'BIN ZONE NAME', 'QUANTITY', 'CREATED DATE'])
         for obj in data:
             created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
-            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone'], obj['bin_inventory__bin'],
-                             obj['bin_inventory__bin_zone'], obj['pickup_quantity'], created_at])
+            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone__zone_number'], obj['zone__name'],
+                             obj['bin_inventory__bin__bin__bin_id'], obj['bin_inventory__bin_zone__zone_number'],
+                             obj['bin_inventory__bin_zone__name'], obj['pickup_quantity'], created_at])
         return response
 
 
