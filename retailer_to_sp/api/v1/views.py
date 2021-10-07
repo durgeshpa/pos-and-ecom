@@ -6164,6 +6164,14 @@ class RefreshEs(APIView):
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
 
 
+def refresh_cron_es():
+    shop_id = 600
+    info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
+    upload_shop_stock(shop_id)
+    info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
+    return Response()
+
+
 class RefreshEsRetailer(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)

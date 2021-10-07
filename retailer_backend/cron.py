@@ -16,6 +16,8 @@ from retailer_to_sp.models import Order
 from datetime import datetime, timedelta
 import logging
 import time
+from retailer_to_sp.api.v1.views import refresh_cron_es
+
 
 logger = logging.getLogger(__name__)
 cron_logger = logging.getLogger('cron_log')
