@@ -62,6 +62,7 @@ CORS_ALLOW_HEADERS = [
     'Shop-Id'
     'app-type'
     'App-Type'
+    '*'
 ]
 
 # Application definition
