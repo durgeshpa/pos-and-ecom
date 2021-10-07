@@ -59,6 +59,9 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
     'auth',
     'shop-id'
+    'Shop-Id'
+    'app-type'
+    'App-Type'
 ]
 
 # Application definition
