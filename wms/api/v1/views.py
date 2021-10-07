@@ -344,7 +344,7 @@ class PickupList(APIView):
 
         if pickuptype == 1:
             self.serializer_class = PicklistSerializer
-            self.queryset = PickerDashboard.objects.all()
+            self.queryset = PickerDashboard.objects.exclude(order__isnull=True)
 
         if pickuptype == 2:
             self.serializer_class = RepackagingSerializer
@@ -379,11 +379,15 @@ class PickupList(APIView):
     def filter_pickup_list_data(self, pickup_type):
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
+        zone = self.request.GET.get('zone')
 
         '''Filters using picker_boy, selected_date'''
         if pickup_type == 1:
             if picker_boy:
                 self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+
+            if zone:
+                self.queryset = self.queryset.filter(zone__id=zone)
 
             if selected_date:
                 try:
@@ -395,6 +399,9 @@ class PickupList(APIView):
         if pickup_type == 2:
             if picker_boy:
                 self.queryset = self.queryset.filter(picker_repacks__picker_boy__phone_number=picker_boy)
+
+            if zone:
+                self.queryset = self.queryset.filter(picker_repacks__zone__id=zone)
 
             if selected_date:
                 try:

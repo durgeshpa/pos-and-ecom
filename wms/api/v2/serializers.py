@@ -1224,6 +1224,9 @@ class PicklistSerializer(serializers.ModelSerializer):
     picking_completed_time = serializers.SerializerMethodField('get_completed_time')
     order_no = serializers.SerializerMethodField()
     qc_area = serializers.SerializerMethodField()
+    zone = ZoneSerializer(read_only=True)
+    picker_boy = UserSerializers(read_only=True)
+
 
     def picker_status_dt(self, obj):
         return str(obj.picking_status).lower()
@@ -1256,7 +1259,7 @@ class PicklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
-                  'picking_completed_time', 'moved_to_qc_at', 'qc_area')
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy')
 
 
 class AllocateQCAreaSerializer(serializers.ModelSerializer):
