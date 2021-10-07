@@ -58,11 +58,10 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'auth',
-    'shop-id'
-    'Shop-Id'
-    'app-type'
-    'App-Type'
-    '*'
+    'shop-id',
+    'Shop-Id',
+    'app-type',
+    'App-Type',
 ]
 
 # Application definition
