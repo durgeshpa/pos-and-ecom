@@ -913,9 +913,9 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         else:
             raise serializers.ValidationError("'zone' | This is mandatory")
 
-        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
-            raise serializers.ValidationError(
-                "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
+        # if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
+        #     raise serializers.ValidationError(
+        #         "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
 
         return data
 
