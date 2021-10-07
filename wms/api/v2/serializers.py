@@ -963,7 +963,7 @@ class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     zone = serializers.SerializerMethodField()
     total_items = serializers.IntegerField()
     putaway_user = serializers.SerializerMethodField()
-    status = serializers.CharField()
+    putaway_status = serializers.CharField()
     putaway_type = serializers.CharField()
     created_at__date = serializers.DateField()
 
