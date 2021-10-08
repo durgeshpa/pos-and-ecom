@@ -2850,13 +2850,13 @@ def add_to_putaway_on_return(shipment_id):
     common_on_return_and_partial(shipment, flag)
 
 
-@receiver(post_save, sender=OrderedProduct)
-def update_picking_status(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    # assign_update_picker_to_shipment.delay(instance.id)
-    assign_update_picker_to_shipment(instance.id)
+# @receiver(post_save, sender=OrderedProduct)
+# def update_picking_status(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     # assign_update_picker_to_shipment.delay(instance.id)
+#     assign_update_picker_to_shipment(instance.id)
 
 
 # @receiver(post_save, sender=Order)
