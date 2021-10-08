@@ -17,7 +17,7 @@ from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct, ProductImage
+from products.models import Product, ParentProduct, ProductImage, ParentProductImage
 from shops.models import Shop
 from retailer_to_sp.models import PickerDashboard
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
@@ -175,6 +175,16 @@ class WarehouseSerializer(serializers.ModelSerializer):
         return representation['warehouse']
 
 
+class ParentProductImageSerializers(serializers.ModelSerializer):
+    image = serializers.ImageField(
+        max_length=None, use_url=True,
+    )
+
+    class Meta:
+        model = ParentProductImage
+        fields = ('id', 'image_name', 'image',)
+
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -183,11 +193,18 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ChildProductSerializer(serializers.ModelSerializer):
     """ Serializer for Product"""
-    product_pro_image = ProductImageSerializer(read_only=True, many=True)
+    product_pro_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
+
+    def get_product_pro_image(self, obj):
+        if not obj.use_parent_image:
+            return ProductImageSerializer(obj.product_pro_image, read_only=True, many=True).data
+        else:
+            return ParentProductImageSerializers(
+                obj.parent_product.parent_product_pro_image, read_only=True, many=True).data
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -907,9 +924,9 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         else:
             raise serializers.ValidationError("'zone' | This is mandatory")
 
-        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
-            raise serializers.ValidationError(
-                "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
+        # if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
+        #     raise serializers.ValidationError(
+        #         "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
 
         return data
 
@@ -954,16 +971,21 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
 
 class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     token_id = serializers.CharField()
-    zone = serializers.IntegerField()
+    zone = serializers.SerializerMethodField()
     total_items = serializers.IntegerField()
     putaway_user = serializers.SerializerMethodField()
-    status = serializers.CharField()
+    putaway_status = serializers.CharField()
     putaway_type = serializers.CharField()
     created_at__date = serializers.DateField()
 
     def get_putaway_user(self, obj):
         if obj['putaway_user']:
             return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+        return None
+
+    def get_zone(self, obj):
+        if obj['zone']:
+            return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
         return None
 
 
@@ -1291,10 +1313,11 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
                     else:
                         raise serializers.ValidationError(f"Invalid Bin {item['bin']}")
 
-                    if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
-                        item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
-                    else:
-                        raise serializers.ValidationError('Invalid reason')
+                    if item['remark'] is not None:
+                        if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
+                            item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
+                        else:
+                            raise serializers.ValidationError('Invalid reason')
                     
                     if item['qty'] <= 0 or putaway_quantity+item['qty'] > putaway_instance.quantity:
                         raise serializers.ValidationError(f'Invalid quantity')
