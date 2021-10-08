@@ -1015,7 +1015,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user', 'inventory_type'). \
-        prefetch_related('sku__product_pro_image'). \
+        prefetch_related('sku__product_pro_image').filter(status=Putaway.NEW). \
         annotate(token_id=Case(
                     When(putaway_type='GRN',
                          then=Cast(Subquery(In.objects.filter(
