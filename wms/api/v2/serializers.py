@@ -1302,7 +1302,7 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
                     else:
                         raise serializers.ValidationError(f"Invalid Bin {item['bin']}")
 
-                    if item['remark']:
+                    if item['remark'] is not None:
                         if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
                             item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
                         else:
