@@ -119,6 +119,32 @@ def getShopLicenseNumber(shop_name):
     return license_number
 
 
+def getShopCINNumber(shop_name):
+    cin_number = None
+    if 'gfdn' in shop_name.lower():
+        cin_number = get_config('gfdn_cin_no', None)
+    if 'addistro' in shop_name.lower():
+        cin_number = get_config('addistro_cin_no', None)
+    return cin_number
+
+
+def getShopPANNumber(shop_name):
+    pan_number = None
+    if 'gfdn' in shop_name.lower():
+        pan_number = get_config('gfdn_pan_no', None)
+    if 'addistro' in shop_name.lower():
+        pan_number = get_config('addistro_pan_no', None)
+    return pan_number
+
+
+def getGSTINNumber(shop_name):
+    gstin_number = None
+    if 'gfdn' in shop_name.lower():
+        gstin_number = get_config('gfdn_gstin_no', None)
+    if 'addistro' in shop_name.lower():
+        gstin_number = get_config('addistro_gstin_no', None)
+    return gstin_number
+
 # def getShopLicenseNumber(shop_id):
 #     if shop_id == 32154:
 #         return get_config('addistro_license_no', None)

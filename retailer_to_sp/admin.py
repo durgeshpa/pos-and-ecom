@@ -41,6 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from wms.admin import ZoneFilter
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -798,12 +799,13 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy',
+        'picklist', 'picking_status', 'picker_boy', 'zone', 'qc_area',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
-    #readonly_fields = ['picklist_id']
-    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
+    # readonly_fields = ['picklist_id']
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, OrderNumberSearch,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -937,15 +939,27 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def download_pick_list(self, obj):
         if obj.order:
             if obj.order.order_status not in ["active", "pending"]:
+                if obj.zone:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('generate-picklist', kwargs={'pk': obj.order.pk, 'zone': obj.zone.id}))
+                    )
+                else:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('create-picklist', args=[obj.order.pk]))
+                    )
+        elif obj.repackaging:
+            if obj.zone:
                 return format_html(
                     "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('create-picklist', args=[obj.order.pk]))
+                    (reverse('generate-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2, 'zone': obj.zone.id}))
                 )
-        elif obj.repackaging:
-            return format_html(
-                "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
-            )
+            else:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
+                )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
@@ -1040,7 +1054,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     @staticmethod
     def create_purchase_order(obj):
         buyer_shop = obj.buyer_shop
-        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
+        if buyer_shop and buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
                 buyer_shop.pos_enabled == 1:
             user = get_current_user()
             if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
@@ -1055,7 +1069,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         % obj.pk)
 
     def buyer_shop_type(self, obj):
-        return obj.buyer_shop.shop_type
+        return obj.buyer_shop.shop_type if obj.buyer_shop else None
 
     def app_type(self, obj):
         """

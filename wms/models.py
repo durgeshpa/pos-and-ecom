@@ -116,6 +116,18 @@ class ZonePutawayUserAssignmentMapping(BaseTimestampModel):
         return str(self.zone) + " - " + str(self.user)
 
 
+class ZonePickerUserAssignmentMapping(BaseTimestampModel):
+    """
+        Mapping model of zone and picker user where we maintain the last assigned user for next assignment
+    """
+    zone = models.ForeignKey(Zone, related_name="zone_picker_assigned_users", on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.zone) + " - " + str(self.user)
+
+
 class WarehouseAssortment(BaseTimestampUserModel):
     """
         Mapping model of warehouse, product and zone
@@ -352,6 +364,7 @@ class Pickup(models.Model):
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_zone', on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -372,9 +385,10 @@ class PickupBinInventory(models.Model):
                                     (2, 'FULL', 'Fully Completed'),
                                     (3, 'CANCELLED', 'Pickup Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
+    pickup = models.ForeignKey(Pickup, related_name='bin_inventory', null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    bin_zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_bin_zone', on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, default=None)
     bin_quantity = models.PositiveIntegerField(null=True, blank=True)
@@ -659,6 +673,7 @@ class PosInventoryChange(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+
 class QCArea(BaseTimestampUserModel):
     QC_AREA_TYPE_CHOICES = Choices(('OA', 'Open Area'), ('RC', 'Rack'), ('PA', 'Pallet'))
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
@@ -667,6 +682,9 @@ class QCArea(BaseTimestampUserModel):
     area_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     is_active = models.BooleanField()
+
+    def __str__(self):
+        return self.area_id
 
     def save(self, *args, **kwargs):
 

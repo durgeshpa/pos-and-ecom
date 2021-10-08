@@ -6,7 +6,8 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
-    POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView
+    POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
+    PickupEntryCreationView, UpdateQCAreaView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -39,6 +40,8 @@ urlpatterns = [
     url('bin-list/', BinFilterView.as_view(), name='bin-list'),
     url('putaway-action/', PerformPutawayView.as_view(), name='putaway-action'),
     url('putaway-remark/', PutawayRemarkView.as_view(), name='putaway-remark'),
+    url('temp/', PickupEntryCreationView.as_view(), name='temp'),
+    url('move-to-qc/', UpdateQCAreaView.as_view(), name='move-to-qc'),
     url('po-summary/', POSummaryView.as_view(), name='po-summary'),
     url('putaway-summary/', PutawaySummaryView.as_view(), name='putaway-summary'),
     url('zone-wise-summary/', ZoneWiseSummaryView.as_view(), name='zone-wise-summary'),

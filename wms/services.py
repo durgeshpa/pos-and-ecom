@@ -11,7 +11,7 @@ def zone_search(queryset, search_text):
     return queryset
 
 
-def zone_putaway_assignments_search(queryset, search_text):
+def zone_assignments_search(queryset, search_text):
     """
     search using warehouse shop_name & supervisor name & coordinator name & user name based on criteria that matches
     """
@@ -119,4 +119,19 @@ def check_whc_manager_coordinator_supervisor_putaway(view_func):
                 user.groups.filter(name='Putaway').exists():
             return view_func(self, request, *args, **kwargs)
         return get_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
+def check_picker(view_func):
+    """
+        Decorator to validate putaway user request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.groups.filter(name='Picker Boy').exists():
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
     return _wrapped_view_func

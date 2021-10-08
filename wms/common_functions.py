@@ -10,6 +10,7 @@ from celery.task import task
 from decouple import config
 # django imports
 from django import forms
+
 from django.db import transaction
 from django.db.models import Sum, Q
 from rest_framework import status
@@ -17,13 +18,15 @@ from rest_framework.response import Response
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
-from products.models import Product, ParentProduct, ProductPrice
-from shops.models import Shop
-from wms.common_validators import get_csv_file_data
+
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment)
+                     Audit, Out, Zone, WarehouseAssortment, QCArea)
+from wms.common_validators import get_csv_file_data
+
+from shops.models import Shop
+from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -221,8 +224,10 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-        BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                           inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+        bin_inventory_obj, created = BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku,
+                                                                        batch_id=batch_id, inventory_type=inventory_type,
+                                                                        quantity=quantity, in_stock=in_stock)
+        return bin_inventory_obj
 
     @classmethod
     def filter_bin_inventory(cls, warehouse, sku, batch_id, bin_obj, inventory_type):
@@ -273,6 +278,10 @@ class CommonBinInventoryFunctions(object):
                     warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
                     inventory_type=inventory_type,
                     sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                if target_bin_inv_object is None:
+                    target_bin_inv_object = cls.create_bin_inventory(warehouse, target_bin, sku, batch_id,
+                                                                     inventory_type, 0, True)
+
                 if source_bin_inv_object.quantity < qty:
                     qty_to_deduct_from_bin_inv = source_bin_inv_object.quantity
                     total_qty_to_move_from_pickup = qty - qty_to_deduct_from_bin_inv
@@ -352,6 +361,13 @@ class CommonPickupFunctions(object):
     def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status, inventory_type):
         return Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku,
                                      quantity=quantity, status=status, inventory_type=inventory_type)
+
+    @classmethod
+    def create_pickup_entry_with_zone(cls, warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status,
+                                      inventory_type):
+        return Pickup.objects.create(warehouse=warehouse, zone=zone, pickup_type=pickup_type,
+                                     pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=pickup_status,
+                                     inventory_type=inventory_type)
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
@@ -511,6 +527,12 @@ class CommonPickBinInvFunction(object):
     @classmethod
     def create_pick_bin_inventory(cls, warehouse, pickup, batch_id, bin, quantity, bin_quantity, pickup_quantity):
         PickupBinInventory.objects.create(warehouse=warehouse, pickup=pickup, batch_id=batch_id, bin=bin,
+                                          quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
+
+    @classmethod
+    def create_pick_bin_inventory_with_zone(cls, warehouse, zone, pickup, batch_id, bin, quantity, bin_quantity,
+                                            pickup_quantity):
+        PickupBinInventory.objects.create(warehouse=warehouse, bin_zone=zone, pickup=pickup, batch_id=batch_id, bin=bin,
                                           quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
 
     @classmethod
@@ -1147,7 +1169,7 @@ def cancel_order_with_pick(instance):
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
-        if pickup_qs.last().status == 'picking_complete':
+        if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
             pickup_id = pickup_qs.last().id
             warehouse = pickup_qs.last().warehouse
             sku = pickup_qs.last().sku
@@ -2341,10 +2363,11 @@ class ZoneCommonFunction(object):
                 zone.putaway_users.add(user)
         zone.save()
 
-    @ classmethod
+
+    @classmethod
     def update_picker_users(cls, zone, picker_users):
         """
-        Update Picker users of the Zone
+            Update Picker users of the Zone
         """
         zone.picker_users.clear()
         if picker_users:
@@ -2382,9 +2405,25 @@ class WarehouseAssortmentCommonFunction(object):
             zone = WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product).last().zone
         return zone
 
+
+def post_picking_order_update(picker_dashboard_instance):
+
+    if picker_dashboard_instance.picking_status == 'moved_to_qc':
+        if picker_dashboard_instance.order and \
+                picker_dashboard_instance.order.order_status in ['picking_complete', 'PICKING_PARTIAL_COMPLETE',
+                                                                 'PARTIAL_MOVED_TO_QC']:
+            if picker_dashboard_instance.order.picker_order.exclude(picking_status__in=['moved_to_qc',
+                                                                    'picking_cancelled']).exists():
+                picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
+            else:
+                picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'
+            picker_dashboard_instance.order.save()
+
+
 def get_sku_from_batch(batch_id):
     sku = None
     if not sku:
         sku_id = batch_id[:-6]
         sku = Product.objects.filter(product_sku=sku_id).last()
     return sku
+

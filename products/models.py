@@ -1050,6 +1050,7 @@ class Repackaging(models.Model):
     SOURCE_PICKING_STATUS = [
         ('pickup_created', 'Pickup Created'),
         ('picking_assigned', 'Picking Assigned'),
+        ('picking_partial_complete', 'Picking Partial Complete'),
         ('picking_complete', 'Picking Complete'),
     ]
     id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')

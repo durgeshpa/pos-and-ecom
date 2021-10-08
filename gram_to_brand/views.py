@@ -42,7 +42,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES
 
 import logging
 
-from retailer_to_sp.common_function import getShopLicenseNumber
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getShopPANNumber
 from shops.models import ParentRetailerMapping
 
 logger = logging.getLogger(__name__)
@@ -245,6 +245,12 @@ class DownloadPurchaseOrder(APIView):
             shop_name = shop.gf_billing_address.shop_name.shop_name
         license_number = getShopLicenseNumber(shop_name)
 
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         data = {
             "object": order_obj,
             "products": products,
@@ -262,10 +268,11 @@ class DownloadPurchaseOrder(APIView):
             "order_id": order_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
-            "is_gf_shop" : is_gf_shop,
-            "license_number": license_number
+            "is_gf_shop": is_gf_shop,
+            "license_number": license_number,
+            "cin": cin_number,
+            "pan_no": pan_number
         }
-
 
         cmd_option = {
             'encoding': 'utf8',
@@ -297,6 +304,13 @@ class DownloadDebitNote(APIView):
         else:
             shop_name = order_obj.order.ordered_cart.gf_billing_address.shop_name.shop_name
         license_number = getShopLicenseNumber(shop_name)
+
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         pk = self.kwargs.get('pk')
         a = GRNOrder.objects.get(pk=pk)
         shop = a
@@ -370,7 +384,9 @@ class DownloadDebitNote(APIView):
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
             "is_gf_shop": is_gf_shop,
-            "license_number": license_number
+            "license_number": license_number,
+            "cin": cin_number,
+            "pan_no": pan_number
         }
         cmd_option = {'encoding': 'utf8', 'margin-top': 3}
         response = PDFTemplateResponse(

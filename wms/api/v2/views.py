@@ -19,7 +19,9 @@ from rest_framework.response import Response
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
 from products.models import Product
+
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
+from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
@@ -27,9 +29,9 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    PutawayBinInventory, Pickup, BinInventory
+    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_putaway_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway
+    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker
 
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
@@ -39,7 +41,10 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     UpdateZoneForCancelledPutawaySerializers, GroupedByGRNPutawaysSerializers, \
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
     PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers, \
-    PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer
+    PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
+    ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer
+
+from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -194,9 +199,12 @@ class ZoneCrudView(generics.GenericAPIView):
             for z_id in request.data.get('zone_id'):
                 zone_id = self.queryset.get(id=int(z_id))
                 try:
-                    mappings = ZonePutawayUserAssignmentMapping.objects.filter(zone=zone_id)
-                    if mappings:
-                        mappings.delete()
+                    putaway_mappings = ZonePutawayUserAssignmentMapping.objects.filter(zone=zone_id)
+                    picker_mappings = ZonePickerUserAssignmentMapping.objects.filter(zone=zone_id)
+                    if putaway_mappings:
+                        putaway_mappings.delete()
+                    if picker_mappings:
+                        picker_mappings.delete()
                     zone_id.delete()
                 except:
                     return get_response(f'can not delete zone | {zone_id.id} | getting used', False)
@@ -678,7 +686,7 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
 
         '''search using warehouse name, supervisor's id  and coordinator's id, user's id'''
         if search_text:
-            self.queryset = zone_putaway_assignments_search(self.queryset, search_text)
+            self.queryset = zone_assignments_search(self.queryset, search_text)
 
         '''Filters using warehouse, supervisor, coordinator'''
         if warehouse:
@@ -689,7 +697,91 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
 
         if supervisor:
             """
-                Filter queryset with upervisor id
+                Filter queryset with supervisor id
+            """
+            self.queryset = self.queryset.filter(zone__supervisor__id=supervisor)
+
+        if coordinator:
+            """
+                Filter queryset with coordinator id
+            """
+            self.queryset = self.queryset.filter(zone__coordinator__id=coordinator)
+
+        if user:
+            """
+                Filter queryset with user id
+            """
+            self.queryset = self.queryset.filter(user__id=user)
+
+        return self.queryset.distinct('id')
+
+
+class ZonePickerAssignmentsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ZonePickerUserAssignmentMapping.objects. \
+        select_related('user', 'zone', 'zone__warehouse', 'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                       'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
+        only('id', 'user', 'zone__id', 'zone__warehouse__id', 'zone__warehouse__status',
+             'zone__warehouse__shop_name', 'zone__warehouse__shop_type',
+             'zone__warehouse__shop_type__shop_type', 'zone__warehouse__shop_type__shop_sub_type',
+             'zone__warehouse__shop_type__shop_sub_type__retailer_type_name', 'zone__warehouse__shop_owner',
+             'zone__warehouse__shop_owner__first_name', 'zone__warehouse__shop_owner__last_name',
+             'zone__warehouse__shop_owner__phone_number', 'zone__supervisor__id', 'zone__supervisor__first_name',
+             'zone__supervisor__last_name', 'zone__supervisor__phone_number', 'zone__coordinator__id',
+             'zone__coordinator__first_name', 'zone__coordinator__last_name', 'zone__coordinator__phone_number',
+             'zone__putaway_users__id', 'zone__putaway_users__first_name', 'zone__putaway_users__last_name',
+             'zone__putaway_users__phone_number', 'last_assigned_at', 'created_at', 'updated_at', ). \
+        order_by('-id')
+    serializer_class = ZonePickerAssignmentsCrudSerializers
+
+    def get(self, request):
+        """ GET API for Zone """
+        info_logger.info("Zone GET api called.")
+        if request.GET.get('id'):
+            """ Get Zone for specific ID """
+            total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            data = id_validation['data']
+        else:
+            """ GET Zone List """
+            self.queryset = self.search_filter_zone_picker_assignments_data()
+            total_count = self.queryset.count()
+            data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(data, many=True)
+        msg = f"total count {total_count}" if data else "no zone picker assignments found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_zone_picker_assignments_data(self):
+        """
+        :- Search using warehouse name, supervisor's id  and coordinator's id, user's id
+        :- Filters using warehouse, supervisor, coordinator
+        @return: queryset
+        """
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        supervisor = self.request.GET.get('supervisor')
+        coordinator = self.request.GET.get('coordinator')
+        user = self.request.GET.get('user')
+
+        '''search using warehouse name, supervisor's id  and coordinator's id, user's id'''
+        if search_text:
+            self.queryset = zone_assignments_search(self.queryset, search_text)
+
+        '''Filters using warehouse, supervisor, coordinator'''
+        if warehouse:
+            """
+                Filter queryset with warehouse id
+            """
+            self.queryset = self.queryset.filter(zone__warehouse__id=warehouse)
+
+        if supervisor:
+            """
+                Filter queryset with supervisor id
             """
             self.queryset = self.queryset.filter(zone__supervisor__id=supervisor)
 
@@ -1011,6 +1103,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+
     queryset = Putaway.objects.filter(
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
@@ -1036,6 +1129,15 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         exclude(zone_id__isnull=True). \
         exclude(token_id__isnull=True). \
         order_by('-id')
+        # only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+        #      'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner',
+        #      'warehouse__shop_type__shop_sub_type__retailer_type_name', 'warehouse__shop_owner__first_name',
+        #      'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'putaway_user__id',
+        #      'putaway_user__first_name', 'putaway_user__last_name', 'putaway_user__phone_number', 'inventory_type__id',
+        #      'inventory_type__inventory_type', 'sku', 'sku__id', 'sku__product_sku', 'sku__product_name', 'batch_id',
+        #      'quantity', 'putaway_quantity', 'status', 'putaway_type', 'putaway_type_id', 'grn_id', 'zone_id',
+        #      'created_at', 'modified_at',). \
+        # order_by('-id')
     serializer_class = PutawaySerializers
 
     def get(self, request):
@@ -1374,7 +1476,46 @@ class PerformPutawayView(generics.GenericAPIView):
             info_logger.info(f'Putaway Completed. Id-{putaway_instance.id}, Batch Id-{putaway_instance.batch_id}, '
                              f'Putaway Type Id-{putaway_instance.putaway_type_id}')
             return get_response('Putaways Done Successfully!', response.data)
+
         # return get_response(serializer_error(serializer), False)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class PickupEntryCreationView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET User Details post login """
+        pickup_entry_creation_with_cron()
+        return get_response("", {}, True)
+
+
+class UpdateQCAreaView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = AllocateQCAreaSerializer
+    queryset = PickerDashboard.objects.all()
+
+    @check_picker
+    def put(self, request):
+        """ PUT API for picker dashboard """
+        modified_data = validate_data_format(self.request)
+        modified_data['warehouse'] = request.user.shop_employee.last().shop_id
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        picking_dashboard_entry = PickerDashboard.objects.filter(id=int(modified_data['id']),
+                                                                 picker_boy=request.user.id).last()
+        if not picking_dashboard_entry:
+            return get_response('Pickling is not assigned to the logged in user.')
+        serializer = self.serializer_class(instance=picking_dashboard_entry, data=modified_data)
+        if serializer.is_valid():
+            picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Picking moved to qc area!', picking_dashboard_entry.data)
+        # return get_response(serializer_error(serializer), modified_data, False)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
         return Response(result, status=status.HTTP_200_OK)
 
@@ -1539,3 +1680,4 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
+
