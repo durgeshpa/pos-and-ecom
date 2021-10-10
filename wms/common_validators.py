@@ -208,7 +208,7 @@ def validate_putaways_by_token_id_and_zone(token_id, zone_id):
                     zone_id=Subquery(WarehouseAssortment.objects.filter(
                         warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                 ). \
-        filter(zone_id=zone_id, token_id=token_id, status=Putaway.NEW)
+        filter(zone_id=zone_id, token_id=token_id, status__in=[Putaway.NEW, Putaway.ASSIGNED])
     if not putaways.exists():
         return {'error': 'please provide a valid Token Id / Zone Id.'}
     return {'data': putaways.all()}
