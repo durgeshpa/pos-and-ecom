@@ -19,7 +19,7 @@ from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage
 from shops.models import Shop
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, Order
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update
 from global_config.views import get_config
@@ -1449,8 +1449,15 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                                                                  order=picker_dashboard_instance.order)\
                                                          .exclude(id=picker_dashboard_instance.id).last()
                 if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
-                    raise serializers.ValidationError(f"Invalid QC Area| QcArea alloted for this order is"
+                    raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
+                elif self.initial_data['qc_area'] and PickerDashboard.objects.filter(
+                        qc_area__area_id=self.initial_data['qc_area'],
+                        order__order_status__in=[Order.ORDER_STATUS.MOVED_TO_QC, 'PARTIALLY_SHIPPED', 'SHIPPED',
+                                                 Order.ORDER_STATUS.PARTIAL_SHIPMENT_CREATED,
+                                                 Order.ORDER_STATUS.FULL_SHIPMENT_CREATED]).exists():
+                    raise serializers.ValidationError(f"Invalid QC Area| QcArea {self.initial_data['qc_area']} "
+                                                      f"allotted for another order.")
                 data['qc_area'] = qc_area
             else:
                 raise serializers.ValidationError("'qc_area' | This is mandatory")
