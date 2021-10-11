@@ -365,6 +365,9 @@ class CommonPickupFunctions(object):
     @classmethod
     def create_pickup_entry_with_zone(cls, warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status,
                                       inventory_type):
+        info_logger.info("Inside create_pickup_entry_with_zone, params:- warehouse: {}, zone: {}, pickup_type: {}, "
+                         "pickup_type_id: {}, sku: {}, quantity: {}, pickup_status: {}, inventory_type: {}".format(
+            warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status, inventory_type))
         return Pickup.objects.create(warehouse=warehouse, zone=zone, pickup_type=pickup_type,
                                      pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=pickup_status,
                                      inventory_type=inventory_type)
