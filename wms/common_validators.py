@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -212,6 +214,23 @@ def validate_putaways_by_token_id_and_zone(token_id, zone_id):
     if not putaways.exists():
         return {'error': 'please provide a valid Token Id / Zone Id.'}
     return {'data': putaways.all()}
+
+
+def validate_grouped_request(request):
+    data_days = request.GET.get('data_days')
+    created_at = request.GET.get('created_at')
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    if created_at:
+        try:
+            if data_days:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+
+    return {"data": request}
 
 
 def validate_putaway_user_by_zone(zone, putaway_user_id):
