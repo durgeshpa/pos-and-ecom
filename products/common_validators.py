@@ -306,14 +306,17 @@ def get_csv_file_data(csv_file, csv_file_headers):
     uploaded_data_by_user_list = []
     csv_dict = {}
     count = 0
+    row_num = 1
     for row in csv_file:
+        row_num += 1
         for ele in row:
+            if '#' in ele:
+                raise ValidationError(f"Row {row_num} | column can not contain '#' ")
             csv_dict[csv_file_headers[count]] = ele
             count += 1
         uploaded_data_by_user_list.append(csv_dict)
         csv_dict = {}
         count = 0
-
     return uploaded_data_by_user_list
 
 
@@ -339,7 +342,8 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "parent_product_update":
         required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
-                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+                                'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
+                                'sub_category_name',
                                 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'brand_case_size',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
                                 'discounted_life_percent']
@@ -501,21 +505,21 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                 raise ValidationError(f"Row {row_num} | 'parent_id' is a mandatory, can't be empty")
 
             if 'parent_name' not in row.keys() or row['parent_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'Parent_Name' is a mandatory, can't be empty")
+                raise ValidationError(f"Row {row_num} | 'parent_name' is a mandatory, can't be empty")
 
             if row['parent_id'].strip() in parent_id_list:
                 raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
                                       f"'parent_id' getting repeated in csv file")
             parent_id_list.append(row['parent_id'].strip())
 
-            if ParentProduct.objects.filter(name__iexact=row['parent_name'].strip(), status=True).exclude(
-                    parent_id=row['parent_id']).exists():
-                raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
-                                      f"'parent_name' already exists")
-            elif row['parent_name'].strip().lower() in product_name_list:
-                raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
-                                      f"'parent_name' getting repeated in csv file")
-            product_name_list.append(row['parent_name'].strip().lower())
+            # if ParentProduct.objects.filter(name__iexact=row['parent_name'].strip(), status=True).exclude(
+            #         parent_id=row['parent_id']).exists():
+            #     raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
+            #                           f"'parent_name' already exists")
+            # elif row['parent_name'].strip().lower() in product_name_list:
+            #     raise ValidationError(f"Row {row_num} | {row['parent_name']} | "
+            #                           f"'parent_name' getting repeated in csv file")
+            # product_name_list.append(row['parent_name'].strip().lower())
 
     if upload_master_data == "child_product_update":
         mandatory_columns = ['sku_id', 'sku_name']
@@ -538,14 +542,14 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                                       f"'sku_id' getting repeated in csv file")
             sku_id_list.append(row['parent_id'].strip())
 
-            if Product.objects.filter(product_name__iexact=row['sku_name'].strip(), status="active").exclude(
-                    product_sku=row['sku_id']).exists():
-                raise ValidationError(f"Row {row_num} | {row['sku_name']} | 'sku_name' already exists")
-
-            elif row['sku_name'].strip().lower() in product_name_list:
-                raise ValidationError(f"Row {row_num} | {row['sku_name']} | "
-                                      f"'sku_name' getting repeated in csv file")
-            product_name_list.append(row['sku_name'].strip().lower())
+            # if Product.objects.filter(product_name__iexact=row['sku_name'].strip(), status="active").exclude(
+            #         product_sku=row['sku_id']).exists():
+            #     raise ValidationError(f"Row {row_num} | {row['sku_name']} | 'sku_name' already exists")
+            #
+            # elif row['sku_name'].strip().lower() in product_name_list:
+            #     raise ValidationError(f"Row {row_num} | {row['sku_name']} | "
+            #                           f"'sku_name' getting repeated in csv file")
+            # product_name_list.append(row['sku_name'].strip().lower())
 
     if upload_master_data == "category_update":
         row_num = 1
@@ -1018,9 +1022,9 @@ def validate_row(uploaded_data_list, header_list, category):
                         raise ValidationError(f"Row {row_num} | Please upload Products of Category "
                                               f"{category.category_name}) that you have selected in Dropdown Only! ")
 
-            if 'parent_name' in header_list and 'parent_name' in row.keys() and row['parent_name'] != '':
-                if not parent_products.filter(name=row['parent_name']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['parent_name']} | 'Parent Name' doesn't exist.")
+            # if 'parent_name' in header_list and 'parent_name' in row.keys() and row['parent_name'] != '':
+            #     if not parent_products.filter(name=row['parent_name']).exists():
+            #         raise ValidationError(f"Row {row_num} | {row['parent_name']} | 'Parent Name' doesn't exist.")
 
             if 'hsn' in header_list and 'hsn' in row.keys() and row['hsn'] != '':
                 if not product_hsn.filter(product_hsn_code=row['hsn']).exists() and not product_hsn.filter(
@@ -1288,5 +1292,3 @@ def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, da
         last_slab_selling_price = price_slab['selling_price']
         if 'offer_price' in price_slab:
             last_slab_offer_price = price_slab['offer_price']
-
-

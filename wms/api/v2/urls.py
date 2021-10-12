@@ -1,10 +1,12 @@
 from django.conf.urls import include, url
+
 from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsView, ZoneCoordinatorsView, \
     ZonePutawaysView, WarehouseAssortmentCrudView, WarehouseAssortmentExportAsCSVView, BinTypeView, \
     WarehouseAssortmentSampleCSV, WarehouseAssortmentUploadView, BinCrudView, BinExportAsCSVView, \
     BinExportBarcodeView, ZonePutawayAssignmentsView, CancelPutawayCrudView, UpdateZoneForCancelledPutawayView, \
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
+    POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
     PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerDashboardCrudView, \
     OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView
 
@@ -37,10 +39,16 @@ urlpatterns = [
     url('zone-list/', ZoneFilterView.as_view(), name='zone-list'),
     url('putaway-status-list/', PutawayStatusListView.as_view(), name='putaway-status-list'),
     url('user-details/', UserDetailsPostLoginView.as_view(), name='user-details'),
+    url('bin-inventory/', BinInventoryDataView.as_view(), name='bin-inventory'),
+    url('bin-list/', BinFilterView.as_view(), name='bin-list'),
     url('putaway-action/', PerformPutawayView.as_view(), name='putaway-action'),
     url('putaway-remark/', PutawayRemarkView.as_view(), name='putaway-remark'),
     url('temp/', PickupEntryCreationView.as_view(), name='temp'),
     url('move-to-qc/', UpdateQCAreaView.as_view(), name='move-to-qc'),
+    url('po-summary/', POSummaryView.as_view(), name='po-summary'),
+    url('zone-wise-summary/', ZoneWiseSummaryView.as_view(), name='zone-wise-summary'),
+    url('putaway-summary/', PutawaySummaryView.as_view(), name='putaway-summary'),
+    url('putaway-type-list/', PutawayTypeListView.as_view(), name='putaway-type-list'),
     url('^picker-dashboards/$', PickerDashboardCrudView.as_view(), name='picker-dashboards'),
     url('order-status-summary/', OrderStatusSummaryView.as_view(), name='order-status-summary'),
     url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),

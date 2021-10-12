@@ -74,11 +74,8 @@ def is_audit_started(audit):
 
 
 def is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
-    return BinInventory.objects.filter(~Q(batch_id=batch_id),
-                                       warehouse=warehouse,
-                                       bin=bin,
-                                       sku=sku,
-                                       quantity__gt=0).exists()
+    return BinInventory.objects.filter(~Q(batch_id=batch_id), Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                                       warehouse=warehouse, bin=bin, sku=sku).exists()
 
 
 def get_product_image(product):
