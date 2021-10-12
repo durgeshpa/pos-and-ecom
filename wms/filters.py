@@ -7,7 +7,7 @@ from django.db.models import Q, F
 
 from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone, QCArea
 from accounts.models import User
 
 
@@ -165,6 +165,23 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
                 supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
                 coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q) | Q(
                 warehouse__id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q))
+        return qs
+
+
+class QCAreaFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return QCArea.objects.none()
+
+        qs = QCArea.objects.all()
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(area_id__icontains=self.q) |
+                           Q(area_barcode_txt__icontains=self.q))
         return qs
 
 
