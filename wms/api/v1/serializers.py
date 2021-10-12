@@ -152,6 +152,13 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_completed_time(self, obj):
         return obj.pickup_completed_at.strftime('%b %d, %H:%M') if obj.pickup_completed_at else None
 
+
+class OrderBinsSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    bin_id = serializers.CharField()
+    pickup_status = serializers.CharField()
+
+
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
 
