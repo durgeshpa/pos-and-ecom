@@ -169,8 +169,8 @@ def po_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PO")
 
 
-def order_id_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "OR")
+def order_id_pattern(model, field, instance_id, address, const="OR"):
+    return common_pattern(model, field, instance_id, address, const)
 
 
 def order_id_pattern_discounted(model, field, instance_id, address):
@@ -271,10 +271,10 @@ def repackaging_no_pattern(model, field, instance_id, address):
 
 
 @task
-def generate_invoice_number(field, instance_id, address, invoice_amount):
+def generate_invoice_number(field, instance_id, address, invoice_amount, const="IV"):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
-        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, const, is_invoice=True)
         instance.invoice_no = invoice_no
         instance.save()
 
@@ -298,8 +298,8 @@ def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amou
         instance.save()
 
 
-def cart_no_pattern(model, field, instance_id, address, year=None):
-    return common_pattern(model, field, instance_id, address, "CR", year)
+def cart_no_pattern(model, field, instance_id, address, const="CR", year=None):
+    return common_pattern(model, field, instance_id, address, const, year)
 
 
 def cart_no_pattern_discounted(model, field, instance_id, address, year=None):

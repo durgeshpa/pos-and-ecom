@@ -7,9 +7,13 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer 
+from categories.models import Category
+from brand.models import Brand
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, SubCategorySerializer, BrandSerializer, SubBrandSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
+from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage
+from ...utils import api_response
+from banner.models import Banner
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -430,8 +434,15 @@ class PageView(APIView):
             info_logger.info("-----CACHING PAGES  @GET pages/----------")
             cache.set('pages', pages)
 
-        
         serializer = self.serializer_class(pages, many = True)
+
+        query_params = request.query_params
+        if query_params.get('app_name') and query_params.get('page_name'):
+            app = Application.objects.filter(name = query_params.get('app_name')).last()
+            app_page = ApplicationPage.objects.filter(app = app, page__name__contains=query_params.get('page_name'))
+            page = app_page.last().page
+            serializer = PageDetailSerializer(page)
+
         message = {
             "is_success":True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
@@ -626,3 +637,74 @@ class PageVersionDetailView(APIView):
         }
         cache.set(page_key, message)
         return Response(message)
+
+
+class CategoryListView(APIView):
+    """
+    View to get list of all categories
+    """
+    
+    def get(self, request, format = None):
+        is_success = False
+        message = "Category Not Found"
+        category = Category.objects.filter(category_parent = None, status = True)
+        serializer = CategorySerializer(category, many = True)
+        if category:
+            is_success = True
+            message = "Category Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)
+
+class SubCategoryListView(APIView):
+    """
+    Get List of Subcategory having banner
+    """
+
+    def get(self, request, format = None):
+        is_success = False
+        message = "No Subcategory"
+        try:
+            category = Category.objects.get(id = request.GET.get('category_id'))
+        except Exception:
+            raise ValidationError('No such category')
+        subcategory = category.cat_parent.filter(status = True).prefetch_related('banner_subcategory')
+        serializer = SubCategorySerializer(subcategory, many = True)
+        if subcategory.exists():
+            is_success = True
+            message = "Subcategory Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
+
+
+class BrandListView(APIView):
+    """
+    View to get list of all brands
+    """
+    
+    def get(self, request, format = None):
+        is_success = False
+        message = "Brand Not Found"
+        brand = Brand.objects.filter(brand_parent = None)
+        serializer = BrandSerializer(brand, many = True)
+        if brand:
+            is_success = True
+            message = "Brand Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)
+
+class SubBrandListView(APIView):
+    """
+    Get List of SubBrand 
+    """
+
+    def get(self, request, format = None):
+        is_success = False
+        message = "No SubBrand"
+        try:
+            brand = Brand.objects.get(id = request.GET.get('brand_id'))
+        except Exception:
+            raise ValidationError('No such brand')
+        subbrands = brand.brand_child.all().prefetch_related('banner_subbrand')
+        serializer = SubBrandSerializer(subbrands, many = True)
+        if subbrands.exists():
+            is_success = True
+            message = "SubBrand Found"
+        return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
+

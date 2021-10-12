@@ -1,14 +1,14 @@
 from django.conf.urls import include, url
 
-import views
+
 import wms
 from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, \
     MergeBarcode, QCAreaBarcodeGenerator, PutawayUserAutcomplete, PickerUserAutcomplete, PickerUsersCompleteAutcomplete, \
     PutawayUsersCompleteAutcomplete, CrateBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
-    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, UserFilter, CoordinatorAvailableFilter, \
-    CrateFilter
+    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
+    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter, CrateFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -35,9 +35,10 @@ urlpatterns = [
     url(r'^coordinator-autocomplete/$', CoordinatorFilter.as_view(), name='coordinator-autocomplete'),
     url(r'^coordinator-available-autocomplete/$', CoordinatorAvailableFilter.as_view(),
         name='coordinator-available-autocomplete'),
-    url(r'^parent-product-autocomplete/$', ParentProductFilter.as_view(), name='parent-product-autocomplete'),
+    url(r'^parent-product-filter/$', ParentProductFilter.as_view(), name='parent-product-filter'),
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
     url(r'^crate-autocomplete/$', CrateFilter.as_view(), name='crate-autocomplete'),
+    url(r'^qc-area-autocomplete/$', QCAreaFilter.as_view(), name='qc-area-autocomplete'),
     url(r'^users-autocomplete/$', UserFilter.as_view(), name='users-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),

@@ -112,10 +112,11 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
         return data
 
-    @transaction.atomic
+    # @transaction.atomic
     def create(self, validated_data):
         try:
-            create_update_master_data(validated_data)
+            with transaction.atomic():
+                create_update_master_data(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
