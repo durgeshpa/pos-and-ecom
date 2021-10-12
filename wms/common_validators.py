@@ -7,7 +7,7 @@ from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In, Pickup, Crate
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup
 
 logger = logging.getLogger(__name__)
 

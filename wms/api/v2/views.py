@@ -9,7 +9,7 @@ from django.contrib.auth.models import Permission, Group
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField, F, Case, When
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When, F, Value
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
