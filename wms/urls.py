@@ -8,7 +8,7 @@ from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMov
     PutawayUsersCompleteAutcomplete
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
     SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
-    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter
+    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -37,6 +37,7 @@ urlpatterns = [
         name='coordinator-available-autocomplete'),
     url(r'^parent-product-filter/$', ParentProductFilter.as_view(), name='parent-product-filter'),
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
+    url(r'^qc-area-autocomplete/$', QCAreaFilter.as_view(), name='qc-area-autocomplete'),
     url(r'^users-autocomplete/$', UserFilter.as_view(), name='users-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
