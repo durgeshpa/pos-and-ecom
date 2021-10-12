@@ -684,6 +684,8 @@ class QCArea(BaseTimestampUserModel):
     is_active = models.BooleanField()
 
     def __str__(self):
+        if self.warehouse:
+            return self.area_id + " - " + str(self.warehouse.pk)
         return self.area_id
 
     def save(self, *args, **kwargs):

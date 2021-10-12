@@ -1475,6 +1475,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
                 elif self.initial_data['qc_area'] and PickerDashboard.objects.filter(
+                        qc_area__warehouse__id=self.initial_data['warehouse'],
                         qc_area__area_id=self.initial_data['qc_area'],
                         order__order_status__in=[Order.MOVED_TO_QC, 'PARTIALLY_SHIPPED', 'SHIPPED',
                                                  Order.PARTIAL_SHIPMENT_CREATED, Order.FULL_SHIPMENT_CREATED]).exists():

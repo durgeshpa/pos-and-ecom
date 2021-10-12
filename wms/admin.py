@@ -255,6 +255,12 @@ class ZoneFilter(AutocompleteFilter):
     autocomplete_url = 'zone-autocomplete'
 
 
+class QCAreaFilter(AutocompleteFilter):
+    title = 'QC Area'
+    field_name = 'qc_area'
+    autocomplete_url = 'qc-area-autocomplete'
+
+
 class UserFilter(AutocompleteFilter):
     title = 'User'
     field_name = 'user'
