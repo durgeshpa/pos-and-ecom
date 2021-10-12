@@ -1489,10 +1489,17 @@ class PutawaySummaryView(generics.GenericAPIView):
 
     def filter_putaway_summary_data(self):
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using date'''
+        '''Filters using date with data_days'''
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
@@ -1539,12 +1546,19 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
     def filter_zone_wise_summary_putaways_data(self):
         zone = self.request.GET.get('zone')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using zone '''
+        '''Filters using zone and date with data_days'''
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
 
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
