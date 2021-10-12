@@ -1,6 +1,6 @@
 import copy
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import groupby
 
 from dal import autocomplete
@@ -27,7 +27,7 @@ from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway
+    validate_putaway_user_against_putaway, validate_grouped_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
@@ -1059,6 +1059,11 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         """ GET Putaway List """
 
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
+
+        validate_request = validate_grouped_request(request)
+        if "error" in validate_request:
+            return get_response(validate_request['error'])
+
         self.queryset = self.filter_grouped_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -1073,6 +1078,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         putaway_type = self.request.GET.get('putaway_type')
         status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using token_id, zone, putaway_user, putaway_type'''
         if token_id:
@@ -1091,11 +1097,14 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_status=status)
 
         if created_at:
-            try:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
                 created_at = datetime.strptime(created_at, "%Y-%m-%d")
                 self.queryset = self.queryset.filter(created_at__date=created_at)
-            except Exception as e:
-                error_logger.error(e)
 
         return self.queryset
 
@@ -1621,10 +1630,17 @@ class PutawaySummaryView(generics.GenericAPIView):
 
     def filter_putaway_summary_data(self):
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using date'''
+        '''Filters using date with data_days'''
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
@@ -1671,13 +1687,20 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
     def filter_zone_wise_summary_putaways_data(self):
         zone = self.request.GET.get('zone')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using zone '''
+        '''Filters using zone and date with data_days'''
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
 
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
