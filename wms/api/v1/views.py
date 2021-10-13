@@ -385,6 +385,7 @@ class PickupList(APIView):
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
+        picking_status = self.request.GET.get('picking_status')
 
         '''Filters using picker_boy, selected_date'''
         if pickup_type == 1:
@@ -393,6 +394,9 @@ class PickupList(APIView):
 
             if zone:
                 self.queryset = self.queryset.filter(zone__id=zone)
+
+            if picking_status:
+                self.queryset = self.queryset.filter(picking_status__id=picking_status)
 
             if selected_date:
                 try:
@@ -407,6 +411,9 @@ class PickupList(APIView):
 
             if zone:
                 self.queryset = self.queryset.filter(picker_repacks__zone__id=zone)
+
+            if picking_status:
+                self.queryset = self.queryset.filter(picker_repacks__picking_status__id=picking_status)
 
             if selected_date:
                 try:
