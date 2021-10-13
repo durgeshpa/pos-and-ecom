@@ -292,7 +292,9 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_repackaging, repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
-                product_zone = rep_obj.source_sku.parent_product.product_zones.last().zone
+                product_zone = rep_obj.source_sku.parent_product.product_zones.filter(
+                    warehouse=rep_obj.seller_shop).last().zone
+
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
                     picking_status="picking_pending",
