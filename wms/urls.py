@@ -6,9 +6,8 @@ from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, \
     MergeBarcode, QCAreaBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
-    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter
-
-
+    SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
+    PutawayUserAutcomplete, PickerUserAutcomplete
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -22,11 +21,13 @@ urlpatterns = [
     url(r'^inventory-type-autocomplete/$', InventoryTypeFilter.as_view(), name='inventory-type-autocomplete'),
     url(r'^inventory-state-autocomplete/$', InventoryStateFilter.as_view(), name='inventory-state-autocomplete'),
     url(r'^putaway-user-autocomplete/$', PutawayUserFilter.as_view(), name='putaway-user-autocomplete'),
+    url(r'^putaway-users-autocomplete/$', PutawayUserAutcomplete.as_view(), name='putaway-users-autocomplete'),
+    url(r'^picker-users-autocomplete/$', PickerUserAutcomplete.as_view(), name='picker-users-autocomplete'),
     url(r'^supervisor-autocomplete/$', SupervisorFilter.as_view(), name='supervisor-autocomplete'),
     url(r'^coordinator-autocomplete/$', CoordinatorFilter.as_view(), name='coordinator-autocomplete'),
     url(r'^coordinator-available-autocomplete/$', CoordinatorAvailableFilter.as_view(),
         name='coordinator-available-autocomplete'),
-    url(r'^parent-product-autocomplete/$', ParentProductFilter.as_view(), name='parent-product-autocomplete'),
+    url(r'^parent-product-filter/$', ParentProductFilter.as_view(), name='parent-product-filter'),
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),

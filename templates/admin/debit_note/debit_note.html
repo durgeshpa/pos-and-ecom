@@ -36,8 +36,16 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
     		<div class="invoice-title">
-    			<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
-    		</div>
+				<div class="col-xs-5">
+    				<h4 class="invoice">Debit Note No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4>
+				</div>
+				<div class="col-xs-4">
+					<h4 class="pull-right order_id">FSSAI License No:- <span class="order_id_no"><strong>{{ license_number }}</strong>
+				</div>
+				<div class="col-xs-3">
+					<h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+				</div>
+			</div>
 
     		<div class="row">
     			<div class="col-xs-6">
@@ -47,7 +55,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.gf_billing_address.nick_name}}, {{shop.order.ordered_cart.gf_billing_address.address_line1}}, {{shop.order.ordered_cart.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 
 					<address>
@@ -56,7 +64,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.gf_shipping_address.nick_name}}, {{shop.order.ordered_cart.gf_shipping_address.address_line1}}, {{shop.order.ordered_cart.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 					<address>
 						<span>Party :</span><br>
@@ -64,7 +72,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.supplier_name.company_name}}, {{shop.order.ordered_cart.supplier_name.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{shop.order.ordered_cart.supplier_name.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.supplier_name.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">
