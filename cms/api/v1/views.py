@@ -11,7 +11,7 @@ from categories.models import Category
 from brand.models import Brand
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, SubCategorySerializer, BrandSerializer, SubBrandSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem
+from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage
 from ...utils import api_response
 from banner.models import Banner
 
@@ -434,8 +434,15 @@ class PageView(APIView):
             info_logger.info("-----CACHING PAGES  @GET pages/----------")
             cache.set('pages', pages)
 
-        
         serializer = self.serializer_class(pages, many = True)
+
+        query_params = request.query_params
+        if query_params.get('app_name') and query_params.get('page_name'):
+            app = Application.objects.filter(name = query_params.get('app_name')).last()
+            app_page = ApplicationPage.objects.filter(app = app, page__name__contains=query_params.get('page_name'))
+            page = app_page.last().page
+            serializer = PageDetailSerializer(page)
+
         message = {
             "is_success":True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],

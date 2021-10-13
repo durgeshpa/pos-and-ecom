@@ -66,8 +66,8 @@ class RewardsSerializer(serializers.ModelSerializer):
 
 
 class UserLocationSerializer(serializers.Serializer):
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = serializers.DecimalField(max_digits=30, decimal_places=15)
+    longitude = serializers.DecimalField(max_digits=30, decimal_places=15)
 
 
 class ShopSerializer(serializers.ModelSerializer):

@@ -555,7 +555,8 @@ class AuditSKUsByBinList(APIView):
         bin_products = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                                    warehouse=audit.warehouse, bin=bin).only('sku', 'batch_id')\
-                                           .values('sku_id', 'batch_id', 'sku__product_mrp')
+                                           .values('sku_id', 'batch_id', 'sku__product_name', 'sku__product_mrp')\
+                                           .distinct('sku_id')
         products_audited = AuditRunItem.objects.filter(audit_run__audit=audit, bin=bin)\
                                            .values_list('batch_id', flat=True)
         for b in bin_products:

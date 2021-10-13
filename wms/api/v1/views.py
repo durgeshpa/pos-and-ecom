@@ -9,7 +9,7 @@ from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, Inventor
     PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
-    PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
+    PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer, OrderBinsSerializer
 from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
@@ -440,8 +440,12 @@ class BinIDList(APIView):
         for pick_up in pickup_bin_obj:
             if pick_up.bin.bin in pick_list:
                 continue
-            pick_list.append(pick_up.bin.bin)
-        serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
+            pick_list.append({
+                "id": pick_up.bin.bin.id,
+                "bin_id": pick_up.bin.bin.bin_id,
+                "pickup_status": pick_up.pickup.status
+            })
+        serializer = OrderBinsSerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK',
                'data': {'bins': serializer.data, 'pickup_created_at': pickup_assigned_date,
                         'current_time': datetime.datetime.now()}}

@@ -668,6 +668,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super(OrderDetailSerializer, self).to_representation(instance)
         representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        shipment = instance.rt_order_order_product.last()
+        if shipment:
+            representation['shipment_status'] = shipment.shipment_status
         return representation
 
     class Meta:
@@ -756,6 +759,9 @@ class OrderListSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super(OrderListSerializer, self).to_representation(instance)
         representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        shipment = instance.rt_order_order_product.last()
+        if shipment:
+            representation['shipment_status'] = shipment.shipment_status
         return representation
 
     class Meta:

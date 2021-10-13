@@ -1186,21 +1186,11 @@ class ZoneForm(forms.ModelForm):
     coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
     putaway_users = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
-        required=True,
-        widget=FilteredSelectMultiple(
-            verbose_name=_('Putaway users'),
-            is_stacked=False
-        )
-    )
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='putaway-users-autocomplete', forward=('warehouse',)))
     picker_users = forms.ModelMultipleChoiceField(
-        queryset = User.objects.filter(Q(groups=picker_group)).distinct(),
-        required = True,
-        widget = FilteredSelectMultiple(
-            verbose_name = _('Picker users'),
-            is_stacked = False
-        )
-    )
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='picker-users-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = Zone
@@ -1227,6 +1217,11 @@ class ZoneForm(forms.ModelForm):
                     len(self.cleaned_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['putaway_users']:
+                if (not user.groups.filter(name='Putaway').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as putaway users."))
         return self.cleaned_data['putaway_users']
 
     def clean_picker_users(self):
@@ -1235,6 +1230,11 @@ class ZoneForm(forms.ModelForm):
                     len(self.cleaned_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['picker_users']:
+                if (not user.groups.filter(name='Picker Boy').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as picker users."))
         return self.cleaned_data['picker_users']
 
     def clean(self):
@@ -1243,15 +1243,13 @@ class ZoneForm(forms.ModelForm):
         supervisor = cleaned_data.get("supervisor")
         coordinator = cleaned_data.get("coordinator")
         instance = getattr(self, 'instance', None)
-        if not instance.pk:
-            if warehouse and supervisor and coordinator:
-                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
-                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
-        else:
-            if warehouse and supervisor and coordinator:
-                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
-                        exclude(id=instance.pk).exists():
-                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        if instance.pk and warehouse and supervisor and coordinator:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
+                    exclude(id=instance.pk).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        elif warehouse and supervisor and coordinator:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
     def __init__(self, *args, **kwargs):
         super(ZoneForm, self).__init__(*args, **kwargs)
@@ -1259,22 +1257,11 @@ class ZoneForm(forms.ModelForm):
         perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
 
         if instance.pk:
-            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(putaway_zone_users__isnull=False)
-            self.fields['putaway_users'].queryset = (queryset | instance.putaway_users.all()).distinct()
-
-            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(picker_zone_users__isnull=False)
-            self.fields['picker_users'].queryset = (queryset | instance.picker_users.all()).distinct()
-
-            queryset = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
-                coordinator_zone_user__isnull=False)
+            queryset = User.objects.filter(is_active=True).filter(
+                Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(coordinator_zone_user__isnull=False)
             self.fields['coordinator'].queryset = (queryset | User.objects.filter(id=instance.coordinator.pk)).distinct()
         else:
-            self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                putaway_zone_users__isnull=False)
-
-            self.fields['picker_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                picker_zone_users__isnull = False)
-            self.fields['coordinator'].queryset = User.objects.filter(
+            self.fields['coordinator'].queryset = User.objects.filter(is_active=True).filter(
                 Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
                 coordinator_zone_user__isnull=False).distinct()
 
@@ -1285,7 +1272,7 @@ class WarehouseAssortmentForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
     product = forms.ModelChoiceField(queryset=ParentProduct.objects.all(), required=True,
-                                     widget=autocomplete.ModelSelect2(url='parent-product-autocomplete'))
+                                     widget=autocomplete.ModelSelect2(url='parent-product-filter'))
     zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
                                   widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
 

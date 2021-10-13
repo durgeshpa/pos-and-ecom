@@ -233,7 +233,7 @@ class UploadMasterData(object):
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
+                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
                               'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
                               'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
@@ -245,6 +245,15 @@ class UploadMasterData(object):
                                 available_fields.append(col)
 
                     for col in available_fields:
+                        if col == 'brand_id':
+                            if 'sub_brand_id' not in available_fields or not row['sub_brand_id']:
+                                parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
+
+                        if col == 'sub_brand_id' and row['sub_brand_id']:
+                            parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+                            
+                        if col == 'parent_name':
+                            parent_product.update(name=str(row['parent_name']).strip())
 
                         if col == 'product_type':
                             parent_product.update(product_type=str(row['product_type'].lower()))
@@ -253,8 +262,11 @@ class UploadMasterData(object):
                             parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
 
                         if col == 'hsn':
-                            parent_product.update(
-                                product_hsn=ProductHSN.objects.filter(product_hsn_code=str(row['hsn'])).last())
+                            try:
+                                product_hsn_obj = ProductHSN.objects.get(product_hsn_code=str(row['hsn']))
+                            except:
+                                product_hsn_obj = ProductHSN.objects.get(product_hsn_code='0' + str(row['hsn']))
+                            parent_product.update(product_hsn=product_hsn_obj)
 
                         if col == 'tax_1(gst)':
                             tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
@@ -275,9 +287,6 @@ class UploadMasterData(object):
 
                         if col == 'brand_case_size':
                             parent_product.update(brand_case_size=int(row['brand_case_size']))
-
-                        if col == 'brand_id':
-                            parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
 
                         if col == 'is_ptr_applicable':
                             parent_product.update(
@@ -549,10 +558,15 @@ class UploadMasterData(object):
         try:
             info_logger.info('Method Start to create Parent Product')
             for row in csv_file_data_list:
+                try:
+                    product_hsn_obj = ProductHSN.objects.get(product_hsn_code=str(row['hsn'].replace("'", '')))
+                except:
+                    product_hsn_obj = ProductHSN.objects.get(product_hsn_code='0' + str(row['hsn'].replace("'", '')))
+
                 parent_product = ParentProduct.objects.create(
                     name=row['product_name'].strip(),
                     parent_brand=Brand.objects.filter(id=int(row['brand_id'])).last(),
-                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row['hsn'].replace("'", '')).last(),
+                    product_hsn=product_hsn_obj,
                     inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
                     ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
@@ -945,9 +959,15 @@ class DownloadMasterData(object):
         for product in products:
             row = []
             row.append(product['product_sku'])
-            row.append(product['product_name'])
+            if product['product_name'][0] == '#':
+                row.append(product['product_name'][1:])
+            else:
+                row.append(product['product_name'])
             row.append(product['parent_product__parent_id'])
-            row.append(product['parent_product__name'])
+            if product['parent_product__name'][0] == '#':
+                row.append(product['parent_product__name'][1:])
+            else:
+                row.append(product['parent_product__name'])
             row.append(product['product_ean_code'])
             row.append(product['product_mrp'])
             row.append(product['weight_unit'])
@@ -1008,6 +1028,7 @@ class DownloadMasterData(object):
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
+
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                                'parent_product__name', 'parent_product__product_type',
                                                                'parent_product__product_hsn__product_hsn_code',
@@ -1029,12 +1050,14 @@ class DownloadMasterData(object):
                                                                'parent_product__is_lead_time_applicable',
                                                                'parent_product__discounted_life_percent',).filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
-
         for product in parent_products:
             row = []
             tax_list = ['', '', '']
             row.append(product['parent_product__parent_id'])
-            row.append(product['parent_product__name'])
+            if product['parent_product__name'][0] == '#':
+                row.append(product['parent_product__name'][1:])
+            else:
+                row.append(product['parent_product__name'])
             row.append(product['parent_product__product_type'])
             row.append(product['parent_product__product_hsn__product_hsn_code'])
             taxes = ParentProductTaxMapping.objects.select_related('tax').filter(
