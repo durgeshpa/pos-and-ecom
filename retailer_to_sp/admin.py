@@ -999,6 +999,32 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
+class OrderZoneFilter(InputFilter):
+    parameter_name = 'zone'
+    title = 'Zone'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            zone = self.value()
+            if zone is None:
+                return
+            queryset = queryset.filter(picker_order__zone__zone_number__icontains=zone)
+            return queryset
+
+
+class OrderQCAreaFilter(InputFilter):
+    parameter_name = 'qc_area'
+    title = 'QC Area'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qc_area = self.value()
+            if qc_area is None:
+                return
+            queryset = queryset.filter(picker_order__qc_area__area_id__icontains=qc_area)
+            return queryset
+
+
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ['order_data_excel_action', "download_bulk_pick_list"]
     resource_class = OrderResource
@@ -1035,8 +1061,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
-    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
+    list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
+                   OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
+                   ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
