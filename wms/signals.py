@@ -25,35 +25,28 @@ def create_zone_putaway_user_assignment_mapping(sender, instance=None, created=F
         zone_count = Zone.objects.filter(warehouse=instance.warehouse).count()
         instance.zone_number = "W" + str(instance.warehouse.id).zfill(6) + "Z" + str(zone_count + 1).zfill(2)
         instance.save()
-    if created:
-        for user in instance.putaway_users.all():
-            ZonePutawayUserAssignmentMapping.objects.create(zone=instance, user=user)
-            info_logger.info("ZonePutawayUser mapping created for zone " + str(instance) + ", user:" + str(user))
-        for user in instance.picker_users.all():
-            ZonePickerUserAssignmentMapping.objects.create(zone=instance, user=user)
-            info_logger.info("ZonePickerUser mapping created for zone " + str(instance) + ", user:" + str(user))
-    else:
-        # Putaway user mapping update
-        putaway_mappings = ZonePutawayUserAssignmentMapping.objects.filter(zone=instance). \
-            exclude(user__in=instance.putaway_users.all())
-        if putaway_mappings:
-            putaway_mappings.delete()
-        for user in instance.putaway_users.all():
-            ZonePutawayUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
-            info_logger.info("ZonePutawayUser mapping created for zone " + str(instance) + ", user:" + str(user))
 
-        # Picker user mapping update
-        picker_mappings = ZonePickerUserAssignmentMapping.objects.filter(zone=instance). \
-            exclude(user__in=instance.picker_users.all())
-        if picker_mappings:
-            picker_mappings.delete()
-        for user in instance.picker_users.all():
-            ZonePickerUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
-            info_logger.info("ZonePickerUser mapping created for zone " + str(instance) + ", user:" + str(user))
+    # Putaway user mapping update
+    putaway_mappings = ZonePutawayUserAssignmentMapping.objects.filter(zone=instance). \
+        exclude(user__in=instance.putaway_users.all())
+    if putaway_mappings:
+        putaway_mappings.delete()
+    for user in instance.putaway_users.all():
+        ZonePutawayUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
+        info_logger.info("ZonePutawayUser mapping created for zone " + str(instance) + ", user:" + str(user))
+
+    # Picker user mapping update
+    picker_mappings = ZonePickerUserAssignmentMapping.objects.filter(zone=instance). \
+        exclude(user__in=instance.picker_users.all())
+    if picker_mappings:
+        picker_mappings.delete()
+    for user in instance.picker_users.all():
+        ZonePickerUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
+        info_logger.info("ZonePickerUser mapping created for zone " + str(instance) + ", user:" + str(user))
 
 
 @receiver(post_save, sender=ZonePickerUserAssignmentMapping)
-def create_qc_area_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
+def reassign_picker_boy(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Reassign picker user to alternate users for the mapped orders """
     if not created and not instance.user_enabled and instance.alternate_user:
         pickers = PickerDashboard.objects.filter(picker_boy=instance.user). \
