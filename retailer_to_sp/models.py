@@ -508,7 +508,7 @@ class Cart(models.Model):
                     {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             elif i == 1 and not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value, 2)
+                next_cart_coupon_min_value_diff = round(Decimal(next_cart_coupon_min_value) - Decimal(cart_value), 2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
                         str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
