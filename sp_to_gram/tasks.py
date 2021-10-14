@@ -171,7 +171,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		if product_dict:
 			visible=WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
                 inventory_state='total_available').last(), inventory_type=type_normal).last()
-			visible = visible.visible
+			if visible:
+				visible = visible.visible
 		else:
 			visible=True
 		ean = product.product_ean_code
