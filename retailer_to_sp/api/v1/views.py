@@ -4656,9 +4656,10 @@ class OrderReturnComplete(APIView):
             cart_type = order.ordered_cart.cart_type
             if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
                     cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
-                return {'error': "Order Not Valid For Return"}
+                return api_response("Order Not Valid For Return")
         except ObjectDoesNotExist:
-            return {'error': "Order Not Valid For Return"}
+            return api_response("Order Not Valid For Return")
+            # return {'error': "Order Not Valid For Return"}
 
         # Check Payment Type
         try:
