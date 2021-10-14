@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, Q
+from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import UserWithName
@@ -351,8 +352,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self, obj):
         product_price = obj.cart_product.get_current_shop_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
         price_per_piece = product_price.get_per_piece_price(obj.qty)
-        return round((price_per_piece * obj.no_of_pieces), 2)
-
+        return round(Decimal(Decimal(price_per_piece) * Decimal(obj.no_of_pieces)), 2)
 
     def product_coupons_dt(self, obj):
         """
@@ -477,7 +477,7 @@ class CartSerializer(serializers.ModelSerializer):
             pro_price = cart_pro.cart_product.get_current_shop_price(self.context.get('parent_mapping_id'),
                                                                      self.context.get('buyer_shop_id'))
             if pro_price:
-                self.total_amount += pro_price.get_per_piece_price(cart_pro.qty) * cart_pro.no_of_pieces
+                self.total_amount += Decimal(pro_price.get_per_piece_price(cart_pro.qty)) * Decimal(cart_pro.no_of_pieces)
         return self.total_amount
 
     def shop_min_amount_id(self, obj):
