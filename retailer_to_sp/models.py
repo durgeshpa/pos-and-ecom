@@ -277,13 +277,13 @@ class Cart(models.Model):
                 cart_value = 0
                 for product in cart_products:
                     shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    cart_value += float(shop_price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(shop_price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if shop_price else 0
             if self.cart_status in ['ordered']:
                 cart_value = 0
                 for product in cart_products:
                     price = product.cart_product_price
-                    cart_value += float(price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if price else 0
 
             for m in cart_products:
