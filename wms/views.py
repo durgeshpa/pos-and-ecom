@@ -1113,10 +1113,10 @@ def pickup_entry_creation_with_cron():
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
                         zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                            zone_id=zone_id, last_assigned_at=None).last()
+                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
                         if not zone_picker_assigned_user:
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                                zone_id=zone_id). \
+                                user_enabled=True, zone_id=zone_id). \
                                 order_by('-last_assigned_at').last()
                         if zone_picker_assigned_user:
                             picker_user = zone_picker_assigned_user.user

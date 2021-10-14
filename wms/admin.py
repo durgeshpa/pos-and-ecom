@@ -23,7 +23,8 @@ from retailer_to_sp.models import Invoice, Trip
 from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
-                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm)
+                    StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm,
+                    ZonePickerUserAssignmentMappingForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
@@ -1143,15 +1144,15 @@ class ZonePutawayUserAssignmentMappingAdmin(admin.ModelAdmin):
 
 
 class ZonePickerUserAssignmentMappingAdmin(admin.ModelAdmin):
-    list_display = ('zone', 'user', 'last_assigned_at')
+    list_display = ('zone', 'user', 'last_assigned_at', 'user_enabled')
     list_filter = [ZoneFilter, PickerUserFilter]
     list_per_page = 50
     ordering = ('-zone',)
+    readonly_fields = ('zone', 'user', 'last_assigned_at',)
+    form = ZonePickerUserAssignmentMappingForm
+
 
     def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
