@@ -194,6 +194,7 @@ class OrderNoSearch(InputFilter):
                 Q(order_no__in=order_nos)
             )
 
+
 class IssueStatusSearch(InputFilter):
     parameter_name = 'issue_status'
     title = 'Order Status'
@@ -1001,28 +1002,28 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
 class OrderZoneFilter(InputFilter):
     parameter_name = 'zone'
-    title = 'Zone'
+    title = 'Zone (Comma seperated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             zone = self.value()
-            if zone is None:
-                return
-            queryset = queryset.filter(picker_order__zone__zone_number__icontains=zone)
-            return queryset
+            zones = zone.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__zone__zone_number__in=zones)
+            )
 
 
 class OrderQCAreaFilter(InputFilter):
     parameter_name = 'qc_area'
-    title = 'QC Area'
+    title = 'QC Area (Comma seperated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             qc_area = self.value()
-            if qc_area is None:
-                return
-            queryset = queryset.filter(picker_order__qc_area__area_id__icontains=qc_area)
-            return queryset
+            qc_areas = qc_area.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__qc_area__area_id__in=qc_areas)
+            )
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
