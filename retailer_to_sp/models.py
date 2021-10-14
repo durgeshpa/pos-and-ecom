@@ -26,7 +26,7 @@ from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones)
 
 from addresses.models import Address
 
@@ -1091,6 +1091,14 @@ class Order(models.Model):
     @property
     def picklist_id(self):
         return picklist_ids(self.picker_dashboards())
+
+    @property
+    def qc_area(self):
+        return qc_areas(self.picker_dashboards())
+
+    @property
+    def zone(self):
+        return zones(self.picker_dashboards())
 
     @property
     def pickup_completed_at(self):
