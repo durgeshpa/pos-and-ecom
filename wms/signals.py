@@ -8,6 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from common.common_utils import barcode_gen
+from retailer_to_sp.models import PickerDashboard
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
 
 
@@ -49,6 +50,17 @@ def create_zone_putaway_user_assignment_mapping(sender, instance=None, created=F
         for user in instance.picker_users.all():
             ZonePickerUserAssignmentMapping.objects.update_or_create(zone=instance, user=user, defaults={})
             info_logger.info("ZonePickerUser mapping created for zone " + str(instance) + ", user:" + str(user))
+
+
+@receiver(post_save, sender=ZonePickerUserAssignmentMapping)
+def create_qc_area_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """ Reassign picker user to alternate users for the mapped orders """
+    if not created and not instance.user_enabled and instance.alternate_user:
+        pickers = PickerDashboard.objects.filter(picker_boy=instance.user). \
+            exclude(picking_status__in=['picking_cancelled', 'moved_to_qc'])
+        if pickers:
+            pickers.update(picker_boy=instance.alternate_user)
+
 
 @receiver(post_save, sender=QCArea)
 def create_qc_area_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):

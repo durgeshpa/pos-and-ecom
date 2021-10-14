@@ -1462,6 +1462,10 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                         order__rt_order_order_product__isnull=True).exists():
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea {self.initial_data['qc_area']} "
                                                       f"allotted for another order.")
+                elif PickerDashboard.objects.filter(order=picker_dashboard_instance.order,
+                                                    order__rt_order_order_product__isnull=False).exists():
+                    raise serializers.ValidationError(f"QcArea updation not allowed for order "
+                                                      f"{picker_dashboard_instance.order}.")
                 data['qc_area'] = qc_area
             else:
                 raise serializers.ValidationError("'qc_area' | This is mandatory")
