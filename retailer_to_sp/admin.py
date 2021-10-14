@@ -1002,7 +1002,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
 class OrderZoneFilter(InputFilter):
     parameter_name = 'zone'
-    title = 'Zone (Comma seperated)'
+    title = 'Zone (Comma separated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -1015,7 +1015,7 @@ class OrderZoneFilter(InputFilter):
 
 class OrderQCAreaFilter(InputFilter):
     parameter_name = 'qc_area'
-    title = 'QC Area (Comma seperated)'
+    title = 'QC Area (Comma separated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
