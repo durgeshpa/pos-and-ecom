@@ -32,10 +32,10 @@ def run():
         if order_qs_1:
             for order in order_qs_1:
                 print(order.order_status)
-            # order_qs_1.update(order_status='MOVED_TO_QC')
+            order_qs_1.update(order_status='MOVED_TO_QC')
             print("Set order_status as 'MOVED_TO_QC' for orders "
                   "whose picker entries having picking_status as 'picking_complete'")
-        # picker_qs_1.update(picking_status='moved_to_qc')
+        picker_qs_1.update(picking_status='moved_to_qc')
         print("Set picking_status as 'moved_to_qc' for picker entries having picking_status is 'picking_complete'")
 
     print("\n\n###########################################################################################\n\n")
@@ -56,18 +56,18 @@ def run():
         # Delete PickerDashboard entries associated with the Orders received with the applied conditions
         for order in order_qs_2:
             if order.picker_order.exists():
-                # order.picker_order.all().delete()
+                order.picker_order.all().delete()
                 print("PickerDashboard entries deleted for order no " + str(order) + ", status "
                       + str(order.order_status))
 
         # Delete Pickup Entries associated with the Orders received with the applied conditions
         if pickup_qs_2:
             for pickup in pickup_qs_2:
-                # pickup.bin_inventory.all().delete()
-                # pickup.delete()
+                pickup.bin_inventory.all().delete()
+                pickup.delete()
                 print("Pickup entry deleted for order no " + str(pickup.pickup_type_id))
 
         # Update Orders status to 'ordered'
-        # order_qs_2.update(order_status='ordered')
+        order_qs_2.update(order_status='ordered')
         print("Set order_status as 'ordered' for orders having order_status in "
               "('ordered', 'PICKING_ASSIGNED', 'PICKUP_CREATED')")

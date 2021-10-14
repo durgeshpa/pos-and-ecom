@@ -174,6 +174,20 @@ def picklist_ids(picker_dashboards):
             ) for s in picker_dashboards)
     )
 
+def qc_areas(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.qc_area, #get_qc_area_display(),
+            ) for s in picker_dashboards)
+    )
+
+def zones(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.zone, #get_zone_display(),
+            ) for s in picker_dashboards)
+    )
+
 
 def order_shipment_status(shipments):
     return format_html_join(

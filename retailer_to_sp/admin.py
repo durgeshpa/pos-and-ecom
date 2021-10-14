@@ -194,6 +194,7 @@ class OrderNoSearch(InputFilter):
                 Q(order_no__in=order_nos)
             )
 
+
 class IssueStatusSearch(InputFilter):
     parameter_name = 'issue_status'
     title = 'Order Status'
@@ -999,6 +1000,32 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
+class OrderZoneFilter(InputFilter):
+    parameter_name = 'zone'
+    title = 'Zone (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            zone = self.value()
+            zones = zone.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__zone__zone_number__in=zones)
+            )
+
+
+class OrderQCAreaFilter(InputFilter):
+    parameter_name = 'qc_area'
+    title = 'QC Area (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qc_area = self.value()
+            qc_areas = qc_area.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__qc_area__area_id__in=qc_areas)
+            )
+
+
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ['order_data_excel_action', "download_bulk_pick_list"]
     resource_class = OrderResource
@@ -1025,8 +1052,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'buyer_shop_with_mobile', 'pincode', 'city', 'total_final_amount', 'order_status', 'ordered_by',
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'pickup_completed_at',
-                    'picking_completion_time', 'create_purchase_order'
+                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
+                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1035,8 +1062,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
-    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
+    list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
+                   OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
+                   ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
