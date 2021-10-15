@@ -603,7 +603,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
         price_per_piece = product_price.get_per_piece_price(obj.qty)
-        return round((price_per_piece * obj.no_of_pieces), 2)
+        return round((Decimal(price_per_piece) * Decimal(obj.no_of_pieces)), 2)
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -707,6 +707,7 @@ class CartProductListPrice(serializers.ModelSerializer):
     class Meta:
         model = ProductPrice
         fields = ('id','product_price','product_mrp','created_at')
+
 
 class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
     cart_product = ProductsSearchListSerializer()
