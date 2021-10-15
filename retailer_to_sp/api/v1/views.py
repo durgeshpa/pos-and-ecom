@@ -704,7 +704,7 @@ class SearchProducts(APIView):
                 product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
                 for i in product_offers:
                     if i['item_sku'] == c_p.cart_product.product_sku:
-                        p["_source"]["discounted_product_subtotal"] = i['discounted_product_subtotal']
+                        p["_source"]["discounted_product_subtotal"] = Decimal(i['discounted_product_subtotal'])
                 brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
                 for j in p["_source"]["coupon"]:
                     for i in (brand_offers + product_offers):
@@ -713,7 +713,7 @@ class SearchProducts(APIView):
             p["_source"]["user_selected_qty"] = c_p.qty or 0
             p["_source"]["ptr"] = c_p.applicable_slab_price
             p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-            p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+            p["_source"]["sub_total"] = c_p.qty * Decimal(c_p.item_effective_prices)
         return p
 
     @staticmethod

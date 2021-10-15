@@ -11,6 +11,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from model_utils import Choices
+from decimal import Decimal
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
@@ -653,7 +654,7 @@ class ProductPrice(models.Model):
         """
         per_piece_price = self.get_per_piece_price(qty)
         if per_piece_price:
-            return per_piece_price * case_size
+            return Decimal(per_piece_price) * case_size
 
     def get_per_piece_price(self, qty):
 
