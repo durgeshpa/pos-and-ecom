@@ -284,7 +284,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self, obj):
         if self.product_mrp:
-            return round((((float(self.product_mrp) - self.product_price/int(obj.product_inner_case_size)) / float(self.product_mrp)) * 100), 2)
+            return round((((float(self.product_mrp) - float(self.product_price)/int(obj.product_inner_case_size)) / float(self.product_mrp)) * 100), 2)
         return False
 
 
