@@ -718,13 +718,13 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
 
-    def product_sub_total_dt(self,obj):
-        product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        price_per_piece = float(product_price.get_per_piece_price(obj.qty))
+    def product_sub_total_dt(self, obj):
+        product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'),
+                                                   self.context.get('buyer_shop_id'))
+        price_per_piece = Decimal(product_price.get_per_piece_price(obj.qty))
         return round((price_per_piece * obj.no_of_pieces), 2)
 
-
-    def product_inner_case_size_dt(self,obj):
+    def product_inner_case_size_dt(self, obj):
         try:
             return int(int(obj.no_of_pieces) // int(obj.qty))
         except:
