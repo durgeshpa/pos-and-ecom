@@ -5360,7 +5360,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         # Licence
         shop_mapping = ParentRetailerMapping.objects.filter(
-            retailer=order.seller_shop.shop_name).last()
+            retailer=order.seller_shop).last()
         if shop_mapping:
             shop_name = shop_mapping.parent.shop_name
         else:
