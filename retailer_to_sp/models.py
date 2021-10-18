@@ -2164,7 +2164,6 @@ class OrderedProductMapping(models.Model):
         """This function returns the basic rate at which credit note is to be generated"""
         return self.basic_rate
 
-
     @property
     def product_credit_amount(self):
         return round((float(float(self.shipped_qty) - float(self.delivered_qty)) * float(self.effective_price)), 2)
@@ -2186,7 +2185,7 @@ class OrderedProductMapping(models.Model):
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round(((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2))
+        return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):
