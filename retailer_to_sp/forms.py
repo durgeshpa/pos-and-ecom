@@ -233,10 +233,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
 
     def clean_shipped_qty(self):
 
-        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
-        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        ordered_qty = int(float(self.cleaned_data.get('ordered_qty')))
+        shipped_qty = int(float(self.cleaned_data.get('shipped_qty')))
         # picked_pieces = int(self.cleaned_data.get('picked_pieces'))
-        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
+        to_be_shipped_qty = int(float(self.cleaned_data.get('to_be_shipped_qty')))
         # already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
         max_qty_allowed = ordered_qty - to_be_shipped_qty
         if max_qty_allowed < shipped_qty:

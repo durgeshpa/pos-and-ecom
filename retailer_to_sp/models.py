@@ -2012,7 +2012,7 @@ class OrderedProductMapping(models.Model):
                 no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                     cart_product=self.product).values('no_of_pieces')
             no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-            return str(no_of_pieces)
+            return str(int(no_of_pieces))
         return str("-")
 
     ordered_qty.fget.short_description = "Ordered Pieces"

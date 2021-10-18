@@ -426,8 +426,8 @@ def ordered_product_mapping_shipment(request):
                             if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
                                 formset_data.ordered_product = shipment
-                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                                    formset_data.shipped_qty_exclude_current)
+                                max_pieces_allowed = int(float(formset_data.ordered_qty)) - int(
+                                    float(formset_data.shipped_qty_exclude_current))
                                 if max_pieces_allowed < int(to_be_ship_qty):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
