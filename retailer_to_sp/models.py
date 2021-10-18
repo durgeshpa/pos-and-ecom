@@ -2186,7 +2186,7 @@ class OrderedProductMapping(models.Model):
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round((self.basic_rate * self.shipped_qty) * float(get_tax_val), 2)
+        return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):
