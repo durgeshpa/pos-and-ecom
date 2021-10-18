@@ -647,7 +647,10 @@ class OrderedCartSerializer(serializers.ModelSerializer):
             return obj.subtotal
 
     def sub_total_id(self, obj):
-        sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
+        if self.total_amount_id(obj) is None:
+            sub_total = 0 - self.get_total_discount(obj)
+        else:
+            sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
         return round(sub_total, 2)
 
     def items_count_id(self, obj):
