@@ -1284,9 +1284,9 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
 
-    def product_sub_total_dt(self,obj):
+    def product_sub_total_dt(self, obj):
         price_per_piece = float(obj.cart_product_price.get_per_piece_price(obj.qty))
-        return round((price_per_piece * obj.no_of_pieces), 2)
+        return round((price_per_piece * float(obj.no_of_pieces)), 2)
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -1294,6 +1294,7 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartProductMapping
         fields = ('id', 'cart', 'cart_product','qty','qty_error_msg','no_of_pieces','product_sub_total', 'cart_product_price', 'product_inner_case_size')
+
 
 class SellerOrderedCartListSerializer(serializers.ModelSerializer):
     rt_cart_list = SellerCartProductMappingListSerializer(many=True)
@@ -1306,6 +1307,7 @@ class ShopSerializer(serializers.ModelSerializer):
         model = Shop
         fields = ('id', 'shop_name')
 
+
 class SellerOrderListSerializer(serializers.ModelSerializer):
     ordered_cart = SellerOrderedCartListSerializer()
     order_status = serializers.SerializerMethodField()
@@ -1314,7 +1316,6 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
     trip_details = serializers.SerializerMethodField()
-
 
     def get_order_status(self, obj):
         if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,

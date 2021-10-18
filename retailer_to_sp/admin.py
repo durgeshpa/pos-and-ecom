@@ -332,6 +332,7 @@ class ShipmentSearch(InputFilter):
                 Q(shipment__invoice_no__icontains=shipment_id)
             )
 
+
 class CreditNoteSearch(InputFilter):
     parameter_name = 'credit_note_id'
     title = 'Credit Note'
@@ -345,6 +346,7 @@ class CreditNoteSearch(InputFilter):
                 Q(credit_note_id__icontains=credit_note_id)
             )
 
+
 class ShopSearch(InputFilter):
     parameter_name = 'shop_name'
     title = 'Seller Shop'
@@ -357,6 +359,7 @@ class ShopSearch(InputFilter):
             return queryset.filter(
                 Q(shop__shop_name__icontains=shop_name)
             )
+
 
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
@@ -1766,14 +1769,14 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
                        'note_amount', 'invoice_no', 'status')
-    list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
+    list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
-    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
+    search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
     list_per_page = 50
     # def note_amount(self, obj):
     #     pp = OrderedProductMapping.objects.filter(ordered_product=obj.shipment.id)
@@ -1804,7 +1807,7 @@ class NoteAdmin(admin.ModelAdmin):
                         "<a href= '%s' >Download Credit Note</a>" %
                            (reverse('download_credit_note', args=[obj.pk]))
             )
-        elif obj.credit_note_type=='DISCOUNTED':
+        elif obj.credit_note_type == 'DISCOUNTED':
             return format_html(
                         "<a href= '%s' >Download Credit Note</a>" %
                             (reverse('discounted_credit_note', args=[obj.pk]))
