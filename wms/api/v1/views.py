@@ -446,10 +446,20 @@ class BinIDList(APIView):
         for pick_up in pickup_bin_obj:
             if pick_up.bin.bin in pick_list:
                 continue
+
+            if pick_up.pickup_quantity is None:
+                pickup_status = 'picking_pending'
+            elif pick_up.pickup_quantity == pick_up.quantity:
+                pickup_status = 'picking_complete'
+            elif 0 < pick_up.pickup_quantity < pick_up.quantity:
+                pickup_status = 'picking_partial'
+            else:
+                pickup_status = 'picking_pending'
+
             pick_list.append({
                 "id": pick_up.bin.bin.id,
                 "bin_id": pick_up.bin.bin.bin_id,
-                "pickup_status": pick_up.pickup.status
+                "pickup_status": pickup_status
             })
         serializer = OrderBinsSerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK',
