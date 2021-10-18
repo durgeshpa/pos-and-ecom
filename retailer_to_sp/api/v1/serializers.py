@@ -1288,12 +1288,15 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
         price_per_piece = float(obj.cart_product_price.get_per_piece_price(obj.qty))
         return round((price_per_piece * float(obj.no_of_pieces)), 2)
 
-    def product_inner_case_size_dt(self,obj):
+    def product_inner_case_size_dt(self, obj):
+        if int(obj.qty) == 0:
+            return 0
         return int(int(obj.no_of_pieces) // int(obj.qty))
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product','qty','qty_error_msg','no_of_pieces','product_sub_total', 'cart_product_price', 'product_inner_case_size')
+        fields = ('id', 'cart', 'cart_product', 'qty', 'qty_error_msg', 'no_of_pieces', 'product_sub_total',
+                  'cart_product_price', 'product_inner_case_size')
 
 
 class SellerOrderedCartListSerializer(serializers.ModelSerializer):
