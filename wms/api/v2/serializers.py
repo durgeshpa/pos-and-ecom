@@ -1492,6 +1492,21 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'id' | This is mandatory")
         return data
 
+    def check_for_qc_area(self, instance, validated_data):
+        qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
+                                                         order=instance.order) \
+            .exclude(id=instance.id).last()
+        if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
+            return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
+        elif validated_data['qc_area'] and PickerDashboard.objects.filter(
+                qc_area=validated_data['qc_area'],
+                order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
+                order__rt_order_order_product__isnull=True).exists():
+            return {"error": f"Invalid QC Area| QcArea {validated_data['qc_area']} allotted for another order."}
+        elif PickerDashboard.objects.filter(order=instance.order,
+                                            order__rt_order_order_product__isnull=False).exists():
+            return {"error": f"QcArea updation not allowed for order {instance.order}."}
+        return {'data': instance}
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -1501,6 +1516,9 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
         @return: AllocateQCAreaSerializer serializer object
         """
         try:
+            is_validated = self.check_for_qc_area(instance, validated_data)
+            if 'error' in is_validated:
+                return is_validated['error']
             validated_data['picking_status'] = 'moved_to_qc'
             picker_dashboard_instance = super().update(instance, validated_data)
             post_picking_order_update(instance)

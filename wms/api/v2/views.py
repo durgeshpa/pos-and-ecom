@@ -1523,6 +1523,8 @@ class UpdateQCAreaView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=picking_dashboard_entry, data=modified_data)
         if serializer.is_valid():
             picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
+            if isinstance(picking_dashboard_entry, str):
+                return get_response(picking_dashboard_entry)
             return get_response('Picking moved to qc area!', picking_dashboard_entry.data)
         # return get_response(serializer_error(serializer), modified_data, False)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
