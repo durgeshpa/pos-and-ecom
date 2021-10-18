@@ -402,6 +402,7 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
             'all': ('admin/css/ordered_product_batch.css',)
         }
 
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
@@ -410,7 +411,6 @@ class CartProductMappingAdmin(admin.TabularInline):
               'item_effective_prices', 'discounted_price')
     autocomplete_fields = ('cart_product', )
     extra = 0
-
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'cart_product':
@@ -445,6 +445,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
 
 class ExportCsvMixinCart:
     def export_as_csv_cart(self, request, queryset):
@@ -1190,6 +1191,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     extra = 0
     max_num = 0
     classes = ['return_table_inline', ]
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1209,8 +1211,8 @@ class OrderedProductAdmin(NestedModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-        'previous_trip'
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
+        'no_of_sacks_check', 'previous_trip'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
@@ -1308,7 +1310,6 @@ class DispatchProductMappingAdmin(admin.TabularInline):
     def product_weight(self, obj):
         return obj.product_weight
     product_weight.short_description = 'Product Weight'
-
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -1493,7 +1494,6 @@ class ShipmentAdmin(NestedModelAdmin):
     class Media:
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
-
     def pincode(self, obj):
         try:
             return obj.order.shipping_address.pincode
@@ -1603,6 +1603,7 @@ class DispatchNoSearch(InputFilter):
                 Q(dispatch_no__icontains=self.value())
             )
 
+
 class ExportCsvMixin:
     def export_as_csv_trip(self, request, queryset):
         meta = self.model._meta
@@ -1616,6 +1617,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_trip.short_description = "Download CSV of Selected Trips"
+
 
 class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
@@ -1830,6 +1832,7 @@ class ExportCsvMixin:
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
 
+
 class ResponseCommentAdmin(admin.TabularInline):
     model = ResponseComment
     form = ResponseCommentForm
@@ -1857,6 +1860,7 @@ class AddResponseCommentAdmin(admin.TabularInline):
     def has_view_permission(self, request, obj=None):
         return False
 
+
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [ResponseCommentAdmin, AddResponseCommentAdmin]
     model = CustomerCare
@@ -1873,6 +1877,7 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
     #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
+
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
@@ -1922,6 +1927,7 @@ class ReturnAdmin(admin.ModelAdmin):
             )
 
     download_credit_note.short_description = 'Download Credit Note'
+
 
 class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
