@@ -2181,7 +2181,7 @@ class OrderedProductMapping(models.Model):
 
     @property
     def base_price(self):
-        return self.basic_rate * self.shipped_qty
+        return float(self.basic_rate) * float(self.shipped_qty)
 
     @property
     def product_tax_amount(self):
