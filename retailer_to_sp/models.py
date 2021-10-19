@@ -277,13 +277,13 @@ class Cart(models.Model):
                 cart_value = 0
                 for product in cart_products:
                     shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    cart_value += float(shop_price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(shop_price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if shop_price else 0
             if self.cart_status in ['ordered']:
                 cart_value = 0
                 for product in cart_products:
                     price = product.cart_product_price
-                    cart_value += float(price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if price else 0
 
             for m in cart_products:
@@ -460,7 +460,7 @@ class Cart(models.Model):
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount == 0):
                             discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
@@ -468,24 +468,24 @@ class Cart(models.Model):
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
-                                cart_coupon.rule.discount.max_discount >= (
-                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
-                            discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
+                                round(Decimal(cart_coupon.rule.discount.max_discount)) >= (
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                            discount_value_cart = round(Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value),
                                                         2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount < (
-                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
                             discount_value_cart = cart_coupon.rule.discount.max_discount
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         break
 
             entice_text = ''
@@ -508,7 +508,7 @@ class Cart(models.Model):
                     {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             elif i == 1 and not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value, 2)
+                next_cart_coupon_min_value_diff = round(Decimal(next_cart_coupon_min_value) - Decimal(cart_value), 2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
                         str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
@@ -527,11 +527,11 @@ class Cart(models.Model):
                 for product in cart_products:
                     for i in array:
                         if product.cart_product.id == i['item_id']:
-                            discounted_price_subtotal = round(
-                                ((i['discounted_product_subtotal'] / cart_value) * discount_value_cart), 2)
+                            discounted_price_subtotal = float(round(
+                                ((Decimal(i['discounted_product_subtotal']) / Decimal(cart_value)) * Decimal(discount_value_cart)), 2))
                             i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
-                            discounted_product_subtotal = round(
-                                i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                            discounted_product_subtotal = float(round(
+                                Decimal(i['discounted_product_subtotal']) - Decimal(discounted_price_subtotal), 2))
                             i.update({'discounted_product_subtotal': discounted_product_subtotal})
                             offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'brand']
             else:
@@ -542,17 +542,16 @@ class Cart(models.Model):
                             if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j[
                                 'brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j[
                                 'brand_id']:
-                                discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j[
-                                    'brand_product_subtotals']) * j['discount_value']), 2)
+                                discounted_price_subtotal = float(round(((i['discounted_product_subtotal'] / j[
+                                    'brand_product_subtotals']) * j['discount_value']), 2))
                                 i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
-                                discounted_product_subtotal = round(
-                                    i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                                discounted_product_subtotal = float(round(
+                                    i['discounted_product_subtotal'] - discounted_price_subtotal, 2))
                                 i.update({'discounted_product_subtotal': discounted_product_subtotal})
                                 offers_list[:] = [coupon for coupon in offers_list if
                                                   coupon.get('coupon_type') != 'cart']
 
         return offers_list
-
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
@@ -2013,7 +2012,7 @@ class OrderedProductMapping(models.Model):
                 no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                     cart_product=self.product).values('no_of_pieces')
             no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-            return str(no_of_pieces)
+            return str(int(no_of_pieces))
         return str("-")
 
     ordered_qty.fget.short_description = "Ordered Pieces"
@@ -2165,10 +2164,9 @@ class OrderedProductMapping(models.Model):
         """This function returns the basic rate at which credit note is to be generated"""
         return self.basic_rate
 
-
     @property
     def product_credit_amount(self):
-        return round(((self.shipped_qty- self.delivered_qty) * float(self.effective_price)),2)
+        return round((float(float(self.shipped_qty) - float(self.delivered_qty)) * float(self.effective_price)), 2)
 
     @property
     def product_credit_amount_per_unit(self):
@@ -2182,12 +2180,12 @@ class OrderedProductMapping(models.Model):
 
     @property
     def base_price(self):
-        return self.basic_rate * self.shipped_qty
+        return float(self.basic_rate) * float(self.shipped_qty)
 
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round((self.basic_rate * self.shipped_qty) * float(get_tax_val), 2)
+        return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):

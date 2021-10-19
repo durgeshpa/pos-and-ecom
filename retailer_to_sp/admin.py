@@ -332,6 +332,7 @@ class ShipmentSearch(InputFilter):
                 Q(shipment__invoice_no__icontains=shipment_id)
             )
 
+
 class CreditNoteSearch(InputFilter):
     parameter_name = 'credit_note_id'
     title = 'Credit Note'
@@ -345,6 +346,7 @@ class CreditNoteSearch(InputFilter):
                 Q(credit_note_id__icontains=credit_note_id)
             )
 
+
 class ShopSearch(InputFilter):
     parameter_name = 'shop_name'
     title = 'Seller Shop'
@@ -357,6 +359,7 @@ class ShopSearch(InputFilter):
             return queryset.filter(
                 Q(shop__shop_name__icontains=shop_name)
             )
+
 
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
@@ -387,8 +390,8 @@ class OrderedProductBatchAdmin(NestedTabularInline):
 
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
-    model = OrderedProductBatch
     form = OrderedProductBatchingForm
+    model = OrderedProductBatch
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
     readonly_fields = ('batch_id', 'ordered_piece','expiry_date')
     extra=0
@@ -402,15 +405,21 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
             'all': ('admin/css/ordered_product_batch.css',)
         }
 
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
-    fields = ('cart', 'cart_product', 'qty', 'no_of_pieces', 'product_case_size', 'product_inner_case_size',
-              'item_effective_prices', 'discounted_price')
+    fields = ('cart', 'cart_product',  '_qty', '_no_of_pieces', 'product_case_size', 'product_inner_case_size',
+              'item_effective_prices', 'discounted_price',)
     autocomplete_fields = ('cart_product', )
     extra = 0
 
+    def _qty(self, obj):
+        return int(obj.qty)
+
+    def _no_of_pieces(self, obj):
+        return int(obj.no_of_pieces)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'cart_product':
@@ -423,7 +432,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
+                'cart_product', '_qty', '_no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
             # if obj.approval_status == True:
             #     readonly_fields = readonly_fields + (
@@ -445,6 +454,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
 
 class ExportCsvMixinCart:
     def export_as_csv_cart(self, request, queryset):
@@ -1180,8 +1190,8 @@ class ShipmentReschedulingAdmin(admin.ModelAdmin):
 
 
 class OrderedProductMappingAdmin(NestedTabularInline):
-    model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
+    model = OrderedProductMapping
     fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
@@ -1190,6 +1200,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     extra = 0
     max_num = 0
     classes = ['return_table_inline', ]
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1209,8 +1220,8 @@ class OrderedProductAdmin(NestedModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-        'previous_trip'
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
+        'no_of_sacks_check', 'previous_trip'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
@@ -1309,7 +1320,6 @@ class DispatchProductMappingAdmin(admin.TabularInline):
         return obj.product_weight
     product_weight.short_description = 'Product Weight'
 
-
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1368,8 +1378,8 @@ class DispatchAdmin(admin.ModelAdmin):
 
 
 class ShipmentProductMappingAdmin(NestedTabularInline):
-    model = ShipmentProductMapping
     form = ShipmentProductMappingForm
+    model = ShipmentProductMapping
     inlines = [OrderedProductBatchAdmin, ]
     fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty',
               'missing_qty', 'rejected_qty', 'reason_for_rejection']
@@ -1493,7 +1503,6 @@ class ShipmentAdmin(NestedModelAdmin):
     class Media:
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
-
     def pincode(self, obj):
         try:
             return obj.order.shipping_address.pincode
@@ -1603,6 +1612,7 @@ class DispatchNoSearch(InputFilter):
                 Q(dispatch_no__icontains=self.value())
             )
 
+
 class ExportCsvMixin:
     def export_as_csv_trip(self, request, queryset):
         meta = self.model._meta
@@ -1616,6 +1626,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_trip.short_description = "Download CSV of Selected Trips"
+
 
 class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
@@ -1764,14 +1775,14 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
                        'note_amount', 'invoice_no', 'status')
-    list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
+    list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
-    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
+    search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
     list_per_page = 50
     # def note_amount(self, obj):
     #     pp = OrderedProductMapping.objects.filter(ordered_product=obj.shipment.id)
@@ -1802,7 +1813,7 @@ class NoteAdmin(admin.ModelAdmin):
                         "<a href= '%s' >Download Credit Note</a>" %
                            (reverse('download_credit_note', args=[obj.pk]))
             )
-        elif obj.credit_note_type=='DISCOUNTED':
+        elif obj.credit_note_type == 'DISCOUNTED':
             return format_html(
                         "<a href= '%s' >Download Credit Note</a>" %
                             (reverse('discounted_credit_note', args=[obj.pk]))
@@ -1829,6 +1840,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['comment_display','comment_date_display'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
+
 
 class ResponseCommentAdmin(admin.TabularInline):
     model = ResponseComment
@@ -1857,6 +1869,7 @@ class AddResponseCommentAdmin(admin.TabularInline):
     def has_view_permission(self, request, obj=None):
         return False
 
+
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [ResponseCommentAdmin, AddResponseCommentAdmin]
     model = CustomerCare
@@ -1873,6 +1886,7 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
     #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
+
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
@@ -1922,6 +1936,7 @@ class ReturnAdmin(admin.ModelAdmin):
             )
 
     download_credit_note.short_description = 'Download Credit Note'
+
 
 class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
