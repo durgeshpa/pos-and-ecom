@@ -387,8 +387,8 @@ class OrderedProductBatchAdmin(NestedTabularInline):
 
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
-    model = OrderedProductBatch
     form = OrderedProductBatchingForm
+    model = OrderedProductBatch
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
     readonly_fields = ('batch_id', 'ordered_piece','expiry_date')
     extra=0
@@ -407,10 +407,16 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
-    fields = ('cart', 'cart_product', 'qty', 'no_of_pieces', 'product_case_size', 'product_inner_case_size',
-              'item_effective_prices', 'discounted_price')
+    fields = ('cart', 'cart_product',  '_qty', '_no_of_pieces', 'product_case_size', 'product_inner_case_size',
+              'item_effective_prices', 'discounted_price',)
     autocomplete_fields = ('cart_product', )
     extra = 0
+
+    def _qty(self, obj):
+        return int(obj.qty)
+
+    def _no_of_pieces(self, obj):
+        return int(obj.no_of_pieces)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'cart_product':
@@ -423,7 +429,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
+                'cart_product', '_qty', '_no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
             # if obj.approval_status == True:
             #     readonly_fields = readonly_fields + (
@@ -1181,8 +1187,8 @@ class ShipmentReschedulingAdmin(admin.ModelAdmin):
 
 
 class OrderedProductMappingAdmin(NestedTabularInline):
-    model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
+    model = OrderedProductMapping
     fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
@@ -1369,8 +1375,8 @@ class DispatchAdmin(admin.ModelAdmin):
 
 
 class ShipmentProductMappingAdmin(NestedTabularInline):
-    model = ShipmentProductMapping
     form = ShipmentProductMappingForm
+    model = ShipmentProductMapping
     inlines = [OrderedProductBatchAdmin, ]
     fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty',
               'missing_qty', 'rejected_qty', 'reason_for_rejection']
