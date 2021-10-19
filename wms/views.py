@@ -7,18 +7,20 @@ import codecs
 import itertools
 from math import floor
 
+from dal import autocomplete
 from openpyxl import Workbook
 from openpyxl.writer.excel import save_virtual_workbook
 
 import re
 import logging
-from django.db.models import Q, Prefetch, Count, Subquery, OuterRef
+from django.db.models import Q, Prefetch, Count, Subquery, OuterRef, Case, When, F
 from celery.task import task
 from django.db.models.functions import Length, Cast
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
+from accounts.models import User
 from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from barCodeGenerator import barcodeGen
 # django imports
@@ -50,7 +52,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, QCArea
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -61,7 +63,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
-    WarehouseAssortmentCsvViewForm
+    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -219,11 +221,12 @@ class CreatePickList(APIView):
 
     def get(self, request, *args, **kwargs):
         pk = self.kwargs.get('pk')
+        zone = self.kwargs.get('zone', None)
         picklist_type = self.kwargs.get('type')
         if picklist_type and int(picklist_type) == 2:
-            pdf_data = repackaging_picklist(pk)
+            pdf_data = repackaging_picklist(pk, zone)
         else:
-            pdf_data = order_picklist(pk)
+            pdf_data = order_picklist(pk, zone)
 
         cmd_option = {
             "margin-top": 10,
@@ -242,12 +245,18 @@ class CreatePickList(APIView):
         return response
 
 
-def order_picklist(order_id):
+def order_picklist(order_id, zone_id=None):
     pdf_data = {}
     order = get_object_or_404(Order, pk=order_id)
     barcode = barcodeGen(order.order_no)
-    picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(
-        pickup__status='picking_cancelled')
+    if not zone_id:
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(
+            pickup__status='picking_cancelled')
+    else:
+        picku_bin_inv = PickupBinInventory.objects.filter(
+            pickup__pickup_type_id=order.order_no,
+            pickup__sku__parent_product__product_zones__zone__id=zone_id).exclude(
+            pickup__status='picking_cancelled')
 
     data_list = []
     new_list = []
@@ -259,11 +268,13 @@ def order_picklist(order_id):
             mrp = i.pickup.sku.product_mrp
         else:
             mrp = '-'
+        zone = i.bin_zone.zone_number if i.bin_zone else '-'
         # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
         qty = i.quantity
         batch_id = i.batch_id
         bin_id = i.bin.bin.bin_id
-        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
+        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id,
+                     "zone": zone}
         data_list.append(prod_list)
     pdf_data['data'] = {
         "data_list": data_list,
@@ -280,12 +291,17 @@ def order_picklist(order_id):
     return pdf_data
 
 
-def repackaging_picklist(repackaging_id):
+def repackaging_picklist(repackaging_id, zone_id=None):
     pdf_data = {}
     repackaging = Repackaging.objects.get(id=repackaging_id)
     barcode = barcodeGen(repackaging.repackaging_no)
-    pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
-                                                       pickup__status__in=['pickup_creation', 'picking_assigned'])
+    if not zone_id:
+        pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
+                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])
+    else:
+        pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no,
+                                                           pickup__sku__parent_product__product_zones__zone__id=zone_id,
+                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])
     data_list = []
     for i in pickup_bin_inv:
         product = i.pickup.sku.product_name
@@ -295,8 +311,9 @@ def repackaging_picklist(repackaging_id):
         qty = i.quantity
         batch_id = i.batch_id
         bin_id = i.bin.bin.bin_id
+        zone = i.pickup.zone.zone_number if i.pickup.zone else '-'
         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
-                     "bin": bin_id}
+                     "bin": bin_id, "zone":zone}
         data_list.append(prod_list)
     pdf_data['data'] = {
         "data_list": data_list,
@@ -881,6 +898,62 @@ def pickup_entry_exists_for_order(order_id):
     return False
 
 
+def pickup_entry_exists_for_order_zone(order_id, zone_id):
+    pd_obj = PickerDashboard.objects.filter(order_id=order_id, zone_id=zone_id). \
+        exclude(picking_status='picking_cancelled')
+    if pd_obj.exists():
+        return True
+    return False
+
+
+# def pickup_entry_creation_with_cron():
+#     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
+#     current_time = datetime.now() - timedelta(minutes=1)
+#     start_time = datetime.now() - timedelta(days=30)
+#     order_obj = Order.objects.filter(order_status='ordered',
+#                                      order_closed=False,
+#                                      created_at__lt=current_time,
+#                                      created_at__gt=start_time) \
+#         .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC'])
+#
+#     if order_obj.count() == 0:
+#         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+#         return
+#
+#     if CronRunLog.objects.filter(cron_name=cron_name,
+#                                  status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+#         cron_logger.info("{} already running".format(cron_name))
+#         return
+#
+#     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+#     cron_logger.info("{} started, cron log entry-{}"
+#                      .format(cron_log_entry.cron_name, cron_log_entry.id))
+#     for order in order_obj:
+#         try:
+#             with transaction.atomic():
+#                 pincode = "00"
+#                 if pickup_entry_exists_for_order(order.id):
+#                     cron_logger.info('pickup extry exists for order {}'.format(order.id))
+#                     continue
+#                 PickerDashboard.objects.create(order=order, picking_status="picking_pending",
+#                                                picklist_id=generate_picklist_id(pincode))
+#                 cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
+#                                  .format(order.id, order.PICKUP_CREATED))
+#                 PicklistRefresh.create_picklist_by_order(order)
+#                 order.order_status = 'PICKUP_CREATED'
+#                 order.save()
+#                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
+#         except Exception as e:
+#             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
+#             cron_logger.error(e)
+#
+#     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+#     cron_log_entry.completed_at = timezone.now()
+#     cron_logger.info("{} completed, cron log entry-{}"
+#                      .format(cron_log_entry.cron_name, cron_log_entry.id))
+#     cron_log_entry.save()
+
+
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
@@ -894,27 +967,176 @@ def pickup_entry_creation_with_cron():
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
 
-    if CronRunLog.objects.filter(cron_name=cron_name,
-                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+    if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
         cron_logger.info("{} already running".format(cron_name))
         return
 
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    cron_logger.info("{} started, cron log entry-{}"
-                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_logger.info("{} started, cron log entry-{}" .format(cron_log_entry.cron_name, cron_log_entry.id))
+
     for order in order_obj:
         try:
             with transaction.atomic():
+                order.order_status = Order.PICKING_ASSIGNED
                 pincode = "00"
-                if pickup_entry_exists_for_order(order.id):
-                    cron_logger.info('pickup extry exists for order {}'.format(order.id))
+                inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+                state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
+                warehouse = Shop.objects.filter(id=order.seller_shop.id).last()
+                product_ids = order.ordered_cart.rt_cart_list. \
+                    values_list('cart_product__parent_product', flat=True). \
+                    annotate(total_items=Count('cart_product__parent_product')). \
+                    order_by('-cart_product__parent_product')
+                zone_product = order.ordered_cart.rt_cart_list.filter(
+                    cart_product__parent_product__product_zones__warehouse=warehouse).values(
+                    'cart_product__parent_product__product_zones__zone',
+                    'cart_product__parent_product__product_zones__product')
+
+                product_zone_dict = {}
+                zones_list = []
+                for prd in product_ids:
+                    for zp in list(zone_product):
+                        if zp['cart_product__parent_product__product_zones__zone'] not in zones_list:
+                            zones_list.append(zp['cart_product__parent_product__product_zones__zone'])
+                        if prd == zp['cart_product__parent_product__product_zones__product']:
+                            product_zone_dict[zp['cart_product__parent_product__product_zones__product']] = zp[
+                                'cart_product__parent_product__product_zones__zone']
+                if len(product_zone_dict) != len(product_ids):
+                    cron_logger.info("{}| some/all products of order no {} does not mapped to any zone"
+                                     .format(cron_name, order.order_no))
                     continue
-                PickerDashboard.objects.create(order=order, picking_status="picking_pending",
-                                               picklist_id=generate_picklist_id(pincode))
-                cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
-                                 .format(order.id, order.PICKUP_CREATED))
-                PicklistRefresh.create_picklist_by_order(order)
-                order.order_status = 'PICKUP_CREATED'
+                for order_product in order.ordered_cart.rt_cart_list.all():
+                    zone = Zone.objects.get(
+                        pk=product_zone_dict[order_product.cart_product.parent_product.pk]) \
+                        if order_product.cart_product.parent_product.pk in product_zone_dict else None
+                    CommonPickupFunctions.create_pickup_entry_with_zone(
+                        warehouse, zone, 'Order', order.order_no, order_product.cart_product,
+                        order_product.no_of_pieces, 'pickup_creation', inventory_type)
+                    cron_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
+                                     .format(order.id, order_product.cart_product, inventory_type))
+
+                for zone_id in zones_list:
+
+                    pu = Pickup.objects.filter(
+                        pickup_type_id=order.order_no, zone_id=zone_id, status='pickup_creation')
+                    for obj in pu:
+                        tr_type = "pickup_created"
+                        tr_id = obj.pk
+                        bin_inv_dict = {}
+                        qty = obj.quantity
+                        total_to_be_picked = 0
+                        bin_lists = obj.sku.rt_product_sku.filter(
+                            warehouse=warehouse, bin__zone=obj.zone,quantity__gt=0, inventory_type=inventory_type). \
+                            order_by('-batch_id', 'quantity')
+                        if not bin_lists.exists():
+                            cron_logger.info("{}| bin mapping seem to be missing for this product {} and zone {}"
+                                             .format(cron_name, obj.sku_id, obj.zone))
+                            bin_lists = obj.sku.rt_product_sku.filter(
+                            warehouse=warehouse, quantity__gt=0, inventory_type=inventory_type). \
+                            order_by('-batch_id', 'quantity')
+                        if bin_lists.exists():
+                            for k in bin_lists:
+                                if len(k.batch_id) == 23:
+                                    bin_inv_dict[k] = str(
+                                        datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' +
+                                                          k.batch_id[21:23], "%d-%m-%Y"))
+                                else:
+                                    bin_inv_dict[k] = str(
+                                        datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
+                                                          "%d-%m-%Y"))
+                        else:
+                            bin_lists = obj.sku.rt_product_sku.filter(
+                                warehouse=warehouse, quantity=0, bin__zone=obj.zone, inventory_type=inventory_type)\
+                                .order_by('-batch_id').last()
+                            if not bin_lists:
+                                cron_logger.info("{}| bin mapping seem to be missing for this product {}"
+                                                 .format(cron_name, obj.sku_id))
+                                bin_lists = obj.sku.rt_product_sku.filter(
+                                    warehouse=warehouse, quantity=0, inventory_type=inventory_type) \
+                                    .order_by('-batch_id').last()
+                            if len(bin_lists.batch_id) == 23:
+                                bin_inv_dict[bin_lists] = str(
+                                    datetime.strptime(bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[19:21] + '-'
+                                                      + '20' + bin_lists.batch_id[21:23], "%d-%m-%Y"))
+                            else:
+                                bin_inv_dict[bin_lists] = str(
+                                    datetime.strptime(
+                                        '30-' + bin_lists.batch_id[17:19] + '-20' + bin_lists.batch_id[19:21],
+                                        "%d-%m-%Y"))
+
+                        bin_inv_list = list(bin_inv_dict.items())
+                        bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+                        for bin_inv in bin_inv_dict.keys():
+                            if qty == 0:
+                                break
+                            already_picked = 0
+                            batch_id = bin_inv.batch_id if bin_inv else None
+                            qty_in_bin = bin_inv.quantity if bin_inv else 0
+                            shops = bin_inv.warehouse
+                            # bin_id = bin_inv.bin.bin_id if bin_inv else None
+                            if qty - already_picked <= qty_in_bin:
+                                already_picked += qty
+                                remaining_qty = qty_in_bin - already_picked
+                                bin_inv.quantity = remaining_qty
+                                bin_inv.to_be_picked_qty += already_picked
+                                bin_inv.save()
+                                qty = 0
+                                total_to_be_picked += already_picked
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                    shops, bin_inv.bin.zone, obj, batch_id, bin_inv, quantity=already_picked,
+                                    bin_quantity=qty_in_bin, pickup_quantity=None)
+                                InternalInventoryChange.create_bin_internal_inventory_change(
+                                    shops, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
+                                    tr_id, already_picked)
+                            else:
+                                already_picked = qty_in_bin
+                                remaining_qty = qty - already_picked
+                                bin_inv.quantity = qty_in_bin - already_picked
+                                bin_inv.to_be_picked_qty += already_picked
+                                bin_inv.save()
+                                qty = remaining_qty
+                                total_to_be_picked += already_picked
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                    shops, bin_inv.bin.zone, obj, batch_id, bin_inv, quantity=already_picked,
+                                    bin_quantity=qty_in_bin, pickup_quantity=None)
+                                InternalInventoryChange.create_bin_internal_inventory_change(
+                                    shops, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
+                                    tr_id, already_picked)
+
+                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                            warehouse, obj.sku, inventory_type, state_ordered, -1 * total_to_be_picked,
+                            tr_type, tr_id)
+
+                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                            warehouse, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
+                            tr_type, tr_id)
+                    if not pickup_entry_exists_for_order_zone(order.id, zone_id):
+                        # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
+                        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
+                        if not zone_picker_assigned_user:
+                            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                user_enabled=True, zone_id=zone_id). \
+                                order_by('-last_assigned_at').last()
+                        if zone_picker_assigned_user:
+                            picker_user = zone_picker_assigned_user.user
+                            zone_picker_assigned_user.last_assigned_at = datetime.now()
+                            zone_picker_assigned_user.save()
+                            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                            PickerDashboard.objects.create(
+                                order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                        else:
+                            order.order_status = Order.PICKUP_CREATED
+                            cron_logger.info('Picker user not found for zone {}'.format(zone_id))
+                            # Create Entry in PickerDashboard with PICKING_PENDING status
+                            PickerDashboard.objects.create(
+                                order=order, picking_status="picking_pending", zone_id=zone_id,
+                                picker_boy=None, picklist_id=generate_picklist_id(pincode))
+                        cron_logger.info(
+                            'picker dashboard entry created for order {} & zone {}, order status updated to {}'
+                                .format(order.id, zone_id, order.PICKUP_CREATED))
+
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
@@ -923,8 +1145,7 @@ def pickup_entry_creation_with_cron():
 
     cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
     cron_log_entry.completed_at = timezone.now()
-    cron_logger.info("{} completed, cron log entry-{}"
-                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
 
 
@@ -2215,31 +2436,64 @@ def assign_putaway_users_to_new_putways():
     """
         Assign Putaway users to all those putaways whose zone exists but putaway user not assigned
     """
-    objs = Putaway.objects.filter(putaway_type='GRN', putaway_user=None, status=Putaway.PUTAWAY_STATUS_CHOICE.NEW). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
+    objs = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled'],
+        putaway_user=None, status=Putaway.PUTAWAY_STATUS_CHOICE.NEW). \
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                ),
+                zone=Subquery(WarehouseAssortment.objects.filter(
+                    warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                ). \
         exclude(zone__isnull=True)
     cron_logger.info(objs.count())
 
-    grouped_objs = objs.values('grn_id', 'zone').annotate(count=Count('grn_id')).order_by()
+    grouped_objs = objs.values('token_id', 'zone').annotate(count=Count('token_id')).order_by()
     for i, x in enumerate(grouped_objs):
-        zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
-            zone=x['zone'], last_assigned_at=None).last()
-        if not zone_putaway_assigned_user:
-            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
-                order_by('-last_assigned_at').last()
-        if zone_putaway_assigned_user:
-            putaway_user = zone_putaway_assigned_user.user
-            zone_putaway_assigned_user.last_assigned_at = datetime.now()
-            zone_putaway_assigned_user.save()
-            reflected_putaways = objs.filter(grn_id=x['grn_id'], zone=x['zone'])
+        putaway_obj = Putaway.objects.filter(
+            putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled'],
+            status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED). \
+            annotate(token_id=Case(
+                        When(putaway_type='GRN',
+                             then=Cast(Subquery(In.objects.filter(
+                                 id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                                order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                        When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                             then=Cast('putaway_type_id', models.CharField())),
+                        output_field=models.CharField(),
+                    ),
+                    zone=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                    ). \
+            filter(token_id=x['token_id'], zone=x['zone'])
+        if putaway_obj:
+            putaway_user = putaway_obj.last().putaway_user
+        else:
+            zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(
+                zone=x['zone'], last_assigned_at=None).last()
+            if not zone_putaway_assigned_user:
+                zone_putaway_assigned_user = ZonePutawayUserAssignmentMapping.objects.filter(zone=x['zone']). \
+                    order_by('-last_assigned_at').last()
+            if zone_putaway_assigned_user:
+                putaway_user = zone_putaway_assigned_user.user
+                zone_putaway_assigned_user.last_assigned_at = datetime.now()
+                zone_putaway_assigned_user.save()
+        if putaway_user:
+            reflected_putaways = objs.filter(token_id=x['token_id'], zone=x['zone'])
             reflected_list = list(reflected_putaways.values_list('id', flat=True))
             reflected_putaways.update(putaway_user=putaway_user, status=Putaway.PUTAWAY_STATUS_CHOICE.ASSIGNED)
-            cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for GRN Id: " + str(x['grn_id']) +
+            cron_logger.info("Updated Putaway user: " + str(putaway_user) + " for Token Id: " + str(x['token_id']) +
                              ", Zone Id: " + str(x['zone']) + ", Putaway ids reflected: " + str(reflected_list) + ".")
 
 
@@ -2249,9 +2503,9 @@ def WarehouseAssortmentDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
-                     'zone_id', 'zone_supervisor', 'zone_coordinator'])
+                     'zone_number', 'zone_supervisor', 'zone_coordinator'])
     writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "PSNGLOC8204", "Zoff Meat Masala 7",
-                     "8", "7763886418 - PAL", "8368222416 - Baljeet"])
+                     "W000600Z01", "7763886418 - PAL", "8368222416 - Baljeet"])
     return response
 
 
@@ -2272,7 +2526,7 @@ def WarehouseAssortmentUploadCsvView(request):
                 for row, data in enumerate(reader):
                     warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
                         warehouse_id=data[0], product=ParentProduct.objects.get(parent_id=data[2]),
-                        defaults={'zone_id': data[4]})
+                        defaults={'zone': Zone.objects.filter(zone_number=data[4]).last()})
 
                     if created:
                         warehouse_assortment_object.created_by = request.user
@@ -2307,3 +2561,212 @@ class QCAreaBarcodeGenerator(APIView):
             area_barcode_txt = '30' + str(qcarea.id).zfill(10)
         qcarea_data = {area_barcode_txt: {"qty": 1, "data": {"QC Area": qcarea.area_id}}}
         return merged_barcode_gen(qcarea_data)
+
+
+class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Putaway')).exclude(putaway_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+        return qs
+
+
+class PutawayUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Putaway'))
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
+        return qs
+
+
+class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Picker Boy')).exclude(picker_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+        return qs
+
+
+class PickerUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Picker Boy'))
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
+        return qs
+
+
+class InOutLedgerReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_in_out_ledger_report(self, product_id, warehouse_id, start_date, end_date, inventory_types_qs):
+        sku_id = Product.objects.filter(id=product_id).last().product_sku
+        ins = In.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                created_at__lte=end_date)
+        outs = Out.objects.filter(sku=sku_id, warehouse=warehouse_id, created_at__gte=start_date,
+                                  created_at__lte=end_date)
+        data = sorted(itertools.chain(ins, outs), key=lambda instance: instance.created_at)
+
+        ins_type_wise_qty = ins.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+        out_type_wise_qty = outs.values('inventory_type').order_by('inventory_type').annotate(total_qty=Sum('quantity'))
+
+        in_type_ids = {x['inventory_type']: x['total_qty'] for x in ins_type_wise_qty}
+        out_type_ids = {x['inventory_type']: x['total_qty'] for x in out_type_wise_qty}
+
+        ins_count_list = ['TOTAL IN QUANTITY']
+        outs_count_list = ['TOTAL OUT QUANTITY']
+        for i in range(len(inventory_types_qs)):
+            if i + 1 in in_type_ids:
+                ins_count_list.append(in_type_ids[i + 1])
+            else:
+                ins_count_list.append('0')
+            if i + 1 in out_type_ids:
+                outs_count_list.append(out_type_ids[i + 1])
+            else:
+                outs_count_list.append('0')
+        return data, ins_count_list, outs_count_list
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        sku_id = self.request.GET.get('sku')
+        warehouse_id = self.request.GET.get('warehouse')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/in-out-ledger.html',
+                {'form': InOutLedgerForm(initial=self.request.GET)}
+            )
+        it_qs = InventoryType.objects.values('id', 'inventory_type').order_by('id')
+        inventory_types = list(x['inventory_type'].upper() for x in it_qs)
+        data, ins_qtylst, outs_qtylst = self.get_in_out_ledger_report(sku_id, warehouse_id, start_date, end_date, it_qs)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="ledger-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow([''] + inventory_types)
+        writer.writerow(ins_qtylst)
+        writer.writerow(outs_qtylst)
+        writer.writerow([])
+        writer.writerow(['TRANSACTION TIMESTAMP', 'SKU', 'WAREHOUSE', 'INVENTORY TYPE', 'MOVEMENT TYPE',
+                         'TRANSACTION TYPE', 'TRANSACTION ID', 'QUANTITY'])
+        for obj in data:
+            created_at = obj.created_at.strftime('%b %d,%Y %H:%M:%S')
+            if obj.__class__.__name__ == 'In':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "IN", obj.in_type,
+                                 obj.in_type_id, obj.quantity])
+            elif obj.__class__.__name__ == 'Out':
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, "OUT", obj.out_type,
+                                 obj.out_type_id, obj.quantity])
+            else:
+                writer.writerow([created_at, obj.sku, obj.warehouse, obj.inventory_type, None, None, None,
+                                 obj.quantity])
+        return response
+
+
+class InOutLedgerFormView(View):
+    def get(self, request):
+        form = InOutLedgerForm()
+        return render(
+            self.request,
+            'admin/services/in-out-ledger.html',
+            {'form': form}
+        )
+
+
+class IncorrectProductBinMappingReport(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def get_report_data(start_date, end_date):
+        data = Pickup.objects.select_related('warehouse', 'sku', 'zone'). \
+            prefetch_related('bin_inventory', 'bin_inventory__bin', 'bin_inventory__bin_zone'). \
+            filter(created_at__gte=start_date, created_at__lte=end_date). \
+            exclude(zone__isnull=True). \
+            exclude(zone=F('bin_inventory__bin_zone')). \
+            values('pickup_type_id', 'sku', 'zone__zone_number', 'zone__name', 'bin_inventory__bin__bin__bin_id',
+                   'bin_inventory__bin_zone__zone_number', 'bin_inventory__bin_zone__name', 'pickup_quantity',
+                   'created_at').order_by('-id')
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        error = False
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/incorrect-product-bin-mapping.html',
+                {'form': IncorrectProductBinMappingForm(initial=self.request.GET)}
+            )
+        data = self.get_report_data(start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE NUMBER', 'SKU ZONE NAME', 'BIN', 'BIN ZONE NUMBER',
+                         'BIN ZONE NAME', 'QUANTITY', 'CREATED DATE'])
+        for obj in data:
+            created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
+            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone__zone_number'], obj['zone__name'],
+                             obj['bin_inventory__bin__bin__bin_id'], obj['bin_inventory__bin_zone__zone_number'],
+                             obj['bin_inventory__bin_zone__name'], obj['pickup_quantity'], created_at])
+        return response
+
+
+class IncorrectProductBinMappingFormView(View):
+    def get(self, request):
+        form = IncorrectProductBinMappingForm()
+        return render(
+            self.request,
+            'admin/services/incorrect-product-bin-mapping.html',
+            {'form': form}
+        )

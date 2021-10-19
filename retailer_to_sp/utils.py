@@ -174,6 +174,20 @@ def picklist_ids(picker_dashboards):
             ) for s in picker_dashboards)
     )
 
+def qc_areas(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.qc_area, #get_qc_area_display(),
+            ) for s in picker_dashboards)
+    )
+
+def zones(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.zone, #get_zone_display(),
+            ) for s in picker_dashboards)
+    )
+
 
 def order_shipment_status(shipments):
     return format_html_join(
@@ -289,8 +303,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         'Pincode(Buyer Shop)', 'Order MRP Amount', 'Order Amount',
         'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status', 'Trip Id',
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
-        'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'Picker Boy', 'Picking Completed At',
-        'Picking Completion Time'])
+        'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'QC Area', 'Picker Boy', 'Picker Boy Name',
+        'Picking Completed At', 'Picking Completion Time'])
 
     order_payments = OrderPayment.objects.filter(order=OuterRef('pk')).order_by().values('order')
     order_paid_amount = order_payments.annotate(sum=Sum('paid_amount')).values('sum')
@@ -325,7 +339,9 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'rt_order_order_product__trip__completed_at',
                 'picker_order__picking_status',
                 'picker_order__picklist_id',
+                'picker_order__qc_area__area_id',
                 'picker_order__picker_boy__phone_number',
+                'picker_order__picker_boy__first_name',
                 'shipment_paid_amount',
                 'order_paid_amount',
                 'total_mrp', 'ordered_cart__offers',
@@ -377,7 +393,9 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             picking_status_dict.get(order.get('picker_order__picking_status'),
                                  order.get('picker_order__picking_status')),
             order.get('picker_order__picklist_id'),
+            order.get('picker_order__qc_area__area_id'),
             order.get('picker_order__picker_boy__phone_number'),
+            order.get('picker_order__picker_boy__first_name'),
             order.get('picker_order__completed_at'),
             time_diff_days_hours_mins_secs(order.get('picker_order__completed_at'),
                                            order.get('picker_order__picker_assigned_date'))
