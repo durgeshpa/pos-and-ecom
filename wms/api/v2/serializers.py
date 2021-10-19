@@ -1526,6 +1526,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             validated_data['picking_status'] = 'moved_to_qc'
             with transaction.atomic():
                 picker_dashboard_instance = super().update(instance, validated_data)
+                post_picking_order_update(instance)
             return picker_dashboard_instance
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
