@@ -514,7 +514,7 @@ def create_credit_note_on_trip_close(trip_id):
                     )
                 grn_item.save()
                 try:
-                    credit_amount += ((item.shipped_qty - item.delivered_qty) * float(item.effective_price))
+                    credit_amount += ((float(item.shipped_qty) - float(item.delivered_qty)) * float(item.effective_price))
                 except Exception as e:
                     logger.exception("Product price not found for {} -- {}".format(item.product, e))
 
