@@ -596,7 +596,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 status=True)
         for item in instance.rt_order_product_order_product_mapping.all():
             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-            credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.returned_damage_qty))
+            credit_amount += ((float(cart_product_map.item_effective_prices) - float(cart_product_map.discounted_price)) *
+                              (float(item.returned_qty) + float(item.returned_damage_qty)))
         credit_note.amount = credit_amount
         credit_note.save()
         # if(instance.rt_order_product_order_product_mapping.last() and
