@@ -148,8 +148,9 @@ class OrderedProductForm(forms.ModelForm):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_complete":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
+        if self.cleaned_data['order'].picker_order.exclude(picking_status='picking_cancelled').count() != \
+                self.cleaned_data['order'].picker_order.filter(picking_status='moved_to_qc').count():
+            raise forms.ValidationError(_("Not all the pickings are yet moved to QC Area"), )
         return data
 
 
@@ -364,24 +365,35 @@ class EditAssignPickerForm(forms.ModelForm):
             choices_list = ""
         return choices_list
 
+    # def __init__(self, *args, **kwargs):
+    #     super(EditAssignPickerForm, self).__init__(*args, **kwargs)
+    #     instance = getattr(self, 'instance', None)
+    #     if instance.order:
+    #         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
+    #     else:
+    #         shop = instance.repackaging.seller_shop
+    #     # shop = Shop.objects.get(shop_name="TEST SP 1")
+    #
+    #     # find all picker for the shop
+    #     self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+    #     if instance.picking_status == "picking_pending":
+    #         self.fields['picker_boy'].required = False
+    #     else:
+    #         self.fields['picker_boy'].required = True
+    #     # self.fields['picking_status'] = forms.ChoiceField(
+    #     #     choices=self.get_my_choices() )
+    #     # self.fields['picking_status'].choices = self.get_my_choices()
+
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance.order:
-            shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
-        else:
-            shop = instance.repackaging.seller_shop
-        # shop = Shop.objects.get(shop_name="TEST SP 1")
+        self.fields['picker_boy'].queryset = User.objects.exclude(picker_zone_users__isnull=True). \
+            filter(picker_zone_users=instance.zone)
 
-        # find all picker for the shop
-        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
             self.fields['picker_boy'].required = False
         else:
             self.fields['picker_boy'].required = True
-        # self.fields['picking_status'] = forms.ChoiceField(
-        #     choices=self.get_my_choices() )
-        # self.fields['picking_status'].choices = self.get_my_choices()
 
     def clean(self):
         data = self.cleaned_data

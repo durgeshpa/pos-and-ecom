@@ -28,11 +28,11 @@ from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones)
 
 from addresses.models import Address
-from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, \
-    InventoryState, Bin
+
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
 from brand.models import Brand
@@ -885,6 +885,9 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_PARTIAL_COMPLETE = 'PICKING_PARTIAL_COMPLETE'
+    MOVED_TO_QC = 'MOVED_TO_QC'
+    PARTIAL_MOVED_TO_QC = 'PARTIAL_MOVED_TO_QC'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
@@ -917,6 +920,9 @@ class Order(models.Model):
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (COMPLETED, 'Completed'),
+        (PICKING_PARTIAL_COMPLETE, 'Picking Partial Complete'),
+        (MOVED_TO_QC, 'Moved To QC Area'),
+        (PARTIAL_MOVED_TO_QC, 'Partially Moved To QC Area'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
@@ -1088,6 +1094,14 @@ class Order(models.Model):
     @property
     def picklist_id(self):
         return picklist_ids(self.picker_dashboards())
+
+    @property
+    def qc_area(self):
+        return qc_areas(self.picker_dashboards())
+
+    @property
+    def zone(self):
+        return zones(self.picker_dashboards())
 
     @property
     def pickup_completed_at(self):
@@ -1898,6 +1912,7 @@ class PickerDashboard(models.Model):
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
         ('picking_cancelled', 'Picking Cancelled'),
+        ('moved_to_qc', 'Moved To QC Area'),
 
     )
 
@@ -1916,21 +1931,24 @@ class PickerDashboard(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
+    zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_dashboard_zone', on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, null=True, blank=True, related_name='area_pickings', on_delete=models.DO_NOTHING)
     is_valid = models.BooleanField(default=True)
     refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
+    moved_to_qc_at = models.DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
             if self.order:
-                Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                Pickup.objects.filter(pickup_type_id=self.order.order_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
             elif self.repackaging:
-                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no,
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
@@ -2293,8 +2311,13 @@ class OrderedProductMapping(models.Model):
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last()
             # if not self.effective_price:
+<<<<<<< HEAD
                 # shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
                 # self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+=======
+            #     shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            #     self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+>>>>>>> d676582c0de6da8c5e8cefd0550a9fdfbc94f363
             self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
@@ -2849,13 +2872,13 @@ def add_to_putaway_on_return(shipment_id):
     common_on_return_and_partial(shipment, flag)
 
 
-@receiver(post_save, sender=OrderedProduct)
-def update_picking_status(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    # assign_update_picker_to_shipment.delay(instance.id)
-    assign_update_picker_to_shipment(instance.id)
+# @receiver(post_save, sender=OrderedProduct)
+# def update_picking_status(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     # assign_update_picker_to_shipment.delay(instance.id)
+#     assign_update_picker_to_shipment(instance.id)
 
 
 # @receiver(post_save, sender=Order)
