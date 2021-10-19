@@ -251,6 +251,7 @@ class UploadMasterData(object):
 
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
 
