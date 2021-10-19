@@ -582,6 +582,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     # cart_product_price = SlabProductPriceSerializer()
     cart_product_price = serializers.SerializerMethodField()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
+    qty = serializers.SerializerMethodField('qty_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
     product_price = serializers.SerializerMethodField()
@@ -595,6 +596,9 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
+
+    def qty_dt(self, obj):
+        return int(obj.qty)
 
     def get_product_price(self,obj):
         return obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))\
