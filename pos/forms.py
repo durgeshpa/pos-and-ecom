@@ -9,7 +9,8 @@ from dal import autocomplete
 from django import forms
 import csv
 
-from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct
+from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory,\
+    MeasurementUnit
 from products.models import Product
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
@@ -119,7 +120,6 @@ class RetailerProductsCSVUploadForm(forms.Form):
             if row[key_string] == '':
                 raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
 
-
     def validate_data(self, uploaded_data_by_user_list):
         """
             Validation for create Products Catalogue
@@ -131,6 +131,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'product_name', row_num)
             self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
+            self.check_mandatory_data(row, 'product_pack_type', row_num)
 
             if(row["shop_id"] != self.shop_id):
                 raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | Check the shop id, you might be uploading to wrong shop!"))
@@ -152,6 +153,21 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 if row['linked_product_sku'] !='':
                     if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
                         raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+
+            # Validate packaging type and measurement category
+            if row['product_pack_type'].lower() not in ['loose', 'packet']:
+                raise ValidationError(_(f"Row {row_num} | Invalid product_pack_type. Options are 'packet' or 'loose'"))
+            if row['product_pack_type'] == 'loose':
+                self.check_mandatory_data(row, 'measurement_category', row_num)
+                try:
+                    measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
+                    # MeasurementUnit.objects.filter(category=measure_cat).last()
+                except:
+                    raise ValidationError(_(f"Row {row_num} | Invalid measurement_category."))
+                row['purchase_pack_size'] = 1
+
+            if not str(row['purchase_pack_size']).isdigit():
+                raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
 
     def read_file(self, headers, reader):
         """
@@ -202,4 +218,36 @@ class PosInventoryChangeCSVDownloadForm(forms.Form):
         queryset = RetailerProduct.objects.filter(~Q(sku_type=4)),
         widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete',)
     )
+
+
+class MeasurementUnitFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(MeasurementUnitFormSet, self).clean()
+        count = 0
+        valid = True
+        default_count = 0
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if form.instance.default:
+                    default_count += 1
+            else:
+                valid = False
+
+        if count < 1:
+            raise ValidationError("At least one Measurement Unit is required")
+
+        if default_count > 1:
+            raise ValidationError("Only one Measurement Unit can be set as default")
+
+        if default_count < 1:
+            raise ValidationError("Please set one Measurement Unit as default")
+
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = MeasurementUnit
 

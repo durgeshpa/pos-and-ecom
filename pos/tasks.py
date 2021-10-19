@@ -1,7 +1,10 @@
 import logging
+import random
 import sys
 import os
+from decimal import *
 from celery.task import task
+from django.core.files.base import ContentFile
 from elasticsearch import Elasticsearch
 import datetime
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -13,11 +16,11 @@ from django.core.mail import EmailMessage
 from global_config.models import GlobalConfig
 from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from pos.models import RetailerProduct, PosCart
+from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
-from pos.common_functions import RewardCls, RetailerProductCls
+from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_note_number
 from marketing.sms import SendSms
 from pos.offers import BasicCartOffers
 
@@ -101,6 +104,10 @@ def update_es(products, shop_id):
                 }
             ]
 
+        units = None
+        if product.product_pack_type == 'loose':
+            units = list(MeasurementUnit.objects.filter(category=product.measurement_category).values_list('unit', flat=True))
+
         params = {
             'id': product.id,
             'name': product.name,
@@ -125,10 +132,14 @@ def update_es(products, shop_id):
             'offer_price': product.offer_price,
             'offer_start_date': product.offer_start_date,
             'offer_end_date': product.offer_end_date,
+            'product_pack_type': product.product_pack_type,
+            'measurement_category': product.measurement_category.category if product.measurement_category else None,
+            'units': units,
             'combo_available': True if coupons else False,
             'coupons': coupons,
             'online_enabled': product.online_enabled,
-            'online_price': product.online_price if product.online_price else product.selling_price
+            'online_price': product.online_price if product.online_price else product.selling_price,
+            'purchase_pack_size': product.purchase_pack_size
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
@@ -213,6 +224,112 @@ def mail_to_vendor_on_po_creation(cart_id):
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         error_logger.error("Retailer PO mail, sms not sent - Po number {}, {}, line no {}".format(instance.po_no, e,
+                                                                                                  exc_tb.tb_lineno))
+
+
+def genrate_debit_note_pdf(returned_obj, debit_note_number):
+    returned_items_objs = PosReturnItems.objects.filter(grn_return_id=returned_obj, is_active=True)
+    products_list = []
+    total_amount = 0
+    sum_qty = 0
+    for return_item in returned_items_objs:
+        product_dict = {'product_id': return_item.product.pk, 'description': return_item.product.name,
+                        'return_qty': return_item.return_qty, 'selling_price': return_item.selling_price,
+                        'mrp': return_item.product.mrp,
+                        'return_amount': Decimal(return_item.return_qty) * Decimal(return_item.selling_price)}
+        total_amount += (Decimal(return_item.return_qty) * Decimal(return_item.selling_price))
+        sum_qty += return_item.return_qty
+        products_list.append(product_dict)
+    amt = [num2words(i) for i in str(total_amount).split('.')]
+    amt_in_words = amt[0]
+
+    billing_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+        shop_name_address_mapping.filter(address_type='billing').last()
+    shipping_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+        shop_name_address_mapping.filter(address_type='billing').last()
+
+    data = {
+        "grn_id": returned_obj.grn_ordered_id.grn_id,
+        "invoice_number": returned_obj.grn_ordered_id.invoice_no,
+        "cart_instance": returned_obj.grn_ordered_id.order.ordered_cart,
+        "purchase_return_instance": returned_obj,
+        "billing": billing_address_instance,
+        "shipping": shipping_address_instance,
+        "return_id": returned_obj.pk,
+        "debit_note_number": debit_note_number,
+        "products": products_list,
+        "sum_qty": sum_qty,
+        "total_amount": total_amount,
+        "amt_in_words": amt_in_words,
+        "url": get_config('SITE_URL'),
+        "scheme": get_config('CONNECTION')
+    }
+    return data
+
+
+def update_debit_note_pdf(returned_obj, filename, response):
+    try:
+        returned_obj.debit_note.save("{}".format(filename), ContentFile(response.rendered_content), save=True)
+        returned_obj.save()
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        error_logger.exception(e)
+
+
+@task
+def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
+    instance = PosReturnGRNOrder.objects.get(id=pos_return_items_obj)
+    try:
+        recipient_list = [instance.grn_ordered_id.order.ordered_cart.vendor.email]
+        vendor_name = instance.grn_ordered_id.order.ordered_cart.vendor.vendor_name
+        template_name = 'admin/return_order/debit_note.html'
+        subject = "Purchase Return {} | {}".format(instance.pr_number,
+                                                   instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+        body = 'Dear {}, \n \n Find attached PR from {}, PepperTap POS. \n \n Note: Take Prior appointment before ' \
+               'return and bring PR copy along with Original Invoice. \n \n Thanks, \n {}'.format(
+            vendor_name, instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name,
+            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+
+        if instance.debit_note_number:
+            debit_note_number = instance.debit_note_number
+        else:
+            debit_note_number = generate_debit_note_number(instance,
+                                                           instance.grn_ordered_id.order.ordered_cart.retailer_shop.pk)
+            instance.debit_note_number = debit_note_number
+        random_num = random.randint(10000, 99999)
+        filename = 'PR_PDF_{}_{}_{}_{}.pdf'.format(debit_note_number, datetime.datetime.today().date(), vendor_name,
+                                                   random_num)
+        cmd_option = {
+            'encoding': 'utf8',
+            'margin-top': 3
+        }
+        data = genrate_debit_note_pdf(instance, debit_note_number)
+        response = PDFTemplateResponse(request=None, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        update_debit_note_pdf(instance, filename, response)
+        email = EmailMessage()
+        email.subject = subject
+        email.body = body
+        sender = GlobalConfig.objects.get(key='sender')
+        email.from_email = sender.value
+        email.to = recipient_list
+        email.attach(filename, response.rendered_content, 'application/pdf')
+        email.send()
+
+        # send sms
+        body = 'Dear {}, \n \n PR number {} has been generated from {}, PepperTap POS and sent to you over mail.' \
+               '\n \n Note: Take Prior appointment before return and bring PR copy along with Original Invoice.' \
+               '\n \n Thanks, \n {}'.format(vendor_name, instance.pr_number,
+                                            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name,
+                                            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+
+        message = SendSms(phone=instance.grn_ordered_id.order.ordered_cart.vendor.phone_number,
+                          body=body)
+        message.send()
+
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        error_logger.error("Retailer PR mail, sms not sent - PR number {}, {}, line no {}".format(instance.pr_number, e,
                                                                                                   exc_tb.tb_lineno))
 
 
