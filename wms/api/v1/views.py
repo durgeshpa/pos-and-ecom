@@ -447,12 +447,6 @@ class BinIDList(APIView):
         for pick_up in pickup_bin_obj:
             if pick_up.bin.bin.id in bins_added:
                 continue
-<<<<<<< HEAD
-            pick_list.append({
-                "id": pick_up.bin.bin.id,
-                "bin_id": pick_up.bin.bin.bin_id,
-                "pickup_status": pick_up.pickup.status
-=======
             bins_added.append(pick_up.bin.bin.id)
 
             if pick_up.pickup_quantity is None:
@@ -468,7 +462,6 @@ class BinIDList(APIView):
                 "id": pick_up.bin.bin.id,
                 "bin_id": pick_up.bin.bin.bin_id,
                 "pickup_status": pickup_status
->>>>>>> d676582c0de6da8c5e8cefd0550a9fdfbc94f363
             })
         serializer = OrderBinsSerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK',
