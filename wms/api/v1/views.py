@@ -443,9 +443,11 @@ class BinIDList(APIView):
         if not pickup_bin_obj.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 
+        bins_added = []
         for pick_up in pickup_bin_obj:
-            if pick_up.bin.bin in pick_list:
+            if pick_up.bin.bin.id in bins_added:
                 continue
+            bins_added.append(pick_up.bin.bin.id)
 
             if pick_up.pickup_quantity is None:
                 pickup_status = 'picking_pending'
