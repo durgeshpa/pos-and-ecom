@@ -520,6 +520,7 @@ def create_credit_note_on_trip_close(trip_id):
 
             credit_note.amount = credit_amount
             credit_note.save()
+
         if shipment.order.ordered_cart.approval_status == True:
             invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
             last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
@@ -550,7 +551,7 @@ def create_credit_note_on_trip_close(trip_id):
                     credit_note_type = 'DISCOUNTED',
                     status=True)
             for item in shipment.rt_order_product_order_product_mapping.all():
-                credit_amount += (float(item.effective_price) - float(item.discounted_price)) * item.delivered_qty
+                credit_amount += (float(item.effective_price) - float(item.discounted_price)) * float(item.delivered_qty)
             credit_note.amount = credit_amount
             credit_note.save()
 
