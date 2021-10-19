@@ -3,6 +3,7 @@ import copy
 import csv
 import re
 from itertools import chain
+from threading import Lock
 
 from django.db import transaction, models
 from django.contrib.auth import get_user_model
@@ -29,6 +30,7 @@ from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, B
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
+lock = Lock()
 
 
 class InSerializer(serializers.ModelSerializer):
@@ -1510,22 +1512,24 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             return {"error": f"QcArea updation not allowed for order {instance.order}."}
         return {'data': instance}
 
-    @transaction.atomic
     def update(self, instance, validated_data):
         """
         @param instance: PickerDashboard model instance
         @param validated_data: dict object
         @return: AllocateQCAreaSerializer serializer object
         """
+        lock.acquire()
         try:
             is_validated = self.check_for_qc_area(instance, validated_data)
             if 'error' in is_validated:
                 return is_validated['error']
             validated_data['picking_status'] = 'moved_to_qc'
-            picker_dashboard_instance = super().update(instance, validated_data)
-            post_picking_order_update(instance)
+            with transaction.atomic():
+                picker_dashboard_instance = super().update(instance, validated_data)
+            return picker_dashboard_instance
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        return picker_dashboard_instance
+        finally:
+            lock.release()
 
