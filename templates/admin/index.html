@@ -80,9 +80,12 @@
                 {% endif %}
 
                {% if app.name == "Wms" %}
-                   {% if model.name == "Warehouse inventorys" %}
+                   {% if model.name == "Zones" %}
                    <tr>
                         <th scope="row"><a href="/admin/wms/in/in-out-ledger-form/">WMS In Out Ledger Report</a></th>
+                   </tr>
+                   <tr>
+                        <th scope="row"><a href="/admin/wms/pickup/incorrect-product-bin-mapping-form/">WMS Incorrect Mapping Report</a></th>
                    </tr>
                     {% endif %}
                 {% endif %}

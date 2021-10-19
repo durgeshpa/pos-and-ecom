@@ -1,13 +1,15 @@
 import logging
+from datetime import datetime
+
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Subquery, OuterRef
+from django.db.models import Subquery, OuterRef, Case, When
 from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Pickup
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ def validate_data_format(request):
     return data
 
 
-def get_validate_putaway_users(putaway_users):
+def get_validate_putaway_users(putaway_users, warehouse_id):
     """
     validate ids that belong to a User model also
     checking putaway_user shouldn't repeat else through error
@@ -66,7 +68,9 @@ def get_validate_putaway_users(putaway_users):
             putaway_user = get_user_model().objects.get(
                 id=int(putaway_users_data['id']))
             if not putaway_user.groups.filter(name='Putaway').exists():
-                return {'error': '{} putaway_user does not have required permission.'.format(putaway_users_data['id'])}
+                return {'error': '{} putaway_user does not have required permission.'.format(str(putaway_user.id))}
+            if putaway_user.shop_employee.last().shop_id != warehouse_id:
+                return {'error': '{} putaway_user does not mapped to selected warehouse.'.format(str(putaway_user.id))}
         except Exception as e:
             logger.error(e)
             return {'error': '{} putaway_user not found'.format(putaway_users_data['id'])}
@@ -97,6 +101,31 @@ def get_validate_picker_users(picker_users):
             return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
+
+def get_validate_picker_users(picker_users, warehouse_id):
+    """
+    validate ids that belong to a User model also
+    checking picker_user shouldn't repeat else through error
+    """
+    picker_users_list = []
+    picker_users_obj = []
+    for picker_users_data in picker_users:
+        try:
+            picker_user = get_user_model().objects.get(
+                id=int(picker_users_data['id']))
+            if not picker_user.groups.filter(name='Picker Boy').exists():
+                return {'error': '{} picker_user does not have required permission.'.format(picker_users_data['id'])}
+            if picker_user.shop_employee.last().shop_id != warehouse_id:
+                return {'error': '{} picker_user does not mapped to selected warehouse.'.format(str(picker_user.id))}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} picker_user not found'.format(picker_users_data['id'])}
+        picker_users_obj.append(picker_user)
+        if picker_user in picker_users_list:
+            return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
+        picker_users_list.append(picker_user)
+    return {'picker_users': picker_users_obj}
+
 
 def get_csv_file_data(csv_file, csv_file_headers):
     uploaded_data_by_user_list = []
@@ -187,19 +216,48 @@ def read_warehouse_assortment_file(warehouse, csv_file, upload_type):
             "Please add some data below the headers to upload it!")
 
 
-def validate_putaways_by_grn_and_zone(grn_id, zone_id):
+def validate_putaways_by_token_id_and_zone(token_id, zone_id):
     """validation warehouse assortment for the selected warehouse and product"""
-    putaways = Putaway.objects.filter(putaway_type='GRN'). \
-        annotate(putaway_type_id_key=Cast('putaway_type_id', models.IntegerField()),
-                 grn_id=Subquery(In.objects.filter(id=OuterRef('putaway_type_id_key')).
-                                 order_by('-in_type_id').values('in_type_id')[:1]),
-                 zone_id=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
-        filter(zone_id=zone_id, grn_id=grn_id)
+    putaways = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                ),
+                    zone_id=Subquery(WarehouseAssortment.objects.filter(
+                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                ). \
+        filter(zone_id=zone_id, token_id=token_id, status__in=[Putaway.NEW, Putaway.ASSIGNED])
     if not putaways.exists():
-        return {'error': 'please provide a valid GRN Id / Zone Id.'}
+        return {'error': 'please provide a valid Token Id / Zone Id.'}
     return {'data': putaways.all()}
+
+
+def validate_grouped_request(request):
+    data_days = request.GET.get('data_days')
+    created_at = request.GET.get('created_at')
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    if created_at:
+        try:
+            if data_days:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+
+    return {"data": request}
 
 
 def validate_putaway_user_by_zone(zone, putaway_user_id):
