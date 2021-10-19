@@ -1108,12 +1108,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         % obj.pk)
 
     def buyer_shop_type(self, obj):
-<<<<<<< HEAD
-        if obj.buyer_shop:
-            return obj.buyer_shop.shop_type
-=======
         return obj.buyer_shop.shop_type if obj.buyer_shop else None
->>>>>>> d676582c0de6da8c5e8cefd0550a9fdfbc94f363
 
     def app_type(self, obj):
         """
