@@ -375,7 +375,6 @@ def ordered_product_mapping_shipment(request):
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
                 to_be_shipped_qty = shipment_product_dict.get('shipped_qty__sum')
                 ordered_no_pieces = int(item['no_of_pieces'])
-                print(ordered_no_pieces)
                 if ordered_no_pieces != to_be_shipped_qty:
                     products_list.append({
                         'product': item['cart_product'],
