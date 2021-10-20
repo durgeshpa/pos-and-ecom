@@ -2,6 +2,7 @@ import codecs
 import csv
 import os
 import datetime
+from decimal import Decimal
 
 from dal import autocomplete
 from dateutil.relativedelta import relativedelta
@@ -16,7 +17,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from wkhtmltopdf.views import PDFTemplateResponse
 
-from pos.common_functions import RetailerProductCls
+from accounts.models import User
+from pos.common_functions import RetailerProductCls, PosInventoryCls
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, MeasurementCategory
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm
@@ -81,14 +83,16 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 # we need to create this product
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
-                measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+                measure_cat_id = None
+                if row.get('measurement_category'):
+                    measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
 
                 if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
                     if row.get('linked_product_sku') != '':
                         # If product is linked with existing product
                         if Product.objects.filter(product_sku=row.get('linked_product_sku')):
                             product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                            RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                            r_product = RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                        row.get('selling_price'), product.id,
                                                                        2, row.get('description'),
                                                                        row.get('product_ean_code'),
@@ -98,13 +102,18 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                        True, None, row.get('purchase_pack_size', 1))
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                    r_product = RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                row.get('selling_price'), None,
                                                                1, row.get('description'), row.get('product_ean_code'),
                                                                request.user, 'product', row.get('product_pack_type'),
                                                                measure_cat_id, None,
                                                                row.get('status'), None, None, None, None,
                                                                True, None, row.get('purchase_pack_size', 1))
+                # # Add Inventory
+                # PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                #                                 round(Decimal(row.get('quantity')), 3), User.objects.get(id=9),
+                #                                 r_product.sku,
+                #                                 PosInventoryChange.STOCK_ADD)
 
             else:
                 # we need to update existing product
@@ -128,6 +137,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                     return render(request, 'admin/pos/retailerproductscsvupload.html',
                                   {'form': form,
                                    'error': "Please check for correct format"})
+
 
 
 def upload_retailer_products_list(request):
