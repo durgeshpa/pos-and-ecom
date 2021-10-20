@@ -81,6 +81,7 @@ ERROR_MESSAGES = {
     'EXPIRED_NON_ZERO': 'For Future expiry date, the expired qty should be 0',
     'NORMAL_NON_ZERO': 'For Past expiry date, the normal and damaged qty should be 0',
     'BATCH_BIN_ISSUE': 'This batch {} is not found in this bin {}',
+    'BIN_INACTIVE': 'This bin is inactive',
     'DIFF_BATCH_ONE_BIN': 'Quantity could not be updated as different expiry date product already present in this bin',
     'AUDIT_SKU_NOT_IN_SCOPE': "This sku is out of scope for this audit",
     'AUDIT_BIN_NOT_IN_SCOPE': "This bin is out of scope for this audit",

@@ -601,6 +601,9 @@ class AuditInventory(APIView):
         if bin is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'bin', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        if bin and not bin.is_active:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['BIN_INACTIVE'], 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
 
         sku = request.GET.get('sku')
         if not sku:
@@ -641,6 +644,9 @@ class AuditInventory(APIView):
         bin = Bin.objects.filter(warehouse=audit.warehouse, bin_id=bin_id).last()
         if bin is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'bin', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        if bin and not bin.is_active:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['BIN_INACTIVE'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         batch_id = request.data.get('batch_id')
         if not batch_id:
