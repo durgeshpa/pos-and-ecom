@@ -3,6 +3,7 @@ import copy
 import csv
 import re
 from itertools import chain
+from threading import Lock
 
 from django.db import transaction, models
 from django.contrib.auth import get_user_model
@@ -17,7 +18,7 @@ from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct, ProductImage, Repackaging
+from products.models import Product, ParentProduct, ProductImage, ParentProductImage, Repackaging
 from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
 from shops.models import Shop, ShopUserMapping
 
@@ -30,6 +31,7 @@ from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, B
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
 
 User = get_user_model()
+lock = Lock()
 
 
 class InSerializer(serializers.ModelSerializer):
@@ -176,6 +178,16 @@ class WarehouseSerializer(serializers.ModelSerializer):
         return representation['warehouse']
 
 
+class ParentProductImageSerializers(serializers.ModelSerializer):
+    image = serializers.ImageField(
+        max_length=None, use_url=True,
+    )
+
+    class Meta:
+        model = ParentProductImage
+        fields = ('id', 'image_name', 'image',)
+
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -184,11 +196,18 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ChildProductSerializer(serializers.ModelSerializer):
     """ Serializer for Product"""
-    product_pro_image = ProductImageSerializer(read_only=True, many=True)
+    product_pro_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
+
+    def get_product_pro_image(self, obj):
+        if not obj.use_parent_image:
+            return ProductImageSerializer(obj.product_pro_image, read_only=True, many=True).data
+        else:
+            return ParentProductImageSerializers(
+                obj.parent_product.parent_product_pro_image, read_only=True, many=True).data
 
 
 class ZoneCrudSerializers(serializers.ModelSerializer):
@@ -908,9 +927,9 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
         else:
             raise serializers.ValidationError("'zone' | This is mandatory")
 
-        if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
-            raise serializers.ValidationError(
-                "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
+        # if WarehouseAssortment.objects.filter(warehouse=warehouse, product=sku.parent_product, zone=zone).exists():
+        #     raise serializers.ValidationError(
+        #         "Warehouse assortment already exist for selected 'warehouse', 'product' and 'zone'")
 
         return data
 
@@ -955,16 +974,21 @@ class UpdateZoneForCancelledPutawaySerializers(serializers.Serializer):
 
 class GroupedByGRNPutawaysSerializers(serializers.Serializer):
     token_id = serializers.CharField()
-    zone = serializers.IntegerField()
+    zone = serializers.SerializerMethodField()
     total_items = serializers.IntegerField()
     putaway_user = serializers.SerializerMethodField()
-    status = serializers.CharField()
+    putaway_status = serializers.CharField()
     putaway_type = serializers.CharField()
     created_at__date = serializers.DateField()
 
     def get_putaway_user(self, obj):
         if obj['putaway_user']:
             return UserSerializers(User.objects.get(id=obj['putaway_user']), read_only=True).data
+        return None
+
+    def get_zone(self, obj):
+        if obj['zone']:
+            return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
         return None
 
 
@@ -1292,10 +1316,11 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
                     else:
                         raise serializers.ValidationError(f"Invalid Bin {item['bin']}")
 
-                    if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
-                        item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
-                    else:
-                        raise serializers.ValidationError('Invalid reason')
+                    if item['remark'] is not None:
+                        if PutawayBinInventory.REMARK_CHOICE.__contains__(item['remark']):
+                            item['remark'] = PutawayBinInventory.REMARK_CHOICE.__getitem__(item['remark'])
+                        else:
+                            raise serializers.ValidationError('Invalid reason')
                     
                     if item['qty'] <= 0 or putaway_quantity+item['qty'] > putaway_instance.quantity:
                         raise serializers.ValidationError(f'Invalid quantity')
@@ -1458,8 +1483,9 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 elif self.initial_data['qc_area'] and PickerDashboard.objects.filter(
                         qc_area__warehouse__id=self.initial_data['warehouse'],
                         qc_area__area_id=self.initial_data['qc_area'],
-                        order__order_status=Order.MOVED_TO_QC,
-                        order__rt_order_order_product__isnull=True).exists():
+                        order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
+                        order__rt_order_order_product__isnull=True). \
+                        exclude(order=picker_dashboard_instance.order).exists():
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea {self.initial_data['qc_area']} "
                                                       f"allotted for another order.")
                 elif PickerDashboard.objects.filter(order=picker_dashboard_instance.order,
@@ -1473,22 +1499,44 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'id' | This is mandatory")
         return data
 
+    def check_for_qc_area(self, instance, validated_data):
+        qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
+                                                         order=instance.order) \
+            .exclude(id=instance.id).last()
+        if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
+            return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
+        elif validated_data['qc_area'] and PickerDashboard.objects.filter(
+                qc_area=validated_data['qc_area'],
+                order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
+                order__rt_order_order_product__isnull=True). \
+                exclude(order=instance.order).exists():
+            return {"error": f"Invalid QC Area| QcArea {validated_data['qc_area']} allotted for another order."}
+        elif PickerDashboard.objects.filter(order=instance.order,
+                                            order__rt_order_order_product__isnull=False).exists():
+            return {"error": f"QcArea updation not allowed for order {instance.order}."}
+        return {'data': instance}
 
-    @transaction.atomic
     def update(self, instance, validated_data):
         """
         @param instance: PickerDashboard model instance
         @param validated_data: dict object
         @return: AllocateQCAreaSerializer serializer object
         """
+        lock.acquire()
         try:
+            is_validated = self.check_for_qc_area(instance, validated_data)
+            if 'error' in is_validated:
+                return is_validated['error']
             validated_data['picking_status'] = 'moved_to_qc'
-            picker_dashboard_instance = super().update(instance, validated_data)
-            post_picking_order_update(instance)
+            with transaction.atomic():
+                picker_dashboard_instance = super().update(instance, validated_data)
+                post_picking_order_update(instance)
+            return picker_dashboard_instance
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        return picker_dashboard_instance
+        finally:
+            lock.release()
 
 
 class OrderSerializer(serializers.ModelSerializer):

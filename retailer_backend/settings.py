@@ -415,7 +415,8 @@ CRONJOBS = [
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
-    ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways')
+    ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
+    ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

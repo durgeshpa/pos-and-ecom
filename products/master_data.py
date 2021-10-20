@@ -245,6 +245,13 @@ class UploadMasterData(object):
                                 available_fields.append(col)
 
                     for col in available_fields:
+                        if col == 'brand_id':
+                            if 'sub_brand_id' not in available_fields or not row['sub_brand_id']:
+                                parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
+
+                        if col == 'sub_brand_id' and row['sub_brand_id']:
+                            parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
 
@@ -280,9 +287,6 @@ class UploadMasterData(object):
 
                         if col == 'brand_case_size':
                             parent_product.update(brand_case_size=int(row['brand_case_size']))
-
-                        if col == 'brand_id':
-                            parent_product.update(parent_brand=Brand.objects.filter(id=row['brand_id']).last())
 
                         if col == 'is_ptr_applicable':
                             parent_product.update(
