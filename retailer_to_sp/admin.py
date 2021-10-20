@@ -2447,6 +2447,16 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
                              self.picked_pieces_count(obj)])
         return response
 
+from django import template
+
+register = template.Library()
+
+
+@register.filter(name='stripeconversion')
+def stripe_value(total_price):
+    return str(int(total_price))
+
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)

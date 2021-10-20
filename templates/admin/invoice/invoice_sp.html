@@ -166,7 +166,7 @@ table tr td,th,h4,span,address{
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>
 								<td class="text-center"><strong>{{ m.mrp}}</strong></td>
-								<td class="text-center">{{m.shipped_qty |int}}</td>
+								<td class="text-center">{{m.shipped_qty|floatformat:"0"}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.base_price |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.price_to_retailer |floatformat:2 | intcomma}}</td>
