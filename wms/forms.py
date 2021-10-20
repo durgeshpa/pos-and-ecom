@@ -1384,18 +1384,18 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
                                       params={'value': row_id+1},)
 
-            # validation for zone id, it should be numeric.
-            if not row[4] or not re.match("^[\d]*$", row[4]):
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. It should be numeric.'),
+            # validation for zone number, it should be numeric.
+            if not row[4] or not re.match("^\w+$", row[4]):
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. It should be alphanumeric.'),
                                       params={'value': row_id + 1}, )
 
             # validation for product to check that is exist or not in the database
-            if not row[4] or not Zone.objects.filter(id=row[4]).exists():
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. Zone is not exists.'),
+            if not row[4] or not Zone.objects.filter(zone_number=row[4]).exists():
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. Zone is not exists.'),
                                       params={'value': row_id+1},)
 
             # validation for zone id is associate with executive
-            if Zone.objects.filter(id=row[4]).last().warehouse.id != int(row[0]):
+            if Zone.objects.filter(zone_number=row[4]).last().warehouse.id != int(row[0]):
                 raise ValidationError(_('Row number [%(value)s] | Warehouse not mapped to the selected Zone.'),
                                       params={'value': row_id+1},)
 

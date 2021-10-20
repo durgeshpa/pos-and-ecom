@@ -71,9 +71,15 @@ class UserLocationSerializer(serializers.Serializer):
 
 
 class ShopSerializer(serializers.ModelSerializer):
+    shipping_address = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shipping_address(obj):
+        return obj.shipping_address
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address')
 
 
 class AddressSerializer(serializers.ModelSerializer):

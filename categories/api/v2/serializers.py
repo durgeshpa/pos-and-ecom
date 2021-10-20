@@ -58,5 +58,13 @@ class AllCategorySerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         if representation['category_image']:
             representation['category_image_png'] = representation['category_image']
+        else:
+            representation['category_image_png'] = None
+        sub_cat_list = []
+        if representation['cat_parent']:
+            for sub_cat in representation['cat_parent']:
+                if sub_cat['status']:
+                    sub_cat_list.append(sub_cat)
+            representation['cat_parent'] = sub_cat_list
         return representation
 
