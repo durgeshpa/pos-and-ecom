@@ -2,6 +2,7 @@ import codecs
 import csv
 import os
 import datetime
+from copy import deepcopy
 from decimal import Decimal
 
 from dal import autocomplete
@@ -18,7 +19,7 @@ from rest_framework.views import APIView
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from accounts.models import User
-from pos.common_functions import RetailerProductCls, PosInventoryCls
+from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, MeasurementCategory
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm
@@ -40,6 +41,7 @@ class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(name__icontains=self.q)
         return qs
+
 
 class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
     """
@@ -63,6 +65,7 @@ def download_retailer_products_list_form_view(request):
         'admin/pos/retailerproductscsvdownload.html',
         {'form': form}
     )
+
 
 def download_discounted_products_form_view(request):
     """
@@ -109,18 +112,17 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                measure_cat_id, None,
                                                                row.get('status'), None, None, None, None,
                                                                True, None, row.get('purchase_pack_size', 1))
-                # # Add Inventory
-                # PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
-                #                                 round(Decimal(row.get('quantity')), 3), User.objects.get(id=9),
-                #                                 r_product.sku,
-                #                                 PosInventoryChange.STOCK_ADD)
+                # Add Inventory
+                PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                                                round(Decimal(row.get('quantity')), 3), request.user,
+                                                r_product.sku,
+                                                PosInventoryChange.STOCK_ADD)
 
             else:
                 # we need to update existing product
                 try:
-
                     product = RetailerProduct.objects.get(id=row.get('product_id'))
-
+                    old_product = deepcopy(product)
                     if (row.get('linked_product_sku') != '' and Product.objects.get(
                             product_sku=row.get('linked_product_sku'))):
                         linked_product = Product.objects.get(product_sku=row.get('linked_product_sku'))
@@ -133,11 +135,18 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                         else:
                             product.status = "active"
                     product.save()
+                    if row.get('quantity'):
+                        # Update Inventory
+                        PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                                                        PosInventoryState.AVAILABLE, row.get('quantity'),
+                                                        request.user, product.sku, PosInventoryChange.STOCK_UPDATE)
+                        # Change logs
+                        ProductChangeLogs.product_update(product, old_product, request.user, 'product',
+                                                         product.sku)
                 except:
                     return render(request, 'admin/pos/retailerproductscsvupload.html',
                                   {'form': form,
                                    'error': "Please check for correct format"})
-
 
 
 def upload_retailer_products_list(request):
@@ -374,8 +383,10 @@ def RetailerCatalogueSampleFile(request, *args):
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
          'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
-    writer.writerow(["", 36966, "", "", 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
-                     "", "", "", "", 'active', 2, 'loose', 'weight', 2])
+    writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
+                     "", "", "", "", 'active', 2, 'loose', 'weight', 1])
+    writer.writerow(["", 36966, "", "", 'Packet Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
+                     "", "", "", "", 'active', 2, 'packet', "", 2])
 
     return response
 
