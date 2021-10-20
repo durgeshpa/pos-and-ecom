@@ -113,7 +113,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             try:
                 measurement_category = MeasurementCategory.objects.get(category=attrs['measurement_category'].lower())
                 attrs['measurement_category_id'] = measurement_category.id
-                measurement_unit = MeasurementUnit.objects.get(category=measurement_category, default=True)
+                MeasurementUnit.objects.get(category=measurement_category, default=True)
             except:
                 raise serializers.ValidationError("Please provide a valid measurement category for Loose Product")
             attrs['purchase_pack_size'] = 1
