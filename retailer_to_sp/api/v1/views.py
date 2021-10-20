@@ -82,7 +82,7 @@ from marketing.models import ReferralCode
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
@@ -90,7 +90,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer)
-from pos.models import RetailerProduct, Payment as PosPayment, PaymentType
+from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
@@ -319,6 +319,10 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+
+        if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
+            filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -350,6 +354,9 @@ class SearchProducts(APIView):
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+        if self.request.GET.get('product_pack_type', 'packet') == 'loose':
+            filter_list.append({"term": {"product_pack_type": 'loose'}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -697,7 +704,7 @@ class SearchProducts(APIView):
                 product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
                 for i in product_offers:
                     if i['item_sku'] == c_p.cart_product.product_sku:
-                        p["_source"]["discounted_product_subtotal"] = i['discounted_product_subtotal']
+                        p["_source"]["discounted_product_subtotal"] = Decimal(i['discounted_product_subtotal'])
                 brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
                 for j in p["_source"]["coupon"]:
                     for i in (brand_offers + product_offers):
@@ -706,7 +713,7 @@ class SearchProducts(APIView):
             p["_source"]["user_selected_qty"] = c_p.qty or 0
             p["_source"]["ptr"] = c_p.applicable_slab_price
             p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-            p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+            p["_source"]["sub_total"] = c_p.qty * Decimal(c_p.item_effective_prices)
         return p
 
     @staticmethod
@@ -1365,7 +1372,7 @@ class CartCentral(GenericAPIView):
             if product is None:
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
-            if int(qty) == 0:
+            if not qty > 0:
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
@@ -1375,7 +1382,8 @@ class CartCentral(GenericAPIView):
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
                 cart_mapping.qty = qty
-                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
@@ -1413,7 +1421,8 @@ class CartCentral(GenericAPIView):
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
-                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+                                                             product_info['ean'], self.request.user, 'cart', 'packet',
+                                                             None, cart_id)
         PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                         self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         return product
@@ -4377,6 +4386,12 @@ class OrderReturns(APIView):
                 qty=Sum('return_qty'))['qty']
             previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
+        product = ordered_product_map.retailer_product
+        cart_product = CartProductMapping.objects.filter(cart=ordered_product_map.ordered_product.order.ordered_cart,
+                                                         retailer_product=product).last()
+        if product.product_pack_type == 'loose':
+            qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
+
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
 
@@ -4641,9 +4656,10 @@ class OrderReturnComplete(APIView):
             cart_type = order.ordered_cart.cart_type
             if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
                     cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
-                return {'error': "Order Not Valid For Return"}
+                return api_response("Order Not Valid For Return")
         except ObjectDoesNotExist:
-            return {'error': "Order Not Valid For Return"}
+            return api_response("Order Not Valid For Return")
+            # return {'error': "Order Not Valid For Return"}
 
         # Check Payment Type
         try:
@@ -5175,13 +5191,17 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 product_type=m.product_type
             ).last()
             product_pro_price_ptr = cart_product_map.selling_price
+            product = cart_product_map.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp,
-                "qty": m.shipped_qty,
-                "rate": float(product_pro_price_ptr),
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
             product_listing.append(ordered_p)
@@ -5292,12 +5312,18 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_qty = 0
 
         for item in return_items:
+            product = item.ordered_product.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             return_p = {
                 "id": item.id,
                 "product_short_description": item.ordered_product.retailer_product.product_short_description,
-                "mrp": item.ordered_product.retailer_product.mrp,
-                "qty": item.return_qty,
-                "rate": float(item.ordered_product.selling_price),
+                "mrp": item.ordered_product.retailer_product.mrp if product_pack_type == 'packet' else str(
+                    item.ordered_product.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": item.return_qty if product_pack_type == 'packet' else str(item.return_qty) + ' ' + default_unit.unit,
+                "rate": round(float(item.ordered_product.selling_price), 2) if product_pack_type == 'packet' else str(
+                    round(float(item.ordered_product.selling_price), 2)) + '/' + default_unit.unit,
                 "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
             }
             return_qty += item.return_qty
@@ -5334,7 +5360,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         # Licence
         shop_mapping = ParentRetailerMapping.objects.filter(
-            retailer=order.seller_shop.shop_name).last()
+            retailer=order.seller_shop).last()
         if shop_mapping:
             shop_name = shop_mapping.parent.shop_name
         else:

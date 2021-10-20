@@ -640,8 +640,8 @@ class PosInventoryState(models.Model):
 
 
 class PosInventory(models.Model):
-    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING, related_name='pos_inventory_product')
-    quantity = models.IntegerField(default=0)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -666,7 +666,7 @@ class PosInventoryChange(models.Model):
         (SHIPPED, 'Shipped')
     )
     product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
-    quantity = models.IntegerField()
+    quantity = models.DecimalField(max_digits=10, decimal_places=3)
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
     transaction_id = models.CharField(max_length=25)
     initial_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_initial_state', on_delete=models.DO_NOTHING)
