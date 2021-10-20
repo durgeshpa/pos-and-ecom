@@ -46,7 +46,6 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
     discounted_selling_price = forms.DecimalField(min_value=0, decimal_places=2)
     discounted_stock = forms.IntegerField(initial=0)
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.id:
@@ -62,7 +61,6 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
         self.fields['selling_price'].disabled = True
         self.fields['product_ean_code'].disabled = True
 
-
     def clean(self):
         data = self.cleaned_data
         if not data.get('product_ref'):
@@ -75,7 +73,6 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
                 DiscountedRetailerProduct.objects.filter(product_ref=data['product_ref']).exists():
             raise ValidationError(_('Discounted product already exists for this product'))
         return data
-
 
 
 class RetailerProductsCSVDownloadForm(forms.Form):
@@ -208,6 +205,7 @@ class RetailerProductMultiImageForm(forms.ModelForm):
     class Meta:
         model = RetailerProductImage
         fields = ('image',)
+
 
 class PosInventoryChangeCSVDownloadForm(forms.Form):
     """

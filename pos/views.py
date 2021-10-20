@@ -374,8 +374,10 @@ def RetailerCatalogueSampleFile(request, *args):
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
          'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
-    writer.writerow(["", 36966, "", "", 'Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
-                     "", "", "", "", 'active', 2, 'loose', 'weight', 2])
+    writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
+                     "", "", "", "", 'active', 2, 'loose', 'weight', 1])
+    writer.writerow(["", 36966, "", "", 'Packet Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
+                     "", "", "", "", 'active', 2, 'packet', "", 2])
 
     return response
 
