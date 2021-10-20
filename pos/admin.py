@@ -22,7 +22,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      ProductChangeFields, DiscountedRetailerProduct, RetailerOrderedProduct, RetailerCoupon,
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
-                     InventoryChangePos, InventoryStatePos)
+                     InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
+                     PosReturnItems)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -32,7 +33,8 @@ from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel, create_order_return_excel
-from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm
+from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
+    MeasurementUnitFormSet
 
 
 class ExportCsvMixin:
@@ -97,11 +99,11 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
+                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'created_at', 'modified_at')
+              'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     readonly_fields = (
-    'shop', 'sku', 'product_ean_code', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+    'shop', 'sku', 'product_ean_code', 'product_pack_type', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -666,7 +668,9 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
             product = RetailerProductCls.create_retailer_product(obj.shop.id, product_ref.name, product_ref.mrp,
                                                                  discounted_price, product_ref.linked_product_id, 4,
                                                                  product_ref.description, product_ref.product_ean_code,
-                                                                 user, 'product', None, product_status, None, None,
+                                                                 user, 'product', product_ref.product_pack_type,
+                                                                 product_ref.measurement_category_id,
+                                                                 None, product_status, None, None,
                                                                  None, product_ref)
 
             RetailerProductCls.copy_images(product, product_ref.retailer_product_image.all())
@@ -909,6 +913,48 @@ class ProductChangeAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(product__shop__pos_shop__user=request.user,
                          product__shop__pos_shop__status=True)
+
+
+class MeasurementUnitAdmin(admin.TabularInline):
+    model = MeasurementUnit
+    formset = MeasurementUnitFormSet
+    fields = ('unit', 'category', 'conversion', 'default')
+
+
+class PosReturnItemsAdmin(admin.TabularInline):
+    model = PosReturnItems
+    fields = ('grn_return_id', 'product', 'return_qty',)
+    autocomplete_fields = ('product',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MeasurementCategory)
+class MeasurementCategoryAdmin(admin.ModelAdmin):
+    list_display = ('category', 'default_unit')
+    inlines = [MeasurementUnitAdmin]
+
+    @staticmethod
+    def default_unit(obj):
+        return MeasurementUnit.objects.filter(category=obj).last().unit
+
+
+@admin.register(PosReturnGRNOrder)
+class PosReturnGRNOrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'pr_number',  'status', 'last_modified_by', 'created_at', 'modified_at')
+    fields = ('pr_number',  'status', )
+    list_per_page = 10
+    inlines = [PosReturnItemsAdmin]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
