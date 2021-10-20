@@ -1023,7 +1023,7 @@ class OrderQCAreaFilter(InputFilter):
             qc_areas = qc_area.replace(" ", "").replace("\t", "").split(',')
             return queryset.filter(
                 Q(picker_order__qc_area__area_id__in=qc_areas)
-            )
+            ).distinct()
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
