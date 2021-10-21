@@ -5,7 +5,7 @@ from django.utils import timezone
 from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import FiftyOffsetPaginationDefault
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
@@ -371,7 +371,7 @@ class PickupListOld(APIView):
         # picking_assigned count
         picking_assigned = self.queryset.count()
 
-        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
         msg = "OK" if self.queryset else "No data found."
         resp_data = {'is_success': True, 'message': msg,
@@ -464,7 +464,7 @@ class PickupList(APIView):
         # picking_assigned count
         picking_assigned = self.queryset.count()
 
-        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
         msg = "OK" if self.queryset else "No data found."
         resp_data = {'is_success': True, 'message': msg,
