@@ -32,7 +32,7 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
-from whc.cron import initiate_auto_order_processing
+
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
@@ -6281,7 +6281,6 @@ class RefreshEsRetailer(APIView):
         """
             Refresh retailer Products Es
         """
-        initiate_auto_order_processing()
         shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=True)
         input_shop_id = self.request.GET.get('shop_id')
         if input_shop_id:
