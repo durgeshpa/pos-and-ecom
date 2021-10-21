@@ -2905,11 +2905,18 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
         if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
-            instance.order_no = common_function.order_id_pattern(
+            order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+            while Order.objects.filter(order_no=order_no).exists():
+                order_no = common_function.order_id_pattern(
+                    sender, 'order_no', instance.pk,
+                    instance.seller_shop.
+                        shop_name_address_mapping.filter(
+                        address_type='billing').last().pk)
+            instance.order_no = order_no
         if instance.ordered_cart.cart_type in ['ECOM']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
