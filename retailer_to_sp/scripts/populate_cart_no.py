@@ -25,8 +25,11 @@ def run(*args):
                         if int(month) < 4:
                             year = str(int(year) - 1)
                         if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
-                            instance.cart_no = common_function.cart_no_pattern(Cart, 'cart_no', instance.pk,
-                                                                               bill_add_id, year)
+                            cart_no = common_function.cart_no_pattern(Cart, 'cart_no', instance.pk, bill_add_id, year)
+                            while Cart.objects.filter(cart_no=cart_no).exists():
+                                cart_no = common_function.cart_no_pattern(Cart, 'cart_no', instance.pk, bill_add_id,
+                                                                          year)
+                            instance.cart_no = cart_no
                         elif instance.cart_type == 'BULK':
                             instance.cart_no = common_function.cart_no_pattern_bulk(Cart, 'cart_no', instance.pk,
                                                                                     bill_add_id, year)
