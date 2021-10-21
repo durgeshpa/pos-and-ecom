@@ -109,10 +109,11 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|complete_pickup| Completed, order id-{}".format(order_no))
         picker_dashboard_obj = PickerDashboard.objects.filter(order=auto_processing_entry.order,
                                                               picking_status="picking_assigned").last()
-        picker_dashboard_obj.picking_status = 'picking_complete'
-        picker_dashboard_obj.save()
-        info_logger.info("WarehouseConsolidation|assign_picker| picker dashboard updated, order id-{}"
-                         .format(auto_processing_entry.order.order_no))
+        if picker_dashboard_obj:
+            picker_dashboard_obj.picking_status = 'picking_complete'
+            picker_dashboard_obj.save()
+            info_logger.info("WarehouseConsolidation|assign_picker| picker dashboard updated, order id-{}"
+                             .format(auto_processing_entry.order.order_no))
         auto_processing_entry.order.order_status = Order.PICKING_COMPLETE
         auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|complete_pickup| Order Status Updated, order id-{}, status-{}"
