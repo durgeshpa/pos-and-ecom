@@ -9,7 +9,7 @@ from dal import autocomplete
 from django import forms
 import csv
 
-from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory,\
+from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
     MeasurementUnit
 from products.models import Product
 from shops.models import Shop
@@ -27,7 +27,7 @@ class RetailerProductsForm(forms.ModelForm):
 
 class DiscountedRetailerProductsForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset = Shop.objects.filter(shop_type__shop_type__in=['f']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
         widget=autocomplete.ModelSelect2(
             url='retailer-product-autocomplete'
         )
@@ -50,9 +50,10 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.id:
             discounted_stock = PosInventory.objects.filter(product=self.instance,
-                                                                inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
+                                                           inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
 
-            initial_arguments = {'discounted_stock': discounted_stock, 'discounted_selling_price': self.instance.selling_price}
+            initial_arguments = {'discounted_stock': discounted_stock,
+                                 'discounted_selling_price': self.instance.selling_price}
             kwargs.update(initial=initial_arguments)
             super().__init__(*args, **kwargs)
             self.fields['shop'].disabled = True
@@ -82,7 +83,7 @@ class RetailerProductsCSVDownloadForm(forms.Form):
     shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
-        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', )
     )
 
 
@@ -97,14 +98,14 @@ class RetailerProductsCSVUploadForm(forms.Form):
     )
     file = forms.FileField(label='Upload Products')
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
 
         try:
             self.shop_id = kwargs.pop('shop_id')
         except:
             self.shop_id = ''
-            
-        super().__init__(*args,**kwargs)
+
+        super().__init__(*args, **kwargs)
 
     def check_mandatory_data(self, row, key_string, row_num):
         """
@@ -129,13 +130,15 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
             self.check_mandatory_data(row, 'product_pack_type', row_num)
+            self.check_mandatory_data(row, 'available_for_online_orders', row_num)
 
-            if(row["shop_id"] != self.shop_id):
-                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | Check the shop id, you might be uploading to wrong shop!"))
+            if row["shop_id"] != self.shop_id:
+                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
+                                        f"Check the shop id, you might be uploading to wrong shop!"))
 
-            if(row["product_id"] != ''):
+            if row["product_id"] != '':
                 if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
-                    raise ValidationError(_(f"Row {row_num} | {row['product_id']} | dosen't exist"))
+                    raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
 
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
                 raise ValidationError(_(f"Row {row_num} | 'Product MRP' can only be a numeric value."))
@@ -147,9 +150,17 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_(f"Row {row_num} | 'Selling Price' cannot be greater than 'Product Mrp'"))
 
             if 'linked_product_sku' in row.keys():
-                if row['linked_product_sku'] !='':
+                if row['linked_product_sku'] != '':
                     if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
-                        raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+                        raise ValidationError(
+                            _(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+
+            if 'available_for_online_orders' in row.keys() and row['available_for_online_orders'] not in \
+                    [True, False]:
+                raise ValidationError("Available for Online Orders should be True OR False")
+
+            if 'online_order_price' in row.keys() and decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
+                raise ValidationError("Online Order Price should be equal to OR less than MRP")
 
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
@@ -202,6 +213,7 @@ class RetailerProductMultiImageForm(forms.ModelForm):
     """
        Bulk Retailer Products Image Form
     """
+
     class Meta:
         model = RetailerProductImage
         fields = ('image',)
@@ -213,8 +225,8 @@ class PosInventoryChangeCSVDownloadForm(forms.Form):
     """
     sku = forms.ModelChoiceField(
         label='Select Product SKU',
-        queryset = RetailerProduct.objects.filter(~Q(sku_type=4)),
-        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete',)
+        queryset=RetailerProduct.objects.filter(~Q(sku_type=4)),
+        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete', )
     )
 
 
@@ -248,4 +260,3 @@ class MeasurementUnitFormSet(forms.models.BaseInlineFormSet):
 
     class Meta:
         model = MeasurementUnit
-
