@@ -740,9 +740,11 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        # data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
-        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty')\
-                + data.get('missing_qty') + data.get('rejected_qty'):
+        data['shipped_qty'] = self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                             data.get('missing_qty') + data.get('rejected_qty'))
+        if float(self.instance.picked_pieces) != float(data['shipped_qty'] + data.get('damaged_qty') +
+                                                       data.get('expired_qty') + data.get('missing_qty') +
+                                                       data.get('rejected_qty')):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
@@ -1133,8 +1135,10 @@ class OrderedProductBatchForm(forms.ModelForm):
                 raise forms.ValidationError('Damaged Quantity can not be blank.')
             if data.get('expired_qty') is None:
                 raise forms.ValidationError('Expired Quantity can not be blank.')
-            if int(self.instance.pickup_quantity) != data.get('quantity') + data.get('damaged_qty') + data.get(
-                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty') :
+            data['quantity'] = self.instance.pickup_quantity - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                                data.get('missing_qty') + data.get('rejected_qty'))
+            if float(self.instance.pickup_quantity) != float(data['quantity'] + data.get('damaged_qty') + data.get(
+                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty')) :
                 raise forms.ValidationError(
                     'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data
