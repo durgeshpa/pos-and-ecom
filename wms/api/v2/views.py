@@ -921,6 +921,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         warehouse = self.request.GET.get('warehouse')
         zone = self.request.GET.get('zone')
+        putaway_user = self.request.GET.get('putaway_user')
         product = self.request.GET.get('product')
         date = self.request.GET.get('date')
         status = self.request.GET.get('status')
@@ -941,6 +942,9 @@ class PutawayItemsCrudView(generics.GenericAPIView):
 
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
+
+        if putaway_user:
+            self.queryset = self.queryset.filter(putaway_user_id=putaway_user)
 
         if zone:
             zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
