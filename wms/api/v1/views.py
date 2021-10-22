@@ -5,6 +5,7 @@ from django.utils import timezone
 from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
+from retailer_backend.utils import SmallOffsetPagination
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
@@ -26,9 +27,13 @@ import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
                                   CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
                                   CommonBinInventoryFunctions as CBIF, updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange)
+                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  get_logged_user_wise_query_set_for_pickup_list)
 
 # Logger
+from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
+from ...services import check_whc_manager_coordinator_supervisor_picker
+
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
@@ -157,6 +162,11 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
+
+        return Response({'is_success': False,
+                         'message': 'Deprecated.',
+                         'data': None}, status=status.HTTP_200_OK)
+
         info_logger.info("Put Away View POST api called.")
         data, key = {}, 0
         lis_data = []
@@ -317,78 +327,176 @@ class PutAwayProduct(APIView):
         return Response({"data": serializer.data}, status=status.HTTP_200_OK)
 
 
+class PickupListOld(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        info_logger.info("PickupList api called.")
+        """ GET Pickup List API"""
+
+        pickuptype = request.GET.get('type')
+        if not pickuptype:
+            return Response({'is_success': True, 'message': "'type' | This is mandatory.", 'data': None},
+                            status=status.HTTP_200_OK)
+        if pickuptype:
+            pickuptype = int(pickuptype)
+        if pickuptype not in [1, 2]:
+            return Response({'is_success': True, 'message': "'type' | Please provide a valid type.", 'data': None},
+                            status=status.HTTP_200_OK)
+
+        if pickuptype == 1:
+            self.serializer_class = PicklistSerializer
+            self.queryset = PickerDashboard.objects.exclude(order__isnull=True)
+
+        if pickuptype == 2:
+            self.serializer_class = RepackagingSerializer
+            self.queryset = Repackaging.objects.all()
+
+        self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, pickuptype, self.queryset)
+        self.queryset = self.filter_pickup_list_data(pickuptype)
+
+        # picking_complete count
+        if pickuptype == 1:
+            picking_complete = self.queryset.filter(picking_status='picking_complete').count()
+            self.queryset = self.queryset.filter(
+                Q(picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc'])).order_by('-created_at')
+
+        if pickuptype == 2:
+            picking_complete = self.queryset.filter(Q(picker_repacks__picking_status__in=['picking_complete'])).count()
+            self.queryset = self.queryset.filter(
+                Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete'])).order_by('-created_at')
+
+        # picking_assigned count
+        picking_assigned = self.queryset.count()
+
+        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(data, many=True)
+        msg = "OK" if self.queryset else "No data found."
+        resp_data = {'is_success': True, 'message': msg,
+                     'data': serializer.data,
+                     'picking_complete': picking_complete,
+                     'picking_assigned': picking_assigned}
+        return Response(resp_data, status=status.HTTP_200_OK)
+
+    def filter_pickup_list_data(self, pickup_type):
+        picker_boy = self.request.GET.get('picker_boy')
+        selected_date = self.request.GET.get('date')
+        zone = self.request.GET.get('zone')
+        picking_status = self.request.GET.get('picking_status')
+
+        '''Filters using picker_boy, selected_date'''
+        if pickup_type == 1:
+            if picker_boy:
+                self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+
+            if zone:
+                self.queryset = self.queryset.filter(zone__id=zone)
+
+            if picking_status:
+                self.queryset = self.queryset.filter(picking_status__id=picking_status)
+
+            if selected_date:
+                try:
+                    date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                    self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
+                except Exception as e:
+                    error_logger.error(e)
+
+        if pickup_type == 2:
+            if picker_boy:
+                self.queryset = self.queryset.filter(picker_repacks__picker_boy__phone_number=picker_boy)
+
+            if zone:
+                self.queryset = self.queryset.filter(picker_repacks__zone__id=zone)
+
+            if picking_status:
+                self.queryset = self.queryset.filter(picker_repacks__picking_status__id=picking_status)
+
+            if selected_date:
+                try:
+                    date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                    self.queryset = self.queryset.filter(picker_repacks__picker_assigned_date__startswith=date.date())
+                except Exception as e:
+                    error_logger.error(e)
+
+        return self.queryset
+
+
 class PickupList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    @check_whc_manager_coordinator_supervisor_picker
     def get(self, request):
-        info_logger.info("Pick up list GET api called.")
-        msg = {'is_success': False, 'message': 'Some Required field empty.', 'data': None}
-        if not request.GET.get('date'):
-            return Response(msg, status=status.HTTP_200_OK)
-        picker_boy = request.GET.get('picker_boy')
-        if not picker_boy:
-            return Response(msg, status=status.HTTP_200_OK)
-        try:
-            date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
-        except Exception as e:
-            error_logger.error(e)
-            msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd format.',
-                   'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
-        picker_boy = request.GET.get('picker_boy')
+        info_logger.info("PickupList api called.")
+        """ GET Pickup List API"""
 
-        # repackaging OR order
         pickuptype = request.GET.get('type')
+        if not pickuptype:
+            return Response({'is_success': True, 'message': "'type' | This is mandatory.", 'data': None},
+                            status=status.HTTP_200_OK)
         if pickuptype:
             pickuptype = int(pickuptype)
         if pickuptype not in [1, 2]:
-            msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+            return Response({'is_success': True, 'message': "'type' | Please provide a valid type.", 'data': None},
+                            status=status.HTTP_200_OK)
 
-        data_found = 0
         if pickuptype == 1:
-            orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                          Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
-                                          Q(
-                                              picker_order__picker_assigned_date__startswith=date.date())
-                                          ).order_by(
-                'created_at')
-            if orders:
-                data_found = 1
-                serializer = OrderSerializer(orders, many=True)
-                picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                                        Q(picker_order__picking_status__in=['picking_complete']),
-                                                        Q(order_status__in=['picking_complete']),
-                                                        Q(
-                                                            picker_order__picker_assigned_date__startswith=date.date())).order_by(
-                    'created_at').count()
-                picking_assigned = orders.count()
-        elif pickuptype == 2:
-            repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
-                                          Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
-                                          Q(picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
-                'created_at')
-            if repacks:
-                data_found = 1
-                serializer = RepackagingSerializer(repacks, many=True)
-                picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
-                                                        Q(picker_repacks__picking_status__in=['picking_complete']),
-                                                        Q(picker_repacks__picker_assigned_date__startswith=date.date())
-                                                              ).order_by('created_at').count()
-                picking_assigned = repacks.count()
+            self.serializer_class = PicklistSerializer
+            self.queryset = PickerDashboard.objects.filter(
+                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
+                order_by('-created_at')
 
-        if data_found:
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
-                   'picking_assigned': picking_assigned}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            picking_complete = 0
-            picking_assigned = 0
-            msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'picking_complete': picking_complete,
-                   'picking_assigned':picking_assigned}
-            return Response(msg, status=status.HTTP_200_OK)
+        if pickuptype == 2:
+            self.serializer_class = RepackagingTypePicklistSerializer
+            self.queryset = PickerDashboard.objects.filter(
+                repackaging__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
+                order_by('-created_at')
+
+        self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
+        self.queryset = self.filter_pickup_list_data()
+
+        # picking_complete count
+        picking_complete = self.queryset.filter(picking_status='picking_complete').count()
+
+        # picking_assigned count
+        picking_assigned = self.queryset.count()
+
+        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(data, many=True)
+        msg = "OK" if self.queryset else "No data found."
+        resp_data = {'is_success': True, 'message': msg,
+                     'data': serializer.data,
+                     'picking_complete': picking_complete,
+                     'picking_assigned': picking_assigned}
+        return Response(resp_data, status=status.HTTP_200_OK)
+
+    def filter_pickup_list_data(self):
+        picker_boy = self.request.GET.get('picker_boy')
+        selected_date = self.request.GET.get('date')
+        zone = self.request.GET.get('zone')
+        picking_status = self.request.GET.get('picking_status')
+
+        '''Filters using picker_boy, selected_date'''
+        if picker_boy:
+            self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picking_status:
+            self.queryset = self.queryset.filter(picking_status__id=picking_status)
+
+        if selected_date:
+            try:
+                date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
+            except Exception as e:
+                error_logger.error(e)
+
+        return self.queryset
 
 
 class PickupRemarksList(APIView):
@@ -423,27 +531,40 @@ class BinIDList(APIView):
             msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         if isinstance(pickup_orders, Order):
-            pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
+            pd_qs = PickerDashboard.objects.filter(order=pickup_orders, zone__picker_users=request.user)
         else:
-            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders)
+            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
-        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no) \
+        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                           pickup__zone__picker_users=request.user) \
                                                    .exclude(pickup__status='picking_cancelled').\
             order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 
+        bins_added = []
         for pick_up in pickup_bin_obj:
-            if pick_up.bin.bin in pick_list:
+            if pick_up.bin.bin.id in bins_added:
                 continue
+            bins_added.append(pick_up.bin.bin.id)
+
+            if pick_up.pickup_quantity is None:
+                pickup_status = 'picking_pending'
+            elif pick_up.pickup_quantity == pick_up.quantity:
+                pickup_status = 'picking_complete'
+            elif 0 < pick_up.pickup_quantity < pick_up.quantity:
+                pickup_status = 'picking_partial'
+            else:
+                pickup_status = 'picking_pending'
+
             pick_list.append({
                 "id": pick_up.bin.bin.id,
                 "bin_id": pick_up.bin.bin.bin_id,
-                "pickup_status": pick_up.pickup.status
+                "pickup_status": pickup_status
             })
         serializer = OrderBinsSerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK',
@@ -490,14 +611,15 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)\
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
+                                                            pickup__zone__picker_users=request.user)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
-        pd_qs = PickerDashboard.objects.filter(order=order)
+        pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -579,6 +701,7 @@ class PickupDetail(APIView):
         with transaction.atomic():
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                    pickup__zone__picker_users=request.user,
                                                                     bin__bin__bin_id=bin_id, pickup__sku__id=j)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
@@ -640,10 +763,11 @@ class PickupDetail(APIView):
                         picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                        pickup__zone__picker_users=request.user,
                                                                         pickup__sku__id=j)\
                                                                 .exclude(pickup__status='picking_cancelled')
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j)\
+                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
                                       .exclude(status='picking_cancelled')\
                                       .update(pickup_quantity=sum_total)
 
@@ -674,20 +798,23 @@ class PickupComplete(APIView):
         with transaction.atomic():
 
             if order_obj:
-                pd_obj = PickerDashboard.objects.select_for_update().filter(order_id=order_obj)
+                pd_obj = PickerDashboard.objects.select_for_update().filter(
+                    order_id=order_obj, zone__picker_users=request.user)
             else:
                 is_repackaging = 1
                 rep_qs = Repackaging.objects.filter(repackaging_no=order_no)
                 rep_obj = rep_qs.last()
-                pd_obj = PickerDashboard.objects.select_for_update().filter(repackaging_id=rep_obj)
+                pd_obj = PickerDashboard.objects.select_for_update().filter(
+                    repackaging_id=rep_obj, zone__picker_users=request.user)
 
             pd_obj = pd_obj.exclude(picking_status__in=['picking_complete', 'picking_cancelled'])
 
             if pd_obj.count() > 1:
                 msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
-            pick_obj = Pickup.objects.select_for_update().filter(pickup_type_id=order_no)\
-                                                         .exclude(status__in=['picking_complete', 'picking_cancelled'])
+            pick_obj = Pickup.objects.select_for_update(). \
+                filter(pickup_type_id=order_no, zone__picker_users=request.user). \
+                exclude(status__in=['picking_complete', 'picking_cancelled'])
 
             if pick_obj.exists():
                 for pickup in pick_obj:
@@ -753,16 +880,29 @@ class PickupComplete(APIView):
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))
 
-                    if is_repackaging == 1:
-                        rep_qs.update(source_picking_status='picking_complete')
-                    else:
-                        order_qs.update(order_status='picking_complete')
-
                     pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
-                    return Response({'is_success': True,
-                                     'message': "Pickup complete for all the items"})
+                    if is_repackaging == 1:
+                        pd_queryset = PickerDashboard.objects.filter(repackaging_id=rep_obj)
+                        if not pd_queryset.filter(picking_status='moved_to_qc').exists():
+                            if pd_queryset. \
+                                    exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
+                                rep_qs.update(source_picking_status='picking_partial_complete')
+                                return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
+                            else:
+                                rep_qs.update(source_picking_status='picking_complete')
+                                return Response({'is_success': True, 'message': "Pickup complete for all the items"})
+                    else:
+                        pd_queryset = PickerDashboard.objects.filter(order_id=order_obj)
+                        if not pd_queryset.filter(picking_status='moved_to_qc').exists():
+                            if PickerDashboard.objects.filter(order_id=order_obj). \
+                                    exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
+                                order_qs.update(order_status=Order.PICKING_PARTIAL_COMPLETE)
+                                return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
+                            else:
+                                order_qs.update(order_status=Order.PICKING_COMPLETE)
+                                return Response({'is_success': True, 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
@@ -830,7 +970,6 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-
             elif type_identifier == '30':
                 id = barcode[2:12].lstrip('0')
                 if id is not None:

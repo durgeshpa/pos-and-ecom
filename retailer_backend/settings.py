@@ -282,7 +282,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 50,
     'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',),
 
     'DATETIME_FORMAT': "%d-%m-%Y %H:%M:%S",
@@ -419,8 +419,8 @@ CRONJOBS = [
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
-    ('*/10 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

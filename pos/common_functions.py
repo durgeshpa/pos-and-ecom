@@ -26,7 +26,7 @@ from products.models import Product
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
 from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
-    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit, MeasurementCategory
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -874,6 +874,12 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
             if not mapping.is_grn_done:
                 mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(
                     product.qty)
+                if retailer_product.product_pack_type == 'loose':
+                    measurement_category = MeasurementCategory.objects.get(
+                        category=retailer_product.measurement_category.category.lower())
+                    mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
+                                                                              default=True)
+
                 mapping.qty = product.qty
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()

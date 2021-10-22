@@ -148,8 +148,9 @@ class OrderedProductForm(forms.ModelForm):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_complete":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
+        if self.cleaned_data['order'].picker_order.exclude(picking_status='picking_cancelled').count() != \
+                self.cleaned_data['order'].picker_order.filter(picking_status='moved_to_qc').count():
+            raise forms.ValidationError(_("Not all the pickings are yet moved to QC Area"), )
         return data
 
 
@@ -364,24 +365,35 @@ class EditAssignPickerForm(forms.ModelForm):
             choices_list = ""
         return choices_list
 
+    # def __init__(self, *args, **kwargs):
+    #     super(EditAssignPickerForm, self).__init__(*args, **kwargs)
+    #     instance = getattr(self, 'instance', None)
+    #     if instance.order:
+    #         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
+    #     else:
+    #         shop = instance.repackaging.seller_shop
+    #     # shop = Shop.objects.get(shop_name="TEST SP 1")
+    #
+    #     # find all picker for the shop
+    #     self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+    #     if instance.picking_status == "picking_pending":
+    #         self.fields['picker_boy'].required = False
+    #     else:
+    #         self.fields['picker_boy'].required = True
+    #     # self.fields['picking_status'] = forms.ChoiceField(
+    #     #     choices=self.get_my_choices() )
+    #     # self.fields['picking_status'].choices = self.get_my_choices()
+
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance.order:
-            shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
-        else:
-            shop = instance.repackaging.seller_shop
-        # shop = Shop.objects.get(shop_name="TEST SP 1")
+        self.fields['picker_boy'].queryset = User.objects.exclude(picker_zone_users__isnull=True). \
+            filter(picker_zone_users=instance.zone)
 
-        # find all picker for the shop
-        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
             self.fields['picker_boy'].required = False
         else:
             self.fields['picker_boy'].required = True
-        # self.fields['picking_status'] = forms.ChoiceField(
-        #     choices=self.get_my_choices() )
-        # self.fields['picking_status'].choices = self.get_my_choices()
 
     def clean(self):
         data = self.cleaned_data
@@ -728,9 +740,11 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        # data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
-        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty')\
-                + data.get('missing_qty') + data.get('rejected_qty'):
+        data['shipped_qty'] = self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                             data.get('missing_qty') + data.get('rejected_qty'))
+        if float(self.instance.picked_pieces) != float(data['shipped_qty'] + data.get('damaged_qty') +
+                                                       data.get('expired_qty') + data.get('missing_qty') +
+                                                       data.get('rejected_qty')):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
@@ -1121,8 +1135,10 @@ class OrderedProductBatchForm(forms.ModelForm):
                 raise forms.ValidationError('Damaged Quantity can not be blank.')
             if data.get('expired_qty') is None:
                 raise forms.ValidationError('Expired Quantity can not be blank.')
-            if int(self.instance.pickup_quantity) != data.get('quantity') + data.get('damaged_qty') + data.get(
-                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty') :
+            data['quantity'] = self.instance.pickup_quantity - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                                data.get('missing_qty') + data.get('rejected_qty'))
+            if float(self.instance.pickup_quantity) != float(data['quantity'] + data.get('damaged_qty') + data.get(
+                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty')) :
                 raise forms.ValidationError(
                     'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data

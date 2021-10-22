@@ -41,6 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from wms.admin import ZoneFilter, QCAreaFilter
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -192,6 +193,7 @@ class OrderNoSearch(InputFilter):
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
+
 
 class IssueStatusSearch(InputFilter):
     parameter_name = 'issue_status'
@@ -808,12 +810,13 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy',
+        'picklist', 'picking_status', 'picker_boy', 'zone', 'qc_area',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
-    #readonly_fields = ['picklist_id']
-    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
+    # readonly_fields = ['picklist_id']
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaFilter, OrderNumberSearch,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -947,15 +950,27 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def download_pick_list(self, obj):
         if obj.order:
             if obj.order.order_status not in ["active", "pending"]:
+                if obj.zone:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('generate-picklist', kwargs={'pk': obj.order.pk, 'zone': obj.zone.id}))
+                    )
+                else:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('create-picklist', args=[obj.order.pk]))
+                    )
+        elif obj.repackaging:
+            if obj.zone:
                 return format_html(
                     "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('create-picklist', args=[obj.order.pk]))
+                    (reverse('generate-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2, 'zone': obj.zone.id}))
                 )
-        elif obj.repackaging:
-            return format_html(
-                "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
-            )
+            else:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
+                )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
@@ -995,6 +1010,32 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
+class OrderZoneFilter(InputFilter):
+    parameter_name = 'zone'
+    title = 'Zone (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            zone = self.value()
+            zones = zone.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__zone__zone_number__in=zones)
+            )
+
+
+class OrderQCAreaFilter(InputFilter):
+    parameter_name = 'qc_area'
+    title = 'QC Area (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qc_area = self.value()
+            qc_areas = qc_area.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__qc_area__area_id__in=qc_areas)
+            ).distinct()
+
+
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ['order_data_excel_action', "download_bulk_pick_list"]
     resource_class = OrderResource
@@ -1021,8 +1062,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'buyer_shop_with_mobile', 'pincode', 'city', 'total_final_amount', 'order_status', 'ordered_by',
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'pickup_completed_at',
-                    'picking_completion_time', 'create_purchase_order'
+                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
+                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1031,8 +1072,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
-    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
+    list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
+                   OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
+                   ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -1065,8 +1108,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         % obj.pk)
 
     def buyer_shop_type(self, obj):
-        if obj.buyer_shop:
-            return obj.buyer_shop.shop_type
+        return obj.buyer_shop.shop_type if obj.buyer_shop else None
 
     def app_type(self, obj):
         """

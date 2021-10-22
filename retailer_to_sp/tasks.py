@@ -147,7 +147,7 @@ class UpdateOrderStatusPickerReserveQty(object):
                 (self.shipment.shipment_status != self.shipment.CLOSED and
                  not self.order.order_closed)):
             self.update_sp_qty()
-            self.order.picker_order.update(picking_status="picking_complete")
+            self.order.picker_order.update(picking_status="moved_to_qc")
 
         self.update_order_status()
 

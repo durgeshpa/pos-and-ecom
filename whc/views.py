@@ -70,7 +70,7 @@ class AutoOrderProcessor:
 
     @transaction.atomic
     def reserve_order(self, auto_processing_entry):
-        product_quantity_dict = {cp.cart_product_id: cp.qty for cp in
+        product_quantity_dict = {cp.cart_product_id: float(cp.qty) for cp in
                                  CartProductMapping.objects.filter(cart=auto_processing_entry.cart)}
         self.__reserve_cart(auto_processing_entry.cart, product_quantity_dict)
         info_logger.info("WarehouseConsolidation|place_order_by_grn| Cart Reserved, cart id-{}".format(
