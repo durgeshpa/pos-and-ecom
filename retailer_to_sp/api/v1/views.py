@@ -347,9 +347,10 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
+
         if app_type == '3':
-            filter_list.append({"term": {"status": 'active'}}, {"term": {"online_enabled": True}},
-                               {"term": {"is_deleted": False}})
+            filter_list.append({"term": {"status": 'active'}})
+            filter_list.append({"term": {"online_enabled": True}})
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
