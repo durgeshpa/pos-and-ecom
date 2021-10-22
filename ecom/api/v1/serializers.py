@@ -399,3 +399,8 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         attrs['products'] = products_info
         return attrs
+
+class ShopInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name',)
