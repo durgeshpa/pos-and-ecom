@@ -20,7 +20,7 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from gram_to_brand.models import GRNOrder
 from products.models import Product
 
-from retailer_backend.utils import FiftyOffsetPaginationDefault, OffsetPaginationDefault50
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 
@@ -141,7 +141,7 @@ class ZoneCrudView(generics.GenericAPIView):
             """ GET Zone List """
             self.queryset = self.search_filter_zones_data()
             zone_total_count = self.queryset.count()
-            zones_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            zones_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(zones_data, many=True)
         msg = f"total count {zone_total_count}" if zones_data else "no zone found"
@@ -250,7 +250,7 @@ class ZoneSupervisorsView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = user_search(self.queryset, search_text)
-        zone_supervisor = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        zone_supervisor = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_supervisor, many=True)
         msg = "" if zone_supervisor else "no zone supervisors found"
         return get_response(msg, serializer.data, True)
@@ -270,7 +270,7 @@ class ZoneCoordinatorsView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = user_search(self.queryset, search_text)
-        zone_coordinator = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        zone_coordinator = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_coordinator, many=True)
         msg = "" if zone_coordinator else "no zone coordinators found"
         return get_response(msg, serializer.data, True)
@@ -292,7 +292,7 @@ class ZonePutawaysView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = user_search(self.queryset, search_text)
-        zone_putaway_users = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        zone_putaway_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_putaway_users, many=True)
         msg = "" if zone_putaway_users else "no putaway users found"
         return get_response(msg, serializer.data, True)
@@ -340,7 +340,7 @@ class WarehouseAssortmentCrudView(generics.GenericAPIView):
             """ GET WarehouseAssortment List """
             self.queryset = self.search_filter_whc_assortments_data()
             whc_assortment_total_count = self.queryset.count()
-            whc_assortments_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            whc_assortments_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(whc_assortments_data, many=True)
         msg = f"total count {whc_assortment_total_count}" if whc_assortments_data else "no whc_assortment found"
@@ -532,7 +532,7 @@ class BinCrudView(generics.GenericAPIView):
             """ GET Bin List """
             self.queryset = self.search_filter_bins_data()
             bin_total_count = self.queryset.count()
-            bins_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            bins_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(bins_data, many=True)
         msg = f"total count {bin_total_count}" if bins_data else "no bin found"
@@ -666,7 +666,7 @@ class ZonePutawayAssignmentsView(generics.GenericAPIView):
             """ GET Zone List """
             self.queryset = self.search_filter_zone_putaway_assignments_data()
             total_count = self.queryset.count()
-            data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(data, many=True)
         msg = f"total count {total_count}" if data else "no zone putaway assignments found"
@@ -750,7 +750,7 @@ class ZonePickerAssignmentsView(generics.GenericAPIView):
             """ GET Zone List """
             self.queryset = self.search_filter_zone_picker_assignments_data()
             total_count = self.queryset.count()
-            data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(data, many=True)
         msg = f"total count {total_count}" if data else "no zone picker assignments found"
@@ -888,7 +888,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             """ GET Putaway List """
             self.queryset = self.search_filter_putaway_data()
             putaway_total_count = self.queryset.count()
-            putaway_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            putaway_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaway_data, many=True)
         msg = f"total count {putaway_total_count}" if putaway_data else "no putaway found"
@@ -921,6 +921,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         warehouse = self.request.GET.get('warehouse')
         zone = self.request.GET.get('zone')
+        putaway_user = self.request.GET.get('putaway_user')
         product = self.request.GET.get('product')
         date = self.request.GET.get('date')
         status = self.request.GET.get('status')
@@ -941,6 +942,9 @@ class PutawayItemsCrudView(generics.GenericAPIView):
 
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
+
+        if putaway_user:
+            self.queryset = self.queryset.filter(putaway_user_id=putaway_user)
 
         if zone:
             zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
@@ -1065,7 +1069,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             return get_response(validate_request['error'])
 
         self.queryset = self.filter_grouped_putaways_data()
-        putaways_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaways_data, many=True)
         msg = "" if putaways_data else "no putaway found"
@@ -1163,7 +1167,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
             """ GET Zone List """
             self.queryset = self.search_filter_zone_putaway_assignments_data()
             total_count = self.queryset.count()
-            data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+            data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(data, many=True)
         msg = f"total count {total_count}" if data else "no zone putaway assignments found"
@@ -1266,7 +1270,7 @@ class PutawayUsersListView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = user_search(self.queryset, search_text)
-        zone_putaway_users = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        zone_putaway_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_putaway_users, many=True)
         msg = "" if zone_putaway_users else "no putaway users found"
         return get_response(msg, serializer.data, True)
@@ -1293,7 +1297,7 @@ class ZoneFilterView(generics.GenericAPIView):
         info_logger.info("Zone Coordinators api called.")
         """ GET Zone Coordinators List """
         self.queryset = self.search_filter_zones_data()
-        zone_coordinator = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        zone_coordinator = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_coordinator, many=True)
         msg = "" if zone_coordinator else "no zone found"
         return get_response(msg, serializer.data, True)
@@ -1356,7 +1360,7 @@ class UserDetailsPostLoginView(generics.GenericAPIView):
     def get(self, request):
         """ GET User Details post login """
         self.queryset = self.queryset.filter(id=request.user.id)
-        user = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(user, many=True)
         msg = "" if user else "no user found"
         return get_response(msg, serializer.data, True)
@@ -1575,7 +1579,7 @@ class POSummaryView(generics.GenericAPIView):
         """ GET Putaway PO Summary List """
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
         self.queryset = self.filter_po_putaways_data()
-        putaways_data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaways_data, many=True)
         msg = "" if putaways_data else "no putaway found"
