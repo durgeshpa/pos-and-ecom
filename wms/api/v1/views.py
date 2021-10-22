@@ -5,7 +5,7 @@ from django.utils import timezone
 from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import FiftyOffsetPaginationDefault
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload, In, QCArea
 from products.models import Product
@@ -32,6 +32,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 
 # Logger
 from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
+from ...common_validators import validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker
 
 info_logger = logging.getLogger('file-info')
@@ -371,7 +372,7 @@ class PickupListOld(APIView):
         # picking_assigned count
         picking_assigned = self.queryset.count()
 
-        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
         msg = "OK" if self.queryset else "No data found."
         resp_data = {'is_success': True, 'message': msg,
@@ -446,7 +447,8 @@ class PickupList(APIView):
         if pickuptype == 1:
             self.serializer_class = PicklistSerializer
             self.queryset = PickerDashboard.objects.filter(
-                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
+                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc'],
+                order__rt_order_order_product__isnull=True).\
                 order_by('-created_at')
 
         if pickuptype == 2:
@@ -456,6 +458,12 @@ class PickupList(APIView):
                 order_by('-created_at')
 
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
+
+        validate_request = validate_pickup_request(request)
+        if "error" in validate_request:
+            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+                            status=status.HTTP_200_OK)
+
         self.queryset = self.filter_pickup_list_data()
 
         # picking_complete count
@@ -464,7 +472,7 @@ class PickupList(APIView):
         # picking_assigned count
         picking_assigned = self.queryset.count()
 
-        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
         msg = "OK" if self.queryset else "No data found."
         resp_data = {'is_success': True, 'message': msg,
@@ -476,6 +484,7 @@ class PickupList(APIView):
     def filter_pickup_list_data(self):
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
 
@@ -490,11 +499,14 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(picking_status__id=picking_status)
 
         if selected_date:
-            try:
-                date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
-            except Exception as e:
-                error_logger.error(e)
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - datetime.timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    picker_assigned_date__date__gte=start_date.date(), picker_assigned_date__date__lte=end_date.date())
+            else:
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
 
         return self.queryset
 
