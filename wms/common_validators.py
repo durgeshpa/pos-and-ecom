@@ -279,3 +279,19 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     if not putaway:
         return {'error': 'Putaway is not assigned to the logged in user.'}
     return {'data': putaway}
+
+
+def validate_pickup_request(request):
+    data_days = request.GET.get('data_days')
+    created_at = request.GET.get('date')
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    if created_at:
+        try:
+            created_at = datetime.strptime(created_at, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+
+    return {"data": request}
