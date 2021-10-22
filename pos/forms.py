@@ -155,11 +155,16 @@ class RetailerProductsCSVUploadForm(forms.Form):
                         raise ValidationError(
                             _(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
-            if 'available_for_online_orders' in row.keys() and row['available_for_online_orders'] not in \
-                    [True, False]:
-                raise ValidationError("Available for Online Orders should be True OR False")
+            if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \
+                    ['yes', 'no']:
+                raise ValidationError("Available for Online Orders should be Yes OR No")
+            if 'available_for_online_orders' and str(row['available_for_online_orders']).lower() == 'yes':
+                row['online_enabled'] = True
+            else:
+                row['online_enabled'] = False
 
-            if 'online_order_price' in row.keys() and decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
+            if 'online_order_price' in row.keys() and row['online_order_price'] and \
+                    decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError("Online Order Price should be equal to OR less than MRP")
 
             # Validate packaging type and measurement category
@@ -169,7 +174,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 self.check_mandatory_data(row, 'measurement_category', row_num)
                 try:
                     measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
-                    # MeasurementUnit.objects.filter(category=measure_cat).last()
+                    MeasurementUnit.objects.filter(category=measure_cat).last()
                 except:
                     raise ValidationError(_(f"Row {row_num} | Invalid measurement_category."))
                 row['purchase_pack_size'] = 1

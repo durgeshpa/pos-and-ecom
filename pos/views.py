@@ -1,5 +1,6 @@
 import codecs
 import csv
+import decimal
 import os
 import datetime
 from copy import deepcopy
@@ -82,20 +83,31 @@ def download_discounted_products_form_view(request):
 def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list):
     with transaction.atomic():
         for row in uploaded_data_by_user_list:
+            measure_cat_id = None
+            if row.get('measurement_category'):
+                measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+
+            if str(row.get('available_for_online_orders').lower()) == 'yes':
+                row['online_enabled'] = True
+            else:
+                row['online_enabled'] = False
+
+            if row['online_order_price']:
+                row['online_price'] = decimal.Decimal(row['online_order_price'])
+            else:
+                row['online_price'] = None
+
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
+            online_enabled, online_price = row.get('product_name'), row.get('product_ean_code'), row.get('mrp'), \
+                                           row.get('selling_price'), None, None, None, None, \
+                                           row.get('description'), row.get('quantity'), \
+                                           row['online_enabled'], \
+                                           (row['online_price'], None),
+
             if row.get('product_id') == '':
                 # we need to create this product
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
-                measure_cat_id = None
-                if row.get('measurement_category'):
-                    measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
-
-                name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
-                online_enabled, online_price = row.get('product_name'), row.get('product_ean_code'), row.get('mrp'), \
-                                               row.get('selling_price'), None, None, None, None, \
-                                               row.get('description'), row.get('quantity'), \
-                                               row.get('available_for_online_orders'), \
-                                               row.get('online_order_price', None),
                 if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
                     if row.get('linked_product_sku') != '':
                         # If product is linked with existing product
@@ -126,6 +138,17 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
             else:
                 # we need to update existing product
+
+                if str(row.get('available_for_online_orders').lower()) == 'yes':
+                    row['online_enabled'] = True
+                else:
+                    row['online_enabled'] = False
+
+                if row['online_order_price']:
+                    row['online_price'] = decimal.Decimal(row['online_order_price'])
+                else:
+                    row['online_price'] = None
+
                 try:
                     product = RetailerProduct.objects.get(id=row.get('product_id'))
                     old_product = deepcopy(product)
@@ -141,10 +164,10 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                         else:
                             product.status = "active"
 
-                    if product.online_enabled != row.get('available_for_online_orders'):
-                        product.online_enabled = row.get('available_for_online_orders')
-                    if product.online_price != row.get('online_order_price'):
-                        product.online_price = row.get('online_order_price')
+                    if product.online_enabled != row['online_enabled']:
+                        product.online_enabled = row['online_enabled']
+                    if product.online_price != row['online_price']:
+                        product.online_price = row['online_price']
                     product.save()
 
                     if row.get('quantity'):
@@ -397,9 +420,9 @@ def RetailerCatalogueSampleFile(request, *args):
          'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
          'online_order_price'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
-                     "", "", "", "", 'active', 2, 'loose', 'weight', 1, True, 11])
+                     "", "", "", "", 'active', 2, 'loose', 'weight', 1, 'Yes', 11])
     writer.writerow(["", 36966, "", "", 'Packet Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, 'packet', "", 2, False, ''])
+                     "", "", "", "", 'active', 2, 'packet', "", 2, 'No', ''])
 
     return response
 
