@@ -317,9 +317,10 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            filter_list = [{"term": {"is_discounted": False}}]
+            filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
@@ -345,14 +346,17 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
+            filter_list.append({"term": {"status": 'active'}})
+            filter_list.append({"term": {"online_enabled": True}})
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
         query_string = dict()
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
