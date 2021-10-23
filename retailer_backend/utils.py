@@ -23,8 +23,8 @@ class FiftyOffsetPaginationDefault(LimitOffsetPagination):
     """
     Custom LimitOffset
     """
-    default_limit = 50
-    max_limit = 100
+    default_limit = 100
+    max_limit = 150
 
 
 def time_diff_days_hours_mins_secs(dt2, dt1):
