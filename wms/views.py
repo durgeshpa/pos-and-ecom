@@ -1135,8 +1135,10 @@ def pickup_entry_creation_with_cron():
                                 picker_boy=None, picklist_id=generate_picklist_id(pincode))
                         cron_logger.info(
                             'picker dashboard entry created for order {} & zone {}, order status updated to {}'
-                                .format(order.id, zone_id, order.PICKUP_CREATED))
+                                .format(order.id, zone_id, order.order_status))
 
+                info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
+                                 str(order.order_status))
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:

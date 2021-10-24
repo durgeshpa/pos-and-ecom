@@ -2979,8 +2979,10 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
         if instance.order:
-            instance.order.order_status = Order.PICKING_ASSIGNED
-            instance.order.save()
+            if instance.order.order_status not in [Order.PICKING_PARTIAL_COMPLETE, Order.MOVED_TO_QC,
+                                                   Order.PARTIAL_MOVED_TO_QC, Order.PICKING_COMPLETE]:
+                instance.order.order_status = Order.PICKING_ASSIGNED
+                instance.order.save()
         elif instance.repackaging:
             instance.repackaging.source_picking_status = 'picking_assigned'
             instance.repackaging.save()
