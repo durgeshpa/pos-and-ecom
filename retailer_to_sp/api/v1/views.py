@@ -5485,7 +5485,7 @@ class DownloadCreditNoteDiscounted(APIView):
             dict1 = {}
             flag = 0
             basic_rate = m.basic_rate_discounted
-            delivered_qty = m.delivered_qty
+            delivered_qty = float(m.delivered_qty)
             gst_percent = m.get_products_gst()
             cess = m.get_products_gst_cess_tax()
             surcharge = m.get_products_gst_surcharge()
