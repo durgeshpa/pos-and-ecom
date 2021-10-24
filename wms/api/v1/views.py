@@ -500,12 +500,12 @@ class PickupList(APIView):
 
         if selected_date:
             if data_days:
-                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 start_date = end_date - datetime.timedelta(days=int(data_days))
                 self.queryset = self.queryset.filter(
                     picker_assigned_date__date__gte=start_date.date(), picker_assigned_date__date__lte=end_date.date())
             else:
-                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
 
         return self.queryset
