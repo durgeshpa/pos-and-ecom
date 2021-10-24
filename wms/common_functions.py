@@ -2449,8 +2449,12 @@ def post_picking_order_update(picker_dashboard_instance):
             if picker_dashboard_instance.order.picker_order.exclude(picking_status__in=['moved_to_qc',
                                                                     'picking_cancelled']).exists():
                 picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
+                info_logger.info("post_picking_order_update | " + str(picker_dashboard_instance.order.order_no) +
+                                 " | PARTIAL_MOVED_TO_QC.")
             else:
                 picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'
+                info_logger.info("post_picking_order_update | " + str(picker_dashboard_instance.order.order_no) +
+                                 " | MOVED_TO_QC.")
             picker_dashboard_instance.order.save()
 
 

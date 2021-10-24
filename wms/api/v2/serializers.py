@@ -1520,7 +1520,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
-                elif self.initial_data['qc_area'] and PickerDashboard.objects.filter(
+                elif not qc_area_alloted and self.initial_data['qc_area'] and PickerDashboard.objects.filter(
                         qc_area__warehouse__id=self.initial_data['warehouse'],
                         qc_area__area_id=self.initial_data['qc_area'],
                         order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
@@ -1545,7 +1545,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             .exclude(id=instance.id).last()
         if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
             return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
-        elif validated_data['qc_area'] and PickerDashboard.objects.filter(
+        elif not qc_area_alloted and validated_data['qc_area'] and PickerDashboard.objects.filter(
                 qc_area=validated_data['qc_area'],
                 order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
                 order__rt_order_order_product__isnull=True). \

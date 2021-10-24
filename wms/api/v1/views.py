@@ -901,19 +901,29 @@ class PickupComplete(APIView):
                             if pd_queryset. \
                                     exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
                                 rep_qs.update(source_picking_status='picking_partial_complete')
+                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                                 " | picking_partial_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 rep_qs.update(source_picking_status='picking_complete')
+                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                                 " | picking_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
                     else:
                         pd_queryset = PickerDashboard.objects.filter(order_id=order_obj)
                         if not pd_queryset.filter(picking_status='moved_to_qc').exists():
+                            info_logger.info("PickupComplete | " + str(order_obj.order_no) +
+                                             " | No picklist exist in moved_to_qc.")
                             if PickerDashboard.objects.filter(order_id=order_obj). \
                                     exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
                                 order_qs.update(order_status=Order.PICKING_PARTIAL_COMPLETE)
+                                info_logger.info("PickupComplete | " + str(order_obj.order_no) +
+                                                 " | PICKING_PARTIAL_COMPLETE.")
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 order_qs.update(order_status=Order.PICKING_COMPLETE)
+                                info_logger.info("PickupComplete | " + str(order_obj.order_no) +
+                                                 " | PICKING_COMPLETE.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
