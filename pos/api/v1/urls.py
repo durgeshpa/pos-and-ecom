@@ -2,10 +2,12 @@ from django.conf.urls import url
 
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
-                    PaymentTypeDetailView, IncentiveView, ShopSpecificationView)
+                    PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
+                    GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
+    url(r'^product/measurement-category/', MeasurementCategoryView.as_view(), name='pos-measurement-category'),
 
     url(r'^offers/', CouponOfferCreation.as_view(), name='offers'),
 
@@ -26,9 +28,14 @@ urlpatterns = [
     url(r'^grn-order/(?P<pk>\d+)/$', GrnOrderView.as_view()),
     url(r'^grn-order-list/$', GrnOrderListView.as_view()),
 
+    url(r'^get-grn-order-list/$', GetGrnOrderListView.as_view()),
+    url(r'^return-grn-order/$', GrnReturnOrderView.as_view()),
+
     url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 
     url(r'^incentive/$', IncentiveView.as_view()),
+
+    url(r'^return-status-choice/$', ReturnStatusListView.as_view()),
 
     url(r'^shop-specification/$', ShopSpecificationView.as_view())
 ]

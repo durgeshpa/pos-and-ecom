@@ -25,7 +25,8 @@ from products.models import Product
 
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, PosCart, PosCartProductMapping, Vendor
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -67,8 +68,9 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, user, event_type, event_id=None, product_status='active',
-                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1):
         """
             General Response For API
         """
@@ -78,7 +80,10 @@ class RetailerProductCls(object):
                                                  offer_price=offer_price, offer_start_date=offer_sd,
                                                  offer_end_date=offer_ed, description=description,
                                                  product_ean_code=product_ean_code, status=product_status,
-                                                 product_ref=product_ref, online_enabled=online_enabled, online_price=online_price)
+                                                 product_ref=product_ref, product_pack_type=pack_type,
+                                                 measurement_category_id=measure_cat_id,
+                                                 online_enabled=online_enabled, online_price=online_price,
+                                                 purchase_pack_size=purchase_pack_size)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -194,10 +199,10 @@ class PosInventoryCls(object):
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
-        if not created and qty == pos_inv.quantity:
+        if not created and Decimal(qty) == pos_inv.quantity:
             return
-        qty_change = qty - pos_inv.quantity
-        pos_inv.quantity = qty
+        qty_change = Decimal(qty) - pos_inv.quantity
+        pos_inv.quantity = Decimal(qty)
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
                                                 f_state_obj, user)
@@ -571,6 +576,22 @@ def filter_pos_shop(user):
                                pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
+def check_return_status(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        status = request.GET.get('status')
+        if not status:
+            kwargs['status'] = PosReturnGRNOrder.RETURNED
+            # return api_response("No status Selected!")
+        elif status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
+            return api_response("invalid status Selected!")
+        else:
+            kwargs['status'] = status.upper()
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def check_pos_shop(view_func):
     """
         Decorator to validate pos request
@@ -684,7 +705,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            if qty is None or qty < 0 or (qty == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
@@ -716,6 +737,7 @@ class PosAddToCart(object):
 
                 new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
                 new_product_info['ean'] = ean
+                product_pack_type = 'packet'
             # Add by Product Id
             else:
                 try:
@@ -760,6 +782,16 @@ class PosAddToCart(object):
                         return api_response("The discounted product is de-activated!")
                     elif discounted_stock < qty:
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
+
+                product_pack_type = product.product_pack_type
+
+            # qty w.r.t pack type
+            kwargs['conversion_unit_id'] = None
+            if product_pack_type == 'packet':
+                qty = int(qty)
+            else:
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                    product, qty)
 
             # Return with objects
             kwargs['product'] = product
@@ -809,6 +841,18 @@ class PosAddToCart(object):
         return _wrapped_view_func
 
 
+def get_default_qty(given_qty_unit, product, qty):
+    default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+    qty_unit = default_unit
+    if given_qty_unit:
+        try:
+            qty_unit = MeasurementUnit.objects.get(unit=given_qty_unit)
+        except:
+            qty_unit = default_unit
+    qty = round(round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion, 3)
+    return qty, qty_unit.id
+
+
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
     bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
     vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
@@ -834,3 +878,10 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no
+
+
+def generate_debit_note_number(returned_obj, billing_address_instance):
+    return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
+
+
+

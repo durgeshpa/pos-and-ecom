@@ -4,7 +4,7 @@ from wms.models import Putaway
 
 
 def run():
-    print('populate_to_be_picked_qty | STARTED')
+    print('update_status_for_existing_putaways | STARTED')
 
     # Case 1
     putaways_qs_1 = Putaway.objects.filter(
@@ -51,4 +51,15 @@ def run():
     if putaways_qs_4:
         putaways_qs_4.update(status=Putaway.NEW)
         print("Set status is NEW for putaways having status is Null with putaway_quantity 0 and putaway_user is Null")
+
+    # Case 5
+    putaways_qs_5 = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
+        filter(status=Putaway.ASSIGNED, putaway_user__isnull=False, putaway_quantity=F("quantity"))
+    print("Putaways having status is ASSIGNED with putaway_quantity is equal to quantity and putaway_user not Null, "
+          "Count: " + str(putaways_qs_5.count()))
+    if putaways_qs_5:
+        putaways_qs_5.update(status=Putaway.COMPLETED)
+        print("Set status is COMPLETED for putaways having status is ASSIGNED with putaway_quantity is equal to "
+              "quantity and putaway_user not Null")
 
