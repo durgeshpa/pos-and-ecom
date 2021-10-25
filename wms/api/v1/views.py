@@ -372,7 +372,7 @@ class PickupListOld(APIView):
         # picking_assigned count
         picking_assigned = self.queryset.count()
 
-        data = FiftyOffsetPaginationDefault().paginate_queryset(self.queryset, request)
+        data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
         msg = "OK" if self.queryset else "No data found."
         resp_data = {'is_success': True, 'message': msg,

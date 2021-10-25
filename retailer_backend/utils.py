@@ -19,14 +19,6 @@ class OffsetPaginationDefault50(LimitOffsetPagination):
     max_limit = 100
 
 
-class FiftyOffsetPaginationDefault(LimitOffsetPagination):
-    """
-    Custom LimitOffset
-    """
-    default_limit = 200
-    max_limit = 250
-
-
 def time_diff_days_hours_mins_secs(dt2, dt1):
     """
     Returns the time difference between two given dates
