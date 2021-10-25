@@ -131,6 +131,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'selling_price', row_num)
             self.check_mandatory_data(row, 'product_pack_type', row_num)
             self.check_mandatory_data(row, 'available_for_online_orders', row_num)
+            self.check_mandatory_data(row, 'is_visible', row_num)
 
             if row["shop_id"] != self.shop_id:
                 raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
@@ -162,6 +163,11 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 row['online_enabled'] = True
             else:
                 row['online_enabled'] = False
+
+            if 'is_visible' in row.keys() and str(row['is_visible']).lower() == 'yes':
+                row['is_deleted'] = True
+            else:
+                row['is_deleted'] = False
 
             if 'online_order_price' in row.keys() and row['online_order_price'] and \
                     decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
