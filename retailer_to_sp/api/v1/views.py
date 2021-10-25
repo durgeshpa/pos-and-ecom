@@ -3012,6 +3012,12 @@ class OrderCentral(APIView):
         if not CartProductMapping.objects.filter(cart=cart).exists():
             return api_response("No items added to cart yet")
 
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
         with transaction.atomic():
             # Update Cart To Ordered
             self.update_cart_ecom(cart)
@@ -3127,6 +3133,12 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
@@ -3546,6 +3558,10 @@ class OrderCentral(APIView):
                     return False
         return True
 
+    # def product_deleled(self, cart_products):
+    #     if cart_products.filter(retailer_product__is_deleted=True).exists():
+    #         return False
+    #     return True
 
 # class CreateOrder(APIView):
 #     authentication_classes = (authentication.TokenAuthentication,)
