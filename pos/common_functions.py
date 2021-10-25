@@ -380,6 +380,27 @@ class PosCartCls(object):
         return out_of_stock_items
 
 
+    @classmethod
+    def product_deleled(cls, cart_products, remove_deleted=0):
+        deleted_items = []
+
+        # if cart_products.filter(retailer_product__is_deleted=True).exists():
+        deleled_cart_products = cart_products.filter(retailer_product__is_deleted=True)
+        for cart_product in deleled_cart_products:
+            product = cart_product.retailer_product
+            if remove_deleted:
+                CartProductMapping.objects.filter(id=cart_product.id).delete()
+            else:
+                deleted_items += [{
+                    "id": product.id,
+                    "name": product.name,
+                    "qty": cart_product.qty,
+                    "mrp": product.mrp,
+                    "selling_price": cart_product.selling_price,
+                }]
+        return deleted_items
+
+
 class RewardCls(object):
 
     @classmethod
