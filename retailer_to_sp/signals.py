@@ -156,7 +156,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		# Get combo coupon for product
 		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
 		# Check and apply/remove combo offers
-		offers_list = BasicCartOffers.basic_combo_offers(int(instance.qty), float(instance.selling_price),
+		offers_list = BasicCartOffers.basic_combo_offers(float(instance.qty), float(instance.selling_price),
 														 instance.retailer_product.id, offer[0] if offer else {},
 														 instance.cart.offers)
 		# Recheck cart discount according to updated cart value
@@ -186,9 +186,15 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 	if not instance.cart_no and instance.seller_shop:
 		bill_add_id = instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk
 		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
-			instance.cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+			while Cart.objects.filter(cart_no=cart_no).exists():
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+			instance.cart_no = cart_no
 		elif instance.cart_type in ['ECOM']:
-			instance.cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+			while Cart.objects.filter(cart_no=cart_no).exists():
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+			instance.cart_no = cart_no
 		elif instance.cart_type == 'BULK':
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':

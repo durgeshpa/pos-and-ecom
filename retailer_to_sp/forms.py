@@ -234,10 +234,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
 
     def clean_shipped_qty(self):
 
-        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
-        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        ordered_qty = int(float(self.cleaned_data.get('ordered_qty')))
+        shipped_qty = int(float(self.cleaned_data.get('shipped_qty')))
         # picked_pieces = int(self.cleaned_data.get('picked_pieces'))
-        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
+        to_be_shipped_qty = int(float(self.cleaned_data.get('to_be_shipped_qty')))
         # already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
         max_qty_allowed = ordered_qty - to_be_shipped_qty
         if max_qty_allowed < shipped_qty:
@@ -740,9 +740,11 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        # data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
-        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty')\
-                + data.get('missing_qty') + data.get('rejected_qty'):
+        data['shipped_qty'] = self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                             data.get('missing_qty') + data.get('rejected_qty'))
+        if float(self.instance.picked_pieces) != float(data['shipped_qty'] + data.get('damaged_qty') +
+                                                       data.get('expired_qty') + data.get('missing_qty') +
+                                                       data.get('rejected_qty')):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
@@ -1009,6 +1011,8 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
                 self.fields['shipped_qty'].disabled = True
+            self.initial['shipped_qty'] = int(instance.shipped_qty)
+            self.initial['delivered_qty'] = int(instance.delivered_qty)
 
     def clean(self):
         data = self.cleaned_data
@@ -1102,7 +1106,7 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductBatchForm, self).__init__(*args, **kwargs)
-        # self.fields['quantity'].disabled = True
+        self.fields['quantity'].disabled = True
         self.fields['pickup_quantity'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
@@ -1118,6 +1122,9 @@ class OrderedProductBatchForm(forms.ModelForm):
             if shipment_status != 'SHIPMENT_CREATED':
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
+        if instance:
+            self.initial['quantity'] = int(instance.quantity)
+            self.initial['pickup_quantity'] = int(instance.pickup_quantity)
 
     def clean(self):
         data = self.cleaned_data
@@ -1128,8 +1135,10 @@ class OrderedProductBatchForm(forms.ModelForm):
                 raise forms.ValidationError('Damaged Quantity can not be blank.')
             if data.get('expired_qty') is None:
                 raise forms.ValidationError('Expired Quantity can not be blank.')
-            if int(self.instance.pickup_quantity) != data.get('quantity') + data.get('damaged_qty') + data.get(
-                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty') :
+            data['quantity'] = self.instance.pickup_quantity - (data.get('damaged_qty') + data.get('expired_qty') +
+                                                                data.get('missing_qty') + data.get('rejected_qty'))
+            if float(self.instance.pickup_quantity) != float(data['quantity'] + data.get('damaged_qty') + data.get(
+                    'expired_qty') + data.get('missing_qty') + data.get('rejected_qty')) :
                 raise forms.ValidationError(
                     'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data
@@ -1152,6 +1161,7 @@ class OrderedProductBatchingForm(forms.ModelForm):
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
                 self.fields['quantity'].disabled = True
+            self.initial['quantity'] = int(instance.quantity)
 
     def clean(self):
         data = self.cleaned_data

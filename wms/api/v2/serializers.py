@@ -1459,6 +1459,50 @@ class PicklistSerializer(serializers.ModelSerializer):
                   'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy')
 
 
+class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
+
+    picker_status = serializers.SerializerMethodField('picker_status_dt')
+    order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
+    picking_completed_time = serializers.SerializerMethodField('get_completed_time')
+    order_no = serializers.SerializerMethodField()
+    qc_area = serializers.SerializerMethodField()
+
+    def picker_status_dt(self, obj):
+        return str(obj.picking_status).lower()
+
+    def get_order_create_date(self, obj):
+        return obj.repackaging.created_at.strftime("%d-%m-%Y")
+
+    def m_delivery_location(self, obj):
+        return ''
+
+    def get_assigned_time(self, obj):
+        try:
+            return obj.picker_assigned_date.strftime('%b %d, %H:%M')
+        except:
+            return None
+
+    def get_completed_time(self, obj):
+        return obj.completed_at.strftime('%b %d, %H:%M') if obj.completed_at else None
+
+    def get_order_no(self, obj):
+        return obj.repackaging.repackaging_no
+
+    def get_qc_area(self, obj):
+        qc_area = obj.qc_area.area_id if obj.qc_area else None
+        if not qc_area:
+            qc_area = obj.repackaging.picker_repacks.filter(qc_area__isnull=False).last().qc_area.area_id \
+                if obj.repackaging.picker_repacks.filter(qc_area__isnull=False).exists() else None
+        return qc_area
+
+    class Meta:
+        model = PickerDashboard
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area')
+
+
 class AllocateQCAreaSerializer(serializers.ModelSerializer):
     
     class Meta:
@@ -1488,7 +1532,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
-                elif self.initial_data['qc_area'] and PickerDashboard.objects.filter(
+                elif not qc_area_alloted and self.initial_data['qc_area'] and PickerDashboard.objects.filter(
                         qc_area__warehouse__id=self.initial_data['warehouse'],
                         qc_area__area_id=self.initial_data['qc_area'],
                         order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
@@ -1513,7 +1557,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             .exclude(id=instance.id).last()
         if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
             return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
-        elif validated_data['qc_area'] and PickerDashboard.objects.filter(
+        elif not qc_area_alloted and validated_data['qc_area'] and PickerDashboard.objects.filter(
                 qc_area=validated_data['qc_area'],
                 order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
                 order__rt_order_order_product__isnull=True). \
