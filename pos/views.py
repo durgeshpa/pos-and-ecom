@@ -98,9 +98,9 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 row['online_price'] = None
 
             if str(row['is_visible']).lower() == 'yes':
-                row['is_deleted'] = True
-            else:
                 row['is_deleted'] = False
+            else:
+                row['is_deleted'] = True
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
             online_enabled, online_price, is_visible = row.get('product_name'), row.get('product_ean_code'), row.get('mrp'), \
@@ -150,9 +150,9 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                     row['online_enabled'] = False
 
                 if str(row.get('is_visible')).lower() == 'yes':
-                    row['is_deleted'] = True
-                else:
                     row['is_deleted'] = False
+                else:
+                    row['is_deleted'] = True
 
                 if row['online_order_price']:
                     row['online_price'] = decimal.Decimal(row['online_order_price'])
