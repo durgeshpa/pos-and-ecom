@@ -446,7 +446,7 @@ class Cart(models.Model):
             cart_coupon_list = []
             i = 0
             coupon_applied = False
-            cart_value = cart_value - discount_sum_sku
+            cart_value = float(cart_value) - float(discount_sum_sku)
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:

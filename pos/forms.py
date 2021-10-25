@@ -163,6 +163,11 @@ class RetailerProductsCSVUploadForm(forms.Form):
             else:
                 row['online_enabled'] = False
 
+            if 'is_visible' in row.keys() and str(row['is_visible']).lower() == 'yes':
+                row['is_deleted'] = True
+            else:
+                row['is_deleted'] = False
+
             if 'online_order_price' in row.keys() and row['online_order_price'] and \
                     decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError("Online Order Price should be equal to OR less than MRP")

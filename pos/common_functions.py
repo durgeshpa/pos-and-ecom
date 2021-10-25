@@ -70,7 +70,8 @@ class RetailerProductCls(object):
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
                                 product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
                                 product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
-                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1):
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
+                                is_visible=False):
         """
             General Response For API
         """
@@ -83,7 +84,7 @@ class RetailerProductCls(object):
                                                  product_ref=product_ref, product_pack_type=pack_type,
                                                  measurement_category_id=measure_cat_id,
                                                  online_enabled=online_enabled, online_price=online_price,
-                                                 purchase_pack_size=purchase_pack_size)
+                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
