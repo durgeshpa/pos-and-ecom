@@ -319,7 +319,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             shipment_paid_amount=Subquery(shipment_paid_amount),
             order_paid_amount=Subquery(order_paid_amount),
             invoice_amount=Subquery(OrderedProduct.objects.filter(order=OuterRef('pk')).annotate(sum=RoundAmount(Sum(
-                F('rt_order_product_order_product_mapping__effective_price') * 
+                F('rt_order_product_order_product_mapping__effective_price') *
                 F('rt_order_product_order_product_mapping__shipped_qty'),
                 output_field=FloatField()))).values('sum')[:1]))\
         .values('order_no', 'order_status', 'created_at', 'seller_shop_id',
@@ -337,17 +337,11 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'rt_order_order_product__return_reason',
                 'rt_order_order_product__invoice__created_at',
                 'rt_order_order_product__trip__completed_at',
-                'picker_order__picking_status',
-                'picker_order__picklist_id',
-                'picker_order__qc_area__area_id',
-                'picker_order__picker_boy__phone_number',
-                'picker_order__picker_boy__first_name',
                 'shipment_paid_amount',
                 'order_paid_amount',
                 'total_mrp', 'ordered_cart__offers',
                 'order_amount',
-                'picker_order__picker_assigned_date',
-                'picker_order__completed_at')
+                )
     # print(orders)
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
@@ -362,6 +356,31 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         shipment_reschedule = order.get('rt_order_order_product__rescheduling_shipment__trip__dispatch_no')
         if shipment_reschedule:
             trip_str = trip_str + ', ' + shipment_reschedule if trip_str else shipment_reschedule
+        picker_data = {
+            'picking_status': [],
+            'picklist_id': [],
+            'qc_area__area_id': [],
+            'picker_boy__phone_number': [],
+            'picker_boy__first_name': [],
+            'picker_assigned_date': [],
+            'completed_at': [],
+            'picking_completion_time': []
+        }
+        picker_dashboard_data = PickerDashboard.objects.filter(order__order_no=order.get('order_no'))
+        for picker_dash in picker_dashboard_data:
+            picker_data['picking_status'].append(picking_status_dict.get(picker_dash.picking_status,
+                                                                         picker_dash.picking_status))
+            picker_data['picklist_id'].append(picker_dash.picklist_id)
+            picker_data['qc_area__area_id'].append(picker_dash.qc_area.area_id if picker_dash.qc_area else "")
+            picker_data['picker_boy__phone_number'].append(
+                picker_dash.picker_boy.phone_number if picker_dash.picker_boy else "")
+            picker_data['picker_boy__first_name'].append(
+                picker_dash.picker_boy.first_name if picker_dash.picker_boy else "")
+            picker_data['picker_assigned_date'].append(picker_dash.picker_assigned_date)
+            picker_data['completed_at'].append(str(picker_dash.completed_at) if picker_dash.completed_at else "")
+            picker_data['picking_completion_time'].append(
+                time_diff_days_hours_mins_secs(picker_dash.completed_at, picker_dash.picker_assigned_date)
+                if picker_dash.completed_at else "")
 
         writer.writerow([
             order.get('order_no'),
@@ -390,16 +409,13 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             order.get('rt_order_order_product__invoice__created_at'),
             order.get('rt_order_order_product__trip__completed_at'),
             order.get('shipment_paid_amount'),
-            picking_status_dict.get(order.get('picker_order__picking_status'),
-                                 order.get('picker_order__picking_status')),
-            order.get('picker_order__picklist_id'),
-            order.get('picker_order__qc_area__area_id'),
-            order.get('picker_order__picker_boy__phone_number'),
-            order.get('picker_order__picker_boy__first_name'),
-            order.get('picker_order__completed_at'),
-            time_diff_days_hours_mins_secs(order.get('picker_order__completed_at'),
-                                           order.get('picker_order__picker_assigned_date'))
-            if order.get('picker_order__completed_at') else None
+            str(picker_data['picking_status']),
+            str(picker_data['picklist_id']),
+            str(picker_data['qc_area__area_id']),
+            str(picker_data['picker_boy__phone_number']),
+            str(picker_data['picker_boy__first_name']),
+            str(picker_data['completed_at']),
+            str(picker_data['picking_completion_time'])
         ])
     return response
 

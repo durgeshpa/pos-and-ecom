@@ -487,7 +487,7 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(zone__id=zone)
 
         if picking_status:
-            self.queryset = self.queryset.filter(picking_status__id=picking_status)
+            self.queryset = self.queryset.filter(picking_status=picking_status)
 
         if selected_date:
             try:
