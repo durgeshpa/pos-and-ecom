@@ -3136,8 +3136,9 @@ class OrderCentral(APIView):
         # check for product is_deleted
         deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
         if deleted_product:
-            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
-                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+            return {'error': 'Few items in your cart are not available.'}
+            # return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+            #                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
