@@ -889,12 +889,12 @@ class PickupComplete(APIView):
                             if pd_queryset. \
                                     exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
                                 rep_qs.update(source_picking_status='picking_partial_complete')
-                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                info_logger.info("PickupComplete | " + str(rep_obj.repackaging_no) +
                                                  " | picking_partial_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 rep_qs.update(source_picking_status='picking_complete')
-                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                info_logger.info("PickupComplete | " + str(rep_obj.repackaging_no) +
                                                  " | picking_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
                     else:
