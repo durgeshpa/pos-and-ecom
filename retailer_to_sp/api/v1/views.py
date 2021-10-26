@@ -1382,10 +1382,14 @@ class CartCentral(GenericAPIView):
             else:
                 # Check if price needs to be updated and return selling price
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
+                # Check if mrp needs to be updated and return mrp
+                product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
+
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
+                cart_mapping.selling_price = product_mrp
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = qty
                 cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
@@ -1635,6 +1639,22 @@ class CartCentral(GenericAPIView):
                                                 ' this product #%s' % product.id, 'data': serializer.data}
 
     def get_basic_cart_product_price(self, product, cart_no):
+        """
+            Check if retail product price needs to be changed on checkout
+            price_change - 1 (change for all), 2 (change for current cart only)
+        """
+        # Check If Price Change
+        price_change = self.request.data.get('price_change')
+        selling_price = None
+        if price_change in [1, 2]:
+            selling_price = self.request.data.get('selling_price')
+            if price_change == 1:
+                RetailerProductCls.update_price(product.id, selling_price, 'active', self.request.user, 'cart', cart_no)
+        elif product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
+            selling_price = product.offer_price
+        return selling_price if selling_price else product.selling_price
+
+    def get_basic_cart_product_mrp(self, product, cart_no):
         """
             Check if retail product price needs to be changed on checkout
             price_change - 1 (change for all), 2 (change for current cart only)
