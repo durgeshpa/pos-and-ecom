@@ -815,7 +815,7 @@ class PosAddToCart(object):
                     if not product_mrp:
                         return api_response("Please provide mrp to change product mrp")
                     if product.selling_price and product.selling_price > product_mrp:
-                        return api_response("MRP should be equal to OR greater than MRP")
+                        return api_response("MRP should be equal to OR greater than Selling Price")
 
                 # Check if selling price is less than equal to mrp if price change
                 elif price_change in [1, 2]:
