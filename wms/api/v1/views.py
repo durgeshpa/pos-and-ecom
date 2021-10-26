@@ -446,7 +446,8 @@ class PickupList(APIView):
         if pickuptype == 1:
             self.serializer_class = PicklistSerializer
             self.queryset = PickerDashboard.objects.filter(
-                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
+                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc'],
+                order__rt_order_order_product__isnull=True).\
                 order_by('-created_at')
 
         if pickuptype == 2:
