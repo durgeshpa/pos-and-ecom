@@ -316,17 +316,21 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
+                    if not bin_lists.exists():
+                        bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop, quantity__gt=0,
+                                                                  inventory_type__inventory_type='normal') \
+                            .order_by('-batch_id', 'quantity')
                     if bin_lists.exists():
                         for k in bin_lists:
                             bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
                     else:
-                        bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop, quantity__gt=0,
-                                                                  inventory_type__inventory_type='normal') \
-                                                          .order_by('-batch_id', 'quantity')
-                        if not bin_lists.exists():
-                            bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop, bin__zone=obj.zone,
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop, bin__zone=obj.zone,
                                                                       inventory_type__inventory_type='normal')\
                                                               .order_by('-batch_id', 'quantity').last()
+                        if not bin_lists:
+                            bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
+                                                                      inventory_type__inventory_type='normal') \
+                                .order_by('-batch_id', 'quantity').last()
                         bin_inv_dict = get_bin_inv_dict(bin_lists, bin_inv_dict)
 
                     bin_inv_list = list(bin_inv_dict.items())
