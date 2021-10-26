@@ -1113,10 +1113,10 @@ def pickup_entry_creation_with_cron():
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
                         zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                            zone_id=zone_id, last_assigned_at=None).last()
+                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
                         if not zone_picker_assigned_user:
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                                zone_id=zone_id). \
+                                user_enabled=True, zone_id=zone_id). \
                                 order_by('-last_assigned_at').last()
                         if zone_picker_assigned_user:
                             picker_user = zone_picker_assigned_user.user
@@ -1135,8 +1135,10 @@ def pickup_entry_creation_with_cron():
                                 picker_boy=None, picklist_id=generate_picklist_id(pincode))
                         cron_logger.info(
                             'picker dashboard entry created for order {} & zone {}, order status updated to {}'
-                                .format(order.id, zone_id, order.PICKUP_CREATED))
+                                .format(order.id, zone_id, order.order_status))
 
+                info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
+                                 str(order.order_status))
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
@@ -2503,9 +2505,9 @@ def WarehouseAssortmentDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(['warehouse_id', 'warehouse_name', 'product_id', 'product_name',
-                     'zone_id', 'zone_supervisor', 'zone_coordinator'])
+                     'zone_number', 'zone_supervisor', 'zone_coordinator'])
     writer.writerow(["600", "GFDN SERVICES PVT LTD (NOIDA)", "PSNGLOC8204", "Zoff Meat Masala 7",
-                     "8", "7763886418 - PAL", "8368222416 - Baljeet"])
+                     "W000600Z01", "7763886418 - PAL", "8368222416 - Baljeet"])
     return response
 
 
@@ -2526,7 +2528,7 @@ def WarehouseAssortmentUploadCsvView(request):
                 for row, data in enumerate(reader):
                     warehouse_assortment_object, created = WarehouseAssortment.objects.update_or_create(
                         warehouse_id=data[0], product=ParentProduct.objects.get(parent_id=data[2]),
-                        defaults={'zone_id': data[4]})
+                        defaults={'zone': Zone.objects.filter(zone_number=data[4]).last()})
 
                     if created:
                         warehouse_assortment_object.created_by = request.user
@@ -2719,8 +2721,9 @@ class IncorrectProductBinMappingReport(APIView):
             filter(created_at__gte=start_date, created_at__lte=end_date). \
             exclude(zone__isnull=True). \
             exclude(zone=F('bin_inventory__bin_zone')). \
-            values('pickup_type_id', 'sku', 'zone', 'bin_inventory__bin', 'bin_inventory__bin_zone',
-                   'pickup_quantity', 'created_at').order_by('-id')
+            values('pickup_type_id', 'sku', 'zone__zone_number', 'zone__name', 'bin_inventory__bin__bin__bin_id',
+                   'bin_inventory__bin_zone__zone_number', 'bin_inventory__bin_zone__name', 'pickup_quantity',
+                   'created_at').order_by('-id')
         return data
 
     def get(self, *args, **kwargs):
@@ -2751,11 +2754,13 @@ class IncorrectProductBinMappingReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="incorrect-mapping-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE', 'BIN', 'BIN ZONE', 'QUANTITY', 'CREATED DATE'])
+        writer.writerow(['ORDER NO', 'SKU', 'SKU ZONE NUMBER', 'SKU ZONE NAME', 'BIN', 'BIN ZONE NUMBER',
+                         'BIN ZONE NAME', 'QUANTITY', 'CREATED DATE'])
         for obj in data:
             created_at = obj['created_at'].strftime('%b %d,%Y %H:%M:%S')
-            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone'], obj['bin_inventory__bin'],
-                             obj['bin_inventory__bin_zone'], obj['pickup_quantity'], created_at])
+            writer.writerow([obj['pickup_type_id'], obj['sku'], obj['zone__zone_number'], obj['zone__name'],
+                             obj['bin_inventory__bin__bin__bin_id'], obj['bin_inventory__bin_zone__zone_number'],
+                             obj['bin_inventory__bin_zone__name'], obj['pickup_quantity'], created_at])
         return response
 
 

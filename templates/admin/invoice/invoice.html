@@ -186,7 +186,7 @@ table tr td,th,h4,span,address{
 
 
 									<td class="text-center">{{m.shipped_qty}}</td>
-									<div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
+									<div style="display:none"> {{m.shipped_qty | shipped_qty|floatformat:"0"}}</div>
 									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
 									{% for h in m.get_shop_specific_products_prices %}
     								<td class="text-center">{{h.price_to_retailer}}</td>

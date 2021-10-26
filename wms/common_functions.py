@@ -365,6 +365,9 @@ class CommonPickupFunctions(object):
     @classmethod
     def create_pickup_entry_with_zone(cls, warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status,
                                       inventory_type):
+        info_logger.info("Inside create_pickup_entry_with_zone, params:- warehouse: {}, zone: {}, pickup_type: {}, "
+                         "pickup_type_id: {}, sku: {}, quantity: {}, pickup_status: {}, inventory_type: {}".format(
+            warehouse, zone, pickup_type, pickup_type_id, sku, quantity, pickup_status, inventory_type))
         return Pickup.objects.create(warehouse=warehouse, zone=zone, pickup_type=pickup_type,
                                      pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=pickup_status,
                                      inventory_type=inventory_type)
@@ -2345,6 +2348,37 @@ def get_logged_user_wise_query_set(user, queryset):
     return queryset
 
 
+def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
+    '''
+        GET Logged-in user wise queryset for grouped puaways based on criteria that matches
+    '''
+    if pickup_type == 1:
+        if user.has_perm('wms.can_have_zone_warehouse_permission'):
+            queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+                warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+        elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+            queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+                supervisor=user).values_list('id', flat=True)))
+        elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+            queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+                coordinator=user).values_list('id', flat=True)))
+        elif user.groups.filter(name='Picker Boy').exists():
+            queryset = queryset.filter(picker_boy=user)
+    elif pickup_type == 2:
+        if user.has_perm('wms.can_have_zone_warehouse_permission'):
+            queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+                warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+        elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+            queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+                supervisor=user).values_list('id', flat=True)))
+        elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+            queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+                coordinator=user).values_list('id', flat=True)))
+        elif user.groups.filter(name='Picker Boy').exists():
+            queryset = queryset.filter(picker_repacks__picker_boy=user)
+    return queryset
+
+
 class ZoneCommonFunction(object):
 
     @classmethod
@@ -2415,8 +2449,12 @@ def post_picking_order_update(picker_dashboard_instance):
             if picker_dashboard_instance.order.picker_order.exclude(picking_status__in=['moved_to_qc',
                                                                     'picking_cancelled']).exists():
                 picker_dashboard_instance.order.order_status = 'PARTIAL_MOVED_TO_QC'
+                info_logger.info("post_picking_order_update | " + str(picker_dashboard_instance.order.order_no) +
+                                 " | PARTIAL_MOVED_TO_QC.")
             else:
                 picker_dashboard_instance.order.order_status = 'MOVED_TO_QC'
+                info_logger.info("post_picking_order_update | " + str(picker_dashboard_instance.order.order_no) +
+                                 " | MOVED_TO_QC.")
             picker_dashboard_instance.order.save()
 
 

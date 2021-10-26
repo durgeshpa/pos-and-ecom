@@ -514,12 +514,13 @@ def create_credit_note_on_trip_close(trip_id):
                     )
                 grn_item.save()
                 try:
-                    credit_amount += ((item.shipped_qty - item.delivered_qty) * float(item.effective_price))
+                    credit_amount += ((float(item.shipped_qty) - float(item.delivered_qty)) * float(item.effective_price))
                 except Exception as e:
                     logger.exception("Product price not found for {} -- {}".format(item.product, e))
 
             credit_note.amount = credit_amount
             credit_note.save()
+
         if shipment.order.ordered_cart.approval_status == True:
             invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
             last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
@@ -550,7 +551,7 @@ def create_credit_note_on_trip_close(trip_id):
                     credit_note_type = 'DISCOUNTED',
                     status=True)
             for item in shipment.rt_order_product_order_product_mapping.all():
-                credit_amount += (float(item.effective_price) - float(item.discounted_price)) * item.delivered_qty
+                credit_amount += (float(item.effective_price) - float(item.discounted_price)) * float(item.delivered_qty)
             credit_note.amount = credit_amount
             credit_note.save()
 
@@ -595,7 +596,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 status=True)
         for item in instance.rt_order_product_order_product_mapping.all():
             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-            credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.returned_damage_qty))
+            credit_amount += ((float(cart_product_map.item_effective_prices) - float(cart_product_map.discounted_price)) *
+                              (float(item.returned_qty) + float(item.returned_damage_qty)))
         credit_note.amount = credit_amount
         credit_note.save()
         # if(instance.rt_order_product_order_product_mapping.last() and

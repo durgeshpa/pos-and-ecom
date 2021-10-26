@@ -1,6 +1,6 @@
 import copy
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import groupby
 
 from dal import autocomplete
@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When
+from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When, F, Value
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import authentication, status
@@ -20,14 +20,14 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from gram_to_brand.models import GRNOrder
 from products.models import Product
 
-from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
+from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway
+    validate_putaway_user_against_putaway, validate_grouped_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
@@ -888,7 +888,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             """ GET Putaway List """
             self.queryset = self.search_filter_putaway_data()
             putaway_total_count = self.queryset.count()
-            putaway_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            putaway_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaway_data, many=True)
         msg = f"total count {putaway_total_count}" if putaway_data else "no putaway found"
@@ -921,6 +921,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         warehouse = self.request.GET.get('warehouse')
         zone = self.request.GET.get('zone')
+        putaway_user = self.request.GET.get('putaway_user')
         product = self.request.GET.get('product')
         date = self.request.GET.get('date')
         status = self.request.GET.get('status')
@@ -941,6 +942,9 @@ class PutawayItemsCrudView(generics.GenericAPIView):
 
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
+
+        if putaway_user:
+            self.queryset = self.queryset.filter(putaway_user_id=putaway_user)
 
         if zone:
             zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
@@ -1039,11 +1043,16 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                     output_field=models.CharField(),
                  ),
                  zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1]),
+                 putaway_status=Case(
+                     When(status__in=[Putaway.ASSIGNED, Putaway.INITIATED], then=Value(Putaway.ASSIGNED)),
+                     default=F('status'),
+                     output_field=models.CharField(),
+                 )
                  ). \
         exclude(zone__isnull=True). \
         exclude(token_id__isnull=True). \
-        values('token_id', 'zone', 'putaway_user', 'status', 'putaway_type', 'created_at__date'). \
+        values('token_id', 'zone', 'putaway_user', 'putaway_status', 'putaway_type', 'created_at__date'). \
         annotate(total_items=Count('token_id')).order_by('-created_at__date')
     serializer_class = GroupedByGRNPutawaysSerializers
 
@@ -1054,6 +1063,11 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         """ GET Putaway List """
 
         self.queryset = get_logged_user_wise_query_set(self.request.user, self.queryset)
+
+        validate_request = validate_grouped_request(request)
+        if "error" in validate_request:
+            return get_response(validate_request['error'])
+
         self.queryset = self.filter_grouped_putaways_data()
         putaways_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -1068,10 +1082,11 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         putaway_type = self.request.GET.get('putaway_type')
         status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using token_id, zone, putaway_user, putaway_type'''
         if token_id:
-            self.queryset = self.queryset.filter(token_id=token_id)
+            self.queryset = self.queryset.filter(token_id__iexact=token_id)
 
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
@@ -1083,17 +1098,17 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_type=putaway_type)
 
         if status:
-            if status == Putaway.ASSIGNED:
-                self.queryset = self.queryset.filter(status__in=[Putaway.ASSIGNED, Putaway.INITIATED])
-            else:
-                self.queryset = self.queryset.filter(status=status)
+            self.queryset = self.queryset.filter(putaway_status=status)
 
         if created_at:
-            try:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
                 created_at = datetime.strptime(created_at, "%Y-%m-%d")
                 self.queryset = self.queryset.filter(created_at__date=created_at)
-            except Exception as e:
-                error_logger.error(e)
 
         return self.queryset
 
@@ -1106,7 +1121,7 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
         select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type', 'sku',
                        'warehouse__shop_type__shop_sub_type', 'putaway_user', 'inventory_type'). \
-        prefetch_related('sku__product_pro_image'). \
+        prefetch_related('sku__product_pro_image').filter(status=Putaway.NEW). \
         annotate(token_id=Case(
                     When(putaway_type='GRN',
                          then=Cast(Subquery(In.objects.filter(
@@ -1512,6 +1527,8 @@ class UpdateQCAreaView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=picking_dashboard_entry, data=modified_data)
         if serializer.is_valid():
             picking_dashboard_entry = serializer.save(updated_by=request.user, data=modified_data)
+            if isinstance(picking_dashboard_entry, str):
+                return get_response(picking_dashboard_entry)
             return get_response('Picking moved to qc area!', picking_dashboard_entry.data)
         # return get_response(serializer_error(serializer), modified_data, False)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
@@ -1619,10 +1636,17 @@ class PutawaySummaryView(generics.GenericAPIView):
 
     def filter_putaway_summary_data(self):
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using date'''
+        '''Filters using date with data_days'''
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
@@ -1669,13 +1693,20 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
     def filter_zone_wise_summary_putaways_data(self):
         zone = self.request.GET.get('zone')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
-        '''Filters using zone '''
+        '''Filters using zone and date with data_days'''
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
 
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 

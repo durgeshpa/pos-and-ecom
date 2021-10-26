@@ -25,7 +25,8 @@ from products.models import Product
 
 from .common_validators import validate_user_type_for_pos_shop
 from pos import error_code
-from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, PosCart, PosCartProductMapping, Vendor
+from pos.models import RetailerProduct, ShopCustomerMap, RetailerProductImage, ProductChange, ProductChangeFields, \
+    PosCart, PosCartProductMapping, Vendor, PosReturnGRNOrder, MeasurementUnit, MeasurementCategory
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -67,8 +68,10 @@ class RetailerProductCls(object):
 
     @classmethod
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
-                                product_ean_code, user, event_type, event_id=None, product_status='active',
-                                offer_price=None, offer_sd=None, offer_ed=None, product_ref=None, online_enabled=True, online_price=None):
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
+                                is_visible=False):
         """
             General Response For API
         """
@@ -78,7 +81,10 @@ class RetailerProductCls(object):
                                                  offer_price=offer_price, offer_start_date=offer_sd,
                                                  offer_end_date=offer_ed, description=description,
                                                  product_ean_code=product_ean_code, status=product_status,
-                                                 product_ref=product_ref, online_enabled=online_enabled, online_price=online_price)
+                                                 product_ref=product_ref, product_pack_type=pack_type,
+                                                 measurement_category_id=measure_cat_id,
+                                                 online_enabled=online_enabled, online_price=online_price,
+                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -117,6 +123,15 @@ class RetailerProductCls(object):
         old_product = deepcopy(product)
         product.selling_price = selling_price
         product.status = product_status
+        product.save()
+        # Change logs
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+
+    @classmethod
+    def update_mrp(cls, product_id, product_mrp, user, event_type, event_id):
+        product = RetailerProduct.objects.filter(id=product_id).last()
+        old_product = deepcopy(product)
+        product.mrp = product_mrp
         product.save()
         # Change logs
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
@@ -194,10 +209,10 @@ class PosInventoryCls(object):
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
-        if not created and qty == pos_inv.quantity:
+        if not created and Decimal(qty) == pos_inv.quantity:
             return
-        qty_change = qty - pos_inv.quantity
-        pos_inv.quantity = qty
+        qty_change = Decimal(qty) - pos_inv.quantity
+        pos_inv.quantity = Decimal(qty)
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
                                                 f_state_obj, user)
@@ -372,6 +387,27 @@ class PosCartCls(object):
                         "selling_price": cart_product.selling_price,
                     }]
         return out_of_stock_items
+
+
+    @classmethod
+    def product_deleled(cls, cart_products, remove_deleted=0):
+        deleted_items = []
+
+        # if cart_products.filter(retailer_product__is_deleted=True).exists():
+        deleled_cart_products = cart_products.filter(retailer_product__is_deleted=True)
+        for cart_product in deleled_cart_products:
+            product = cart_product.retailer_product
+            if remove_deleted:
+                CartProductMapping.objects.filter(id=cart_product.id).delete()
+            else:
+                deleted_items += [{
+                    "id": product.id,
+                    "name": product.name,
+                    "qty": cart_product.qty,
+                    "mrp": product.mrp,
+                    "selling_price": cart_product.selling_price,
+                }]
+        return deleted_items
 
 
 class RewardCls(object):
@@ -571,6 +607,22 @@ def filter_pos_shop(user):
                                pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
+def check_return_status(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        status = request.GET.get('status')
+        if not status:
+            kwargs['status'] = PosReturnGRNOrder.RETURNED
+            # return api_response("No status Selected!")
+        elif status not in ['RETURNED', 'CANCELLED', 'Returned', 'Cancelled']:
+            return api_response("invalid status Selected!")
+        else:
+            kwargs['status'] = status.upper()
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def check_pos_shop(view_func):
     """
         Decorator to validate pos request
@@ -684,7 +736,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            if qty is None or qty < 0 or (qty == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
@@ -700,31 +752,73 @@ class PosAddToCart(object):
                     return api_response(pos_shop_user_obj['error'])
 
                 # Provided product info check
-                name, sp, ean = request.data.get('product_name'), request.data.get(
-                    'selling_price'), request.data.get('product_ean_code')
-                if not name or not sp or not ean:
-                    return api_response("Please provide product_id OR product_name, product_ean_code, selling_price!")
+                name, sp, ean, mrp = request.data.get('product_name'), request.data.get('selling_price'), \
+                                     request.data.get('product_ean_code'), request.data.get('product_mrp')
+                if not name or not sp or not ean or not mrp:
+                    return api_response("Please provide product_id OR product_name, product_ean_code, "
+                                        "selling_price and product_mrp!")
+                if sp > mrp:
+                    return api_response("Selling Price should be equal to OR less than MRP!")
 
                 # Linked product check
                 linked_pid = request.data.get('linked_product_id') if request.data.get('linked_product_id') else None
-                new_product_info['mrp'], new_product_info['type'] = 0, 1
+                new_product_info['type'] = 1
                 if linked_pid:
                     linked_product = Product.objects.filter(id=linked_pid).last()
                     if not linked_product:
                         return api_response(f"GramFactory product not found for given {linked_pid}")
-                    new_product_info['mrp'], new_product_info['type'] = linked_product.product_mrp, 2
+                    new_product_info['type'] = 2
 
-                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
+                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'], new_product_info['mrp'] = \
+                    name, sp, linked_pid, mrp
                 new_product_info['ean'] = ean
+                product_pack_type = 'packet'
             # Add by Product Id
             else:
                 try:
                     product = RetailerProduct.objects.get(id=request.data.get('product_id'), shop=shop)
                 except ObjectDoesNotExist:
                     return api_response("Product Not Found!")
-                # Check if selling price is less than equal to mrp if price change
+
                 price_change = request.data.get('price_change')
-                if price_change in [1, 2]:
+                mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+
+                # Check If MRP and Selling price Change
+                if price_change in [1, 2] and mrp_change == 1:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+
+                    # Price, MRP update check
+                    selling_price = request.data.get('selling_price')
+                    product_mrp = self.request.data.get('product_mrp')
+                    if not selling_price:
+                        return api_response("Please provide selling price to change price")
+                    if not product_mrp:
+                        return api_response("Please provide mrp to change product mrp")
+                    if Decimal(selling_price) > Decimal(product_mrp):
+                        return api_response("Selling Price should be equal to OR less than MRP")
+
+                # Check If MRP Change
+                elif mrp_change == 1:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+                    # MRP update check
+                    product_mrp = self.request.data.get('product_mrp')
+                    if not product_mrp:
+                        return api_response("Please provide mrp to change product mrp")
+                    if product.selling_price and product.selling_price > product_mrp:
+                        return api_response("MRP should be equal to OR greater than Selling Price")
+
+                # Check if selling price is less than equal to mrp if price change
+                elif price_change in [1, 2]:
                     # User permission check
                     pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
                     if 'error' in pos_shop_user_obj:
@@ -760,6 +854,16 @@ class PosAddToCart(object):
                         return api_response("The discounted product is de-activated!")
                     elif discounted_stock < qty:
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
+
+                product_pack_type = product.product_pack_type
+
+            # qty w.r.t pack type
+            kwargs['conversion_unit_id'] = None
+            if product_pack_type == 'packet':
+                qty = int(qty)
+            else:
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                    product, qty)
 
             # Return with objects
             kwargs['product'] = product
@@ -809,6 +913,18 @@ class PosAddToCart(object):
         return _wrapped_view_func
 
 
+def get_default_qty(given_qty_unit, product, qty):
+    default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+    qty_unit = default_unit
+    if given_qty_unit:
+        try:
+            qty_unit = MeasurementUnit.objects.get(unit=given_qty_unit)
+        except:
+            qty_unit = default_unit
+    qty = round(round(Decimal(qty), 3) * qty_unit.conversion / default_unit.conversion, 3)
+    return qty, qty_unit.id
+
+
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
     bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
     vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
@@ -830,7 +946,20 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
             if not mapping.is_grn_done:
                 mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(
                     product.qty)
+                if retailer_product.product_pack_type == 'loose':
+                    measurement_category = MeasurementCategory.objects.get(
+                        category=retailer_product.measurement_category.category.lower())
+                    mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
+                                                                              default=True)
+
                 mapping.qty = product.qty
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no
+
+
+def generate_debit_note_number(returned_obj, billing_address_instance):
+    return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
+
+
+

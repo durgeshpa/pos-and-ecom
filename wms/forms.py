@@ -14,7 +14,8 @@ from tempus_dominus.widgets import DateTimePicker
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea, \
+    ZonePickerUserAssignmentMapping
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1383,18 +1384,18 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
                                       params={'value': row_id+1},)
 
-            # validation for zone id, it should be numeric.
-            if not row[4] or not re.match("^[\d]*$", row[4]):
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. It should be numeric.'),
+            # validation for zone number, it should be numeric.
+            if not row[4] or not re.match("^\w+$", row[4]):
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. It should be alphanumeric.'),
                                       params={'value': row_id + 1}, )
 
             # validation for product to check that is exist or not in the database
-            if not row[4] or not Zone.objects.filter(id=row[4]).exists():
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. Zone is not exists.'),
+            if not row[4] or not Zone.objects.filter(zone_number=row[4]).exists():
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. Zone is not exists.'),
                                       params={'value': row_id+1},)
 
             # validation for zone id is associate with executive
-            if Zone.objects.filter(id=row[4]).last().warehouse.id != int(row[0]):
+            if Zone.objects.filter(zone_number=row[4]).last().warehouse.id != int(row[0]):
                 raise ValidationError(_('Row number [%(value)s] | Warehouse not mapped to the selected Zone.'),
                                       params={'value': row_id+1},)
 
@@ -1406,6 +1407,34 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         # Check logged in user permissions
         if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
             raise forms.ValidationError(_("Required permissions missing to perform this task."))
+
+
+class ZonePickerUserAssignmentMappingForm(forms.ModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super(ZonePickerUserAssignmentMappingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        self.fields['alternate_user'].queryset = User.objects.filter(picker_assigned_zone__zone=instance.zone). \
+            exclude(picker_assigned_zone__user=instance.user).all()
+
+    def clean_alternate_user(self):
+        if self.cleaned_data['user_enabled']:
+            return None
+        if not self.cleaned_data['user_enabled'] and not self.cleaned_data['alternate_user']:
+            raise ValidationError(_("Alternate user is mandatory when user is not enabled."))
+        return self.cleaned_data['alternate_user']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        alternate_user = cleaned_data.get("alternate_user")
+        user_enabled = cleaned_data.get("user_enabled")
+        instance = getattr(self, 'instance', None)
+        if not user_enabled and alternate_user == instance.user:
+            raise ValidationError(_("Alternate user is same as user."))
+
+    class Meta:
+        model = ZonePickerUserAssignmentMapping
+        fields = ['zone', 'user', 'last_assigned_at', 'user_enabled', 'alternate_user']
 
 
 class QCAreaForm(forms.ModelForm):
