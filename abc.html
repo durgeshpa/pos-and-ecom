@@ -1,0 +1,282 @@
+
+
+
+
+
+
+
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>invoice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="http://127.0.0.1:8000/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+    <link rel="stylesheet" type="text/css" href="http://127.0.0.1:8000/static/admin/css/test.css">
+    <style>
+		table tr td,th,h4,span,address{
+			font-size:10px;
+		}
+        /*.receipt{
+          width: 76mm;
+          border: 2px solid black;
+          margin-right:-10mm ;
+
+
+        }*/
+    /*.receipt {
+    padding: 1mm;
+    width: 80mm;
+    border: 1px solid black;
+       }*/
+    </style>
+</head>
+<body>
+<div class="receipt">
+<div class="row">
+    <div class="col-lg-12">
+        <div class="row overflow-hidden" style="padding-bottom:5px; position:relative; ">
+            <div class=" col-md-6">
+                <div class="col-sm-12" style="text-align:center;">
+                    
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="barcode">
+
+                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,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lubrqv/880/zg7kU6ColJcW1wLDZbJ6NOBwOEamrq/Ojn2vWrBGPfyF+/fXX9vb2oKCgVatWKQ2aGzX333+/uTbqa6X1sQe2cvIms4eAlJwWTErW1NR0d3c7J5rgWLdunedxlquxsbFDhw6JyObNm6Ojo31ddXt7u4gEBwebM1xX8fHxzgIRSUxMFJGLFy+6PacyPDzc2NgoIpcvX/ajny+//HJcXFxZWVl+fn5LS0tfX19FRcUDDzwgInv27Fm8eLG3BltbW48fPy4iW7Zs0cfordL62ANbOUmT3ENASvrvuuuu83wW79ixY340dfPNNyckJIyNjVVWVjonmpSc8HT7pZdeqq2tjY6Ozs/P92PV/f39ImIuLDY0NKSmps6aNevVV18VkYiICBHp6+szlStXrhSR0dHRDz74wLWFgoIC84ioacrXfqakpJw5c2bTpk0vvPDCggULZs2adeedd46MjBQWFuojKisrGx0dXbhwodsZq/VK62MPbOUkTXIPASk5LdhstnXr1onLSXdjY2NDQ4PNZjMP33jz7bffvvjiizabrbS0dMGCBZPsht1uHx0ddTgcdrvdtW/mh9TU1LvuuktEdu7cWVpa2t7e3tPTU1xcvHv37nnz5sl41xYt9rOioqK2ttZ1pa2trZWVleaynTfmJNo8uq+Py0qlPvbpU+mrqd1D/j9xKdd/TU1NU7jbZWdnl5aWOi/PnThxQkTS09OV2xdnz57dtGmT3W5/7bXXcnJy/FvvNddcIyLmYHDx4sX19fXOWQMDA84Co6CgIDMzs7m5+bHHHnNOTE5OzsvL279//6xZs/zo5+7du19//fXY2NiioqL169dHRUX99ttvzz///JEjR8rLy2tqakwEu6murjZPJj366KP6AJVK62MPbKXfpmQPAceS00VWVlZQUFBtba15c3HC0+36+vrs7Oze3t5du3Y9++yzfq/XZNDo6KjnVcW2tjb537vMSUlJP//8865du5KTk8PCwuLj4x9//PEzZ86Yk0fz5KNP/WxoaDh8+LCIFBcXb9u2LTExcebMmRkZGceOHbvxxhtbWlq8nSQWFxeLSEZGhuetD+uV1sce2Er/TNUeAlJyupgzZ455etycdJv/ekvJS5curV27tq2tLS8vz1yY95u5nSoiFy5ccJtl7rG6hcu8efMOHz5cV1c3ODjY2tpaWFgYHx9vbqHedNNNvvazurp6bGwsODjYbaRhYWFmyqlTpzyXunr1qnkUf8IDSb3S+tgDW+mHKdxDQEpOI87ngS5cuNDS0hIbG3vbbbd5lnV1dWVlZf31118bNmwoLi6e5NWr5ORkc0fV7c9t9PT01NTUyH9v2iiam5vNQ8vr16/3tZ/O944dXv6Px+O+mPzpp5/29PSEhoZu3rxZ75teaX3sga301dTuIeDdG59N+bs3TuaILDU19e233xaRhx56yLOmr6/v9ttvF5HVq1c7/6zGhPx4Q9EcgCjvyRl2u/2+++4TkWXLlvnRzy+++MJ07LPPPnOdPjQ0ZN47yszM9FzK3KreuHGj0jGLldbHHthKV/qn6d8eAgUp6bN/LiXtdrs5uDAHEWVlZW4FQ0NDa9euFZFbb721p6fH+tr171VdXZ15nebee+9taGjo7+8vKSkxD6O4/c2F6urqhx9+uLKysqOjo7+///Tp0+b4MSgoqKqqyo9+9vf3m7f0YmJiCgsLL1682NfX9+OPP959992mw0VFRW6LmFv/IvLll1/qo7ZSaX3sga10pXyafu8hUJCSPrOekhb/cpor5+Uzm83W1tbmNre6ulpp0DOFly5d6q1y6dKlrpXFxcWez/GsWLHC7WDE+Tqwq9DQULe3sH3q58mTJ6OiosYt27p1q91ud9sI+/btE5G5c+cODw/r299ipcWxB7zSyqfp6x4CK0hJn/2jKXn06FEz1+0E1vjnUtLhcJw6deqee+6JiYkJDw9fsmRJfn6+21+1cDgco6Ojn3zyydq1axMSEsLDw5OSkp544onz589Psp9NTU1PP/10WlpaZGRkSEjI/Pnzc3JyvvrqK88tMDY2tnDhQhHZsWOHl63uc6XFsQe8kpQMFJvDy1VzAIBwjxsAdKQkAGhISQDQkJIAoCElAUBDSgKAhpQEAA0pCQAaUhIANKQkAGhISQDQkJIAoCElAUBDSgKAhpQEAA0pCQAaUhIANKQkAGj+A8fnn9oWbNmbAAAAAElFTkSuQmCC" height="30px" width="100px">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+         <div class="col-md-12  ">
+             <center>
+                        <address>
+                            <span>Shop : </span>
+                            <strong>Noida pincode</strong><br>
+                            hfhdh<br> hshdhhx<br>
+                            Noida, Uttar Pradesh, 201301<br>
+                            Contact : 7763886418<br>
+                        </address>
+             </center>
+        </div>
+        <hr style="border-top: 1px solid black;">
+        <div class="col-md-12" >
+            <div class="table ">
+                <table class="table table-bordered" >
+                    <tr>
+                        <td class="text-center " >
+                            Order ID.<br>FOR21092877000012
+                        </td>
+                       <!--  <td class="text-center small">
+                            Order Date <br>Oct. 26, 2021, 11:33 a.m.
+                        </td> -->
+                        <td class="text-center " >
+                            Invoice No <br>FIV21092877000012
+                        </td>
+                        <!-- <td class="text-center small">
+                            Invoice Date <br>Oct. 26, 2021, 11:33 a.m.
+                        </td> -->
+                    </tr>
+                    <tr>
+                        <!-- <td class="text-center " >
+                            Order ID.<br>FOR21092877000012
+                        </td> -->
+                        <td class="text-center">
+                            Order Date <br>Oct 26, 2021
+                        </td>
+                        <!-- <td class="text-center " >
+                            Invoice No <br>FIV21092877000012
+                        </td> -->
+                        <td class="text-center">
+                            Invoice Date <br>Oct 26, 2021
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!--<hr style="border-top: 1px solid black;">
+             <div class="row">
+                <div class="col-md-12">
+                    <div class="col-xs-6 ">
+                        <address>
+                            <span>Customer Details:</span><br>
+                            <strong style="text-transform:capitalize;">Pallavi Chouhan<br>
+                            7763886418<br>
+                        </address>
+                    </div>
+                    <div class="col-xs-6  ">
+                        <address>
+                            <span>Shop :</span><br>
+                            Noida pincode<br>
+                            hfhdh, hshdhhx, Noida<br>
+                            7763886418<br>
+							State Name: <span>Uttar Pradesh </span>Pincode: <span>201301</span><br>
+                        </address>
+                    </div>
+                </div>
+            </div> -->
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="panel panel-default">
+        <!-- <div class="panel-heading">
+            <h3 class="panel-title">Order summary</h3>
+        </div> -->
+        <div class="panel-body">
+            <div class="table" style="margin: auto; border : 1px;">
+                <table class="table table-condensed">
+                    <thead>
+                    <tr class="text-center small">
+                        <td>No.</td>
+                        <td colspan="4">Product</td>
+                        <td>MRP</td>
+                        <td>Qty</td>
+                        <td>Rate</td>
+                        <td>Amount</td>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    
+                    
+                    <tr class="text-center small" style="text-align:center;">
+                        <td>1</td>
+                        <td colspan="4">pal test 11</td>
+                        <td>99.78</td>
+                        <td>1</td>
+                        <td>44.89</td>
+                        <td>44.89/-
+                        </td>
+                    </tr>
+                    
+                    
+                    
+                    <tr class="text-center small" style="text-align:center;">
+                        <td>2</td>
+                        <td colspan="4">Test 112</td>
+                        <td>12.00/piece</td>
+                        <td>1.000 piece</td>
+                        <td>10.00/piece</td>
+                        <td>10.00/-
+                        </td>
+                    </tr>
+                    
+                    
+                    
+                    <tr class="text-center small" style="text-align:center;">
+                        <td>3</td>
+                        <td colspan="4">Test product</td>
+                        <td>100.00</td>
+                        <td>1</td>
+                        <td>100.0</td>
+                        <td>100.00/-
+                        </td>
+                    </tr>
+                    
+                    
+                    
+                    <tr class="text-center small" style="text-align:center;">
+                        <td>4</td>
+                        <td colspan="4">GRAMFACTORY CASHEW BROKEN 4 PC 100 GM</td>
+                        <td>12.00/Kg</td>
+                        <td>1.000 Kg</td>
+                        <td>10.00/Kg</td>
+                        <td>10.00/-
+                        </td>
+                    </tr>
+                    
+                    
+                    <tr class="text-center small" style="text-align:center;">
+                        <td></td>
+                        <td colspan="4"></td>
+                        <td></td>
+                        <td class="thick-line">4.000 PCS</td>
+                        <td class="thick-line"></td>
+                        <td class="thick-line">₹164.89/-</td>
+                    </tr>
+                    <tr class="text-center small" style="text-align:center;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="thick-line"></td>
+                        <td class="thick-line"></td>
+                    </tr>
+                    <tr class="text-center small" style="text-align:center;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line">Discount</td>
+                        <td class="no-line" colspan="2">
+                            ₹ 0.0/-
+                        </td>
+                    </tr>
+                    
+                    <tr class="text-center small" style="text-align:left;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line">Total</td>
+                        <td class="no-line" colspan="2">
+                            <strong style="font-size: medium;"> ₹165/-</strong>
+                        </td>
+                    </tr>
+                    <tr class="text-center small">
+                        <td colspan="12"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="no-line">Amount Chargeable (in words): </td>
+
+                    </tr>
+                    <tr>
+                        <td colspan="11">INR one hundred and sixty-five only</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- <div class="table">
+                <div class="table">
+                    <table class="table table-bordered">
+                        <thead>
+                        <tr>
+                            <td class="text-left" colspan="7">
+                                <strong style="font-size:12px">Declaration:
+                                <br>
+                                <strong style="font-size:11px"> We declare that this invoice shows the actual price
+                                    of the goods described and that all particulars are true and correct.
+                                <br>
+                                <strong style="font-size:11px">Note: This is a computer generated
+                                    invoice <br><br>
+                            </td>
+                        </tr>
+                        </thead>
+                    </table>
+                </div>
+                </div>
+                </div>
+            </div> -->
+
+            <div class="text-left" style="margin: auto;">
+                Declaration:
+                <br>
+                               We declare that this invoice shows the actual
+                               price of the goods described and that
+                               all particulars are true and correct.
+                <br>
+                               Note: This is a computer generated invoice <br><br>
+                  <td class="no-line" style="display:block;">E .&amp; O. E</td>
+            </div>
+
+
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

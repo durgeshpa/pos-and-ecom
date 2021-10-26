@@ -6,6 +6,9 @@ import requests
 from datetime import datetime, timedelta
 from datetime import date as datetime_date
 from operator import itemgetter
+
+from django.template import loader
+from django.template.loader import render_to_string
 from num2words import num2words
 from elasticsearch import Elasticsearch
 from decouple import config
@@ -5160,7 +5163,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     order = Order.objects.filter(id=order_id).last()
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
-    template_name = 'admin/invoice/invoice_retailer.html'
+    template_name = 'admin/invoice/invoice_retailer_3inch.html'
 
     try:
         # Don't create pdf if already created
@@ -5194,14 +5197,15 @@ def pdf_generation_retailer(request, order_id, delay=True):
             product_pro_price_ptr = cart_product_map.selling_price
             product = cart_product_map.retailer_product
             product_pack_type = product.product_pack_type
+            default_unit="piece"
             if product_pack_type == 'loose':
-                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True).unit
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
-                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
-                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit,
                 "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
@@ -5259,22 +5263,26 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        try:
-            # create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-                                                     save=True)
-            phone_number = order.buyer.phone_number
-            shop_name = order.seller_shop.shop_name
-            media_url = ordered_product.invoice.invoice_pdf.url
-            file_name = ordered_product.invoice.invoice_no
-            # whatsapp api call for sending an invoice
-            if delay:
-                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-            else:
-                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-        except Exception as e:
-            logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
-            logger.exception(e)
+        content = render_to_string(template_name, data)
+        with open("abc.html", 'w') as static_file:
+            static_file.write(content)
+
+        # try:
+        #     # create_invoice_data(ordered_product)
+        #     ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+        #                                              save=True)
+        #     phone_number = order.buyer.phone_number
+        #     shop_name = order.seller_shop.shop_name
+        #     media_url = ordered_product.invoice.invoice_pdf.url
+        #     file_name = ordered_product.invoice.invoice_no
+        #     # whatsapp api call for sending an invoice
+        #     if delay:
+        #         whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+        #     else:
+        #         return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        # except Exception as e:
+        #     logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
+        #     logger.exception(e)
 
 
 def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items,

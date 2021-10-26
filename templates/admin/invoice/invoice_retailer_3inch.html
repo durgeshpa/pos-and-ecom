@@ -1,0 +1,261 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters_invoice_sp %}
+{% load humanize %}
+{% load mathfilters %}
+
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>invoice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/test.css">
+    <style>
+		table tr td,th,h4,span,address{
+			font-size:10px;
+		}
+        /*.receipt{
+          width: 76mm;
+          border: 2px solid black;
+          margin-right:-10mm ;
+
+
+        }*/
+    /*.receipt {
+    padding: 1mm;
+    width: 80mm;
+    border: 1px solid black;
+       }*/
+    </style>
+</head>
+<body>
+<div class="receipt">
+<div class="row">
+    <div class="col-lg-12">
+        <div class="row overflow-hidden" style="padding-bottom:5px; position:relative; ">
+            <div class=" col-md-6">
+                <div class="col-sm-12" style="text-align:center;">
+                    {% if payment_type == 'neft' %}
+                    <h5 style="font-size:20px">Prepaid Order</h5>
+                    {% elif payment_type == 'cash_on_delivery' %}
+                    <h5 style="font-size:20px">Cash On Delivery</h5>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="barcode">
+
+                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="30px" width="100px">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+         <div class="col-md-12  ">
+             <center>
+                        <address>
+                            <span>Shop : </span>
+                            <strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
+                            {{nick_name}}<br> {{address_line1}}<br>
+                            {{city}}, {{state}}, {{pincode}}<br>
+                            Contact : {{address_contact_number}}<br>
+                        </address>
+             </center>
+        </div>
+        <hr style="border-top: 1px solid black;">
+        <div class="col-md-12" >
+            <div class="table ">
+                <table class="table table-bordered" >
+                    <tr>
+                        <td class="text-center " >
+                            <b>Order ID:</b>b>{{shipment.order.order_no}}
+                        </td>
+                       <!--  <td class="text-center small">
+                            Order Date <br>{{shipment.order.created_at}}
+                        </td> -->
+                        <td class="text-center " >
+                            Invoice No <br>{{shipment.invoice_no}}
+                        </td>
+                        <!-- <td class="text-center small">
+                            Invoice Date <br>{{shipment.created_at}}
+                        </td> -->
+                    </tr>
+                    <tr>
+                        <!-- <td class="text-center " >
+                            Order ID.<br>{{shipment.order.order_no}}
+                        </td> -->
+                        <td class="text-center">
+                            Order Date <br>{{shipment.order.created_at|date:"M d, Y" }}
+                        </td>
+                        <!-- <td class="text-center " >
+                            Invoice No <br>{{shipment.invoice_no}}
+                        </td> -->
+                        <td class="text-center">
+                            Invoice Date <br>{{shipment.created_at|date:"M d, Y" }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!--<hr style="border-top: 1px solid black;">
+             <div class="row">
+                <div class="col-md-12">
+                    <div class="col-xs-6 ">
+                        <address>
+                            <span>Customer Details:</span><br>
+                            <strong style="text-transform:capitalize;">{{shipment.order.buyer.first_name}} {{shipment.order.buyer.last_name}}<br>
+                            {{shipment.order.buyer.phone_number}}<br>
+                        </address>
+                    </div>
+                    <div class="col-xs-6  ">
+                        <address>
+                            <span>Shop :</span><br>
+                            {{shipment.order.seller_shop.shop_name}}<br>
+                            {{nick_name}}, {{address_line1}}, {{city}}<br>
+                            {{address_contact_number}}<br>
+							State Name: <span>{{state}} </span>Pincode: <span>{{pincode}}</span><br>
+                        </address>
+                    </div>
+                </div>
+            </div> -->
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="panel panel-default">
+        <!-- <div class="panel-heading">
+            <h3 class="panel-title">Order summary</h3>
+        </div> -->
+        <div class="panel-body">
+            <div class="table" style="margin: auto; border : 1px;">
+                <table class="table table-condensed">
+                    <thead>
+                    <tr class="text-center small">
+                        <td>No.</td>
+                        <td colspan="4">Product</td>
+                        <td>MRP</td>
+                        <td>Qty</td>
+                        <td>Rate</td>
+                        <td>Amount</td>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for m in product_listing %}
+                    {% if m.qty != 0 %}
+                    <tr class="text-center small" style="text-align:center;">
+                        <td>{{forloop.counter}}</td>
+                        <td colspan="4">{{ m.product_short_description}}</td>
+                        <td>{{ m.mrp}}</td>
+                        <td>{{m.qty}}</td>
+                        <td>{{m.rate}}</td>
+                        <td>{{m.product_sub_total|floatformat:2| intcomma }}/-
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    <tr class="text-center small" style="text-align:center;">
+                        <td></td>
+                        <td colspan="4"></td>
+                        <td></td>
+                        <td class="thick-line">{{sum_qty}} PCS</td>
+                        <td class="thick-line"></td>
+                        <td class="thick-line">₹{{total| intcomma}}/-</td>
+                    </tr>
+                    <tr class="text-center small" style="text-align:center;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="thick-line"></td>
+                        <td class="thick-line"></td>
+                    </tr>
+                    <tr class="text-center small" style="text-align:center;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line">Discount</td>
+                        <td class="no-line" colspan="2">
+                            ₹ {{discount| intcomma}}/-
+                        </td>
+                    </tr>
+                    {% if reward_value != 0 %}
+                    <tr class="text-center small" style="text-align:center;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line">Reward Value Used</td>
+                        <td class="no-line" colspan="2">
+                            ₹ {{reward_value| intcomma}}/-
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr class="text-center small" style="text-align:left;">
+                        <td class="no-line"></td>
+                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line"></td>
+                        <td class="no-line">Total</td>
+                        <td class="no-line" colspan="2">
+                            <strong style="font-size: medium;"> ₹{{total_amount|floatformat:0| intcomma}}/-</strong>
+                        </td>
+                    </tr>
+                    <tr class="text-center small">
+                        <td colspan="12"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="no-line">Amount Chargeable (in words): </td>
+
+                    </tr>
+                    <tr>
+                        <td colspan="11">INR {{rupees}} only</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- <div class="table">
+                <div class="table">
+                    <table class="table table-bordered">
+                        <thead>
+                        <tr>
+                            <td class="text-left" colspan="7">
+                                <strong style="font-size:12px">Declaration:
+                                <br>
+                                <strong style="font-size:11px"> We declare that this invoice shows the actual price
+                                    of the goods described and that all particulars are true and correct.
+                                <br>
+                                <strong style="font-size:11px">Note: This is a computer generated
+                                    invoice <br><br>
+                            </td>
+                        </tr>
+                        </thead>
+                    </table>
+                </div>
+                </div>
+                </div>
+            </div> -->
+
+            <div class="text-left" style="margin: auto;">
+                Declaration:
+                <br>
+                               We declare that this invoice shows the actual
+                               price of the goods described and that
+                               all particulars are true and correct.
+                <br>
+                               Note: This is a computer generated invoice <br><br>
+                  <td class="no-line" style="display:block;">E .&amp; O. E</td>
+            </div>
+
+
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>
