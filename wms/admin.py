@@ -1170,7 +1170,7 @@ class CrateAdmin(admin.ModelAdmin):
 
 class PickupCrateAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Crate Admin has been called.")
-    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'is_in_use',
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'quantity', 'is_in_use',
                     'created_at', 'created_by', 'updated_at', 'updated_by')
     # list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')

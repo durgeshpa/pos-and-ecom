@@ -743,6 +743,7 @@ class Crate(BaseTimestampUserModel):
 class PickupCrate(BaseTimestampUserModel):
     pickup = models.ForeignKey(Pickup, related_name='pickup_crates', on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_pickup', on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()
     is_in_use = models.BooleanField(default=True)
 
 

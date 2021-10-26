@@ -281,7 +281,7 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     return {'data': putaway}
 
 
-def validate_pickup_crates_list(crates_dict, warehouse_id):
+def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id):
     if 'is_crate_applicable' not in crates_dict:
         return {"error": "Missing 'is_crate_applicable' in pickup_crates."}
     if crates_dict['is_crate_applicable'] is True:
@@ -289,8 +289,19 @@ def validate_pickup_crates_list(crates_dict, warehouse_id):
             return {"error": "Missing 'crates' in pickup_crates for 'is_crate_applicable' is True."}
         if not isinstance(crates_dict['crates'], list):
             return {"error": "Key 'crates' can be of list type only."}
-        if len(crates_dict['crates']) != Crate.objects.filter(
-                id__in=crates_dict['crates'], warehouse__id=warehouse_id, crate_type=Crate.PICKING).count():
-            return {"error": "Invalid crates selected in pickup_crates."}
+        total_crate_qty = 0
+        for crate_obj in crates_dict['crates']:
+            if not isinstance(crate_obj, dict):
+                return {"error": "Key 'crates' can be of list of object type only."}
+            if 'crate_id' not in crate_obj or not crate_obj['crate_id']:
+                return {"error": "Missing 'crate_id' in pickup_crates for 'is_crate_applicable' is True."}
+            if 'quantity' not in crate_obj or not crate_obj['quantity']:
+                return {"error": "Missing 'quantity' in pickup_crates for 'is_crate_applicable' is True."}
+            if not Crate.objects.filter(
+                    crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id, crate_type=Crate.PICKING).exists():
+                return {"error": "Invalid crates selected in pickup_crates."}
+            total_crate_qty += int(crate_obj['quantity'])
+        if total_crate_qty != pickup_quantity:
+            return {"error": "Crates quantity should be matched with pickup quantity."}
     return {"data": crates_dict}
 
