@@ -89,6 +89,12 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if 'online_price' in attrs and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
+        image_count = 0
+        if 'images' in attrs and attrs['images']:
+            image_count = len(attrs['images'])
+        if image_count > 3:
+            raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
+
         if attrs['add_offer_price']:
             offer_price, offer_sd, offer_ed = attrs['offer_price'], attrs['offer_start_date'], attrs['offer_end_date']
 
