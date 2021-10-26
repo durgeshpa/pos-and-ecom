@@ -1513,10 +1513,11 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                                                 warehouse_id=self.initial_data['warehouse']).last()
                 if not qc_area:
                     raise serializers.ValidationError('Invalid QC Area')
-
-                qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
-                                                                 order=picker_dashboard_instance.order)\
-                                                         .exclude(id=picker_dashboard_instance.id).last()
+                qc_area_alloted = None
+                if not picker_dashboard_instance.repackaging:
+                    qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
+                                                                     order=picker_dashboard_instance.order)\
+                                                             .exclude(id=picker_dashboard_instance.id).last()
                 if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
@@ -1540,9 +1541,10 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
         return data
 
     def check_for_qc_area(self, instance, validated_data):
-        qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
-                                                         order=instance.order) \
-            .exclude(id=instance.id).last()
+        qc_area_alloted = None
+        if not instance.repackaging:
+            qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False, order=instance.order) \
+                                                     .exclude(id=instance.id).last()
         if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
             return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
         elif not qc_area_alloted and validated_data['qc_area'] and PickerDashboard.objects.filter(
