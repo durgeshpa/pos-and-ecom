@@ -128,6 +128,15 @@ class RetailerProductCls(object):
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
 
     @classmethod
+    def update_mrp(cls, product_id, product_mrp, user, event_type, event_id):
+        product = RetailerProduct.objects.filter(id=product_id).last()
+        old_product = deepcopy(product)
+        product.mrp = product_mrp
+        product.save()
+        # Change logs
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+
+    @classmethod
     def get_sku_type(cls, sku_type):
         """
             Get SKU_TYPE
