@@ -1086,7 +1086,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 
         '''Filters using token_id, zone, putaway_user, putaway_type'''
         if token_id:
-            self.queryset = self.queryset.filter(token_id=token_id)
+            self.queryset = self.queryset.filter(token_id__iexact=token_id)
 
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
