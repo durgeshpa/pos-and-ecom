@@ -128,6 +128,15 @@ class RetailerProductCls(object):
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
 
     @classmethod
+    def update_mrp(cls, product_id, product_mrp, user, event_type, event_id):
+        product = RetailerProduct.objects.filter(id=product_id).last()
+        old_product = deepcopy(product)
+        product.mrp = product_mrp
+        product.save()
+        # Change logs
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+
+    @classmethod
     def get_sku_type(cls, sku_type):
         """
             Get SKU_TYPE
@@ -743,21 +752,25 @@ class PosAddToCart(object):
                     return api_response(pos_shop_user_obj['error'])
 
                 # Provided product info check
-                name, sp, ean = request.data.get('product_name'), request.data.get(
-                    'selling_price'), request.data.get('product_ean_code')
-                if not name or not sp or not ean:
-                    return api_response("Please provide product_id OR product_name, product_ean_code, selling_price!")
+                name, sp, ean, mrp = request.data.get('product_name'), request.data.get('selling_price'), \
+                                     request.data.get('product_ean_code'), request.data.get('product_mrp')
+                if not name or not sp or not ean or not mrp:
+                    return api_response("Please provide product_id OR product_name, product_ean_code, "
+                                        "selling_price and product_mrp!")
+                if sp > mrp:
+                    return api_response("Selling Price should be equal to OR less than MRP!")
 
                 # Linked product check
                 linked_pid = request.data.get('linked_product_id') if request.data.get('linked_product_id') else None
-                new_product_info['mrp'], new_product_info['type'] = 0, 1
+                new_product_info['type'] = 1
                 if linked_pid:
                     linked_product = Product.objects.filter(id=linked_pid).last()
                     if not linked_product:
                         return api_response(f"GramFactory product not found for given {linked_pid}")
-                    new_product_info['mrp'], new_product_info['type'] = linked_product.product_mrp, 2
+                    new_product_info['type'] = 2
 
-                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'] = name, sp, linked_pid
+                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'], new_product_info['mrp'] = \
+                    name, sp, linked_pid, mrp
                 new_product_info['ean'] = ean
                 product_pack_type = 'packet'
             # Add by Product Id
@@ -766,9 +779,46 @@ class PosAddToCart(object):
                     product = RetailerProduct.objects.get(id=request.data.get('product_id'), shop=shop)
                 except ObjectDoesNotExist:
                     return api_response("Product Not Found!")
-                # Check if selling price is less than equal to mrp if price change
+
                 price_change = request.data.get('price_change')
-                if price_change in [1, 2]:
+                mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+
+                # Check If MRP and Selling price Change
+                if price_change in [1, 2] and mrp_change == 1:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+
+                    # Price, MRP update check
+                    selling_price = request.data.get('selling_price')
+                    product_mrp = self.request.data.get('product_mrp')
+                    if not selling_price:
+                        return api_response("Please provide selling price to change price")
+                    if not product_mrp:
+                        return api_response("Please provide mrp to change product mrp")
+                    if Decimal(selling_price) > Decimal(product_mrp):
+                        return api_response("Selling Price should be equal to OR less than MRP")
+
+                # Check If MRP Change
+                elif mrp_change == 1:
+                    # User permission check
+                    pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
+                    if 'error' in pos_shop_user_obj:
+                        if 'Unauthorised user.' in pos_shop_user_obj['error']:
+                            return api_response('Unauthorised user to update product price.')
+                        return api_response(pos_shop_user_obj['error'])
+                    # MRP update check
+                    product_mrp = self.request.data.get('product_mrp')
+                    if not product_mrp:
+                        return api_response("Please provide mrp to change product mrp")
+                    if product.selling_price and product.selling_price > product_mrp:
+                        return api_response("MRP should be equal to OR greater than Selling Price")
+
+                # Check if selling price is less than equal to mrp if price change
+                elif price_change in [1, 2]:
                     # User permission check
                     pos_shop_user_obj = validate_user_type_for_pos_shop(shop, self.request.user)
                     if 'error' in pos_shop_user_obj:

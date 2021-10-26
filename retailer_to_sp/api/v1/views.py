@@ -1382,6 +1382,8 @@ class CartCentral(GenericAPIView):
             else:
                 # Check if price needs to be updated and return selling price
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
+                # Check if mrp needs to be updated and return mrp
+                product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1449,7 +1451,6 @@ class CartCentral(GenericAPIView):
         parent_mapping = getShopMapping(shop_id)
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
-        # Check if product exists
         try:
             product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
@@ -1649,6 +1650,19 @@ class CartCentral(GenericAPIView):
         elif product.offer_price and product.offer_start_date <= datetime_date.today() <= product.offer_end_date:
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
+
+    def get_basic_cart_product_mrp(self, product, cart_no):
+        """
+            Check if retail product mrp needs to be changed on checkout
+            mrp_change - 1 (change for all), 0 don't change
+        """
+        # Check If MRP Change
+        mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+        product_mrp = None
+        if mrp_change == 1:
+            product_mrp = self.request.data.get('product_mrp')
+            RetailerProductCls.update_mrp(product.id, product_mrp, self.request.user, 'cart', cart_no)
+        return product_mrp if product_mrp else product.mrp
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
