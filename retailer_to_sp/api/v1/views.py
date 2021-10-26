@@ -1384,7 +1384,6 @@ class CartCentral(GenericAPIView):
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
                 # Check if mrp needs to be updated and return mrp
                 product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
-
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
