@@ -404,3 +404,8 @@ class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('id', 'shop_name',)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['address'] = instance.shipping_address
+        return data
