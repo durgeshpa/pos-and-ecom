@@ -686,12 +686,17 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'The number of pickup_crates entered should be equal to number of sku ids entered.',
                              'data': None}, status=status.HTTP_200_OK)
+        picker_dash_obj = PickerDashboard.objects.filter(order__order_no=order_no, picker_boy=request.user).last()
+        if not picker_dash_obj:
+            picker_dash_obj = PickerDashboard.objects.filter(
+                repackaging__repackaging_no=order_no, picker_boy=request.user).last()
         for cnt, crate_obj in enumerate(pickup_crates):
             if not crate_obj:
                 return Response(msg, status=status.HTTP_200_OK)
             if not isinstance(crate_obj, dict):
                 return {"error": "Key 'pickup_crates' can be of object type only."}
-            validated_data = validate_pickup_crates_list(crate_obj, pickup_quantity[cnt], warehouse)
+            validated_data = validate_pickup_crates_list(crate_obj, pickup_quantity[cnt], warehouse,
+                                                         picker_dash_obj.zone)
             if 'error' in validated_data:
                 msg['message'] = validated_data['error']
                 return Response(msg, status=status.HTTP_200_OK)
@@ -745,6 +750,8 @@ class PickupDetail(APIView):
                     if pick_qty is not None:
                         return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
                                          'data': None}, status=status.HTTP_200_OK)
+                    else:
+                        pick_qty = 0
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
@@ -792,7 +799,7 @@ class PickupDetail(APIView):
                                     crate=crate_instance, created_by=request.user, updated_by=request.user)
                         pick_object = PickupBinInventory.objects.filter(
                             pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
-                            ickup__sku__id=j).exclude(pickup__status='picking_cancelled')
+                            pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
                                       .exclude(status='picking_cancelled')\
