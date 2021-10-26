@@ -1558,13 +1558,14 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
         info_logger.info("download Barocde List for Destination Batch.")
         bin_id_list = {}
         for obj in queryset:
-            temp_data = {"qty": obj.destination_sku_quantity,
-                         "data": {"SKU": obj.destination_sku.product_name,
-                                  "Batch": obj.destination_batch_id,
-                                  "MRP": obj.destination_sku.product_mrp if obj.destination_sku.product_mrp else ''}}
-            product_id = str(obj.destination_sku.id).zfill(5)
-            barcode_id = str("2" + product_id + str(obj.destination_batch_id[-6:]))
-            bin_id_list[barcode_id] = temp_data
+            if obj.destination_batch_id:
+                temp_data = {"qty": obj.destination_sku_quantity,
+                             "data": {"SKU": obj.destination_sku.product_name,
+                                      "Batch": obj.destination_batch_id,
+                                      "MRP": obj.destination_sku.product_mrp if obj.destination_sku.product_mrp else ''}}
+                product_id = str(obj.destination_sku.id).zfill(5)
+                barcode_id = str("2" + product_id + str(obj.destination_batch_id[-6:]))
+                bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)
     download_destination_barcode.short_description = "Download Destination Batch Barcode"
 
