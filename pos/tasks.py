@@ -143,6 +143,7 @@ def update_es(products, shop_id):
             'is_deleted': product.is_deleted,
 
         }
+        es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 
