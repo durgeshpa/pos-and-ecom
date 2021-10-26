@@ -10,8 +10,8 @@ from django.dispatch import receiver
 from accounts.models import User
 from common.common_utils import barcode_gen
 from retailer_to_sp.models import PickerDashboard
-from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
-
+from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk, \
+    QCDeskQCAreaAssignmentMapping
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -48,6 +48,28 @@ def picker_users_changed(sender, instance, action, **kwargs):
         for pk in pk_set:
             ZonePickerUserAssignmentMapping.objects.update_or_create(zone=instance, user_id=pk, defaults={})
             info_logger.info("ZonePickerUser mapping created for zone " + str(instance) + ", user id:" + str(pk))
+
+
+@receiver(post_save, sender=QCDesk)
+def create_qc_desk_number(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """
+        QCDesk number on creation / updation
+    """
+    if not instance.desk_number:
+        zone_count = QCDesk.objects.filter(warehouse=instance.warehouse, desk_number__isnull=False).count()
+        instance.desk_number = "W" + str(instance.warehouse.id).zfill(6) + "D" + str(zone_count + 1).zfill(2)
+        instance.save()
+
+
+@receiver(m2m_changed, sender=QCDesk.qc_areas.through, dispatch_uid='qc_areas_changed', weak=False)
+def picker_users_changed(sender, instance, action, **kwargs):
+    pk_set = kwargs.pop('pk_set', None)
+    if action == 'post_remove':
+        QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=instance, qc_area_id__in=pk_set).delete()
+    if action == 'post_add':
+        for pk in pk_set:
+            QCDeskQCAreaAssignmentMapping.objects.update_or_create(qc_desk=instance, qc_area_id=pk, defaults={})
+            info_logger.info("QC Desk to QC Area mapping created for qc_desk " + str(instance) + ", area id:" + str(pk))
 
 
 @receiver(post_save, sender=ZonePickerUserAssignmentMapping)

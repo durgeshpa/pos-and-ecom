@@ -15,7 +15,7 @@ from tempus_dominus.widgets import DateTimePicker
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea, Crate, \
-    ZonePickerUserAssignmentMapping
+    ZonePickerUserAssignmentMapping, QCDeskQCAreaAssignmentMapping, QCDesk
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1455,6 +1455,110 @@ class QCAreaForm(forms.ModelForm):
     class Meta:
         model = QCArea
         fields = ['warehouse', 'area_id', 'area_type', 'is_active']
+
+
+qc_executive_perm = Permission.objects.filter(codename='can_have_qc_executive_permission').last()
+
+
+class QCDeskForm(forms.ModelForm):
+    info_logger.info("QCDesk Form has been called.")
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
+                                       widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
+    qc_executive = forms.ModelChoiceField(queryset=User.objects.filter(
+        Q(groups__permissions=qc_executive_perm) | Q(user_permissions=qc_executive_perm)).distinct(), required=True,
+                                          widget=autocomplete.ModelSelect2(url='non-mapped-qc-executive-autocomplete',
+                                                                           forward=('warehouse',)))
+    alternate_desk = forms.ModelChoiceField(queryset=QCDesk.objects.all(), required=False,
+                                            widget=autocomplete.ModelSelect2(url='alternate-desk-autocomplete',
+                                                                             forward=('warehouse',)))
+    qc_areas = forms.ModelMultipleChoiceField(
+        queryset=QCArea.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='non-mapped-qc-area-autocomplete', forward=('warehouse',)))
+
+    class Meta:
+        model = QCDesk
+        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled', 'alternate_desk']
+
+    def clean_warehouse(self):
+        if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
+            raise ValidationError(_("Invalid warehouse selected."))
+        return self.cleaned_data['warehouse']
+
+    def clean_qc_executive(self):
+        if not self.cleaned_data['qc_executive'].has_perm('wms.can_have_qc_executive_permission'):
+            raise ValidationError(_("Invalid qc_executive selected."))
+        return self.cleaned_data['qc_executive']
+
+    def clean_qc_areas(self):
+        if self.cleaned_data['qc_areas']:
+            if len(self.cleaned_data['qc_areas']) <= 0 or \
+                    len(self.cleaned_data['qc_areas']) > get_config('MAX_QC_AREA_PER_QC_DESK'):
+                raise ValidationError(_(
+                    "Select up to " + str(get_config('MAX_QC_AREA_PER_QC_DESK')) + " QC Areas."))
+            for qc_area in self.cleaned_data['qc_areas']:
+                if qc_area.warehouse_id != int(self.data['warehouse']):
+                    raise ValidationError(_("Invalid QC Area " + str(qc_area) + " selected."))
+        return self.cleaned_data['qc_areas']
+
+    def clean_alternate_desk(self):
+        if self.cleaned_data['desk_enabled']:
+            return None
+        if not self.cleaned_data['desk_enabled'] and not self.cleaned_data['alternate_desk']:
+            raise ValidationError(_("Alternate qc desk is mandatory when desk is not enabled."))
+        return self.cleaned_data['alternate_desk']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        warehouse = cleaned_data.get("warehouse")
+        qc_executive = cleaned_data.get("qc_executive")
+        alternate_desk = cleaned_data.get("alternate_desk")
+        desk_enabled = cleaned_data.get("desk_enabled")
+        instance = getattr(self, 'instance', None)
+        if instance.pk and warehouse and qc_executive:
+            if QCDesk.objects.filter(warehouse=warehouse, qc_executive=qc_executive). \
+                    exclude(id=instance.pk).exists():
+                raise ValidationError("QCDesk already exist for selected 'warehouse', 'qc_executive'")
+        elif warehouse and qc_executive:
+            if QCDesk.objects.filter(warehouse=warehouse, qc_executive=qc_executive).exists():
+                raise ValidationError("QCDesk already exist for selected 'warehouse', 'qc_executive'")
+        if instance.pk and not desk_enabled and alternate_desk.pk == instance.pk:
+            raise ValidationError(_("Alternate qc desk is same as current qc desk."))
+
+    def __init__(self, *args, **kwargs):
+        super(QCDeskForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if not instance.pk:
+            self.fields['desk_enabled'].disabled = True
+            self.fields['alternate_desk'].disabled = True
+
+
+class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ['qc_desk', 'qc_area', 'last_assigned_at', 'area_enabled', 'alternate_area']
+
+    def clean_alternate_area(self):
+        if self.cleaned_data['area_enabled']:
+            return None
+        if not self.cleaned_data['area_enabled'] and not self.cleaned_data['alternate_area']:
+            raise ValidationError(_("Alternate qc area is mandatory when area is not enabled."))
+        return self.cleaned_data['alternate_area']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        alternate_area = cleaned_data.get("alternate_area")
+        area_enabled = cleaned_data.get("area_enabled")
+        instance = getattr(self, 'instance', None)
+        if not area_enabled and alternate_area == instance.qc_area:
+            raise ValidationError(_("Alternate qc area is same as qc area."))
+
+    def __init__(self, *args, **kwargs):
+        super(QCDeskQCAreaAssignmentMappingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        self.fields['alternate_area'].queryset = QCArea.objects.filter(
+            qc_area_assigned_desks__qc_desk=instance.qc_desk). \
+            exclude(qc_area_assigned_desks__qc_area=instance.qc_area).all()
 
 
 class CrateForm(forms.ModelForm):

@@ -686,6 +686,9 @@ class QCArea(BaseTimestampUserModel):
     area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     is_active = models.BooleanField()
 
+    class Meta:
+        verbose_name = "QC Area"
+
     def __str__(self):
         if self.warehouse:
             return self.area_id + " - " + str(self.warehouse.pk)
@@ -706,6 +709,48 @@ class QCArea(BaseTimestampUserModel):
     @property
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.area_id, self.area_barcode.url))
+
+
+class QCDesk(BaseTimestampUserModel):
+    """
+        Mapping model of Warehouse, QC Executive and QC Areas
+    """
+    desk_number = models.CharField(max_length=20, null=True, blank=True, editable=False)
+    name = models.CharField(max_length=30, null=True)
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    qc_executive = models.ForeignKey(get_user_model(), related_name='qc_executive_desk_user', on_delete=models.CASCADE)
+    qc_areas = models.ManyToManyField(QCArea, related_name='qc_desk_areas')
+    desk_enabled = models.BooleanField(default=True)
+    alternate_desk = models.ForeignKey('self', null=True, blank=True, related_name='alternate_desk_list',
+                                       on_delete=models.DO_NOTHING, limit_choices_to={'desk_enabled': True}, )
+
+    class Meta:
+        permissions = (
+            ("can_have_qc_executive_permission", "Can have QC Executive Permission"),
+        )
+
+    def __str__(self):
+        return str(self.desk_number) + " - " + str(self.name)
+
+    class Meta:
+        verbose_name = "QC Desk"
+
+
+class QCDeskQCAreaAssignmentMapping(BaseTimestampModel):
+    """
+        Mapping model of QC Desk and QC Area where we maintain the last assigned QC Area for next assignment
+    """
+    qc_desk = models.ForeignKey(QCDesk, related_name="qc_desk_assigned_areas", on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, related_name='qc_area_assigned_desks', on_delete=models.DO_NOTHING)
+    area_enabled = models.BooleanField(default=True)
+    alternate_area = models.ForeignKey(QCArea, null=True, blank=True, on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.qc_desk) + " - " + str(self.qc_area)
+
+    class Meta:
+        verbose_name = "QC Desk to Area Assignment Mapping"
 
 
 class Crate(BaseTimestampUserModel):

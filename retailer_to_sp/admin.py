@@ -41,7 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
-from wms.admin import ZoneFilter, QCAreaFilter
+from wms.admin import ZoneFilter, QCAreaAutocomplete
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -815,8 +815,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     # readonly_fields = ['picklist_id']
-    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaFilter, OrderNumberSearch,
-                   ('created_at', DateTimeRangeFilter)]
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaAutocomplete,
+                   OrderNumberSearch, ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )

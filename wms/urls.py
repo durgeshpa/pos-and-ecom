@@ -8,7 +8,8 @@ from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMov
     PutawayUsersCompleteAutcomplete, CrateBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
     SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
-    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter, CrateFilter
+    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter, CrateFilter, QCDeskFilter, \
+    QCExecutiveFilter, QCAreaNonMappedFilter, QCExecutiveNonMappedFilter, AlternateDeskFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -39,6 +40,12 @@ urlpatterns = [
     url(r'^zone-autocomplete/$', ZoneFilter.as_view(), name='zone-autocomplete'),
     url(r'^crate-autocomplete/$', CrateFilter.as_view(), name='crate-autocomplete'),
     url(r'^qc-area-autocomplete/$', QCAreaFilter.as_view(), name='qc-area-autocomplete'),
+    url(r'^non-mapped-qc-area-autocomplete/$', QCAreaNonMappedFilter.as_view(), name='non-mapped-qc-area-autocomplete'),
+    url(r'^qc-desk-autocomplete/$', QCDeskFilter.as_view(), name='qc-desk-autocomplete'),
+    url(r'^qc-executive-autocomplete/$', QCExecutiveFilter.as_view(), name='qc-executive-autocomplete'),
+    url(r'^non-mapped-qc-executive-autocomplete/$', QCExecutiveNonMappedFilter.as_view(),
+        name='non-mapped-qc-executive-autocomplete'),
+    url(r'^alternate-desk-autocomplete/$', AlternateDeskFilter.as_view(), name='alternate-desk-autocomplete'),
     url(r'^users-autocomplete/$', UserFilter.as_view(), name='users-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
