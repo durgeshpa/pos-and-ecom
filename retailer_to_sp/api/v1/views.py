@@ -1452,7 +1452,6 @@ class CartCentral(GenericAPIView):
         parent_mapping = getShopMapping(shop_id)
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
-        # Check if product exists
         try:
             product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
@@ -1656,7 +1655,7 @@ class CartCentral(GenericAPIView):
     def get_basic_cart_product_mrp(self, product, cart_no):
         """
             Check if retail product mrp needs to be changed on checkout
-            mrp_change - 1 (change for all)
+            mrp_change - 1 (change for all), 0 don't change
         """
         # Check If MRP Change
         mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
