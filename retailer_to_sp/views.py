@@ -40,7 +40,7 @@ from django.views.generic import TemplateView
 from django.contrib import messages
 from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
-from shops.models import Shop, ShopMigrationMapp
+from shops.models import Shop, ShopMigrationMapp, ParentRetailerMapping
 from retailer_to_sp.api.v1.serializers import (
     DispatchSerializer, CommercialShipmentSerializer
 )
@@ -59,7 +59,7 @@ from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
-
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 
 logger = logging.getLogger('django')
 
@@ -92,11 +92,26 @@ class DownloadCreditNote(APIView):
 
     def get(self, request, *args, **kwargs):
         credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
-        for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
-            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=credit_note.shipment.order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = credit_note.shipment.order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
 
-        for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
-            gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
+        for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
+            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber(shop_name)
+
+        gstinn2 = 'Unregistered'
+        if credit_note.shipment.order.billing_address:
+            for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
+                gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
             gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
@@ -290,8 +305,10 @@ class DownloadCreditNote(APIView):
             "order_id": order_id, "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
             "city_gram": city_gram, "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram,
             "state_gram": state_gram,"amount":amount, "gstinn1": gstinn1, "gstinn2": gstinn2, "gstinn3": gstinn3,
-            "reason": reason, "rupees": rupees, "tax_rupees": tax_rupees, "cin": cin, "pan_no": pan_no,
-            'shipment_cancelled': shipment_cancelled, "hsn_list": list1}
+            "reason": reason, "rupees": rupees, "tax_rupees": tax_rupees, "cin": cin, "pan_no": pan_number,
+            'shipment_cancelled': shipment_cancelled, "hsn_list": list1, "license_number": license_number,
+            "cin": cin_number}
+
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -359,7 +376,7 @@ def ordered_product_mapping_shipment(request):
                 shipment_product_dict = shipment_product[0]
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
                 to_be_shipped_qty = shipment_product_dict.get('shipped_qty__sum')
-                ordered_no_pieces = item['no_of_pieces']
+                ordered_no_pieces = int(item['no_of_pieces'])
                 if ordered_no_pieces != to_be_shipped_qty:
                     products_list.append({
                         'product': item['cart_product'],
@@ -374,7 +391,7 @@ def ordered_product_mapping_shipment(request):
                 products_list.append({
                     'product': item['cart_product'],
                     'product_name': item['cart_product__product_name'],
-                    'ordered_qty': item['no_of_pieces'],
+                    'ordered_qty': int(item['no_of_pieces']),
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
                     'shipped_qty': pick_up_obj[0].pickup_quantity,
@@ -411,8 +428,8 @@ def ordered_product_mapping_shipment(request):
                             if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
                                 formset_data.ordered_product = shipment
-                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                                    formset_data.shipped_qty_exclude_current)
+                                max_pieces_allowed = int(float(formset_data.ordered_qty)) - int(
+                                    float(formset_data.shipped_qty_exclude_current))
                                 if max_pieces_allowed < int(to_be_ship_qty):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
@@ -966,11 +983,12 @@ def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefi
                 mrp = i.pickup.sku.product_mrp
             else:
                 mrp = '-'
+            zone = i.pickup.zone.zone_no if i.pickup.zone else '-'
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
-                         "bin": bin_id}
+                         "bin": bin_id, "zone": zone}
             data_list.append(prod_list)
 
         if obj_type == 'repackaging':
@@ -1736,7 +1754,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status__in=["SHIPMENT_CREATED","READY_TO_SHIP"]).values('order')
         qs = Order.objects.filter(
             # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
-            order_status='picking_complete',
+            order_status=Order.MOVED_TO_QC,
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders) | Q(ordered_cart__cart_type='DISCOUNTED',

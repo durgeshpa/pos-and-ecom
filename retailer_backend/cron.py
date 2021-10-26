@@ -7,6 +7,7 @@ from django.utils import timezone
 
 import sp_to_gram
 from sp_to_gram.models import OrderedProductMapping, OrderedProductReserved
+from retailer_to_sp.api.v1.views import refresh_cron_es
 from gram_to_brand.models import OrderedProductReserved as GramOrderedProductReserved
 from django.db.models import Sum, Q, Case, CharField, Value, When, F
 from shops.models import Shop, ShopType
@@ -16,6 +17,8 @@ from retailer_to_sp.models import Order
 from datetime import datetime, timedelta
 import logging
 import time
+from retailer_to_sp.api.v1.views import refresh_cron_es
+
 
 logger = logging.getLogger(__name__)
 cron_logger = logging.getLogger('cron_log')

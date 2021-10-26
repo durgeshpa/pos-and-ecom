@@ -54,7 +54,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
     				</address>
 
 					<address>
@@ -63,7 +63,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>GramFactory :</span><br>
@@ -72,7 +72,7 @@ table tr td,th,h4,span,address{
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
 
     				</address>
     			</div>
@@ -186,7 +186,7 @@ table tr td,th,h4,span,address{
 
 
 									<td class="text-center">{{m.shipped_qty}}</td>
-									<div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
+									<div style="display:none"> {{m.shipped_qty | shipped_qty|floatformat:"0"}}</div>
 									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
 									{% for h in m.get_shop_specific_products_prices %}
     								<td class="text-center">{{h.price_to_retailer}}</td>

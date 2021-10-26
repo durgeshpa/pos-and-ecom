@@ -17,7 +17,7 @@ from .filters import UserFilter, MlmUserAutocomplete, ReferralToUserFilter, Refe
 @admin.register(ReferralCode)
 class MLMUserAdmin(admin.ModelAdmin):
     form = MLMUserForm
-    list_display = ('user', 'email', 'referral_code', 'registered_at')
+    list_display = ('user', 'email', 'referral_code', 'registered_at', )
     fields = ('user', 'referral_code')
     list_filter = [UserFilter, ReferralCodeFilter]
     list_per_page = 10
@@ -31,9 +31,7 @@ class MLMUserAdmin(admin.ModelAdmin):
         return obj.created_at
 
     def save_model(self, request, obj, form, change):
-        user_obj = AutoUser.create_update_user(form.cleaned_data.get('phone_number'),
-                                               form.cleaned_data.get('email'),
-                                               form.cleaned_data.get('name'))
+        user_obj = AutoUser.create_update_user(form.cleaned_data.get('user').phone_number)
         ReferralCode.register_user_for_mlm(user_obj, request.user, form.cleaned_data.get('referral_code'))
 
     def has_change_permission(self, request, obj=None):

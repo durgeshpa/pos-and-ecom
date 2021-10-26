@@ -66,14 +66,20 @@ class RewardsSerializer(serializers.ModelSerializer):
 
 
 class UserLocationSerializer(serializers.Serializer):
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = serializers.DecimalField(max_digits=30, decimal_places=15)
+    longitude = serializers.DecimalField(max_digits=30, decimal_places=15)
 
 
 class ShopSerializer(serializers.ModelSerializer):
+    shipping_address = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shipping_address(obj):
+        return obj.shipping_address
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address')
 
 
 class AddressSerializer(serializers.ModelSerializer):

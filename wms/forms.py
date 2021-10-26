@@ -10,10 +10,12 @@ from datetime import datetime
 
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission, Group
+from tempus_dominus.widgets import DateTimePicker
 
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea, \
+    ZonePickerUserAssignmentMapping
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1185,22 +1187,28 @@ class ZoneForm(forms.ModelForm):
                                         widget=autocomplete.ModelSelect2(url='supervisor-autocomplete'))
     coordinator = forms.ModelChoiceField(queryset=User.objects.filter(
         Q(groups__permissions=coordinator_perm) | Q(user_permissions=coordinator_perm)).distinct(), required=True)
+    # putaway_users = forms.ModelMultipleChoiceField(
+    #     queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
+    #     required=True,
+    #     widget=FilteredSelectMultiple(
+    #         verbose_name=_('Putaway users'),
+    #         is_stacked=False
+    #     )
+    # )
+    # picker_users = forms.ModelMultipleChoiceField(
+    #     queryset=User.objects.filter(Q(groups=picker_group)).distinct(),
+    #     required=True,
+    #     widget=FilteredSelectMultiple(
+    #         verbose_name=_('Picker users'),
+    #         is_stacked=False
+    #     )
+    # )
     putaway_users = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(Q(groups=putaway_group)).distinct(),
-        required=True,
-        widget=FilteredSelectMultiple(
-            verbose_name=_('Putaway users'),
-            is_stacked=False
-        )
-    )
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='putaway-users-autocomplete', forward=('warehouse',)))
     picker_users = forms.ModelMultipleChoiceField(
-        queryset = User.objects.filter(Q(groups=picker_group)).distinct(),
-        required = True,
-        widget = FilteredSelectMultiple(
-            verbose_name = _('Picker users'),
-            is_stacked = False
-        )
-    )
+        queryset=User.objects.all(), required=True,
+        widget=autocomplete.ModelSelect2Multiple(url='picker-users-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = Zone
@@ -1227,6 +1235,11 @@ class ZoneForm(forms.ModelForm):
                     len(self.cleaned_data['putaway_users']) > get_config('MAX_PUTAWAY_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PUTAWAY_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['putaway_users']:
+                if (not user.groups.filter(name='Putaway').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as putaway users."))
         return self.cleaned_data['putaway_users']
 
     def clean_picker_users(self):
@@ -1235,6 +1248,11 @@ class ZoneForm(forms.ModelForm):
                     len(self.cleaned_data['picker_users']) > get_config('MAX_PICKER_USERS_PER_ZONE'):
                 raise ValidationError(_(
                     "Select up to " + str(get_config('MAX_PICKER_USERS_PER_ZONE')) + " users."))
+            for user in self.cleaned_data['picker_users']:
+                if (not user.groups.filter(name='Picker Boy').exists()) or \
+                        user.shop_employee.last().shop_id != int(self.data['warehouse']):
+                    raise ValidationError(_(
+                        "Invalid user " + str(user) + " selected as picker users."))
         return self.cleaned_data['picker_users']
 
     def clean(self):
@@ -1243,15 +1261,13 @@ class ZoneForm(forms.ModelForm):
         supervisor = cleaned_data.get("supervisor")
         coordinator = cleaned_data.get("coordinator")
         instance = getattr(self, 'instance', None)
-        if not instance.pk:
-            if warehouse and supervisor and coordinator:
-                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
-                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
-        else:
-            if warehouse and supervisor and coordinator:
-                if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
-                        exclude(id=instance.pk).exists():
-                    raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        if instance.pk and warehouse and supervisor and coordinator:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator). \
+                    exclude(id=instance.pk).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
+        elif warehouse and supervisor and coordinator:
+            if Zone.objects.filter(warehouse=warehouse, supervisor=supervisor, coordinator=coordinator).exists():
+                raise ValidationError("Zone already exist for selected 'warehouse', 'supervisor' and 'coordinator'")
 
     def __init__(self, *args, **kwargs):
         super(ZoneForm, self).__init__(*args, **kwargs)
@@ -1259,25 +1275,13 @@ class ZoneForm(forms.ModelForm):
         perm = Permission.objects.get(codename='can_have_zone_coordinator_permission')
 
         if instance.pk:
-            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(putaway_zone_users__isnull=False)
-            self.fields['putaway_users'].queryset = (queryset | instance.putaway_users.all()).distinct()
-
-            queryset = User.objects.filter(Q(groups=putaway_group)).exclude(picker_zone_users__isnull=False)
-            self.fields['picker_users'].queryset = (queryset | instance.picker_users.all()).distinct()
-
-            queryset = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
-                coordinator_zone_user__isnull=False)
+            queryset = User.objects.filter(is_active=True).filter(
+                Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(coordinator_zone_user__isnull=False)
             self.fields['coordinator'].queryset = (queryset | User.objects.filter(id=instance.coordinator.pk)).distinct()
         else:
-            self.fields['putaway_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                putaway_zone_users__isnull=False)
-
-            self.fields['picker_users'].queryset = User.objects.filter(Q(groups=putaway_group)).exclude(
-                picker_zone_users__isnull = False)
-            self.fields['coordinator'].queryset = User.objects.filter(
+            self.fields['coordinator'].queryset = User.objects.filter(is_active=True).filter(
                 Q(groups__permissions=perm) | Q(user_permissions=perm)).exclude(
                 coordinator_zone_user__isnull=False).distinct()
-
 
 
 class WarehouseAssortmentForm(forms.ModelForm):
@@ -1380,18 +1384,18 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_PRODUCT_ID at Row number [%(value)s]. Product is not exists.'),
                                       params={'value': row_id+1},)
 
-            # validation for zone id, it should be numeric.
-            if not row[4] or not re.match("^[\d]*$", row[4]):
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. It should be numeric.'),
+            # validation for zone number, it should be numeric.
+            if not row[4] or not re.match("^\w+$", row[4]):
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. It should be alphanumeric.'),
                                       params={'value': row_id + 1}, )
 
             # validation for product to check that is exist or not in the database
-            if not row[4] or not Zone.objects.filter(id=row[4]).exists():
-                raise ValidationError(_('INVALID_ZONE_ID at Row number [%(value)s]. Zone is not exists.'),
+            if not row[4] or not Zone.objects.filter(zone_number=row[4]).exists():
+                raise ValidationError(_('INVALID_ZONE_NUMBER at Row number [%(value)s]. Zone is not exists.'),
                                       params={'value': row_id+1},)
 
             # validation for zone id is associate with executive
-            if Zone.objects.filter(id=row[4]).last().warehouse.id != int(row[0]):
+            if Zone.objects.filter(zone_number=row[4]).last().warehouse.id != int(row[0]):
                 raise ValidationError(_('Row number [%(value)s] | Warehouse not mapped to the selected Zone.'),
                                       params={'value': row_id+1},)
 
@@ -1403,6 +1407,35 @@ class WarehouseAssortmentCsvViewForm(forms.Form):
         # Check logged in user permissions
         if not self.auto_id['user'].has_perm('wms.can_have_zone_warehouse_permission'):
             raise forms.ValidationError(_("Required permissions missing to perform this task."))
+
+
+class ZonePickerUserAssignmentMappingForm(forms.ModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super(ZonePickerUserAssignmentMappingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        self.fields['alternate_user'].queryset = User.objects.filter(picker_assigned_zone__zone=instance.zone). \
+            exclude(picker_assigned_zone__user=instance.user).all()
+
+    def clean_alternate_user(self):
+        if self.cleaned_data['user_enabled']:
+            return None
+        if not self.cleaned_data['user_enabled'] and not self.cleaned_data['alternate_user']:
+            raise ValidationError(_("Alternate user is mandatory when user is not enabled."))
+        return self.cleaned_data['alternate_user']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        alternate_user = cleaned_data.get("alternate_user")
+        user_enabled = cleaned_data.get("user_enabled")
+        instance = getattr(self, 'instance', None)
+        if not user_enabled and alternate_user == instance.user:
+            raise ValidationError(_("Alternate user is same as user."))
+
+    class Meta:
+        model = ZonePickerUserAssignmentMapping
+        fields = ['zone', 'user', 'last_assigned_at', 'user_enabled', 'alternate_user']
+
 
 class QCAreaForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
@@ -1422,3 +1455,45 @@ class QCAreaForm(forms.ModelForm):
     class Meta:
         model = QCArea
         fields = ['warehouse', 'area_id', 'area_type', 'is_active']
+
+
+class InOutLedgerForm(forms.Form):
+    sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-sku-autocomplete', ),
+    )
+    warehouse = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete', ),
+    )
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+
+
+class IncorrectProductBinMappingForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )

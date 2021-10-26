@@ -41,6 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from wms.admin import ZoneFilter, QCAreaFilter
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -193,6 +194,7 @@ class OrderNoSearch(InputFilter):
                 Q(order_no__in=order_nos)
             )
 
+
 class IssueStatusSearch(InputFilter):
     parameter_name = 'issue_status'
     title = 'Order Status'
@@ -332,6 +334,7 @@ class ShipmentSearch(InputFilter):
                 Q(shipment__invoice_no__icontains=shipment_id)
             )
 
+
 class CreditNoteSearch(InputFilter):
     parameter_name = 'credit_note_id'
     title = 'Credit Note'
@@ -345,6 +348,7 @@ class CreditNoteSearch(InputFilter):
                 Q(credit_note_id__icontains=credit_note_id)
             )
 
+
 class ShopSearch(InputFilter):
     parameter_name = 'shop_name'
     title = 'Seller Shop'
@@ -357,6 +361,7 @@ class ShopSearch(InputFilter):
             return queryset.filter(
                 Q(shop__shop_name__icontains=shop_name)
             )
+
 
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
@@ -387,8 +392,8 @@ class OrderedProductBatchAdmin(NestedTabularInline):
 
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
-    model = OrderedProductBatch
     form = OrderedProductBatchingForm
+    model = OrderedProductBatch
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
     readonly_fields = ('batch_id', 'ordered_piece','expiry_date')
     extra=0
@@ -402,15 +407,21 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
             'all': ('admin/css/ordered_product_batch.css',)
         }
 
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
-    fields = ('cart', 'cart_product', 'qty', 'no_of_pieces', 'product_case_size', 'product_inner_case_size',
-              'item_effective_prices', 'discounted_price')
+    fields = ('cart', 'cart_product',  '_qty', '_no_of_pieces', 'product_case_size', 'product_inner_case_size',
+              'item_effective_prices', 'discounted_price',)
     autocomplete_fields = ('cart_product', )
     extra = 0
 
+    def _qty(self, obj):
+        return int(obj.qty)
+
+    def _no_of_pieces(self, obj):
+        return int(obj.no_of_pieces)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'cart_product':
@@ -423,7 +434,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
+                'cart_product', '_qty', '_no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
             # if obj.approval_status == True:
             #     readonly_fields = readonly_fields + (
@@ -445,6 +456,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
 
 class ExportCsvMixinCart:
     def export_as_csv_cart(self, request, queryset):
@@ -798,12 +810,13 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy',
+        'picklist', 'picking_status', 'picker_boy', 'zone', 'qc_area',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
-    #readonly_fields = ['picklist_id']
-    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
+    # readonly_fields = ['picklist_id']
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaFilter, OrderNumberSearch,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -937,15 +950,27 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def download_pick_list(self, obj):
         if obj.order:
             if obj.order.order_status not in ["active", "pending"]:
+                if obj.zone:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('generate-picklist', kwargs={'pk': obj.order.pk, 'zone': obj.zone.id}))
+                    )
+                else:
+                    return format_html(
+                        "<a href= '%s' >Download Pick List</a>" %
+                        (reverse('create-picklist', args=[obj.order.pk]))
+                    )
+        elif obj.repackaging:
+            if obj.zone:
                 return format_html(
                     "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('create-picklist', args=[obj.order.pk]))
+                    (reverse('generate-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2, 'zone': obj.zone.id}))
                 )
-        elif obj.repackaging:
-            return format_html(
-                "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
-            )
+            else:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
+                )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
@@ -985,6 +1010,32 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
+class OrderZoneFilter(InputFilter):
+    parameter_name = 'zone'
+    title = 'Zone (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            zone = self.value()
+            zones = zone.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__zone__zone_number__in=zones)
+            )
+
+
+class OrderQCAreaFilter(InputFilter):
+    parameter_name = 'qc_area'
+    title = 'QC Area (Comma separated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qc_area = self.value()
+            qc_areas = qc_area.replace(" ", "").replace("\t", "").split(',')
+            return queryset.filter(
+                Q(picker_order__qc_area__area_id__in=qc_areas)
+            ).distinct()
+
+
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ['order_data_excel_action', "download_bulk_pick_list"]
     resource_class = OrderResource
@@ -1011,8 +1062,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'buyer_shop_with_mobile', 'pincode', 'city', 'total_final_amount', 'order_status', 'ordered_by',
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'pickup_completed_at',
-                    'picking_completion_time', 'create_purchase_order'
+                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
+                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1021,8 +1072,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
-    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
+    list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
+                   OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
+                   ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
+                   ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -1040,7 +1093,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     @staticmethod
     def create_purchase_order(obj):
         buyer_shop = obj.buyer_shop
-        if buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
+        if buyer_shop and buyer_shop.shop_type.shop_type == 'f' and buyer_shop.status and buyer_shop.approval_status == 2 and \
                 buyer_shop.pos_enabled == 1:
             user = get_current_user()
             if PosShopUserMapping.objects.filter(user=user, shop=buyer_shop, status=True).exists():
@@ -1055,7 +1108,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         % obj.pk)
 
     def buyer_shop_type(self, obj):
-        return obj.buyer_shop.shop_type
+        return obj.buyer_shop.shop_type if obj.buyer_shop else None
 
     def app_type(self, obj):
         """
@@ -1179,8 +1232,8 @@ class ShipmentReschedulingAdmin(admin.ModelAdmin):
 
 
 class OrderedProductMappingAdmin(NestedTabularInline):
-    model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
+    model = OrderedProductMapping
     fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
@@ -1189,6 +1242,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     extra = 0
     max_num = 0
     classes = ['return_table_inline', ]
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1208,8 +1262,8 @@ class OrderedProductAdmin(NestedModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-        'previous_trip'
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
+        'no_of_sacks_check', 'previous_trip'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
@@ -1308,7 +1362,6 @@ class DispatchProductMappingAdmin(admin.TabularInline):
         return obj.product_weight
     product_weight.short_description = 'Product Weight'
 
-
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1367,8 +1420,8 @@ class DispatchAdmin(admin.ModelAdmin):
 
 
 class ShipmentProductMappingAdmin(NestedTabularInline):
-    model = ShipmentProductMapping
     form = ShipmentProductMappingForm
+    model = ShipmentProductMapping
     inlines = [OrderedProductBatchAdmin, ]
     fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty',
               'missing_qty', 'rejected_qty', 'reason_for_rejection']
@@ -1492,7 +1545,6 @@ class ShipmentAdmin(NestedModelAdmin):
     class Media:
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
-
     def pincode(self, obj):
         try:
             return obj.order.shipping_address.pincode
@@ -1602,6 +1654,7 @@ class DispatchNoSearch(InputFilter):
                 Q(dispatch_no__icontains=self.value())
             )
 
+
 class ExportCsvMixin:
     def export_as_csv_trip(self, request, queryset):
         meta = self.model._meta
@@ -1615,6 +1668,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_trip.short_description = "Download CSV of Selected Trips"
+
 
 class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
@@ -1763,14 +1817,14 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
                        'note_amount', 'invoice_no', 'status')
-    list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
+    list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
-    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
+    search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
     list_per_page = 50
     # def note_amount(self, obj):
     #     pp = OrderedProductMapping.objects.filter(ordered_product=obj.shipment.id)
@@ -1801,7 +1855,7 @@ class NoteAdmin(admin.ModelAdmin):
                         "<a href= '%s' >Download Credit Note</a>" %
                            (reverse('download_credit_note', args=[obj.pk]))
             )
-        elif obj.credit_note_type=='DISCOUNTED':
+        elif obj.credit_note_type == 'DISCOUNTED':
             return format_html(
                         "<a href= '%s' >Download Credit Note</a>" %
                             (reverse('discounted_credit_note', args=[obj.pk]))
@@ -1828,6 +1882,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['comment_display','comment_date_display'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
+
 
 class ResponseCommentAdmin(admin.TabularInline):
     model = ResponseComment
@@ -1856,6 +1911,7 @@ class AddResponseCommentAdmin(admin.TabularInline):
     def has_view_permission(self, request, obj=None):
         return False
 
+
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [ResponseCommentAdmin, AddResponseCommentAdmin]
     model = CustomerCare
@@ -1872,6 +1928,7 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
     #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
+
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
@@ -1921,6 +1978,7 @@ class ReturnAdmin(admin.ModelAdmin):
             )
 
     download_credit_note.short_description = 'Download Credit Note'
+
 
 class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')

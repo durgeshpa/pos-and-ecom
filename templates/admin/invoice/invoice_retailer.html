@@ -57,6 +57,9 @@
                         <td class="text-center">
                             <strong>Invoice Date <br>{{shipment.created_at}}</strong>
                         </td>
+                        <td class="text-center">
+                            <strong>FSSAI License No. <br>{{license_number}}</strong>
+                        </td>
                     </tr>
                 </table>
             </div>
@@ -111,7 +114,7 @@
                             <td><strong>{{ m.product_short_description}}</strong></td>
                             <td><strong>{{ m.mrp}}</strong></td>
                             <td>{{m.qty}}</td>
-                            <td>{{m.rate |floatformat:2 | intcomma}}</td>
+                            <td>{{m.rate}}</td>
                             <td><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong>
                             </td>
                         </tr>
@@ -121,7 +124,7 @@
                             <td></td>
                             <td></td>
                             <td></td>
-                            <td class="thick-line"><strong>{{sum_qty}} PCS</strong></td>
+                            <td class="thick-line"><strong>{{sum_qty|floatformat:"0"}} PCS</strong></td>
                             <td class="thick-line"></td>
                             <td class="thick-line"><strong>₹{{total| intcomma}}/-</strong></td>
                         </tr>

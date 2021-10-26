@@ -7,7 +7,7 @@ from django.db.models import Q, F
 
 from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone, QCArea
 from accounts.models import User
 
 
@@ -60,6 +60,38 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
         return qs
 
 
+class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Putaway')).exclude(putaway_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
+        return qs.distinct()
+
+
+class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        qs = User.objects.filter(Q(groups__name='Picker Boy')).exclude(picker_zone_users__isnull=False)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
+        return qs.distinct()
+
+
 class SupervisorFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
@@ -104,7 +136,7 @@ class ParentProductFilter(autocomplete.Select2QuerySetView):
         qs = ParentProduct.objects.all()
 
         if self.q:
-            qs = qs.filter(Q(name__icontains=self.q) | Q(product_hsn__icontains=self.q))
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
         return qs
 
 
@@ -129,10 +161,40 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
             qs = qs.filter(warehouse=warehouse)
 
         if self.q:
-            qs = qs.filter(Q(id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q) | Q(
+            qs = qs.filter(Q(id__icontains=self.q) | Q(zone_number__icontains=self.q) | Q(name__icontains=self.q) | Q(
                 supervisor__first_name__icontains=self.q) | Q(supervisor__phone_number__icontains=self.q) | Q(
                 coordinator__first_name__icontains=self.q) | Q(coordinator__phone_number__icontains=self.q) | Q(
-                warehouse__id__icontains=self.q))
+                warehouse__id__icontains=self.q) | Q(warehouse__shop_name__icontains=self.q))
+        return qs
+
+
+class QCAreaFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return QCArea.objects.none()
+
+        qs = QCArea.objects.all()
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(area_id__icontains=self.q) |
+                           Q(area_barcode_txt__icontains=self.q))
+        return qs
+
+
+class UserFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+
+        qs = User.objects.all()
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
         return qs
 
 

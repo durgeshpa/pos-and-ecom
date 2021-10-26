@@ -73,6 +73,9 @@
 							<td class="text-center">
 								<strong>Invoice Date <br>{{shipment.created_at}}</strong>
 							</td>
+							<td class="text-center">
+								<strong>FSSAI License No. <br>{{license_number}}</strong>
+							</td>
                         </tr>
 					</table>
     			</div>
@@ -116,7 +119,7 @@
 						{{address_contact_number}}<br>
 						<strong>GSTIN:</strong> <span>{{seller_shop_gistin}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Pincode:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>{{cin}}</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
 
     				</address>
 
@@ -168,7 +171,7 @@
 									<td class="text-center">{{ m.product.product_hsn}}</td>
 									<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center"><strong>{{ m.mrp}}</strong></td>
-									<td class="text-center">{{m.shipped_qty}}</td>
+									<td class="text-center">{{m.shipped_qty|floatformat:"0"}}</td>
 									<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
 									<td class="text-center">{{m.base_price |floatformat:2 | intcomma}}</td>
 									<td class="text-center">{{m.price_to_retailer |floatformat:2 | intcomma}}</td>
@@ -184,7 +187,7 @@
 									<td></td>
 									<td></td>
 									<td></td>
-								  	<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+								  	<td class="thick-line text-center"><strong>{{sum_qty|floatformat:"0"}} PCS</strong></td>
     								<td class="thick-line"></td>
 									<td class="thick-line"></td>
 									<td class="thick-line"></td>

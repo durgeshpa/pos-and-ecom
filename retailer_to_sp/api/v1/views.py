@@ -11,6 +11,7 @@ from elasticsearch import Elasticsearch
 from decouple import config
 from hashlib import sha512
 
+from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -31,6 +32,34 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+
+from wms.views import shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer
+                          )
+from products.models import ProductPrice, ProductOption, Product
+from sp_to_gram.models import OrderedProductReserved
+from categories import models as categorymodel
+from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList
+                                  )
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, Return)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
+    getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder
+                                     )
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from brand.models import Brand
 
 from categories import models as categorymodel
@@ -54,7 +83,7 @@ from marketing.models import ReferralCode
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
                                   serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP)
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
@@ -62,7 +91,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer)
-from pos.models import RetailerProduct, Payment as PosPayment, PaymentType
+from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
 from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
@@ -94,6 +123,9 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer)
+from retailer_backend.settings import AWS_MEDIA_URL
+
+from retailer_backend.settings import AWS_MEDIA_URL
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -288,6 +320,10 @@ class SearchProducts(APIView):
         filter_list = []
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list = [{"term": {"is_discounted": False}}]
+
+        if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
+            filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -319,6 +355,9 @@ class SearchProducts(APIView):
         query_string = dict()
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+        if self.request.GET.get('product_pack_type', 'packet') == 'loose':
+            filter_list.append({"term": {"product_pack_type": 'loose'}})
+
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -666,7 +705,7 @@ class SearchProducts(APIView):
                 product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
                 for i in product_offers:
                     if i['item_sku'] == c_p.cart_product.product_sku:
-                        p["_source"]["discounted_product_subtotal"] = i['discounted_product_subtotal']
+                        p["_source"]["discounted_product_subtotal"] = Decimal(i['discounted_product_subtotal'])
                 brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
                 for j in p["_source"]["coupon"]:
                     for i in (brand_offers + product_offers):
@@ -675,7 +714,7 @@ class SearchProducts(APIView):
             p["_source"]["user_selected_qty"] = c_p.qty or 0
             p["_source"]["ptr"] = c_p.applicable_slab_price
             p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-            p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+            p["_source"]["sub_total"] = c_p.qty * Decimal(c_p.item_effective_prices)
         return p
 
     @staticmethod
@@ -1334,7 +1373,7 @@ class CartCentral(GenericAPIView):
             if product is None:
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
-            if int(qty) == 0:
+            if not qty > 0:
                 delete_cart_mapping(cart, product, 'basic')
             else:
                 # Check if price needs to be updated and return selling price
@@ -1344,7 +1383,8 @@ class CartCentral(GenericAPIView):
                                                                            product_type=1)
                 cart_mapping.selling_price = selling_price
                 cart_mapping.qty = qty
-                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
@@ -1382,7 +1422,8 @@ class CartCentral(GenericAPIView):
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
-                                                             product_info['ean'], self.request.user, 'cart', cart_id)
+                                                             product_info['ean'], self.request.user, 'cart', 'packet',
+                                                             None, cart_id)
         PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                         self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         return product
@@ -3477,7 +3518,10 @@ class OrderCentral(APIView):
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
-        pdf_generation_retailer(self.request, order.id)
+        try:
+            pdf_generation_retailer(self.request, order.id)
+        except Exception as e:
+            logger.exception(e)
 
     def auto_process_ecom_order(self, order):
 
@@ -4343,6 +4387,12 @@ class OrderReturns(APIView):
                 qty=Sum('return_qty'))['qty']
             previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
 
+        product = ordered_product_map.retailer_product
+        cart_product = CartProductMapping.objects.filter(cart=ordered_product_map.ordered_product.order.ordered_cart,
+                                                         retailer_product=product).last()
+        if product.product_pack_type == 'loose':
+            qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
+
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
 
@@ -4607,9 +4657,10 @@ class OrderReturnComplete(APIView):
             cart_type = order.ordered_cart.cart_type
             if (cart_type == 'BASIC' and order.order_status not in ['ordered', Order.PARTIALLY_RETURNED]) or (
                     cart_type == 'ECOM' and order.order_status not in [Order.DELIVERED, Order.PARTIALLY_RETURNED]):
-                return {'error': "Order Not Valid For Return"}
+                return api_response("Order Not Valid For Return")
         except ObjectDoesNotExist:
-            return {'error': "Order Not Valid For Return"}
+            return api_response("Order Not Valid For Return")
+            # return {'error': "Order Not Valid For Return"}
 
         # Check Payment Type
         try:
@@ -4838,6 +4889,17 @@ def pdf_generation(request, ordered_product):
         buyer_shop_id = ordered_product.order.buyer_shop_id
         paid_amount = 0
         invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(retailer=ordered_product.order.ordered_cart.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = ordered_product.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
         for invoice_amount in invoice_details:
             date_time = invoice_amount.created_at
             date = date_time.strftime("%d")
@@ -4871,9 +4933,9 @@ def pdf_generation(request, ordered_product):
         if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').exists() else 'unregistered'
+                shop_document_type='gstin').exists() else getGSTINNumber(shop_name)
 
-        if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+        if ordered_product.order.ordered_cart.buyer_shop and ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
@@ -5072,17 +5134,18 @@ def pdf_generation(request, ordered_product):
                 "sum_basic_amount": sum_basic_amount,
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+                "pincode_gram": pincode_gram, "cin": cin_number,
+                "hsn_list": list1, "license_number": license_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                    "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+                                                    ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
 
@@ -5129,13 +5192,17 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 product_type=m.product_type
             ).last()
             product_pro_price_ptr = cart_product_map.selling_price
+            product = cart_product_map.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp,
-                "qty": m.shipped_qty,
-                "rate": float(product_pro_price_ptr),
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
             product_listing.append(ordered_p)
@@ -5165,12 +5232,28 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         total = round(total, 2)
 
+        # Licence
+        shop_name = order.seller_shop.shop_name
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+        # GSTIN
+        gstin_number = getShopCINNumber(shop_name)
+
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
-                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value}
+                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
+                "license_number": license_number, "seller_gstin_number": gstin_number,
+                "cin": cin_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -5230,12 +5313,18 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         return_qty = 0
 
         for item in return_items:
+            product = item.ordered_product.retailer_product
+            product_pack_type = product.product_pack_type
+            if product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
             return_p = {
                 "id": item.id,
                 "product_short_description": item.ordered_product.retailer_product.product_short_description,
-                "mrp": item.ordered_product.retailer_product.mrp,
-                "qty": item.return_qty,
-                "rate": float(item.ordered_product.selling_price),
+                "mrp": item.ordered_product.retailer_product.mrp if product_pack_type == 'packet' else str(
+                    item.ordered_product.retailer_product.mrp) + '/' + default_unit.unit,
+                "qty": item.return_qty if product_pack_type == 'packet' else str(item.return_qty) + ' ' + default_unit.unit,
+                "rate": round(float(item.ordered_product.selling_price), 2) if product_pack_type == 'packet' else str(
+                    round(float(item.ordered_product.selling_price), 2)) + '/' + default_unit.unit,
                 "product_sub_total": float(item.return_qty) * float(item.ordered_product.selling_price)
             }
             return_qty += item.return_qty
@@ -5270,6 +5359,17 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -5289,7 +5389,9 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "city": city,
             "state": state,
             "pincode": pincode,
-            "address_contact_number": address_contact_number
+            "address_contact_number": address_contact_number,
+            "license_number": license_number,
+            "cin": cin_number
         }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
@@ -5326,8 +5428,21 @@ class DownloadCreditNoteDiscounted(APIView):
 
     def get(self, request, *args, **kwargs):
         credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=credit_note.shipment.order.seller_shop).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = credit_note.shipment.order.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
-            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
+            gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber(shop_name)
         for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
@@ -5370,7 +5485,7 @@ class DownloadCreditNoteDiscounted(APIView):
             dict1 = {}
             flag = 0
             basic_rate = m.basic_rate_discounted
-            delivered_qty = m.delivered_qty
+            delivered_qty = float(m.delivered_qty)
             gst_percent = m.get_products_gst()
             cess = m.get_products_gst_cess_tax()
             surcharge = m.get_products_gst_surcharge()
@@ -5450,8 +5565,10 @@ class DownloadCreditNoteDiscounted(APIView):
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin,
-            "hsn_list": list1}
+            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_number,
+            "cin": cin_number,
+            "hsn_list": list1, "license_number": license_number}
+
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -5502,7 +5619,19 @@ class DownloadDebitNote(APIView):
         pk = self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         products = a.rt_order_product_order_product_mapping.all()
-        data = {"object": order_obj, "order": order_obj.order, "products": products}
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order_obj.order.ordered_cart.seller_shop.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order_obj.order.ordered_cart.seller_shop.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+        cin_number = getShopCINNumber(shop_name)
+
+        data = {"object": order_obj, "order": order_obj.order, "products": products,
+                "license_number": license_number, "cin": cin_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -6136,6 +6265,14 @@ class RefreshEs(APIView):
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
 
 
+def refresh_cron_es():
+    shop_id = 600
+    info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
+    upload_shop_stock(shop_id)
+    info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
+    return Response()
+
+
 class RefreshEsRetailer(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -6352,3 +6489,19 @@ class EcomPaymentView(APIView):
         serializer = PaymentTypeSerializer(queryset, many=True)
         msg = "" if queryset else "No payment found"
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
+class EcomPaymentSuccessView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return render(request, "ecom/payment_success.html", {'media_url': AWS_MEDIA_URL})
+
+
+class EcomPaymentFailureView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *args, **kwags):
+        return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})

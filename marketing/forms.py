@@ -11,19 +11,19 @@ from .models import RewardPoint, RewardLog, ReferralCode
 
 
 class MLMUserForm(forms.ModelForm):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
-    name = forms.CharField(required=False, label='Name')
-    phone_number = forms.CharField(validators=[phone_regex], max_length=10, required=True, label='Phone Number')
-    email = forms.EmailField(required=False, label='Email')
+    # phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    # name = forms.CharField(required=False, label='Name')
+    # phone_number = forms.CharField(validators=[phone_regex], max_length=10, required=True, label='Phone Number')
+    # email = forms.EmailField(required=False, label='Email')
     referral_code = forms.CharField(required=False, label='Referral code')
 
     class Meta:
         model = ReferralCode
-        fields = ("phone_number", "name", "email", "referral_code")
+        fields = ("user", "referral_code")
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        user = User.objects.filter(phone_number=self.data['phone_number']).last()
+        user = User.objects.filter(phone_number=cleaned_data['user'].phone_number).last()
         if user and ReferralCode.is_marketing_user(user):
             raise forms.ValidationError("User is already registered for rewards.")
         if cleaned_data['referral_code']:

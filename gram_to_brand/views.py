@@ -41,6 +41,10 @@ from retailer_backend.common_function import send_mail
 from retailer_backend.messages import SUCCESS_MESSAGES
 
 import logging
+
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getShopPANNumber
+from shops.models import ParentRetailerMapping
+
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
@@ -232,6 +236,21 @@ class DownloadPurchaseOrder(APIView):
         cess = sum(cess_list)
         surcharge = sum(surcharge_list)
         total_amount = sum_amount
+
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(retailer=shop.gf_billing_address.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = shop.gf_billing_address.shop_name.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         data = {
             "object": order_obj,
             "products": products,
@@ -249,9 +268,11 @@ class DownloadPurchaseOrder(APIView):
             "order_id": order_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
-            "is_gf_shop" : is_gf_shop
+            "is_gf_shop": is_gf_shop,
+            "license_number": license_number,
+            "cin": cin_number,
+            "pan_no": pan_number
         }
-
 
         cmd_option = {
             'encoding': 'utf8',
@@ -275,6 +296,21 @@ class DownloadDebitNote(APIView):
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(GRNOrder, pk=self.kwargs.get('pk'))
+        # Licence
+        shop_mapping = ParentRetailerMapping.objects.filter(
+            retailer=order_obj.order.ordered_cart.gf_billing_address.shop_name).last()
+        if shop_mapping:
+            shop_name = shop_mapping.parent.shop_name
+        else:
+            shop_name = order_obj.order.ordered_cart.gf_billing_address.shop_name.shop_name
+        license_number = getShopLicenseNumber(shop_name)
+
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+
+        # PAN
+        pan_number = getShopPANNumber(shop_name)
+
         pk = self.kwargs.get('pk')
         a = GRNOrder.objects.get(pk=pk)
         shop = a
@@ -347,7 +383,10 @@ class DownloadDebitNote(APIView):
             "debit_note_id": debit_note_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
-            "is_gf_shop": is_gf_shop
+            "is_gf_shop": is_gf_shop,
+            "license_number": license_number,
+            "cin": cin_number,
+            "pan_no": pan_number
         }
         cmd_option = {'encoding': 'utf8', 'margin-top': 3}
         response = PDFTemplateResponse(

@@ -3,6 +3,7 @@ import logging
 import csv
 import codecs
 import math
+from decimal import Decimal
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
@@ -16,6 +17,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
 from model_utils import Choices
+from django.core.validators import MinValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -26,11 +28,11 @@ from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones)
 
 from addresses.models import Address
-from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, \
-    InventoryState, Bin
+
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
 from brand.models import Brand
@@ -213,7 +215,7 @@ class Cart(models.Model):
     def order_amount_after_discount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
         order_amount = round(float(item_effective_total), 2)
         return order_amount
 
@@ -221,7 +223,7 @@ class Cart(models.Model):
     def order_amount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
         redeem_points_value = 0
         if self.redeem_factor:
             redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
@@ -275,13 +277,13 @@ class Cart(models.Model):
                 cart_value = 0
                 for product in cart_products:
                     shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    cart_value += float(shop_price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(shop_price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if shop_price else 0
             if self.cart_status in ['ordered']:
                 cart_value = 0
                 for product in cart_products:
                     price = product.cart_product_price
-                    cart_value += float(price.get_per_piece_price(product.qty)
+                    cart_value += Decimal(Decimal(price.get_per_piece_price(product.qty))
                                         * product.no_of_pieces) if price else 0
 
             for m in cart_products:
@@ -444,7 +446,7 @@ class Cart(models.Model):
             cart_coupon_list = []
             i = 0
             coupon_applied = False
-            cart_value = cart_value - discount_sum_sku
+            cart_value = float(cart_value) - float(discount_sum_sku)
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
@@ -458,32 +460,32 @@ class Cart(models.Model):
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount == 0):
-                            discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
+                            discount_value_cart = round((Decimal(cart_coupon.rule.discount.discount_value) / 100) * Decimal(cart_value),
                                                         2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
-                                cart_coupon.rule.discount.max_discount >= (
-                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
-                            discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
+                                round(Decimal(cart_coupon.rule.discount.max_discount)) >= (
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                            discount_value_cart = round(Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value),
                                                         2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount < (
-                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
                             discount_value_cart = cart_coupon.rule.discount.max_discount
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
-                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                                 'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         break
 
             entice_text = ''
@@ -506,7 +508,7 @@ class Cart(models.Model):
                     {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             elif i == 1 and not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value, 2)
+                next_cart_coupon_min_value_diff = round(Decimal(next_cart_coupon_min_value) - Decimal(cart_value), 2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
                         str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
@@ -525,11 +527,11 @@ class Cart(models.Model):
                 for product in cart_products:
                     for i in array:
                         if product.cart_product.id == i['item_id']:
-                            discounted_price_subtotal = round(
-                                ((i['discounted_product_subtotal'] / cart_value) * discount_value_cart), 2)
+                            discounted_price_subtotal = float(round(
+                                ((Decimal(i['discounted_product_subtotal']) / Decimal(cart_value)) * Decimal(discount_value_cart)), 2))
                             i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
-                            discounted_product_subtotal = round(
-                                i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                            discounted_product_subtotal = float(round(
+                                Decimal(i['discounted_product_subtotal']) - Decimal(discounted_price_subtotal), 2))
                             i.update({'discounted_product_subtotal': discounted_product_subtotal})
                             offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'brand']
             else:
@@ -540,17 +542,16 @@ class Cart(models.Model):
                             if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j[
                                 'brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j[
                                 'brand_id']:
-                                discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j[
-                                    'brand_product_subtotals']) * j['discount_value']), 2)
+                                discounted_price_subtotal = float(round(((i['discounted_product_subtotal'] / j[
+                                    'brand_product_subtotals']) * j['discount_value']), 2))
                                 i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
-                                discounted_product_subtotal = round(
-                                    i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                                discounted_product_subtotal = float(round(
+                                    i['discounted_product_subtotal'] - discounted_price_subtotal, 2))
                                 i.update({'discounted_product_subtotal': discounted_product_subtotal})
                                 offers_list[:] = [coupon for coupon in offers_list if
                                                   coupon.get('coupon_type') != 'cart']
 
         return offers_list
-
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
@@ -761,8 +762,8 @@ class CartProductMapping(models.Model):
         on_delete=models.DO_NOTHING, null=True, blank=True
     )
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    qty = models.PositiveIntegerField(default=0)
-    no_of_pieces = models.PositiveIntegerField(default=0)
+    qty = models.DecimalField(max_digits=12, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    no_of_pieces = models.DecimalField(max_digits=12, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False
@@ -776,6 +777,8 @@ class CartProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    qty_conversion_unit = models.ForeignKey("pos.MeasurementUnit", related_name='rt_unit_cart_mapping',
+                                            null=True, on_delete=models.DO_NOTHING)
 
     def __str__(self):
         return self.cart_product.product_name if self.cart_product else self.retailer_product.name
@@ -806,28 +809,28 @@ class CartProductMapping(models.Model):
 
     @property
     def item_effective_prices(self):
-        try:
-            item_effective_price = 0
-            if self.retailer_product:
-                if self.cart.offers and self.product_type:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if int(self.retailer_product.id) == int(i['item_id']):
-                            item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / self.no_of_pieces
-                else:
-                    item_effective_price = float(self.selling_price) if self.selling_price else 0
+        item_effective_price = 0
+        if self.retailer_product:
+            if self.cart.offers and self.product_type:
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if int(self.retailer_product.id) == int(i['item_id']):
+                        item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / float(self.no_of_pieces)
             else:
+                item_effective_price = float(self.selling_price) if self.selling_price else 0
+        else:
+            try:
                 if self.cart.offers:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                     for i in array:
                         if self.cart_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
                 else:
                     product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
                                                                              self.cart.buyer_shop_id)
                     item_effective_price = float(product_price.get_per_piece_price(self.qty))
-        except:
-            logger.exception("Cart product price not found")
+            except Exception as e:
+                logger.exception("Cart product price not found")
         return item_effective_price
 
     @property
@@ -882,6 +885,9 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_PARTIAL_COMPLETE = 'PICKING_PARTIAL_COMPLETE'
+    MOVED_TO_QC = 'MOVED_TO_QC'
+    PARTIAL_MOVED_TO_QC = 'PARTIAL_MOVED_TO_QC'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
@@ -914,6 +920,9 @@ class Order(models.Model):
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (COMPLETED, 'Completed'),
+        (PICKING_PARTIAL_COMPLETE, 'Picking Partial Complete'),
+        (MOVED_TO_QC, 'Moved To QC Area'),
+        (PARTIAL_MOVED_TO_QC, 'Partially Moved To QC Area'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
@@ -1085,6 +1094,14 @@ class Order(models.Model):
     @property
     def picklist_id(self):
         return picklist_ids(self.picker_dashboards())
+
+    @property
+    def qc_area(self):
+        return qc_areas(self.picker_dashboards())
+
+    @property
+    def zone(self):
+        return zones(self.picker_dashboards())
 
     @property
     def pickup_completed_at(self):
@@ -1639,10 +1656,11 @@ class OrderedProduct(models.Model):  # Shipment
     def shipment_address(self):
         if self.order:
             address = self.order.shipping_address
-            address_line = address.address_line1
-            contact = address.address_contact_number
-            shop_name = address.shop_name.shop_name
-            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+            if address:
+                address_line = address.address_line1
+                contact = address.address_contact_number
+                shop_name = address.shop_name.shop_name
+                return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
     def payment_approval_status(self):
@@ -1706,8 +1724,10 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def invoice_city(self):
-        city = self.order.shipping_address.city
-        return str(city)
+        if self.order.shipping_address:
+            city = self.order.shipping_address.city
+            return str(city)
+        return str("-")
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
@@ -1892,6 +1912,7 @@ class PickerDashboard(models.Model):
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
         ('picking_cancelled', 'Picking Cancelled'),
+        ('moved_to_qc', 'Moved To QC Area'),
 
     )
 
@@ -1910,21 +1931,24 @@ class PickerDashboard(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
+    zone = models.ForeignKey(Zone, null=True, blank=True, related_name='pickup_dashboard_zone', on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, null=True, blank=True, related_name='area_pickings', on_delete=models.DO_NOTHING)
     is_valid = models.BooleanField(default=True)
     refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
+    moved_to_qc_at = models.DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
             if self.order:
-                Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                Pickup.objects.filter(pickup_type_id=self.order.order_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
             elif self.repackaging:
-                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no,
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
@@ -1949,8 +1973,10 @@ class OrderedProductMapping(models.Model):
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
-    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    shipped_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Shipped Pieces",
+                                      validators=[MinValueValidator(0)])
+    delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Delivered Pieces",
+                                        validators=[MinValueValidator(0)])
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
@@ -1968,7 +1994,8 @@ class OrderedProductMapping(models.Model):
     discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
     delivered_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     cancellation_date = models.DateTimeField(null=True, blank=True)
-    picked_pieces = models.PositiveIntegerField(default=0)
+    picked_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
+                                        validators=[MinValueValidator(0)])
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -2003,7 +2030,7 @@ class OrderedProductMapping(models.Model):
                 no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                     cart_product=self.product).values('no_of_pieces')
             no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-            return str(no_of_pieces)
+            return str(int(no_of_pieces))
         return str("-")
 
     ordered_qty.fget.short_description = "Ordered Pieces"
@@ -2155,10 +2182,9 @@ class OrderedProductMapping(models.Model):
         """This function returns the basic rate at which credit note is to be generated"""
         return self.basic_rate
 
-
     @property
     def product_credit_amount(self):
-        return round(((self.shipped_qty- self.delivered_qty) * float(self.effective_price)),2)
+        return round((float(float(self.shipped_qty) - float(self.delivered_qty)) * float(self.effective_price)), 2)
 
     @property
     def product_credit_amount_per_unit(self):
@@ -2172,12 +2198,12 @@ class OrderedProductMapping(models.Model):
 
     @property
     def base_price(self):
-        return self.basic_rate * self.shipped_qty
+        return float(self.basic_rate) * float(self.shipped_qty)
 
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round((self.basic_rate * self.shipped_qty) * float(get_tax_val), 2)
+        return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):
@@ -2200,7 +2226,7 @@ class OrderedProductMapping(models.Model):
     @property
     def product_tax_discount_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.basic_rate_discounted * self.delivered_qty) * float(get_tax_val), 2)
+        return round(float(self.basic_rate_discounted * float(self.delivered_qty)) * float(get_tax_val), 2)
 
     @property
     def product_sub_total(self):
@@ -2284,9 +2310,10 @@ class OrderedProductMapping(models.Model):
         else:
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last()
-            if not self.effective_price:
-                shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-                self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+            # if not self.effective_price:
+            #     shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            #     self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+            self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
             self.delivered_at_price = self.effective_price
@@ -2322,15 +2349,18 @@ class OrderedProductBatch(models.Model):
                                                 related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField(default=0, verbose_name='NO. OF PIECES TO SHIP')
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)],
+                                   verbose_name='NO. OF PIECES TO SHIP')
     ordered_pieces = models.CharField(max_length=10, null=True, blank=True)
-    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)],
+                                        verbose_name="Delivered Pieces")
     already_shipped_qty = models.PositiveIntegerField(default=0)
     expiry_date = models.CharField(max_length=30, null=True, blank=True)
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
-    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    pickup_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
+                                          validators=[MinValueValidator(0)])
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     missing_qty = models.PositiveIntegerField(default=0, verbose_name="Missing Pieces")
     rejected_qty = models.PositiveIntegerField(default=0, verbose_name="Rejected Pieces")
@@ -2787,7 +2817,7 @@ class ReturnItems(models.Model):
     return_id = models.ForeignKey(OrderReturn, related_name='rt_return_list', on_delete=models.DO_NOTHING)
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
-    return_qty = models.PositiveIntegerField(default=0)
+    return_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2837,13 +2867,13 @@ def add_to_putaway_on_return(shipment_id):
     common_on_return_and_partial(shipment, flag)
 
 
-@receiver(post_save, sender=OrderedProduct)
-def update_picking_status(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    # assign_update_picker_to_shipment.delay(instance.id)
-    assign_update_picker_to_shipment(instance.id)
+# @receiver(post_save, sender=OrderedProduct)
+# def update_picking_status(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     # assign_update_picker_to_shipment.delay(instance.id)
+#     assign_update_picker_to_shipment(instance.id)
 
 
 # @receiver(post_save, sender=Order)
@@ -2875,11 +2905,18 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
         if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
-            instance.order_no = common_function.order_id_pattern(
+            order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+            while Order.objects.filter(order_no=order_no).exists():
+                order_no = common_function.order_id_pattern(
+                    sender, 'order_no', instance.pk,
+                    instance.seller_shop.
+                        shop_name_address_mapping.filter(
+                        address_type='billing').last().pk)
+            instance.order_no = order_no
         if instance.ordered_cart.cart_type in ['ECOM']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
@@ -2942,8 +2979,10 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
         if instance.order:
-            instance.order.order_status = Order.PICKING_ASSIGNED
-            instance.order.save()
+            if instance.order.order_status not in [Order.PICKING_PARTIAL_COMPLETE, Order.MOVED_TO_QC,
+                                                   Order.PARTIAL_MOVED_TO_QC, Order.PICKING_COMPLETE]:
+                instance.order.order_status = Order.PICKING_ASSIGNED
+                instance.order.save()
         elif instance.repackaging:
             instance.repackaging.source_picking_status = 'picking_assigned'
             instance.repackaging.save()

@@ -1,0 +1,162 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters%}
+{% load humanize %}
+{% load mathfilters %}
+
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>purchase return</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">
+
+    <style>
+table tr td,th,h4,span,address{
+
+			font-size:10px
+		}
+
+    </style>
+</head>
+
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-6">
+            <img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
+        </div>
+
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        <div class="invoice-title">
+            <h4 class="invoice">Purchase Return No:- <span
+                    class="invoice_no"> <strong>{{purchase_return_instance.pr_number}}</strong></span></h4>
+        </div>
+
+        <div class="row">
+            <div class="col-xs-6">
+                <address>
+                    <span>Invoice To :</span><br>
+                    <strong>{{cart_instance.retailer_shop.shop_name}}</strong><br>
+                    {{billing.nick_name}}, {{billing.address_line1}}, {{billing.city}}<br>
+                    <strong>State Name:</strong> <span>{{billing.state}} </span><strong>Code:</strong> <span>{{billing.pincode_link.pincode}}</span><br>
+                    <strong>Contact:</strong> <span>{{cart_instance.retailer_shop.shop_owner.phone_number}}</span><br>
+                </address>
+                <address>
+                    <span>Dispatch To :</span><br>
+                    <strong>{{shipping.shop_name.shop_name}}</strong><br>
+                    {{shipping.nick_name}}, {{shipping.address_line1}}, {{shipping.city}}<br>
+                    <strong>State Name:</strong> <span>{{shipping.state}} </span><strong>Code:</strong> <span>{{shipping.pincode_link.pincode}}</span><br>
+                </address>
+                <address>
+                    <span>Party :</span><br>
+                    <strong>{{cart_instance.vendor.vendor_name}}</strong><br>
+                    {{cart_instance.vendor.company_name}}, {{cart_instance.vendor.address}}, {{cart_instance.vendor.city}}<br>
+                    <strong>GSTIN/UIN:</strong> <span>{{cart_instance.vendor.gst_number}}</span><br>
+                    <strong>State Name:</strong> <span>{{cart_instance.vendor.state}} </span><strong>Code:</strong> <span>{{cart_instance.vendor.pincode}}</span><br>
+                </address>
+            </div>
+            <div class="col-xs-6 text-right">
+                <div class="table">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td class="text-center"><strong>Created Date<br>{{purchase_return_instance.created_at}}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="table">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order
+                                No.</strong><br><span>{{cart_instance.po_no}}</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title"><strong>Return summary</strong></h3>
+            </div>
+            <div class="panel-body">
+                <div class="table">
+                    <table class="table table-condensed">
+                        <thead>
+                        <tr>
+                            <td><strong>Serial No.</strong></td>
+                            <td class="text-center"><strong>Description of Goods</strong></td>
+                            <td class="text-center"><strong>MRP</strong></td>
+                            <td class="text-center"><strong>Rate</strong></td>
+                            <td class="text-center"><strong>Quantity</strong></td>
+                            <td class="text-right"><strong>Amount</strong></td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for m in products %}
+                        <tr>
+                            <td><strong>{{forloop.counter}}</strong></td>
+                            <td class="text-center">{{ m.description}}</td>
+                            <td class="text-center">{{ m.mrp}}</td>
+                            <td class="text-center">{{ m.selling_price }}</td>
+                            <td class="text-center">{{ m.return_qty }}</td>
+                            <td class="text-right">{{m.return_qty|mul:m.selling_price | floatformat:2 | intcomma}}/-</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+                            <td class="thick-line text-right"><strong>₹{{total_amount | floatformat:2 | intcomma }}/-</strong></td>
+                        </tr>
+
+                        <tr>
+                            <td colspan="11"></td>
+                        </tr>
+                        <tr>
+                            <td colspan="8" class="no-line"><strong>Amount Refunded (in words)</strong></td>
+                            <td class="no-line">E . &amp; O . E</td>
+                        </tr>
+                        <tr>
+                            <td colspan="12"><strong>INR {{amt_in_words}} only</strong></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table">
+                    <div class="table">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <td class="text-left" colspan="5">
+                                    <strong>Declaration</strong> <br>
+                                    We declare that this debit note shows the actual price of the goods described and that
+                                    all particulars are true and correct.
+                                </td>
+                            </tr>
+
+                            </thead>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -100,8 +100,8 @@ class Shop(models.Model):
         on_delete=models.DO_NOTHING
     )
     pos_enabled = models.BooleanField(default=False, verbose_name='Enabled For POS')
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, verbose_name='Latitude For Ecommerce')
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, verbose_name='Longitude For Ecommerce')
+    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
+    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)

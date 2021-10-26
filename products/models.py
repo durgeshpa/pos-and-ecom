@@ -11,6 +11,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from model_utils import Choices
+from decimal import Decimal
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
@@ -274,11 +275,12 @@ class Product(BaseTimestampUserStatusModel):
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
+    NONE, SOURCE, DESTINATION, PACKING_MATERIAL = 'none', 'source', 'destination', 'packing_material'
     REPACKAGING_TYPES = (
-        ('none', 'None'),
-        ('source', 'Source'),
-        ('destination', 'Destination'),
-        ('packing_material', 'Packing Material')
+        (NONE, 'None'),
+        (SOURCE, 'Source'),
+        (DESTINATION, 'Destination'),
+        (PACKING_MATERIAL, 'Packing Material')
     )
 
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
@@ -652,7 +654,7 @@ class ProductPrice(models.Model):
         """
         per_piece_price = self.get_per_piece_price(qty)
         if per_piece_price:
-            return per_piece_price * case_size
+            return Decimal(per_piece_price) * case_size
 
     def get_per_piece_price(self, qty):
 
@@ -1049,6 +1051,7 @@ class Repackaging(models.Model):
     SOURCE_PICKING_STATUS = [
         ('pickup_created', 'Pickup Created'),
         ('picking_assigned', 'Picking Assigned'),
+        ('picking_partial_complete', 'Picking Partial Complete'),
         ('picking_complete', 'Picking Complete'),
     ]
     id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')

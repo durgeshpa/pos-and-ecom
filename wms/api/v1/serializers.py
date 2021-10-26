@@ -121,14 +121,13 @@ class PickupSerializer(DynamicFieldsModelSerializer):
         return True
 
 
-
 class OrderSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
     order_create_date = serializers.SerializerMethodField()
     delivery_location = serializers.SerializerMethodField('m_delivery_location')
     picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
     picking_completed_time = serializers.SerializerMethodField('get_completed_time')
-    
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time', 'picking_completed_time')
@@ -151,6 +150,13 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_completed_time(self, obj):
         return obj.pickup_completed_at.strftime('%b %d, %H:%M') if obj.pickup_completed_at else None
+
+
+class OrderBinsSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    bin_id = serializers.CharField()
+    pickup_status = serializers.CharField()
+
 
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
