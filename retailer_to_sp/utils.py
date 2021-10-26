@@ -359,7 +359,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         picker_data = {
             'picking_status': [],
             'picklist_id': [],
-            'qc_area__area_id': [],
+            'qc_area__area_id': None,
             'picker_boy__phone_number': [],
             'picker_boy__first_name': [],
             'picker_assigned_date': [],
@@ -371,7 +371,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             picker_data['picking_status'].append(picking_status_dict.get(picker_dash.picking_status,
                                                                          picker_dash.picking_status))
             picker_data['picklist_id'].append(picker_dash.picklist_id)
-            picker_data['qc_area__area_id'].append(picker_dash.qc_area.area_id if picker_dash.qc_area else "")
+            picker_data['qc_area__area_id'] = picker_dash.qc_area.area_id if \
+                picker_dash.qc_area else picker_data['qc_area__area_id']
             picker_data['picker_boy__phone_number'].append(
                 picker_dash.picker_boy.phone_number if picker_dash.picker_boy else "")
             picker_data['picker_boy__first_name'].append(

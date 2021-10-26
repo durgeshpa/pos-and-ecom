@@ -20,7 +20,7 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from gram_to_brand.models import GRNOrder
 from products.models import Product
 
-from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
+from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 
@@ -888,7 +888,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             """ GET Putaway List """
             self.queryset = self.search_filter_putaway_data()
             putaway_total_count = self.queryset.count()
-            putaway_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            putaway_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaway_data, many=True)
         msg = f"total count {putaway_total_count}" if putaway_data else "no putaway found"
@@ -1086,7 +1086,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
 
         '''Filters using token_id, zone, putaway_user, putaway_type'''
         if token_id:
-            self.queryset = self.queryset.filter(token_id=token_id)
+            self.queryset = self.queryset.filter(token_id__iexact=token_id)
 
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
