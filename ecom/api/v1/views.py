@@ -230,9 +230,14 @@ class UserShopView(APIView):
 
     def get(self, request, format=None):
         user = request.user
-        shop_customer_mapping = ShopCustomerMap.objects.filter(user=user)
-        shop = Shop.objects.filter(registered_shop__in=shop_customer_mapping)
+        # shop_customer_mapping = ShopCustomerMap.objects.filter(user=user)
+        # shop = Shop.objects.filter(registered_shop__in=shop_customer_mapping)
         is_success, data, message = False, [], "No shop found"
+        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+        shop = []
+        for order in orders:
+            if order.seller_shop not in shop:
+                shop.append(order.seller_shop)
         data = ShopInfoSerializer(shop, many=True).data
         if data:
             is_success, message = True, "Shop Found"
