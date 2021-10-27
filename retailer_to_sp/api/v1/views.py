@@ -3020,10 +3020,9 @@ class OrderCentral(APIView):
             order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
                                                seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
             if order_count >= order_config.value:
-                return {'error': 'Because of the current surge in orders, '
-                                 'we are not taking any more orders for today. '
-                                 'We will start taking orders again tomorrow. '
-                                 'We regret the inconvenience caused to you'}
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
 
         # check inventory
         cart_products = cart.rt_cart_list.all()
