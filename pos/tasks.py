@@ -61,15 +61,29 @@ def update_es(products, shop_id):
         if product.mrp and product.selling_price:
             margin = round(((product.mrp - product.selling_price) / product.mrp) * 100, 2)
         product_img = product.retailer_product_image.all()
-        product_images = [
-            {
-                "image_id": p_i.id,
-                "image_name": p_i.image_name,
-                "image_alt": p_i.image_alt_text,
-                "image_url": p_i.image.url
-            }
-            for p_i in product_img
-        ]
+        product_images =[]
+        if product_img:
+            product_images = [
+                {
+                    "image_id": p_i.id,
+                    "image_name": p_i.image_name,
+                    "image_alt": p_i.image_alt_text,
+                    "image_url": p_i.image.url
+                }
+                for p_i in product_img
+            ]
+        else:
+            if product.linked_product is not None:
+                product_img = product.linked_product.product_pro_image.all()
+                product_images = [
+                    {
+                        "image_id": p_i.id,
+                        "image_name": p_i.image_name,
+                        "image_alt": '',
+                        "image_url": p_i.image.url
+                    }
+                    for p_i in product_img
+                ]
         # get brand and category from linked GramFactory product
         brand = ''
         category = ''
