@@ -2825,12 +2825,13 @@ def franchise_po_fail_status(request, pk):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["SKU", "Name", "EAN"])
+    writer.writerow(["SKU", "Name", "EAN", "MRP", "Packsize", "Quantity"])
     products = order.ordered_cart.rt_cart_list.all()
     for mapp in products:
         p = mapp.cart_product
         if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
-            writer.writerow([p.product_sku, p.product_name, p.product_ean_code])
+            writer.writerow([p.product_sku, p.product_name, p.product_ean_code, p.product_mrp,
+                             p.parent_product.inner_case_size, mapp.no_of_pieces])
     return response
 
 
