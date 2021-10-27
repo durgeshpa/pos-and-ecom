@@ -316,14 +316,21 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
+                    if not bin_lists.exists():
+                        bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop, quantity__gt=0,
+                                                                  inventory_type__inventory_type='normal') \
+                            .order_by('-batch_id', 'quantity')
                     if bin_lists.exists():
                         for k in bin_lists:
                             bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop, bin__zone=obj.zone,
-                                                                  inventory_type__inventory_type='normal').order_by(
-                            '-batch_id',
-                            'quantity').last()
+                                                                      inventory_type__inventory_type='normal')\
+                                                              .order_by('-batch_id', 'quantity').last()
+                        if not bin_lists:
+                            bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
+                                                                      inventory_type__inventory_type='normal') \
+                                .order_by('-batch_id', 'quantity').last()
                         bin_inv_dict = get_bin_inv_dict(bin_lists, bin_inv_dict)
 
                     bin_inv_list = list(bin_inv_dict.items())
@@ -348,7 +355,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                sku=rep_obj.source_sku,
                                                batch_id=batch_id, quantity=already_picked,
                                                inventory_type=type_normal)
-                            CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                            CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                shops, bin_inv.bin.zone, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,
                                                                                pickup_quantity=None)
@@ -371,7 +379,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                sku=rep_obj.source_sku,
                                                batch_id=batch_id, quantity=already_picked,
                                                inventory_type=type_normal)
-                            CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                            CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                shops, bin_inv.bin.zone, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,
                                                                                pickup_quantity=None)
