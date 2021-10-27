@@ -62,7 +62,8 @@ class ShopView(APIView):
         """
         if not int(self.request.GET.get('from_location', '0')):
             # Get shop from latest order
-            order = Order.objects.filter(buyer=self.request.user, ordered_cart__cart_type__in=['BASIC', 'ECOM']).last()
+            order = Order.objects.filter(buyer=self.request.user,
+                                         ordered_cart__cart_type__in=['BASIC', 'ECOM']).order_by('id').last()
             if order:
                 return self.serialize(order.seller_shop)
 
