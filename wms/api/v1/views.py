@@ -32,6 +32,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 
 # Logger
 from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
+from ...common_validators import validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker
 
 info_logger = logging.getLogger('file-info')
@@ -457,6 +458,12 @@ class PickupList(APIView):
                 order_by('-created_at')
 
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
+
+        validate_request = validate_pickup_request(request)
+        if "error" in validate_request:
+            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+                            status=status.HTTP_200_OK)
+
         self.queryset = self.filter_pickup_list_data()
 
         # picking_complete count
@@ -477,6 +484,7 @@ class PickupList(APIView):
     def filter_pickup_list_data(self):
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
 
@@ -491,11 +499,14 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(picking_status=picking_status)
 
         if selected_date:
-            try:
-                date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
-            except Exception as e:
-                error_logger.error(e)
+            if data_days:
+                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - datetime.timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    picker_assigned_date__date__gte=start_date.date(), picker_assigned_date__date__lte=end_date.date())
+            else:
+                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
 
         return self.queryset
 
