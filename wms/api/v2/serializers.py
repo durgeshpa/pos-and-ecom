@@ -1503,6 +1503,11 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 picker_dashboard_instance = PickerDashboard.objects.get(id=self.initial_data['id'])
             except Exception as e:
                 raise serializers.ValidationError("Invalid Picking Entry")
+
+            if picker_dashboard_instance.repackaging:
+                raise serializers.ValidationError('This picking is of repackaging type, '
+                                                  'this cannot be moved to QC Area.')
+
             if picker_dashboard_instance.picking_status not in ['picking_complete', 'moved_to_qc']:
                 raise serializers.ValidationError('This picking is not yet completed')
 
@@ -1513,11 +1518,10 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                                                 warehouse_id=self.initial_data['warehouse']).last()
                 if not qc_area:
                     raise serializers.ValidationError('Invalid QC Area')
-                qc_area_alloted = None
-                if not picker_dashboard_instance.repackaging:
-                    qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
-                                                                     order=picker_dashboard_instance.order)\
-                                                             .exclude(id=picker_dashboard_instance.id).last()
+
+                qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
+                                                                 order=picker_dashboard_instance.order)\
+                                                         .exclude(id=picker_dashboard_instance.id).last()
                 if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
                     raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
                                                       f" {qc_area_alloted.qc_area}")
