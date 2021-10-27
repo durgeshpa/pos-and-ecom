@@ -152,6 +152,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     total_items = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     order_status = serializers.SerializerMethodField()
+    seller_shop = serializers.SerializerMethodField()
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
@@ -166,10 +167,13 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     def get_created_at(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
+    def get_seller_shop(self, obj):
+        return obj.seller_shop.shop_name
+
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time')
+                  'ecom_estimated_delivery_time', 'seller_shop')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
