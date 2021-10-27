@@ -56,13 +56,13 @@ def create_qc_desk_number(sender, instance=None, created=False, update_fields=No
         QCDesk number on creation / updation
     """
     if not instance.desk_number:
-        zone_count = QCDesk.objects.filter(warehouse=instance.warehouse, desk_number__isnull=False).count()
-        instance.desk_number = "W" + str(instance.warehouse.id).zfill(6) + "D" + str(zone_count + 1).zfill(2)
+        desk_count = QCDesk.objects.filter(warehouse=instance.warehouse, desk_number__isnull=False).count()
+        instance.desk_number = "W" + str(instance.warehouse.id).zfill(6) + "D" + str(desk_count + 1).zfill(2)
         instance.save()
 
 
 @receiver(m2m_changed, sender=QCDesk.qc_areas.through, dispatch_uid='qc_areas_changed', weak=False)
-def picker_users_changed(sender, instance, action, **kwargs):
+def qc_areas_changed(sender, instance, action, **kwargs):
     pk_set = kwargs.pop('pk_set', None)
     if action == 'post_remove':
         QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=instance, qc_area_id__in=pk_set).delete()
