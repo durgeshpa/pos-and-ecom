@@ -1582,6 +1582,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     buyer = PosUserSerializer()
     creation_date = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
+    payment = serializers.SerializerMethodField('payment_data')
 
     @staticmethod
     def get_creation_date(obj):
@@ -1700,10 +1701,15 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
                 cart_offers.append(offer)
         return cart_offers
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display')
+                  'delivery_person', 'buyer', 'order_status_display','payment')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -2812,6 +2818,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     order_update = serializers.SerializerMethodField()
     delivery_person = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
+    payment = serializers.SerializerMethodField('payment_data')
 
     @staticmethod
     def get_order_update(obj):
@@ -2992,9 +2999,14 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     def get_delivery_person(obj):
         return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display')
+                  'order_status_display', 'payment')
