@@ -1850,6 +1850,7 @@ class CartCheckout(APIView):
         initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
+
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
@@ -2976,6 +2977,8 @@ class OrderCentral(APIView):
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            elif 'api_response' in initial_validation:
+                return initial_validation['api_response']
             cart = initial_validation['cart']
             payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
@@ -3160,9 +3163,9 @@ class OrderCentral(APIView):
         # check for product is_deleted
         deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
         if deleted_product:
-            return {'error': 'Few items in your cart are not available.'}
-            # return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
-            #                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+            # return {'error': 'Few items in your cart are not available.'}
+            return {'api_response': api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})}
 
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
