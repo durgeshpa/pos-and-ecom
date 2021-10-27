@@ -121,7 +121,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                             r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
                                                                        sp, product.id, 2, description, ean,
                                                                        request.user, 'product',
-                                                                       row.get('product_pack_type'),
+                                                                       row.get('product_pack_type').lower(),
                                                                        measure_cat_id, None,
                                                                        row.get('status'), offer_price, offer_sd,
                                                                        offer_ed, None, online_enabled, online_price,
@@ -130,7 +130,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
                                                                sp, linked_pid, 1, description, ean, request.user,
-                                                               'product', row.get('product_pack_type'),
+                                                               'product', row.get('product_pack_type').lower(),
                                                                measure_cat_id, None, row.get('status'),
                                                                offer_price, offer_sd, offer_ed, None,
                                                                online_enabled, online_price,
