@@ -505,7 +505,7 @@ class PickupList(APIView):
                 self.queryset = self.queryset.filter(
                     picker_assigned_date__date__gte=start_date.date(), picker_assigned_date__date__lte=end_date.date())
             else:
-                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
 
         return self.queryset
