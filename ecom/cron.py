@@ -157,11 +157,9 @@ def bestseller_product():
                     cron_logger.info('Successfully Added freshly arrived product for shop')
                 else:
                     cron_logger.info('No Product for shop')
-                print(1)
             except Exception as e:
                 cron_logger.error(e)
                 cron_logger.error('Stopped Mapping Freshly Arrived Product for shop {}'.format(shop))
     except Exception as e:
-        print(0)
         cron_logger.error(e)
         cron_logger.error('Cron for tag product mapping stopped')
