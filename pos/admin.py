@@ -102,9 +102,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'is_deleted', 'product_pack_type', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'product_ean_code', 'product_pack_type', 'description', 'name', 'created_at',
-                       'sku_type', 'mrp', 'modified_at')
+              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
+              'online_enabled', 'online_price', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'product_ean_code', 'product_pack_type',
+                       'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
+                       'sku_type', 'mrp', 'modified_at', 'description')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)

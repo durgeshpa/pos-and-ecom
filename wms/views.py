@@ -957,7 +957,7 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
-    start_time = datetime.now() - timedelta(days=30)
+    start_time = datetime.now() - timedelta(days=1)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
