@@ -29,7 +29,6 @@ from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
-
 class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
     """
     Retailer Product Filter for Discounted Products
@@ -113,6 +112,9 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 # we need to create this product
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
+                measure_cat_id = None
+                if row.get('measurement_category'):
+                    measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
                 if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
                     if row.get('linked_product_sku') != '':
                         # If product is linked with existing product

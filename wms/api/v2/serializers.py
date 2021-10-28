@@ -1545,10 +1545,8 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
         return data
 
     def check_for_qc_area(self, instance, validated_data):
-        qc_area_alloted = None
-        if not instance.repackaging:
-            qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False, order=instance.order) \
-                                                     .exclude(id=instance.id).last()
+        qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False, order=instance.order) \
+                                                 .exclude(id=instance.id).last()
         if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
             return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
         elif not qc_area_alloted and validated_data['qc_area'] and PickerDashboard.objects.filter(
