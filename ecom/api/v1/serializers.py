@@ -168,6 +168,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.SerializerMethodField()
     seller_shop = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
+    delivery_persons = serializers.SerializerMethodField()
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
@@ -190,10 +191,17 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_delivery_persons(self, obj):
+        if obj.order_status == "out_for_delivery":
+            delivery_person = User.objects.filter(id=obj.delivery_person_id)[:1:]
+            return {"name": delivery_person[0].first_name,
+                    "phone_number": delivery_person[0].phone_number
+                    }
+
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time', 'seller_shop', 'payment')
+                  'ecom_estimated_delivery_time', 'seller_shop', 'payment', 'delivery_persons')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
