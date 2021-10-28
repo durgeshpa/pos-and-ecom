@@ -398,7 +398,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         qs = obj.rt_cart_list.filter(product_type=1).select_related('retailer_product',
                                                                     'retailer_product__measurement_category',
-                                                                    'qty_conversion_unit')
+                                                                    'qty_conversion_unit').order_by('modified_at')
         search_text = self.context.get('search_text')
         # Search on name, ean and sku
         if search_text:
