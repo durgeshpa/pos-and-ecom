@@ -510,11 +510,11 @@ class PosInventoryAdmin(admin.ModelAdmin):
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
-                    'changed_by', 'created_at')
+                    'initial_qty', 'final_qty', 'changed_by', 'created_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
-    list_filter = [ProductInvEanSearch]
+    list_filter = [ProductInvEanSearch, ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
 
     change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
@@ -553,6 +553,8 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                ] + urls
         return urls
 
+    class Media:
+        pass
 
 class RetailerReturnItemsAdmin(admin.TabularInline):
     model = RetailerReturnItems
