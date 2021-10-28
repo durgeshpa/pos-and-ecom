@@ -67,7 +67,7 @@ def bestseller_product():
                 # Get online order product
                 online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
                 online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
-                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product, status = 'active')
+                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product, status = 'active', is_deleted=False)
                 # Inventory Check and exclude product whose inventory is not available
                 online_product = check_inventory(online_product)
                 #sort by max value
@@ -85,7 +85,7 @@ def bestseller_product():
                     exclude_online_product = product.values('id')
                     offline_order = Order.objects.filter(ordered_cart__cart_type='BASIC', created_at__gte = from_date, seller_shop=shop)
                     offline_ordered_product = OrderedProductMapping.objects.filter(ordered_product__order__in = offline_order)
-                    total_offline_product = RetailerProduct.objects.exclude(id__in = exclude_online_product, sku_type = 4).filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True, status = 'active')
+                    total_offline_product = RetailerProduct.objects.exclude(id__in = exclude_online_product, sku_type = 4).filter(rt_retailer_product_order_product__in = offline_ordered_product, online_enabled = True, status = 'active', is_deleted=False)
                     # Inventory Check and exclude product whose inventory is not available
                     total_offline_product = check_inventory(total_offline_product)
                     #Sort by max count
@@ -101,7 +101,7 @@ def bestseller_product():
                 # add random product in case of no online and offline order
                 if count < 6:
                     exclude_product_id = product.values('id') | rem_offline_product.values('id')
-                    random_product = RetailerProduct.objects.exclude(id__in = exclude_product_id, sku_type = 4).filter(online_enabled = True, status = 'active', shop = shop).order_by('-id')
+                    random_product = RetailerProduct.objects.exclude(id__in = exclude_product_id, sku_type = 4).filter(online_enabled = True, status = 'active', shop = shop, is_deleted=False).order_by('-id')
                     # Inventory Check and exclude product whose inventory is not available
                     random_product = check_inventory(random_product)
                     # Update Tag product mapping
@@ -120,7 +120,7 @@ def bestseller_product():
             try:  
                 count = 0
                 best_deal_tag = tag.get(key='best-deals')
-                product = RetailerProduct.objects.exclude(sku_type = 4).filter(online_enabled=True, status = 'active', shop = shop)
+                product = RetailerProduct.objects.exclude(sku_type = 4).filter(online_enabled=True, status = 'active', shop = shop, is_deleted=False)
                 tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = best_deal_tag).order_by('-created_at')
                 #sort product by max diff in mrp and selling price
                 product = product.annotate(
@@ -148,7 +148,7 @@ def bestseller_product():
                 freshly_arrived_tag = tag.get(key='freshly-arrived')
                 tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = freshly_arrived_tag).order_by('-created_at')
                 fresh_inventory = InventoryChangePos.objects.filter(Q(transaction_type = 'GRN Add') | Q(transaction_type = 'GRN Update'))
-                fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop)
+                fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop, is_deleted=False)
                 # Inventory Check and exclude product whose inventory is not available
                 fresh_product = check_inventory(fresh_product)
                 if fresh_product.exists():
@@ -157,9 +157,11 @@ def bestseller_product():
                     cron_logger.info('Successfully Added freshly arrived product for shop')
                 else:
                     cron_logger.info('No Product for shop')
+                print(1)
             except Exception as e:
                 cron_logger.error(e)
                 cron_logger.error('Stopped Mapping Freshly Arrived Product for shop {}'.format(shop))
     except Exception as e:
+        print(0)
         cron_logger.error(e)
         cron_logger.error('Cron for tag product mapping stopped')
