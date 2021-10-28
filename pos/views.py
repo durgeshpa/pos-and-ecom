@@ -24,7 +24,7 @@ from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductCha
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, MeasurementCategory
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm
-from pos.tasks import generate_pdf_data
+from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
@@ -482,7 +482,7 @@ class RetailerProductMultiImageUpload(View):
                 os.path.splitext(form.cleaned_data['image'].name)[0])
             product_sku = file_name.split("_")[0]
             try:
-                product = RetailerProduct.objects.get(sku=product_sku)
+                product = RetailerProduct.objects.filter(sku=product_sku)
             except:
                 data = {
                     'is_valid': False,
@@ -492,16 +492,18 @@ class RetailerProductMultiImageUpload(View):
                 }
             else:
                 form_instance = form.save(commit=False)
-                form_instance.product = product
+                form_instance.product = product[0]
                 form_instance.image_name = file_name
                 form_instance.save()
+                # es refresh for particular product and shop id
+                update_es(product, product[0].shop_id)
 
                 data = {
                     'is_valid': True,
                     'name': form_instance.image.name,
                     'url': form_instance.image.url,
-                    'product_sku': product.sku,
-                    'product_name': product.name
+                    'product_sku': product[0].sku,
+                    'product_name': product[0].name
                 }
         else:
             data = {'is_valid': False}
