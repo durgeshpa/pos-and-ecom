@@ -578,6 +578,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
+    delivery_persons = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -591,9 +592,21 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_delivery_persons(self, obj):
+
+        if obj.order_status == "out_for_delivery":
+            x = User.objects.filter(id=obj.delivery_person_id)[:1:]
+
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+
+        #     return obj
+
+        return None
+
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount')
+        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
+                  'delivery_persons')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
