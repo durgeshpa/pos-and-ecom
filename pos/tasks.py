@@ -139,8 +139,11 @@ def update_es(products, shop_id):
             'coupons': coupons,
             'online_enabled': product.online_enabled,
             'online_price': product.online_price if product.online_price else product.selling_price,
-            'purchase_pack_size': product.purchase_pack_size
+            'purchase_pack_size': product.purchase_pack_size,
+            'is_deleted': product.is_deleted,
+
         }
+        #es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 

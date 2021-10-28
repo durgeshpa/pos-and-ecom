@@ -1,5 +1,6 @@
 import codecs
 import csv
+import decimal
 import os
 import datetime
 from copy import deepcopy
@@ -81,6 +82,32 @@ def download_discounted_products_form_view(request):
 def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list):
     with transaction.atomic():
         for row in uploaded_data_by_user_list:
+            measure_cat_id = None
+            if row.get('measurement_category'):
+                measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+
+            if str(row.get('available_for_online_orders').lower()) == 'yes':
+                row['online_enabled'] = True
+            else:
+                row['online_enabled'] = False
+
+            if row['online_order_price']:
+                row['online_price'] = decimal.Decimal(row['online_order_price'])
+            else:
+                row['online_price'] = None
+
+            if str(row['is_visible']).lower() == 'yes':
+                row['is_deleted'] = False
+            else:
+                row['is_deleted'] = True
+
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
+            online_enabled, online_price, is_visible = row.get('product_name'), row.get('product_ean_code'), row.get('mrp'), \
+                                           row.get('selling_price'), None, None, None, None, \
+                                           row.get('description'), row.get('quantity'), \
+                                           row['online_enabled'], \
+                                           row['online_price'], row['is_deleted']
+
             if row.get('product_id') == '':
                 # we need to create this product
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
@@ -93,23 +120,23 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                         # If product is linked with existing product
                         if Product.objects.filter(product_sku=row.get('linked_product_sku')):
                             product = Product.objects.get(product_sku=row.get('linked_product_sku'))
-                            r_product = RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                                       row.get('selling_price'), product.id,
-                                                                       2, row.get('description'),
-                                                                       row.get('product_ean_code'),
-                                                                       request.user, 'product', row.get('product_pack_type'),
+                            r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
+                                                                       sp, product.id, 2, description, ean,
+                                                                       request.user, 'product',
+                                                                       row.get('product_pack_type'),
                                                                        measure_cat_id, None,
-                                                                       row.get('status'), None, None, None, None,
-                                                                       True, None, row.get('purchase_pack_size', 1))
+                                                                       row.get('status'), offer_price, offer_sd,
+                                                                       offer_ed, None, online_enabled, online_price,
+                                                                       row.get('purchase_pack_size', 1), is_visible)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                    r_product = RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
-                                                               row.get('selling_price'), None,
-                                                               1, row.get('description'), row.get('product_ean_code'),
-                                                               request.user, 'product', row.get('product_pack_type'),
-                                                               measure_cat_id, None,
-                                                               row.get('status'), None, None, None, None,
-                                                               True, None, row.get('purchase_pack_size', 1))
+                    r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
+                                                               sp, linked_pid, 1, description, ean, request.user,
+                                                               'product', row.get('product_pack_type'),
+                                                               measure_cat_id, None, row.get('status'),
+                                                               offer_price, offer_sd, offer_ed, None,
+                                                               online_enabled, online_price,
+                                                               row.get('purchase_pack_size', 1), is_visible)
                 # Add Inventory
                 PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
                                                 round(Decimal(row.get('quantity')), 3), request.user,
@@ -118,21 +145,53 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
             else:
                 # we need to update existing product
+
+                if str(row.get('available_for_online_orders').lower()) == 'yes':
+                    row['online_enabled'] = True
+                else:
+                    row['online_enabled'] = False
+
+                if str(row.get('is_visible')).lower() == 'yes':
+                    row['is_deleted'] = False
+                else:
+                    row['is_deleted'] = True
+
+                if row['online_order_price']:
+                    row['online_price'] = decimal.Decimal(row['online_order_price'])
+                else:
+                    row['online_price'] = None
+
                 try:
                     product = RetailerProduct.objects.get(id=row.get('product_id'))
                     old_product = deepcopy(product)
+
                     if (row.get('linked_product_sku') != '' and Product.objects.get(
                             product_sku=row.get('linked_product_sku'))):
                         linked_product = Product.objects.get(product_sku=row.get('linked_product_sku'))
                         product.linked_product_id = linked_product.id
-                    if (product.selling_price != row.get('selling_price')):
+
+                    if product.selling_price != row.get('selling_price'):
                         product.selling_price = row.get('selling_price')
-                    if (product.status != row.get('status')):
+
+                    if product.status != row.get('status'):
                         if row.get('status') == 'deactivated':
                             product.status = 'deactivated'
                         else:
                             product.status = "active"
+
+                    if product.is_deleted != row['is_deleted']:
+                        product.is_deleted = row['is_deleted']
+
+                    if product.name != row.get('product_name'):
+                        product.name = row.get('product_name')
+
+                    if product.online_enabled != row['online_enabled']:
+                        product.online_enabled = row['online_enabled']
+                    if product.online_price != row['online_price']:
+                        product.online_price = row['online_price']
+
                     product.save()
+
                     if row.get('quantity'):
                         # Update Inventory
                         PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
@@ -237,7 +296,7 @@ def DownloadRetailerCatalogue(request, *args):
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
+         'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type', 'measurement_category', 'purchase_pack_size',])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -380,11 +439,12 @@ def RetailerCatalogueSampleFile(request, *args):
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
          'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status',
-         'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size'])
+         'quantity', 'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+         'online_order_price', 'is_visible'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
-                     "", "", "", "", 'active', 2, 'loose', 'weight', 1])
+                     "", "", "", "", 'active', 2, 'loose', 'weight', 1, 'Yes', 11, 'Yes'])
     writer.writerow(["", 36966, "", "", 'Packet Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, 'packet', "", 2])
+                     "", "", "", "", 'active', 2, 'packet', "", 2, 'No', '', 'No'])
 
     return response
 
