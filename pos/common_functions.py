@@ -211,11 +211,15 @@ class PosInventoryCls(object):
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
         if not created and Decimal(qty) == pos_inv.quantity:
             return
+        i_qty, f_qty = None, None
+        if transaction_type == PosInventoryChange.STOCK_UPDATE:
+            i_qty = pos_inv.quantity
+            f_qty = Decimal(qty)
         qty_change = Decimal(qty) - pos_inv.quantity
         pos_inv.quantity = Decimal(qty)
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
-                                                f_state_obj, user)
+                                                f_state_obj, user, i_qty, f_qty)
 
     @classmethod
     def order_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
@@ -246,10 +250,12 @@ class PosInventoryCls(object):
                 pos_inv.quantity))
 
     @classmethod
-    def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user):
+    def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user,
+                                initial_qty=None, final_qty=None):
         PosInventoryChange.objects.create(product_id=pid, quantity=qty, transaction_type=transaction_type,
                                           transaction_id=transaction_id, initial_state=i_state_obj,
-                                          final_state=f_state_obj, changed_by=user)
+                                          final_state=f_state_obj, changed_by=user, initial_qty=initial_qty,
+                                          final_qty=final_qty)
 
     @classmethod
     def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):

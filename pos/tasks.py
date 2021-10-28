@@ -75,15 +75,27 @@ def update_es(products, shop_id):
         else:
             if product.linked_product is not None:
                 product_img = product.linked_product.product_pro_image.all()
-                product_images = [
-                    {
-                        "image_id": p_i.id,
-                        "image_name": p_i.image_name,
-                        "image_alt": '',
-                        "image_url": p_i.image.url
-                    }
-                    for p_i in product_img
-                ]
+                if product_img:
+                    product_images = [
+                        {
+                            "image_id": p_i.id,
+                            "image_name": p_i.image_name,
+                            "image_alt": '',
+                            "image_url": p_i.image.url
+                        }
+                        for p_i in product_img
+                    ]
+                else:
+                    product_img = product.linked_product.parent_product.parent_product_pro_image.all()
+                    product_images = [
+                        {
+                            "image_id": p_i.id,
+                            "image_name": p_i.image_name,
+                            "image_alt": '',
+                            "image_url": p_i.image.url
+                        }
+                        for p_i in product_img
+                    ]
         # get brand and category from linked GramFactory product
         brand = ''
         category = ''
