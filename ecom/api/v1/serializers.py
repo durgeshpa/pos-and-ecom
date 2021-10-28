@@ -10,7 +10,7 @@ from categories.models import Category
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, Payment, PaymentType
 from global_config.views import get_config
 
 from ecom.models import Address, EcomOrderAddress, Tag
@@ -148,11 +148,26 @@ class EcomOrderAddressSerializer(serializers.ModelSerializer):
         fields = ('address', 'contact_name', 'contact_number', 'pincode', 'city', 'state')
 
 
+class PaymentTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentType
+        fields = ('id', 'type', 'enabled')
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    payment_type = PaymentTypeSerializer()
+
+    class Meta:
+        model = Payment
+        fields = ('payment_type', 'transaction_id', 'amount')
+
+
 class EcomOrderListSerializer(serializers.ModelSerializer):
     total_items = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     order_status = serializers.SerializerMethodField()
     seller_shop = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField('payment_data')
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
@@ -170,10 +185,15 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     def get_seller_shop(self, obj):
         return obj.seller_shop.shop_name
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time', 'seller_shop')
+                  'ecom_estimated_delivery_time', 'seller_shop', 'payment')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
