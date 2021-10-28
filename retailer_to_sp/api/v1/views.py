@@ -453,7 +453,7 @@ class SearchProducts(APIView):
 
     def process_rp(self, output_type, body, shop_id, app_type=None):
         """
-            Modify Es results for response based on output_type - Raw OR Processed
+        Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
