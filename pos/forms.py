@@ -188,7 +188,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
             # Check if product with this ean code and mrp already exists
-            if RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
+            if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
                                               product_ean_code=row.get('product_ean_code'),
                                               mrp=row.get('mrp')).exists():
                 raise ValidationError(_(f"Row {row_num} | "
