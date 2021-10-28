@@ -9,6 +9,8 @@ from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
+
 from accounts.middlewares import get_current_user
 
 from marketing.filters import UserFilter, PosBuyerFilter
@@ -170,9 +172,10 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('order', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
-    search_fields = ('order__order_no', 'paid_by__phone_number')
+    search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
+    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -190,6 +193,11 @@ class PaymentAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def seller_shop(self, obj):
+        return obj.order.seller_shop
+
+    class Media:
+        pass
 
 class ShopCustomerMapAdmin(admin.ModelAdmin):
     list_display = ('shop', 'user')
