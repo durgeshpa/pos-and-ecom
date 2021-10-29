@@ -1901,7 +1901,11 @@ class POProductGetSerializer(serializers.ModelSerializer):
         if already_grn:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return round(Decimal(already_grn) * default_unit.conversion / default_unit.conversion, 3)
+
             else:
                 return int(already_grn / obj.pack_size)
         return 0
@@ -2051,8 +2055,12 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.product_pack_type == 'loose':
-                product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
-                                                                    product['received_qty'])
+                if po_product.qty_conversion_unit:
+                    product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
+                                                                        product['received_qty'])
+                else:
+                    product['received_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
+                                                                        product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
@@ -2140,8 +2148,12 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.product_pack_type == 'loose':
-                product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
+                if po_product.qty_conversion_unit:
+                    product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
                                                                     product['received_qty'])
+                else:
+                    product['received_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
+                                                                        product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
@@ -2241,7 +2253,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if grn_product:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(grn_product.received_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(grn_product.received_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return round(Decimal(grn_product.received_qty) * default_unit.conversion / default_unit.conversion, 3)
             else:
                 return int(grn_product.received_qty / obj.pack_size)
         return 0
@@ -2257,7 +2272,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if previous_return_qty:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(previous_return_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(previous_return_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return Decimal(previous_return_qty) * default_unit.conversion / default_unit.conversion
             else:
                 return int(previous_return_qty / obj.pack_size)
         return 0
@@ -2278,7 +2296,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if already_grn:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return Decimal(already_grn) * default_unit.conversion / default_unit.conversion
             else:
                 return int(already_grn / obj.pack_size)
         return 0
@@ -2457,7 +2478,12 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                 cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return round(Decimal(total_returned) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+                if po_product.qty_conversion_unit:
+                    return round(Decimal(total_returned) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+                else:
+                    return round(
+                        Decimal(total_returned) * default_unit.conversion / default_unit.conversion,
+                        3)
             else:
                 return int(total_returned / obj.pack_size)
         return 0
@@ -2471,8 +2497,13 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                 cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return round(Decimal(other_return) * default_unit.conversion / po_product.qty_conversion_unit.conversion,
+                if po_product.qty_conversion_unit:
+                    return round(Decimal(other_return) * default_unit.conversion / po_product.qty_conversion_unit.conversion,
                              3)
+                else:
+                    return round(
+                        Decimal(other_return) * default_unit.conversion /  default_unit.conversion,
+                        3)
             else:
                 return int(other_return / obj.pack_size)
         return 0
