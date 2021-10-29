@@ -292,8 +292,18 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_image(obj):
-        image = obj.retailer_product_image.last()
-        return image.image.url if image else None
+        retailer_object = obj.retailer_product_image.last()
+        if retailer_object is None:
+            linked_product = obj.linked_product.product_pro_image.all()
+            if linked_product:
+                image = linked_product[0].image.url
+            else:
+                parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
+                if parent_product:
+                    image = parent_product[0].image.url
+        else:
+            image = retailer_object.image.url
+        return image
 
     class Meta:
         model = RetailerProduct
