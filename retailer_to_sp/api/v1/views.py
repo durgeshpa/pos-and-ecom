@@ -317,9 +317,10 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            filter_list = [{"term": {"is_discounted": False}}]
+            filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
@@ -345,14 +346,17 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
+            filter_list.append({"term": {"status": 'active'}})
+            filter_list.append({"term": {"online_enabled": True}})
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
         query_string = dict()
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
@@ -449,7 +453,7 @@ class SearchProducts(APIView):
 
     def process_rp(self, output_type, body, shop_id, app_type=None):
         """
-            Modify Es results for response based on output_type - Raw OR Processed
+        Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
@@ -1378,6 +1382,8 @@ class CartCentral(GenericAPIView):
             else:
                 # Check if price needs to be updated and return selling price
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
+                # Check if mrp needs to be updated and return mrp
+                product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1445,7 +1451,6 @@ class CartCentral(GenericAPIView):
         parent_mapping = getShopMapping(shop_id)
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
-        # Check if product exists
         try:
             product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
@@ -1646,6 +1651,19 @@ class CartCentral(GenericAPIView):
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
+    def get_basic_cart_product_mrp(self, product, cart_no):
+        """
+            Check if retail product mrp needs to be changed on checkout
+            mrp_change - 1 (change for all), 0 don't change
+        """
+        # Check If MRP Change
+        mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+        product_mrp = None
+        if mrp_change == 1:
+            product_mrp = self.request.data.get('product_mrp')
+            RetailerProductCls.update_mrp(product.id, product_mrp, self.request.user, 'cart', cart_no)
+        return product_mrp if product_mrp else product.mrp
+
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
             Add To Cart
@@ -1832,6 +1850,7 @@ class CartCheckout(APIView):
         initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
+
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
@@ -2958,6 +2977,8 @@ class OrderCentral(APIView):
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            elif 'api_response' in initial_validation:
+                return initial_validation['api_response']
             cart = initial_validation['cart']
             payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
@@ -2996,6 +3017,16 @@ class OrderCentral(APIView):
         except:
             return api_response("Invalid Payment Method")
 
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+        if order_config.value is not None:
+            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+            if order_count >= order_config.value:
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
+
         # check inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
@@ -3007,6 +3038,12 @@ class OrderCentral(APIView):
 
         if not CartProductMapping.objects.filter(cart=cart).exists():
             return api_response("No items added to cart yet")
+
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -3123,6 +3160,13 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            # return {'error': 'Few items in your cart are not available.'}
+            return {'api_response': api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})}
+
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
@@ -3542,6 +3586,10 @@ class OrderCentral(APIView):
                     return False
         return True
 
+    # def product_deleled(self, cart_products):
+    #     if cart_products.filter(retailer_product__is_deleted=True).exists():
+    #         return False
+    #     return True
 
 # class CreateOrder(APIView):
 #     authentication_classes = (authentication.TokenAuthentication,)

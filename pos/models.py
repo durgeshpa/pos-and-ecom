@@ -75,6 +75,7 @@ class RetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
+    is_deleted = models.BooleanField(default=False)
     online_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
@@ -280,15 +281,24 @@ class PosCartProductMapping(models.Model):
         qty = self.qty
         if self.product.product_pack_type == 'loose' and qty:
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+            if self.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+            else:
+                return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(qty/ self.pack_size)
+            return int(Decimal(qty) / Decimal(self.pack_size))
         return int(qty)
 
     @property
     def given_qty_unit(self):
         if self.product.product_pack_type == 'loose':
-            return self.qty_conversion_unit.unit
+            if self.qty_conversion_unit:
+                return self.qty_conversion_unit.unit
+            else:
+                default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+                return default_unit.unit
+
         return None
 
     def total_price(self):
