@@ -366,13 +366,14 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_qty_unit(obj):
-        if obj.qty_conversion_unit:
-            return obj.qty_conversion_unit.unit if obj.retailer_product.product_pack_type == 'loose' else None
+        if obj.retailer_product.product_pack_type == 'loose':
+            if obj.qty_conversion_unit:
+                return obj.qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category,
+                                                   default=True).unit
         else:
-            default_unit = MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category,
-                                                       default=True).unit \
-                if obj.retailer_product.product_pack_type == 'loose' else None
-            return default_unit
+            return None
 
     @staticmethod
     def get_units(obj):
@@ -759,7 +760,14 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     def get_qty_unit(obj):
         cart_product = CartProductMapping.objects.filter(retailer_product=obj.retailer_product,
                                                          cart=obj.ordered_product.order.ordered_cart).last()
-        return cart_product.qty_conversion_unit.unit if cart_product.retailer_product.product_pack_type == 'loose' else None
+
+        if cart_product.retailer_product.product_pack_type == 'loose':
+            if cart_product.qty_conversion_unit:
+                return cart_product.qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=cart_product.retailer_product.measurement_category, default=True).unit
+        else:
+            return None
 
     def get_product_subtotal(self, obj):
         """
@@ -1531,7 +1539,10 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
                                                          cart=obj.ordered_product.ordered_product.order.ordered_cart).last()
         if product.product_pack_type == 'loose':
             default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
-            return obj.return_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+            if cart_product.qty_conversion_unit:
+                return obj.return_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+            else:
+                return obj.return_qty * default_unit.conversion / default_unit.conversion
         else:
             return int(obj.return_qty)
 
@@ -2627,8 +2638,12 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 po_product = PosCartProductMapping.objects.filter(cart=pos_grn_obj['grn_ordered_id'].order.ordered_cart, product_id=rtn_product['product_id']).select_related('product').last()
 
                 if po_product.product.product_pack_type == 'loose':
-                    rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
+                    if po_product.qty_conversion_unit:
+                        rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
                                                                           po_product.product,
+                                                                          rtn_product['return_qty'])
+                    else:
+                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
                                                                           rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
