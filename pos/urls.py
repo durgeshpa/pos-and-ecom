@@ -2,7 +2,7 @@ from django.conf.urls import include, url
 
 from pos import views
 from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
-    InventoryRetailerProductAutocomplete, PosEnableShopAutocomplete
+    InventoryRetailerProductAutocomplete
 from pos.filters import PosShopAutocomplete
 
 urlpatterns = [
@@ -16,7 +16,5 @@ urlpatterns = [
     url(r'^api/', include('pos.api.urls')),
     url(r'^inventory-product-autocomplete/', InventoryRetailerProductAutocomplete.as_view(),
         name='inventory-product-autocomplete'),
-    url(r'^pos-enable-autocomplete/', PosEnableShopAutocomplete.as_view(),
-        name='pos-enable-autocomplete'),
     
 ]
