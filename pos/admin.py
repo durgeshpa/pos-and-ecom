@@ -11,6 +11,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
 from rangefilter.filter import DateRangeFilter
+from dal_admin_filters import AutocompleteFilter
 
 from accounts.middlewares import get_current_user
 
