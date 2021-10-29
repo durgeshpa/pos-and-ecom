@@ -176,7 +176,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
                 raise ValidationError(_(f"Row {row_num} | Invalid product_pack_type. Options are 'packet' or 'loose'"))
-            if row['product_pack_type'] == 'loose':
+            if row['product_pack_type'].lower() == 'loose':
                 self.check_mandatory_data(row, 'measurement_category', row_num)
                 try:
                     measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
@@ -187,6 +187,14 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
+            # Check if product with this ean code and mrp already exists
+            if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
+                                              product_ean_code=row.get('product_ean_code'),
+                                              mrp=row.get('mrp')).exists():
+                raise ValidationError(_(f"Row {row_num} | "
+                                 f"product with ean code {row.get('product_ean_code')} "
+                                 f"and mrp {row.get('mrp')} already exists"))
+                continue
 
     def read_file(self, headers, reader):
         """

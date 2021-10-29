@@ -61,7 +61,7 @@ def update_es(products, shop_id):
         if product.mrp and product.selling_price:
             margin = round(((product.mrp - product.selling_price) / product.mrp) * 100, 2)
         product_img = product.retailer_product_image.all()
-        product_images = []
+        product_images =[]
         if product_img:
             product_images = [
                 {
@@ -96,7 +96,6 @@ def update_es(products, shop_id):
                         }
                         for p_i in product_img
                     ]
-
         # get brand and category from linked GramFactory product
         brand = ''
         category = ''

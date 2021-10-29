@@ -292,8 +292,18 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_image(obj):
-        image = obj.retailer_product_image.last()
-        return image.image.url if image else None
+        retailer_object = obj.retailer_product_image.last()
+        if retailer_object is None:
+            linked_product = obj.linked_product.product_pro_image.all()
+            if linked_product:
+                image = linked_product[0].image.url
+            else:
+                parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
+                if parent_product:
+                    image = parent_product[0].image.url
+        else:
+            image = retailer_object.image.url
+        return image
 
     class Meta:
         model = RetailerProduct
@@ -347,13 +357,23 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     def get_qty(obj):
         if obj.retailer_product.product_pack_type == 'loose':
             default_unit = MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category, default=True)
-            return obj.qty * default_unit.conversion / obj.qty_conversion_unit.conversion
+            if obj.qty_conversion_unit:
+                return obj.qty * default_unit.conversion / obj.qty_conversion_unit.conversion
+            else:
+                return obj.qty * default_unit.conversion / default_unit.conversion
         else:
             return int(obj.qty)
 
     @staticmethod
     def get_qty_unit(obj):
-        return obj.qty_conversion_unit.unit if obj.retailer_product.product_pack_type == 'loose' else None
+        if obj.retailer_product.product_pack_type == 'loose':
+            if obj.qty_conversion_unit:
+                return obj.qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category,
+                                                   default=True).unit
+        else:
+            return None
 
     @staticmethod
     def get_units(obj):
@@ -398,7 +418,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         qs = obj.rt_cart_list.filter(product_type=1).select_related('retailer_product',
                                                                     'retailer_product__measurement_category',
-                                                                    'qty_conversion_unit')
+                                                                    'qty_conversion_unit').order_by('-id')
         search_text = self.context.get('search_text')
         # Search on name, ean and sku
         if search_text:
@@ -578,6 +598,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
+    delivery_persons = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -591,9 +612,21 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_delivery_persons(self, obj):
+
+        if obj.order_status == "out_for_delivery":
+            x = User.objects.filter(id=obj.delivery_person_id)[:1:]
+
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+
+        #     return obj
+
+        return None
+
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount')
+        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
+                  'delivery_persons')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -727,7 +760,14 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     def get_qty_unit(obj):
         cart_product = CartProductMapping.objects.filter(retailer_product=obj.retailer_product,
                                                          cart=obj.ordered_product.order.ordered_cart).last()
-        return cart_product.qty_conversion_unit.unit if cart_product.retailer_product.product_pack_type == 'loose' else None
+
+        if cart_product.retailer_product.product_pack_type == 'loose':
+            if cart_product.qty_conversion_unit:
+                return cart_product.qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=cart_product.retailer_product.measurement_category, default=True).unit
+        else:
+            return None
 
     def get_product_subtotal(self, obj):
         """
@@ -1499,7 +1539,10 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
                                                          cart=obj.ordered_product.ordered_product.order.ordered_cart).last()
         if product.product_pack_type == 'loose':
             default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
-            return obj.return_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+            if cart_product.qty_conversion_unit:
+                return obj.return_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+            else:
+                return obj.return_qty * default_unit.conversion / default_unit.conversion
         else:
             return int(obj.return_qty)
 
@@ -1582,6 +1625,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     buyer = PosUserSerializer()
     creation_date = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
+    payment = serializers.SerializerMethodField('payment_data')
 
     @staticmethod
     def get_creation_date(obj):
@@ -1700,10 +1744,15 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
                 cart_offers.append(offer)
         return cart_offers
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display')
+                  'delivery_person', 'buyer', 'order_status_display','payment')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -1882,7 +1931,11 @@ class POProductGetSerializer(serializers.ModelSerializer):
         if already_grn:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return round(Decimal(already_grn) * default_unit.conversion / default_unit.conversion, 3)
+
             else:
                 return int(already_grn / obj.pack_size)
         return 0
@@ -2032,8 +2085,12 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.product_pack_type == 'loose':
-                product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
-                                                                    product['received_qty'])
+                if po_product.qty_conversion_unit:
+                    product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
+                                                                        product['received_qty'])
+                else:
+                    product['received_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
+                                                                        product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
@@ -2121,8 +2178,12 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.product_pack_type == 'loose':
-                product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
+                if po_product.qty_conversion_unit:
+                    product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
                                                                     product['received_qty'])
+                else:
+                    product['received_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
+                                                                        product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
@@ -2222,7 +2283,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if grn_product:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(grn_product.received_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(grn_product.received_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return round(Decimal(grn_product.received_qty) * default_unit.conversion / default_unit.conversion, 3)
             else:
                 return int(grn_product.received_qty / obj.pack_size)
         return 0
@@ -2238,7 +2302,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if previous_return_qty:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(previous_return_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(previous_return_qty) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return Decimal(previous_return_qty) * default_unit.conversion / default_unit.conversion
             else:
                 return int(previous_return_qty / obj.pack_size)
         return 0
@@ -2259,7 +2326,10 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
         if already_grn:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if obj.qty_conversion_unit:
+                    return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                else:
+                    return Decimal(already_grn) * default_unit.conversion / default_unit.conversion
             else:
                 return int(already_grn / obj.pack_size)
         return 0
@@ -2438,7 +2508,12 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                 cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return round(Decimal(total_returned) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+                if po_product.qty_conversion_unit:
+                    return round(Decimal(total_returned) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+                else:
+                    return round(
+                        Decimal(total_returned) * default_unit.conversion / default_unit.conversion,
+                        3)
             else:
                 return int(total_returned / obj.pack_size)
         return 0
@@ -2452,8 +2527,13 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                 cart=obj.grn_return_id.grn_ordered_id.order.ordered_cart, product=obj.product).last()
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return round(Decimal(other_return) * default_unit.conversion / po_product.qty_conversion_unit.conversion,
+                if po_product.qty_conversion_unit:
+                    return round(Decimal(other_return) * default_unit.conversion / po_product.qty_conversion_unit.conversion,
                              3)
+                else:
+                    return round(
+                        Decimal(other_return) * default_unit.conversion /  default_unit.conversion,
+                        3)
             else:
                 return int(other_return / obj.pack_size)
         return 0
@@ -2558,8 +2638,12 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 po_product = PosCartProductMapping.objects.filter(cart=pos_grn_obj['grn_ordered_id'].order.ordered_cart, product_id=rtn_product['product_id']).select_related('product').last()
 
                 if po_product.product.product_pack_type == 'loose':
-                    rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
+                    if po_product.qty_conversion_unit:
+                        rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
                                                                           po_product.product,
+                                                                          rtn_product['return_qty'])
+                    else:
+                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
                                                                           rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
@@ -2812,6 +2896,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     order_update = serializers.SerializerMethodField()
     delivery_person = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
+    payment = serializers.SerializerMethodField('payment_data')
 
     @staticmethod
     def get_order_update(obj):
@@ -2992,9 +3077,14 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     def get_delivery_person(obj):
         return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
 
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display')
+                  'order_status_display', 'payment')
