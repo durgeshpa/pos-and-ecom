@@ -2451,6 +2451,43 @@ class ShipmentRescheduling(models.Model):
         super().save(*args, **kwargs)
 
 
+class ShipmentNotAttempt(models.Model):
+    CASH_NOT_AVAILABLE = 'cash_not_available'
+    SHOP_CLOSED = 'shop_closed'
+
+    NOT_ATTEMPT_REASON = (
+        (CASH_NOT_AVAILABLE, 'Cash not available'),
+        (SHOP_CLOSED, 'Shop Closed'),
+    )
+
+    shipment = models.ForeignKey(
+        OrderedProduct, related_name='not_attempt_shipment',
+        blank=False, null=True, on_delete=models.DO_NOTHING
+    )
+    trip = models.ForeignKey(
+        Trip, related_name="not_attempt_shipment_trip",
+        null=True, blank=False, on_delete=models.DO_NOTHING,
+    )
+    not_attempt_reason = models.CharField(
+        max_length=50, choices=NOT_ATTEMPT_REASON,
+        blank=False, verbose_name='Reason for Not Attempt',
+    )
+    created_by = models.ForeignKey(
+        get_user_model(),
+        related_name='delivery_person',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Shipment Not Attempt'
+
+    def __str__(self):
+        return str("%s --> %s") % (self.shipment.invoice_no,
+                                   self.rescheduling_date)
+
+
 class Commercial(Trip):
     class Meta:
         proxy = True
