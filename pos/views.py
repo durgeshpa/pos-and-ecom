@@ -637,3 +637,11 @@ def get_tax_details(product):
         if tax_details.filter(tax__tax_type='tcs').last():
             tcs_amount = tax_details.filter(tax__tax_type='tcs').last().tax.tax_percentage
     return gst_amount, cess_amount, surcharge_amount, tcs_amount
+
+
+class PosEnableShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(pos_enabled=True, status=True)
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs

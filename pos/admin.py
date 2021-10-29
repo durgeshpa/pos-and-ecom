@@ -10,6 +10,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
+from dal_admin_filters import AutocompleteFilter
 
 from accounts.middlewares import get_current_user
 
@@ -38,6 +39,17 @@ from .utils import create_order_data_excel, create_order_return_excel
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
 
+
+class POSEnableShopFilter(AutocompleteFilter):
+    title = 'Shop'
+    field_name = 'product'
+    autocomplete_url = 'pos-enable-autocomplete'
+
+
+class PaymentPOSEnableShopFilter(AutocompleteFilter):
+    title = 'Shop'
+    field_name = 'paid_by'
+    autocomplete_url = 'pos-enable-autocomplete'
 
 class ExportCsvMixin:
 
@@ -177,7 +189,7 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
-    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
+    list_filter = [PaymentPOSEnableShopFilter, ('created_at', DateRangeFilter)]
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -516,7 +528,7 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
-    list_filter = [ProductInvEanSearch, ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
+    list_filter = [ProductInvEanSearch, POSEnableShopFilter, ('created_at', DateRangeFilter)]
 
     change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
