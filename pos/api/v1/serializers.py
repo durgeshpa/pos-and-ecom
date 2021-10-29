@@ -1901,7 +1901,11 @@ class POProductGetSerializer(serializers.ModelSerializer):
         if already_grn:
             if obj.product.product_pack_type == 'loose':
                 default_unit = MeasurementUnit.objects.get(category=obj.product.measurement_category, default=True)
-                return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
+                if self.qty_conversion_unit:
+                    return round(Decimal(already_grn) * default_unit.conversion / self.qty_conversion_unit.conversion, 3)
+                else:
+                    return round(Decimal(already_grn) * default_unit.conversion / default_unit.conversion, 3)
+
             else:
                 return int(already_grn / obj.pack_size)
         return 0
