@@ -347,13 +347,22 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     def get_qty(obj):
         if obj.retailer_product.product_pack_type == 'loose':
             default_unit = MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category, default=True)
-            return obj.qty * default_unit.conversion / obj.qty_conversion_unit.conversion
+            if obj.qty_conversion_unit:
+                return obj.qty * default_unit.conversion / obj.qty_conversion_unit.conversion
+            else:
+                return obj.qty * default_unit.conversion / default_unit.conversion
         else:
             return int(obj.qty)
 
     @staticmethod
     def get_qty_unit(obj):
-        return obj.qty_conversion_unit.unit if obj.retailer_product.product_pack_type == 'loose' else None
+        if obj.qty_conversion_unit:
+            return obj.qty_conversion_unit.unit if obj.retailer_product.product_pack_type == 'loose' else None
+        else:
+            default_unit = MeasurementUnit.objects.get(category=obj.retailer_product.measurement_category,
+                                                       default=True).unit \
+                if obj.retailer_product.product_pack_type == 'loose' else None
+            return default_unit
 
     @staticmethod
     def get_units(obj):
