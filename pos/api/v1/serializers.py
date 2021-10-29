@@ -755,8 +755,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
             if cart_product.qty_conversion_unit:
                 return cart_product.qty_conversion_unit.unit
             else:
-                default_unit = MeasurementUnit.objects.get(category=cart_product.product.measurement_category, default=True)
-                return default_unit.unit
+                return MeasurementUnit.objects.get(category=cart_product.retailer_product.measurement_category, default=True).unit
         else:
             return None
 
