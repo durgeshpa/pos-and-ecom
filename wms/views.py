@@ -52,7 +52,8 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, \
+    QCDeskQCAreaAssignmentMapping
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -2814,3 +2815,51 @@ class IncorrectProductBinMappingFormView(View):
             'admin/services/incorrect-product-bin-mapping.html',
             {'form': form}
         )
+
+
+def auto_qc_area_assignment_to_order(order_no=None):
+    info_logger.info("Inside auto_qc_area_assignment_to_order, Request order no: " + str(order_no))
+    if order_no:
+        orders = Order.objects.filter(
+            order_no=order_no, picker_order__isnull=False, picker_order__qc_area__isnull=True,
+            picker_order__picking_status=PickerDashboard.PICKING_COMPLETE).distinct()
+    else:
+        current_time = datetime.now() - timedelta(minutes=1)
+        start_time = datetime.now() - timedelta(days=5)
+        orders = Order.objects.filter(picker_order__isnull=False, picker_order__qc_area__isnull=True,
+                                      picker_order__picking_status=PickerDashboard.PICKING_COMPLETE,
+                                      created_at__gt=start_time, created_at__lt=current_time).distinct()
+    info_logger.info("Total orders to be process, Count: " + str(orders.count()))
+    for order in orders:
+        with transaction.atomic():
+            info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
+            least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
+                qc_desk__warehouse_id=order.seller_shop, qc_desk__desk_enabled=True, area_enabled=True,
+                qc_area__area_type='OA',).filter(
+                Q(qc_area__area_pickings__isnull=True) |
+                Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False)).\
+                distinct('qc_desk', 'last_assigned_at__date').order_by('-last_assigned_at__date')
+            if not least_used_desk:
+                info_logger.info("No QC Area is in state to map with order no: " + str(order.order_no))
+                continue
+            if least_used_desk.first().last_assigned_at is None:
+                qc_desk = least_used_desk.first().qc_desk
+            else:
+                qc_desk = least_used_desk.last().qc_desk
+            area_mapping = QCDeskQCAreaAssignmentMapping.objects.filter(
+                qc_desk=qc_desk, qc_desk__desk_enabled=True, area_enabled=True,
+                qc_area__area_type='OA').filter(
+                Q(qc_area__area_pickings__isnull=True) |
+                Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False))
+            if area_mapping:
+                desk_area_obj = area_mapping.filter(last_assigned_at__isnull=True).first()
+                if not desk_area_obj:
+                    desk_area_obj = area_mapping.order_by('last_assigned_at').first()
+            info_logger.info(desk_area_obj.qc_area)
+            desk_area_obj.last_assigned_at = datetime.now()
+            desk_area_obj.token_id = order.order_no
+            desk_area_obj.save()
+            order.picker_order.update(qc_area=desk_area_obj.qc_area)
+            order.save()
+            info_logger.info("QC Area " + str(desk_area_obj.qc_area) + " assigned for order no: " + str(order.order_no))
+            break

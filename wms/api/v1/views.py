@@ -11,7 +11,7 @@ from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, Inventor
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer, OrderBinsSerializer
-from wms.views import PickupInventoryManagement, update_putaway
+from wms.views import PickupInventoryManagement, update_putaway, auto_qc_area_assignment_to_order
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -932,6 +932,7 @@ class PickupComplete(APIView):
                                                  " | picking_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
                     else:
+                        order_no = order_obj.order_no
                         pd_queryset = PickerDashboard.objects.filter(order_id=order_obj)
                         if not pd_queryset.filter(picking_status='moved_to_qc').exists():
                             info_logger.info("PickupComplete | " + str(order_obj.order_no) +
@@ -941,11 +942,13 @@ class PickupComplete(APIView):
                                 order_qs.update(order_status=Order.PICKING_PARTIAL_COMPLETE)
                                 info_logger.info("PickupComplete | " + str(order_obj.order_no) +
                                                  " | PICKING_PARTIAL_COMPLETE.")
+                                auto_qc_area_assignment_to_order(order_no)
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 order_qs.update(order_status=Order.PICKING_COMPLETE)
                                 info_logger.info("PickupComplete | " + str(order_obj.order_no) +
                                                  " | PICKING_COMPLETE.")
+                                auto_qc_area_assignment_to_order(order_no)
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
