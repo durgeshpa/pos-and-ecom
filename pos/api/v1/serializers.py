@@ -2051,8 +2051,12 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.product_pack_type == 'loose':
-                product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
-                                                                    product['received_qty'])
+                if po_product.qty_conversion_unit:
+                    product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
+                                                                        product['received_qty'])
+                else:
+                    product['received_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
+                                                                        product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
                 product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
