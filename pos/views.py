@@ -637,3 +637,4 @@ def get_tax_details(product):
         if tax_details.filter(tax__tax_type='tcs').last():
             tcs_amount = tax_details.filter(tax__tax_type='tcs').last().tax.tax_percentage
     return gst_amount, cess_amount, surcharge_amount, tcs_amount
+
