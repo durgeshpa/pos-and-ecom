@@ -2398,7 +2398,6 @@ class ShipmentProductMapping(OrderedProductMapping):
                 _('Max. allowed Qty: %s') % max_qty_allowed,
             )
 
-
 ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
 
 
@@ -2452,12 +2451,22 @@ class ShipmentRescheduling(models.Model):
 
 
 class ShipmentNotAttempt(models.Model):
-    CASH_NOT_AVAILABLE = 'cash_not_available'
-    SHOP_CLOSED = 'shop_closed'
+    UNABLE_TO_ATTEMPT = 'unable_to_attempt'
+    WRONG_ORDER = 'wrong_order'
+    WRONG_DELIVERY_ADDRESS = 'wrong_delivery_address'
+    ITEM_MISS_MATCH = 'item_miss_match'
+    DIFFERENT_ROUTE = 'damaged_item'
+    DAMAGED_ITEM = 'damaged_item'
+    MORE_ITEMS_TO_CARRY = 'more_items_to_carry'
 
     NOT_ATTEMPT_REASON = (
-        (CASH_NOT_AVAILABLE, 'Cash not available'),
-        (SHOP_CLOSED, 'Shop Closed'),
+        (UNABLE_TO_ATTEMPT, 'UNABLE TO ATTEMPT'),
+        (WRONG_ORDER, 'WRONG ORDER'),
+        (WRONG_DELIVERY_ADDRESS, 'WRONG DELIVERY ADDRESS'),
+        (ITEM_MISS_MATCH, 'ITEM MISS MATCH'),
+        (DIFFERENT_ROUTE, 'DIFFERENT ROUTE'),
+        (DAMAGED_ITEM, 'DAMAGED ITEM'),
+        (MORE_ITEMS_TO_CARRY, 'MORE ITEMS TO CARRY')
     )
 
     shipment = models.ForeignKey(
@@ -2484,8 +2493,11 @@ class ShipmentNotAttempt(models.Model):
         verbose_name_plural = 'Shipment Not Attempt'
 
     def __str__(self):
-        return str("%s --> %s") % (self.shipment.invoice_no,
-                                   self.rescheduling_date)
+        return str(self.shipment.invoice_no)
+
+    def save(self, *args, **kwargs):
+        self.created_by = get_current_user()
+        super().save(*args, **kwargs)
 
 
 class Commercial(Trip):
