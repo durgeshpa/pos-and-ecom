@@ -671,6 +671,8 @@ class PosInventoryChange(models.Model):
     transaction_id = models.CharField(max_length=25)
     initial_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_initial_state', on_delete=models.DO_NOTHING)
     final_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_final_state', on_delete=models.DO_NOTHING)
+    initial_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
+    final_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

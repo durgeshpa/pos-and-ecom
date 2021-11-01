@@ -126,7 +126,6 @@ class ShopTypeSerializer(serializers.ModelSerializer):
         return response
 
 
-
 class ShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField('my_shop_id')
 
@@ -136,6 +135,7 @@ class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('id','shop_name','shop_type','imei_no','shop_id')
+
 
 class ShopPhotoSerializer(serializers.ModelSerializer):
     class Meta:
