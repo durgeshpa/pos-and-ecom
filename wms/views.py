@@ -170,16 +170,22 @@ def bins_upload(request):
                         info_logger.info("xls data validation has been passed.")
                         warehouse = Shop.objects.filter(id=int(data[1]))
                         if warehouse.exists():
-                            if Bin.objects.filter(warehouse=warehouse.last(), bin_id=data[3]).exists():
+                            zone_instance = Zone.objects.filter(zone_number=data[4], warehouse=warehouse.last()).last()
+                            if not zone_instance:
                                 return render(request, 'admin/wms/bulk-bin-updation.html',
-                                              {'error': 'Row' + ' ' + str(row_id + 1) + ' ' + 'Duplicate Bin ID,'
-                                                                                              ' Please verify at your end.',
+                                              {'error': 'Row' + ' ' + str(row_id + 1) + ' ' +
+                                                        'Zone number does not mapped with the selected warehouse,'
+                                                        ' Please verify at your end.',
+                                               'form': form})
+                            if Bin.objects.filter(warehouse=warehouse.last(), bin_id=data[3], zone=zone_instance).exists():
+                                return render(request, 'admin/wms/bulk-bin-updation.html',
+                                              {'error': 'Row' + ' ' + str(row_id + 1) + ' ' +
+                                                        'Duplicate Bin ID, Please verify at your end.',
                                                'form': form})
                             else:
-                                bin_obj, created = Bin.objects.get_or_create(warehouse=warehouse.last(),
-                                                                             bin_id=data[3],
-                                                                             bin_type=data[2],
-                                                                             is_active='t')
+                                bin_obj, created = Bin.objects.get_or_create(
+                                    warehouse=warehouse.last(), bin_id=data[3], bin_type=data[2], is_active='t',
+                                    zone=zone_instance)
                                 if not created:
                                     return render(request, 'admin/wms/bulk-bin-updation.html', {
                                         'error': 'Row' + ' ' + str(
@@ -1348,8 +1354,8 @@ class DownloadBinCSV(View):
             f = StringIO()
             writer = csv.writer(f)
             # header of csv file
-            writer.writerow(['Warehouse Name', 'Warehouse ID', 'BIN Type ', 'Bin ID'])
-            writer.writerow(['GFDN Noida', '600', 'PA', 'B2BZ01SR001-0001'])
+            writer.writerow(['Warehouse Name', 'Warehouse ID', 'BIN Type ', 'Bin ID', 'Zone Number'])
+            writer.writerow(['GFDN Noida', '600', 'PA', 'B2BZ01SR001-0001', 'W000600Z01'])
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)

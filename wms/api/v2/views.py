@@ -1080,7 +1080,7 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         zone = self.request.GET.get('zone')
         putaway_user = self.request.GET.get('putaway_user')
         putaway_type = self.request.GET.get('putaway_type')
-        status = self.request.GET.get('status')
+        putaway_status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
         data_days = self.request.GET.get('data_days')
 
@@ -1095,10 +1095,10 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_user=putaway_user)
 
         if putaway_type:
-            self.queryset = self.queryset.filter(putaway_type=putaway_type)
+            self.queryset = self.queryset.filter(putaway_type__iexact=putaway_type)
 
-        if status:
-            self.queryset = self.queryset.filter(putaway_status=status)
+        if putaway_status:
+            self.queryset = self.queryset.filter(putaway_status__iexact=putaway_status)
 
         if created_at:
             if data_days:
