@@ -41,3 +41,4 @@ class ProductInvEanSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(Q(product__product_ean_code__icontains=self.value()))
+
