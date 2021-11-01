@@ -23,12 +23,14 @@ from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
 from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update, \
+    QCDeskCommonFunction
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping,  QCArea
-from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk
+from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
+    get_validate_qc_areas
 
 User = get_user_model()
 lock = Lock()
@@ -1675,4 +1677,140 @@ class OrderStatusSerializer(serializers.Serializer):
     pending = serializers.IntegerField()
     completed = serializers.IntegerField()
     moved_to_qc = serializers.IntegerField()
+
+
+class AlternateDeskSerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'desk_number', 'name', 'warehouse')
+
+
+class QCDeskCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    qc_executive = UserSerializers(read_only=True)
+    alternate_desk = AlternateDeskSerializer(read_only=True)
+    qc_areas = QCAreaSerializer(read_only=True, many=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'desk_number', 'name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled',
+                  'alternate_desk', 'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'name' in self.initial_data and self.initial_data['name']:
+            data['name'] = self.initial_data['name']
+        else:
+            raise serializers.ValidationError("'name' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'qc_executive' in self.initial_data and self.initial_data['qc_executive']:
+            try:
+                qc_executive = User.objects.get(id=self.initial_data['qc_executive'])
+            except:
+                raise serializers.ValidationError("Invalid qc_executive | user does not exist.")
+            if not qc_executive.has_perm('wms.can_have_qc_executive_permission'):
+                raise serializers.ValidationError("Invalid qc_executive | Does not have required permission.")
+            data['qc_executive'] = qc_executive
+        else:
+            raise serializers.ValidationError("'qc_executive' | This is mandatory")
+
+        if 'qc_areas' in self.initial_data and self.initial_data['qc_areas']:
+            if len(self.initial_data['qc_areas']) > get_config('MAX_QC_AREA_PER_QC_DESK'):
+                raise serializers.ValidationError(
+                    "Maximum " + str(get_config('MAX_QC_AREA_PER_QC_DESK')) + " qc areas are allowed.")
+            qc_areas = get_validate_qc_areas(
+                self.initial_data['qc_areas'], self.initial_data['warehouse'])
+            if 'error' in qc_areas:
+                raise serializers.ValidationError((qc_areas["error"]))
+            data['qc_areas'] = qc_areas['qc_areas']
+        else:
+            raise serializers.ValidationError("'qc_areas' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not QCDesk.objects.filter(id=self.initial_data['id'], warehouse=warehouse).exists():
+                raise serializers.ValidationError("Warehouse updation is not allowed.")
+
+            if 'desk_enabled' in self.initial_data and self.initial_data['desk_enabled'] is False:
+                if 'alternate_desk' in self.initial_data and self.initial_data['alternate_desk']:
+                    if self.initial_data['alternate_desk'] == self.initial_data['id']:
+                        raise serializers.ValidationError("Invalid 'alternate_desk' | same as current qc desk.")
+                    try:
+                        alternate_desk = QCDesk.objects.get(id=self.initial_data['alternate_desk'])
+                    except:
+                        raise serializers.ValidationError("Invalid 'alternate_desk' | QC Desk not exist.")
+                    data['alternate_desk'] = alternate_desk
+                    data['desk_enabled'] = False
+                else:
+                    raise serializers.ValidationError("'alternate_desk' | This is mandatory if desk is not enabled")
+            else:
+                data['alternate_desk'] = None
+                data['desk_enabled'] = True
+
+            if self.initial_data['warehouse'] and self.initial_data['qc_executive']:
+                if QCDesk.objects.filter(
+                        warehouse=self.initial_data['warehouse'], qc_executive__id=self.initial_data['qc_executive']).\
+                        exclude(id=self.initial_data['id']).exists():
+                    raise serializers.ValidationError(
+                        "QCDesk already exist for selected 'warehouse' and 'qc_executive'")
+
+            if QCArea.objects.filter(qc_desk_areas__isnull=False, qc_desk_areas__desk_enabled=True).\
+                    filter(id__in=[x['id'] for x in self.initial_data['qc_areas']]).\
+                    exclude(qc_desk_areas__id=self.initial_data['id']).exists():
+                raise serializers.ValidationError("Invalid 'qc_areas' | QC Area already mapped with another QC Desk.")
+        else:
+            data['alternate_desk'] = None
+            data['desk_enabled'] = True
+            if QCArea.objects.filter(qc_desk_areas__isnull=False, qc_desk_areas__desk_enabled=True).\
+                    filter(id__in=[x['id'] for x in self.initial_data['qc_areas']]).exists():
+                raise serializers.ValidationError("Invalid 'qc_areas' | QC Area already mapped with another QC Desk.")
+
+            if self.initial_data['warehouse'] and self.initial_data['qc_executive']:
+                if QCDesk.objects.filter(warehouse=self.initial_data['warehouse'],
+                                         qc_executive__id=self.initial_data['qc_executive']).exists():
+                    raise serializers.ValidationError(
+                        "QCDesk already exist for selected 'warehouse' and 'qc_executive'")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new QCDesk with QC Areas"""
+        qc_areas = validated_data.pop('qc_areas', None)
+
+        try:
+            qc_desk_instance = QCDesk.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        QCDeskCommonFunction.update_qc_areas(qc_desk_instance, qc_areas)
+        return qc_desk_instance
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update QCDesk"""
+        qc_areas = validated_data.pop('qc_areas', None)
+
+        try:
+            qc_desk_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        QCDeskCommonFunction.update_qc_areas(qc_desk_instance, qc_areas)
+        return qc_desk_instance
 

@@ -64,6 +64,21 @@ def check_warehouse_manager(view_func):
     return _wrapped_view_func
 
 
+def check_qc_executive(view_func):
+    """
+        Decorator to validate QC Executive request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.has_perm('wms.can_have_qc_executive_permission'):
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 def check_whc_manager_coordinator_supervisor(view_func):
     """
         Decorator to validate request from warehouse manager / Coordinator / Supervisor
@@ -118,6 +133,16 @@ def whc_assortment_search(queryset, search_text):
     queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(
         product__name__icontains=search_text) | Q(zone__supervisor__first_name__icontains=search_text) |
                                Q(zone__coordinator__first_name__icontains=search_text))
+    return queryset
+
+
+def qc_desk_search(queryset, search_text):
+    '''
+    search using warehouse's shop_name & desk_number & name & qc_executive based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(desk_number__icontains=search_text) |
+                               Q(name__icontains=search_text) | Q(qc_executive__first_name__icontains=search_text) |
+                               Q(qc_executive__phone_number__icontains=search_text))
     return queryset
 
 

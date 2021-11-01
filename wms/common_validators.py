@@ -9,7 +9,7 @@ from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup, QCArea
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ def get_validate_picker_users(picker_users):
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
 
+
 def get_validate_picker_users(picker_users, warehouse_id):
     """
     validate ids that belong to a User model also
@@ -125,6 +126,28 @@ def get_validate_picker_users(picker_users, warehouse_id):
             return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
+
+
+def get_validate_qc_areas(qc_areas, warehouse_id):
+    """
+    validate ids that belong to a QCAres model also
+    checking qc_area shouldn't repeat else through error
+    """
+    qc_areas_list = []
+    qc_areas_obj = []
+    for qc_areas_data in qc_areas:
+        try:
+            qc_area = QCArea.objects.get(id=int(qc_areas_data['id']))
+            if qc_area.warehouse.id != warehouse_id:
+                return {'error': '{} qc_area does not mapped to selected warehouse.'.format(str(qc_area.id))}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} qc_area not found'.format(qc_areas_data['id'])}
+        qc_areas_obj.append(qc_area)
+        if qc_area in qc_areas_list:
+            return {'error': '{} do not repeat same qc_area for one QC Desk'.format(qc_area)}
+        qc_areas_list.append(qc_area)
+    return {'qc_areas': qc_areas_obj}
 
 
 def get_csv_file_data(csv_file, csv_file_headers):

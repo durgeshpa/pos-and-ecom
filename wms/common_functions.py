@@ -2440,6 +2440,20 @@ class WarehouseAssortmentCommonFunction(object):
         return zone
 
 
+class QCDeskCommonFunction(object):
+
+    @classmethod
+    def update_qc_areas(cls, qc_desk_instance, qc_areas):
+        """
+            Update QC Areas of the QC Desk
+        """
+        qc_desk_instance.qc_areas.clear()
+        if qc_areas:
+            for qc_area in qc_areas:
+                qc_desk_instance.qc_areas.add(qc_area)
+        qc_desk_instance.save()
+
+
 def post_picking_order_update(picker_dashboard_instance):
 
     if picker_dashboard_instance.picking_status == 'moved_to_qc':
@@ -2488,7 +2502,7 @@ def get_logged_user_wise_query_set_for_picker(user, queryset):
     elif user.has_perm('wms.can_have_zone_coordinator_permission'):
         queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
     elif user.groups.filter(name='Picker Boy').exists():
-        queryset = queryset.filter(picker_user=user)
+        queryset = queryset.filter(picker_boy=user)
     return queryset
 
 

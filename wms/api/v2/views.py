@@ -30,10 +30,10 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping
+    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
-    check_whc_manager_coordinator_supervisor_picker
+    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -44,7 +44,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers, \
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
-    ZonewisePickerSummarySerializers
+    ZonewisePickerSummarySerializers, QCDeskCrudSerializers
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2056,3 +2056,122 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
+
+
+class QCDeskCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'qc_executive', 'alternate_desk',
+                       'alternate_desk__warehouse__shop_owner', 'alternate_desk__warehouse__shop_type',
+                       'alternate_desk__warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by',). \
+        prefetch_related('qc_areas'). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'alternate_desk__id', 'alternate_desk__warehouse__id',
+             'alternate_desk__warehouse__status', 'alternate_desk__warehouse__shop_name',
+             'alternate_desk__warehouse__shop_type', 'alternate_desk__warehouse__shop_type__shop_type',
+             'alternate_desk__warehouse__shop_type__shop_sub_type', 'alternate_desk__warehouse__shop_owner',
+             'alternate_desk__warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'alternate_desk__warehouse__shop_owner__first_name', 'alternate_desk__warehouse__shop_owner__last_name',
+             'alternate_desk__warehouse__shop_owner__phone_number', 'qc_executive__first_name',
+             'qc_executive__last_name', 'qc_executive__phone_number', 'created_at', 'updated_at',
+             'created_by__first_name', 'created_by__last_name', 'created_by__phone_number', 'updated_by__first_name',
+             'updated_by__last_name', 'updated_by__phone_number',). \
+        order_by('-id')
+    serializer_class = QCDeskCrudSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCDesk """
+        info_logger.info("QCDesk GET api called.")
+        qc_desk_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get QCDesk for specific ID """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_desks_data = id_validation['data']
+        else:
+            """ GET QCDesk List """
+            self.queryset = self.search_filter_qc_desks_data()
+            qc_desk_total_count = self.queryset.count()
+            qc_desks_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_desks_data, many=True)
+        msg = f"total count {qc_desk_total_count}" if qc_desks_data else "no qc_desk found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_executive
+    def post(self, request):
+        """ POST API for QCDesk Creation """
+
+        info_logger.info("QCDesk POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("QCDesk Created Successfully.")
+            return get_response('qc_desk created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for QCDesk Updation """
+
+        info_logger.info("QCDesk PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update qc_desk', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        qc_desk_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=qc_desk_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("QCDesk Updated Successfully.")
+            return get_response('qc_desk updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_qc_desks_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        qc_executive = self.request.GET.get('qc_executive')
+        desk_number = self.request.GET.get('desk_number')
+        name = self.request.GET.get('name')
+
+        '''search using warehouse's shop_name & desk_number & name & qc_executive'''
+        if search_text:
+            self.queryset = qc_desk_search(self.queryset, search_text)
+
+        '''Filters using warehouse, qc_executive, desk_number, name'''
+
+        if desk_number:
+            self.queryset = self.queryset.filter(desk_number__icontains=desk_number)
+
+        if name:
+            self.queryset = self.queryset.filter(name__icontains=name)
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if qc_executive:
+            self.queryset = self.queryset.filter(qc_executive__id=qc_executive)
+
+        return self.queryset.distinct('id')
