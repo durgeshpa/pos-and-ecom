@@ -33,7 +33,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 # Logger
 from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
 from ...common_validators import validate_pickup_crates_list
-from ...services import check_whc_manager_coordinator_supervisor_picker
+from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -475,12 +475,17 @@ class PickupList(APIView):
         return Response(resp_data, status=status.HTTP_200_OK)
 
     def filter_pickup_list_data(self):
+        search_text = self.request.GET.get('search_text')
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
 
-        '''Filters using picker_boy, selected_date'''
+        '''search using order number & repackaging number'''
+        if search_text:
+            self.queryset = pickup_search(self.queryset, search_text)
+
+        '''Filters using picker_boy, selected_date, picking_status'''
         if picker_boy:
             self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
 
@@ -488,7 +493,7 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(zone__id=zone)
 
         if picking_status:
-            self.queryset = self.queryset.filter(picking_status=picking_status)
+            self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
         if selected_date:
             try:

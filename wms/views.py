@@ -2862,4 +2862,3 @@ def auto_qc_area_assignment_to_order(order_no=None):
             order.picker_order.update(qc_area=desk_area_obj.qc_area)
             order.save()
             info_logger.info("QC Area " + str(desk_area_obj.qc_area) + " assigned for order no: " + str(order.order_no))
-            break

@@ -31,6 +31,15 @@ def putaway_search(queryset, search_text):
     return queryset
 
 
+def pickup_search(queryset, search_text):
+    '''
+    search using order no & repackaging no based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(order__order_no__icontains=search_text) |
+                               Q(repackaging__repackaging_no__icontains=search_text))
+    return queryset
+
+
 # search using user name & phone number based on criteria that matches
 def user_search(queryset, search_string):
     sts_list = search_string.split(' ')
