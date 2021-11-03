@@ -338,9 +338,9 @@ class RetailerProductsStockUpdateForm(forms.Form):
             if row["updated_inventory"] == '' or int(row["updated_inventory"]) < 0 :
                 raise ValidationError(_(f"Row {row_num} | {row['updated_inventory']} | "
                                         f"Update Inventory is not valid!"))
-
             if row["current_inventory"] != row["updated_inventory"] \
                     and ('reason_for_update' not in row or row["reason_for_update"] == ''):
+
                 raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
                                         f"Reason for update is required!"))
 
