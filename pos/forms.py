@@ -323,7 +323,6 @@ class RetailerProductsStockUpdateForm(forms.Form):
             self.check_mandatory_data(row, 'product_id', row_num)
             self.check_mandatory_data(row, 'current_inventory', row_num)
             self.check_mandatory_data(row, 'updated_inventory', row_num)
-            self.check_mandatory_data(row, 'reason_for_update', row_num)
 
             if row["shop_id"] != self.shop_id:
                 raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
@@ -332,11 +331,16 @@ class RetailerProductsStockUpdateForm(forms.Form):
             if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
                 raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
 
+            if row["current_inventory"] == '':
+                raise ValidationError(_(f"Row {row_num} | {row['current_inventory']} | "
+                                        f"Current Inventory is not valid!"))
+
             if row["updated_inventory"] == '' or int(row["updated_inventory"]) < 0 :
                 raise ValidationError(_(f"Row {row_num} | {row['updated_inventory']} | "
                                         f"Update Inventory is not valid!"))
 
-            if row["reason_for_update"] == '' :
+            if row["current_inventory"] != row["updated_inventory"] \
+                    and ('reason_for_update' not in row or row["reason_for_update"] == ''):
                 raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
                                         f"Reason for update is required!"))
 
