@@ -8,7 +8,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
     POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
     PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerDashboardCrudView, \
-    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView
+    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView, PutawayTypeIDSearchView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -54,4 +54,5 @@ urlpatterns = [
     url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),
     url('zone-wise-picker-summary/', ZoneWisePickerSummaryView.as_view(), name='zone-wise-picker-summary'),
     url('qc-desk/', QCDeskCrudView.as_view(), name='qc-desk'),
+    url('putaway-type-search/', PutawayTypeIDSearchView.as_view(), name='putaway-type-search'),
 ]

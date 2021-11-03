@@ -2007,6 +2007,7 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = PickerDashboard.objects.filter(
+
         picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
                             PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
                             PickerDashboard.MOVED_TO_QC]). \
@@ -2175,3 +2176,46 @@ class QCDeskCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(qc_executive__id=qc_executive)
 
         return self.queryset.distinct('id')
+
+
+class PutawayTypeIDSearchView(generics.GenericAPIView):
+    # authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
+        only('putaway_type_id').\
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                )).values_list('token_id', flat=True)
+
+    def get(self, request):
+        self.queryset = self.search_putaway_id()
+        putaway_token_list = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        # serializer = self.serializer_class(bins, many=True)
+        msg = ""
+        return get_response(msg, putaway_token_list, True)
+
+    def search_putaway_id(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+
+        '''search using bin_id'''
+        if search_text:
+            self.queryset = self.queryset.filter(token_id__icontains=search_text)
+
+        '''Filters using warehouse'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('token_id')
