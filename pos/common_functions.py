@@ -202,7 +202,7 @@ class OffersCls(object):
 class PosInventoryCls(object):
 
     @classmethod
-    def stock_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+    def stock_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type, remarks=None):
         """
             Create/Update available inventory for product
         """
@@ -219,7 +219,7 @@ class PosInventoryCls(object):
         pos_inv.quantity = Decimal(qty)
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
-                                                f_state_obj, user, i_qty, f_qty)
+                                                f_state_obj, user, i_qty, f_qty, remarks)
 
     @classmethod
     def order_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
@@ -251,11 +251,11 @@ class PosInventoryCls(object):
 
     @classmethod
     def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user,
-                                initial_qty=None, final_qty=None):
+                                initial_qty=None, final_qty=None, remarks=None):
         PosInventoryChange.objects.create(product_id=pid, quantity=qty, transaction_type=transaction_type,
                                           transaction_id=transaction_id, initial_state=i_state_obj,
                                           final_state=f_state_obj, changed_by=user, initial_qty=initial_qty,
-                                          final_qty=final_qty)
+                                          final_qty=final_qty, remarks=remarks)
 
     @classmethod
     def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):

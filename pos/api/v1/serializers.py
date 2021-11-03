@@ -186,6 +186,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
     ean_not_available = serializers.BooleanField(default=None)
     purchase_pack_size = serializers.IntegerField(default=None)
+    reason_for_update = serializers.CharField(allow_blank=True, allow_null=True)
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -263,6 +264,10 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             attrs['stock_qty'] = int(attrs['stock_qty'])
         else:
             attrs['purchase_pack_size'] = 1
+
+        if 'stock_qty' in attrs and 'reason_for_update' not in attrs:
+            raise serializers.ValidationError("reason for update is required for stock update")
+
         return attrs
 
 

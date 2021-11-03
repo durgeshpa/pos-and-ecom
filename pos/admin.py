@@ -31,7 +31,8 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
-    download_posinventorychange_products, get_product_details
+    download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
+    update_retailer_product_stock
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -507,11 +508,29 @@ class PosInventoryAdmin(admin.ModelAdmin):
                          product__shop__pos_shop__status=True)
 
 
+    def get_urls(self):
+        urls = super(PosInventoryAdmin, self).get_urls()
+        urls = [
+
+                   url(r'update_inventory',
+                       self.admin_site.admin_view(update_retailer_product_stock),
+                       name="update_inventory"),
+
+                   url(r'download_current_inventory',
+                       self.admin_site.admin_view(RetailerProductStockDownload),
+                       name="download_current_inventory"),
+
+               ] + urls
+        return urls
+
+    change_list_template = 'admin/pos/pos_inventory_change_list.html'
+
+
 @admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
-                    'initial_qty', 'final_qty', 'changed_by', 'created_at')
+                    'initial_qty', 'final_qty', 'changed_by', 'created_at', 'remarks')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
