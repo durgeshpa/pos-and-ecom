@@ -9,7 +9,7 @@ from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup, QCArea
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ def get_validate_picker_users(picker_users):
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
 
+
 def get_validate_picker_users(picker_users, warehouse_id):
     """
     validate ids that belong to a User model also
@@ -125,6 +126,28 @@ def get_validate_picker_users(picker_users, warehouse_id):
             return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
+
+
+def get_validate_qc_areas(qc_areas, warehouse_id):
+    """
+    validate ids that belong to a QCAres model also
+    checking qc_area shouldn't repeat else through error
+    """
+    qc_areas_list = []
+    qc_areas_obj = []
+    for qc_areas_data in qc_areas:
+        try:
+            qc_area = QCArea.objects.get(id=int(qc_areas_data['id']))
+            if qc_area.warehouse.id != warehouse_id:
+                return {'error': '{} qc_area does not mapped to selected warehouse.'.format(str(qc_area.id))}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} qc_area not found'.format(qc_areas_data['id'])}
+        qc_areas_obj.append(qc_area)
+        if qc_area in qc_areas_list:
+            return {'error': '{} do not repeat same qc_area for one QC Desk'.format(qc_area)}
+        qc_areas_list.append(qc_area)
+    return {'qc_areas': qc_areas_obj}
 
 
 def get_csv_file_data(csv_file, csv_file_headers):
@@ -281,7 +304,7 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     return {'data': putaway}
 
 
-def validate_pickup_crates_list(crates_dict, warehouse_id):
+def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone):
     if 'is_crate_applicable' not in crates_dict:
         return {"error": "Missing 'is_crate_applicable' in pickup_crates."}
     if crates_dict['is_crate_applicable'] is True:
@@ -289,8 +312,19 @@ def validate_pickup_crates_list(crates_dict, warehouse_id):
             return {"error": "Missing 'crates' in pickup_crates for 'is_crate_applicable' is True."}
         if not isinstance(crates_dict['crates'], list):
             return {"error": "Key 'crates' can be of list type only."}
-        if len(crates_dict['crates']) != Crate.objects.filter(
-                id__in=crates_dict['crates'], warehouse__id=warehouse_id, crate_type=Crate.PICKING).count():
-            return {"error": "Invalid crates selected in pickup_crates."}
+        total_crate_qty = 0
+        for crate_obj in crates_dict['crates']:
+            if not isinstance(crate_obj, dict):
+                return {"error": "Key 'crates' can be of list of object type only."}
+            if 'crate_id' not in crate_obj or not crate_obj['crate_id']:
+                return {"error": "Missing 'crate_id' in pickup_crates for 'is_crate_applicable' is True."}
+            if 'quantity' not in crate_obj or not crate_obj['quantity']:
+                return {"error": "Missing 'quantity' in pickup_crates for 'is_crate_applicable' is True."}
+            if not Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
+                                        crate_type=Crate.PICKING, zone=zone).exists():
+                return {"error": "Invalid crates selected in pickup_crates."}
+            total_crate_qty += int(crate_obj['quantity'])
+        if total_crate_qty != pickup_quantity:
+            return {"error": "Crates quantity should be matched with pickup quantity."}
     return {"data": crates_dict}
 

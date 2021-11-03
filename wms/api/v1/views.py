@@ -11,7 +11,7 @@ from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, Inventor
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer, OrderBinsSerializer
-from wms.views import PickupInventoryManagement, update_putaway
+from wms.views import PickupInventoryManagement, update_putaway, auto_qc_area_assignment_to_order
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -33,7 +33,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 # Logger
 from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
 from ...common_validators import validate_pickup_crates_list
-from ...services import check_whc_manager_coordinator_supervisor_picker
+from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -475,12 +475,17 @@ class PickupList(APIView):
         return Response(resp_data, status=status.HTTP_200_OK)
 
     def filter_pickup_list_data(self):
+        search_text = self.request.GET.get('search_text')
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
 
-        '''Filters using picker_boy, selected_date'''
+        '''search using order number & repackaging number'''
+        if search_text:
+            self.queryset = pickup_search(self.queryset, search_text)
+
+        '''Filters using picker_boy, selected_date, picking_status'''
         if picker_boy:
             self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
 
@@ -488,7 +493,7 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(zone__id=zone)
 
         if picking_status:
-            self.queryset = self.queryset.filter(picking_status=picking_status)
+            self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
         if selected_date:
             try:
@@ -686,12 +691,17 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'The number of pickup_crates entered should be equal to number of sku ids entered.',
                              'data': None}, status=status.HTTP_200_OK)
+        picker_dash_obj = PickerDashboard.objects.filter(order__order_no=order_no, picker_boy=request.user).last()
+        if not picker_dash_obj:
+            picker_dash_obj = PickerDashboard.objects.filter(
+                repackaging__repackaging_no=order_no, picker_boy=request.user).last()
         for cnt, crate_obj in enumerate(pickup_crates):
             if not crate_obj:
                 return Response(msg, status=status.HTTP_200_OK)
             if not isinstance(crate_obj, dict):
                 return {"error": "Key 'pickup_crates' can be of object type only."}
-            validated_data = validate_pickup_crates_list(crate_obj, warehouse)
+            validated_data = validate_pickup_crates_list(crate_obj, pickup_quantity[cnt], warehouse,
+                                                         picker_dash_obj.zone)
             if 'error' in validated_data:
                 msg['message'] = validated_data['error']
                 return Response(msg, status=status.HTTP_200_OK)
@@ -745,6 +755,8 @@ class PickupDetail(APIView):
                     if pick_qty is not None:
                         return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
                                          'data': None}, status=status.HTTP_200_OK)
+                    else:
+                        pick_qty = 0
                     qty = picking_details.last().quantity
                     if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
@@ -785,14 +797,14 @@ class PickupDetail(APIView):
                         is_crate_applicable = False
                         if i['pickup_crates']['is_crate_applicable'] is True:
                             is_crate_applicable = True
-                            for crate_id in i['pickup_crates']['crates']:
+                            for crate_obj in i['pickup_crates']['crates']:
+                                crate_instance = Crate.objects.get(crate_id=crate_obj['crate_id'])
                                 PickupCrate.objects.create(
-                                    pickup=picking_details.last().pickup, crate_id=crate_id,
-                                    created_by=request.user, updated_by=request.user)
-                        pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                        pickup__zone__picker_users=request.user,
-                                                                        pickup__sku__id=j)\
-                                                                .exclude(pickup__status='picking_cancelled')
+                                    pickup=picking_details.last().pickup, quantity=int(crate_obj['quantity']),
+                                    crate=crate_instance, created_by=request.user, updated_by=request.user)
+                        pick_object = PickupBinInventory.objects.filter(
+                            pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
+                            pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
                                       .exclude(status='picking_cancelled')\
@@ -925,6 +937,7 @@ class PickupComplete(APIView):
                                                  " | picking_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
                     else:
+                        order_no = order_obj.order_no
                         pd_queryset = PickerDashboard.objects.filter(order_id=order_obj)
                         if not pd_queryset.filter(picking_status='moved_to_qc').exists():
                             info_logger.info("PickupComplete | " + str(order_obj.order_no) +
@@ -934,11 +947,13 @@ class PickupComplete(APIView):
                                 order_qs.update(order_status=Order.PICKING_PARTIAL_COMPLETE)
                                 info_logger.info("PickupComplete | " + str(order_obj.order_no) +
                                                  " | PICKING_PARTIAL_COMPLETE.")
+                                auto_qc_area_assignment_to_order(order_no)
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 order_qs.update(order_status=Order.PICKING_COMPLETE)
                                 info_logger.info("PickupComplete | " + str(order_obj.order_no) +
                                                  " | PICKING_COMPLETE.")
+                                auto_qc_area_assignment_to_order(order_no)
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
