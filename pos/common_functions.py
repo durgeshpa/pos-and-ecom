@@ -215,6 +215,9 @@ class PosInventoryCls(object):
         if transaction_type == PosInventoryChange.STOCK_UPDATE:
             i_qty = pos_inv.quantity
             f_qty = Decimal(qty)
+            if i_qty == f_qty:
+                info_logger.info(f"POS|stock_inventory|initial quantity {i_qty} and final quantity {f_qty} is same")
+                return
         qty_change = Decimal(qty) - pos_inv.quantity
         pos_inv.quantity = Decimal(qty)
         pos_inv.save()

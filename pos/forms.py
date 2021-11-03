@@ -332,11 +332,15 @@ class RetailerProductsStockUpdateForm(forms.Form):
             if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
                 raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
 
+            if row["current_inventory"] == '':
+                raise ValidationError(_(f"Row {row_num} | {row['current_inventory']} | "
+                                        f"Current Inventory is not valid!"))
+
             if row["updated_inventory"] == '' or int(row["updated_inventory"]) < 0 :
                 raise ValidationError(_(f"Row {row_num} | {row['updated_inventory']} | "
                                         f"Update Inventory is not valid!"))
 
-            if row["reason_for_update"] == '' :
+            if row["current_inventory"] != row["updated_inventory"] and row["reason_for_update"] == '':
                 raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
                                         f"Reason for update is required!"))
 
