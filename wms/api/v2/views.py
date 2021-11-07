@@ -30,10 +30,11 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk
+    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
+    QCDeskQCAreaAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
-    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive
+    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -44,7 +45,8 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers, \
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
-    ZonewisePickerSummarySerializers, QCDeskCrudSerializers
+    ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
+    QCDeskQCAreaAssignmentMappingSerializers
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2058,6 +2060,26 @@ class PickerDashboardStatusSummaryView(generics.GenericAPIView):
         return self.queryset
 
 
+class QCExecutivesView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("QC Executives api called.")
+        """ GET QC Executives List """
+        perm = Permission.objects.get(codename='can_have_qc_executive_permission')
+        self.queryset = self.queryset.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        qc_executives = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(qc_executives, many=True)
+        msg = "" if qc_executives else "no qc executives found"
+        return get_response(msg, serializer.data, True)
+
+
 class QCDeskCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -2175,3 +2197,185 @@ class QCDeskCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(qc_executive__id=qc_executive)
 
         return self.queryset.distinct('id')
+
+
+class QCAreaCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCArea.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by',). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode',
+             'is_active', 'created_at', 'updated_at', 'created_by__first_name', 'created_by__last_name',
+             'created_by__phone_number', 'updated_by__first_name', 'updated_by__last_name',
+             'updated_by__phone_number',).order_by('-id')
+    serializer_class = QCAreaCrudSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCArea """
+        info_logger.info("QCArea GET api called.")
+        qc_area_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get QCArea for specific ID """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_areas_data = id_validation['data']
+        else:
+            """ GET QCArea List """
+            self.queryset = self.search_filter_qc_areas_data()
+            qc_area_total_count = self.queryset.count()
+            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no qc_area found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_executive
+    def post(self, request):
+        """ POST API for QCArea Creation """
+
+        info_logger.info("QCArea POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("QCArea Created Successfully.")
+            return get_response('qc_area created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for QCArea Updation """
+
+        info_logger.info("QCArea PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update qc_area', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        qc_area_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=qc_area_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("QCArea Updated Successfully.")
+            return get_response('qc_area updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_qc_areas_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        area_id = self.request.GET.get('area_id')
+        area_type = self.request.GET.get('area_type')
+        area_barcode_txt = self.request.GET.get('area_barcode_txt')
+
+        '''search using warehouse's shop_name & area_id & area_barcode_txt'''
+        if search_text:
+            self.queryset = qc_area_search(self.queryset, search_text)
+
+        '''Filters using warehouse, area_id, area_type, area_barcode_txt'''
+
+        if area_id:
+            self.queryset = self.queryset.filter(area_id__icontains=area_id)
+
+        if area_type:
+            self.queryset = self.queryset.filter(area_type__icontains=area_type)
+
+        if area_barcode_txt:
+            self.queryset = self.queryset.filter(area_barcode_txt__icontains=area_barcode_txt)
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('id')
+
+
+class QCDeskQCAreaAssignmentMappingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects. \
+        select_related('qc_desk__warehouse', 'qc_desk__warehouse__shop_owner', 'qc_desk__warehouse__shop_type',
+                       'qc_desk__warehouse__shop_type__shop_sub_type',). \
+        order_by('-id')
+    serializer_class = QCDeskQCAreaAssignmentMappingSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCDeskQCAreaAssignmentMapping """
+        info_logger.info("QCDeskQCAreaAssignmentMapping GET api called.")
+        qc_area_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get QCDeskQCAreaAssignmentMapping for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_areas_data = id_validation['data']
+        else:
+            if not request.GET.get('warehouse'):
+                return get_response("'warehouse' | This is mandatory.")
+            """ GET QCDeskQCAreaAssignmentMapping List """
+            self.queryset = self.search_filter_qc_areas_data()
+            qc_area_total_count = self.queryset.count()
+            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no qc desk to qc area mapping found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_qc_areas_data(self):
+        warehouse = self.request.GET.get('warehouse')
+        token_id = self.request.GET.get('token_id')
+        area_enabled = self.request.GET.get('area_enabled')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area = self.request.GET.get('qc_area')
+
+        '''Filters using warehouse, token_id, area_enabled, qc_desk, qc_area'''
+
+        if warehouse:
+            self.queryset = self.queryset.filter(qc_desk__warehouse__id=warehouse)
+
+        if token_id:
+            self.queryset = self.queryset.filter(token_id__icontains=token_id)
+
+        if area_enabled:
+            self.queryset = self.queryset.filter(area_enabled__icontains=area_enabled)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(Q(qc_desk__desk_number__icontains=qc_desk) |
+                                                 Q(qc_desk__name__icontains=qc_desk))
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
+
+        return self.queryset.distinct('id')
+
+
+class QCAreaTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for QCAreaTypeList """
+        info_logger.info("QCAreaTypeList GET api called.")
+        fields = ['id', 'area_type']
+        data = [dict(zip(fields, d)) for d in QCArea.QC_AREA_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
