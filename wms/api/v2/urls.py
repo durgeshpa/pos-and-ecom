@@ -8,8 +8,8 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
     POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
     PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerDashboardCrudView, \
-    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView, QCAreaCrudView, \
-    QCAreaTypeListView, QCExecutivesView, QCDeskQCAreaAssignmentMappingView
+    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView, PutawayTypeIDSearchView, \
+    QCAreaCrudView, QCAreaTypeListView, QCExecutivesView, QCDeskQCAreaAssignmentMappingView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -54,6 +54,7 @@ urlpatterns = [
     url('order-status-summary/', OrderStatusSummaryView.as_view(), name='order-status-summary'),
     url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),
     url('zone-wise-picker-summary/', ZoneWisePickerSummaryView.as_view(), name='zone-wise-picker-summary'),
+    url('putaway-type-search/', PutawayTypeIDSearchView.as_view(), name='putaway-type-search'),
     url('qc-executive/', QCExecutivesView.as_view(), name='qc-executive'),
     url('qc-desk/', QCDeskCrudView.as_view(), name='qc-desk'),
     url('qc-area-types/', QCAreaTypeListView.as_view(), name='qc-area-types'),

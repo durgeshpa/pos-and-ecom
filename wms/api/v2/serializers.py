@@ -1157,6 +1157,7 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     is_zone_supervisor = serializers.SerializerMethodField()
     is_zone_coordinator = serializers.SerializerMethodField()
     is_putaway_user = serializers.SerializerMethodField()
+    is_picker = serializers.SerializerMethodField()
     user_warehouse = serializers.SerializerMethodField()
 
     def get_is_warehouse_manager(self, obj):
@@ -1183,6 +1184,13 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
             return True
         return False
 
+    def get_is_picker(self, obj):
+        """Check if user is Picker"""
+        if obj.groups.filter(name='Picker Boy').exists():
+            return True
+        return False
+
+
     def get_user_warehouse(self, obj):
         """Get user's associated warehouse"""
         return WarehouseSerializer(obj.shop_employee.last().shop).data if obj.shop_employee.exists() else None
@@ -1190,7 +1198,7 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
-                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')
+                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker')
 
 
 class BinSerializer(serializers.ModelSerializer):
