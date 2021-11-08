@@ -684,7 +684,7 @@ class QCArea(BaseTimestampUserModel):
     area_type = models.CharField(max_length=50, choices=QC_AREA_TYPE_CHOICES)
     area_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     area_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
-    is_active = models.BooleanField()
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "QC Area"

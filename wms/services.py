@@ -146,6 +146,15 @@ def qc_desk_search(queryset, search_text):
     return queryset
 
 
+def qc_area_search(queryset, search_text):
+    '''
+    search using warehouse's shop_name & area_id & area_barcode_txt based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(warehouse__shop_name__icontains=search_text) | Q(area_id__icontains=search_text) |
+                               Q(area_barcode_txt__icontains=search_text))
+    return queryset
+
+
 def bin_search(queryset, search_text):
     '''
     search using warehouse shop_name & bin id & Zone mappings based on criteria that matches

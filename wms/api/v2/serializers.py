@@ -28,7 +28,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping, QCArea, QCDesk
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
     get_validate_qc_areas
 
@@ -1821,4 +1821,99 @@ class QCDeskCrudSerializers(serializers.ModelSerializer):
 
         QCDeskCommonFunction.update_qc_areas(qc_desk_instance, qc_areas)
         return qc_desk_instance
+
+
+class QCAreaCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = QCArea
+        fields = ('id', 'warehouse', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode', 'is_active',
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'area_type' in self.initial_data and self.initial_data['area_type']:
+            if self.initial_data['area_type'] not in QCArea.QC_AREA_TYPE_CHOICES:
+                return serializers.ValidationError("'area_type' | Invalid choice.")
+            data['area_type'] = self.initial_data['area_type']
+        else:
+            raise serializers.ValidationError("'area_type' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'is_active' in self.initial_data and self.initial_data['is_active']:
+            if self.initial_data['is_active'] not in [True, False]:
+                return serializers.ValidationError("'is_active' | Invalid choice.")
+            data['is_active'] = self.initial_data['is_active']
+        else:
+            data['is_active'] = True
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            qc_area_instance = QCArea.objects.filter(id=self.initial_data['id']).last()
+            if qc_area_instance.warehouse != warehouse:
+                raise serializers.ValidationError("Warehouse updation is not allowed.")
+
+            if qc_area_instance.area_type != self.initial_data['area_type']:
+                raise serializers.ValidationError("Area type updation is not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new QCArea with QC Areas"""
+        try:
+            qc_area_instance = QCArea.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return qc_area_instance
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update QCArea"""
+        try:
+            qc_area_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return qc_area_instance
+
+
+class QCDeskListSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'warehouse', 'desk_number', 'name', 'desk_enabled')
+
+
+class QCAreaListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = QCArea
+        fields = ('id', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode', 'is_active')
+
+
+class QCDeskQCAreaAssignmentMappingSerializers(serializers.ModelSerializer):
+    qc_desk = QCDeskListSerializers(read_only=True)
+    qc_area = QCAreaListSerializers(read_only=True)
+    alternate_area = QCAreaListSerializers(read_only=True)
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('id', 'qc_desk', 'qc_area', 'token_id', 'area_enabled', 'alternate_area', 'last_assigned_at',
+                  'created_at', 'updated_at')
 
