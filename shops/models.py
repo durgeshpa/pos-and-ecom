@@ -103,6 +103,7 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
+    dynamic_beat = models.BooleanField(default=False)
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
