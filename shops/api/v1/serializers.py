@@ -350,6 +350,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     productivity = serializers.SerializerMethodField()
     num_of_order = serializers.SerializerMethodField()
     order_amount = serializers.SerializerMethodField()
+    inactive_shop_mapped = serializers.SerializerMethodField()
 
     def get_executive_name(self, obj):
         """
@@ -375,7 +376,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
@@ -402,7 +403,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
@@ -436,7 +437,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
@@ -557,10 +558,38 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
 
         return total_amount
 
+    def get_inactive_shop_mapped(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: count of inactive shop map
+        """
+        # condition to check past day
+        previous_day_date = datetime.today() - timedelta(days=1)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=False)
+
+        if self._context['report'] is '1':
+            date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
+            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            week_end_date = previous_day_date - timedelta(7)
+            date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
+            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past month
+        else:
+            week_end_date = previous_day_date - timedelta(30)
+            date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
+            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        return inactive_shop_map_count
+
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount')
+        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
