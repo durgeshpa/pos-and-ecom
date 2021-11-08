@@ -329,6 +329,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
     margin = serializers.SerializerMethodField('margin_dt')
+    qty = serializers.SerializerMethodField('qty_dt')
 
     def m_cart_product(self, obj):
         self.context['qty'] = abs(obj.qty)
@@ -407,6 +408,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                 margin = (((float(product_mrp) - obj.item_effective_prices) / float(product_mrp)) * 100)
             return round(margin, 2)
         return False
+
+    def qty_dt(self, obj):
+        return abs(obj.qty)
 
     class Meta:
         model = CartProductMapping
