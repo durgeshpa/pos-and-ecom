@@ -985,6 +985,12 @@ class ShipmentReschedulingForm(forms.ModelForm):
             )
         }
 
+    def clean_rescheduling_date(self):
+        date = self.cleaned_data['rescheduling_date']
+        if date > (datetime.date.today() + datetime.timedelta(days=3)):
+            raise forms.ValidationError("The date must be within 3 days!")
+        return date
+
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)

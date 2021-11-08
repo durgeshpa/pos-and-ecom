@@ -32,10 +32,11 @@ from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
-                                  update_shipment_status_verified, reshedule_update_shipment, RetailerCart, assign_picker,
+                                  update_shipment_status_verified, reshedule_update_shipment, RetailerCart,
+                                  assign_picker,
                                   assign_picker_change, UserWithNameAutocomplete, SellerAutocomplete,
                                   ShipmentOrdersAutocomplete, BuyerShopAutocomplete, BuyerParentShopAutocomplete,
-                                  DownloadPickList, DownloadPickListPicker)
+                                  DownloadPickList, DownloadPickListPicker, not_attempt_update_shipment)
 from sp_to_gram.models import (
     OrderedProductMapping as SpMappedOrderedProductMapping,
 )
@@ -1356,6 +1357,11 @@ class OrderedProductAdmin(NestedModelAdmin):
             [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
             reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
                                       formsets_dict['ShipmentReschedulingFormFormSet'])
+
+        elif (not form_instance.not_attempt_shipment.exists()) and ('ShipmentNotAttemptFormFormSet' in formsets_dict and
+            [i for i in formsets_dict['ShipmentNotAttemptFormFormSet'].cleaned_data if i]):
+            not_attempt_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
+                                      formsets_dict['ShipmentNotAttemptFormFormSet'])
 
         elif form_instance.shipment_status in complete_shipment_status:
             update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])

@@ -1482,6 +1482,7 @@ class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
+    NOT_ATTEMPT = "NOT_ATTEMPT"
     DELIVERED = "DELIVERED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
@@ -1500,6 +1501,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
+        (NOT_ATTEMPT, 'Not Attempt'),
         (DELIVERED, 'Delivered')
     )
 
@@ -3065,7 +3067,7 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
     if 'COMPLETED' in instance.shipment_status:
         instance.order.order_status = Order.COMPLETED
         instance.order.save()
-    if instance.shipment_status == OrderedProduct.RESCHEDULED:
+    if instance.shipment_status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
         update_full_part_order_status(instance)
 
 
