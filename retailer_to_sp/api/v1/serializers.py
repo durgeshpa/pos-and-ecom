@@ -13,7 +13,7 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
-                                   Trip, PickerDashboard, ShipmentRescheduling)
+                                   Trip, PickerDashboard, ShipmentRescheduling, ShipmentNotAttempt)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -1368,10 +1368,18 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
                   'trip_details')
 
+
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentRescheduling
         fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+
+class ShipmentNotAttemptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentNotAttempt
+        fields = ('shipment', 'not_attempt_reason',)
+
 
 class ShipmentReturnSerializer(serializers.ModelSerializer):
     class Meta:

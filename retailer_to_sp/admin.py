@@ -1361,7 +1361,7 @@ class OrderedProductAdmin(NestedModelAdmin):
         elif (not form_instance.not_attempt_shipment.exists()) and ('ShipmentNotAttemptFormFormSet' in formsets_dict and
             [i for i in formsets_dict['ShipmentNotAttemptFormFormSet'].cleaned_data if i]):
             not_attempt_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
-                                      formsets_dict['ShipmentNotAttemptFormFormSet'])
+                                        formsets_dict['ShipmentNotAttemptFormFormSet'])
 
         elif form_instance.shipment_status in complete_shipment_status:
             update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
