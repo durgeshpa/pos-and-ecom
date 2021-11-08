@@ -144,7 +144,7 @@ class ShopForm(forms.ModelForm):
     )
 
     shop_location = forms.CharField(
-        max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'placeholder': 'Enter Location to Search'})
+        max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'size':50,'placeholder': 'Enter Location to Search'})
     )
 
     class Meta:
