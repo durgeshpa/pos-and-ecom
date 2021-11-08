@@ -1917,3 +1917,28 @@ class QCDeskQCAreaAssignmentMappingSerializers(serializers.ModelSerializer):
         fields = ('id', 'qc_desk', 'qc_area', 'token_id', 'area_enabled', 'alternate_area', 'last_assigned_at',
                   'created_at', 'updated_at')
 
+
+class QCDeskQCAreaAssignmentMappingListingSerializer(serializers.ModelSerializer):
+    qc_area = QCAreaListSerializers(read_only=True)
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('qc_area', 'token_id', 'last_assigned_at')
+
+
+class QCDeskHelperDashboardSerializer(serializers.ModelSerializer):
+    qc_desk = serializers.SerializerMethodField()
+    qc_areas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('qc_desk', 'qc_areas')
+
+    def get_qc_desk(self, obj):
+        return QCDeskListSerializers(QCDesk.objects.get(id=obj['qc_desk']), read_only=True).data
+
+    def get_qc_areas(self, obj):
+        data_set = QCDeskQCAreaAssignmentMapping.objects.filter(
+            qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False)
+        return QCDeskQCAreaAssignmentMappingListingSerializer(data_set, read_only=True, many=True).data
+

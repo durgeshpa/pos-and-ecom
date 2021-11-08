@@ -25,7 +25,7 @@ from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefaul
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
-    picker_dashboard_search, get_logged_user_wise_query_set_for_picker
+    picker_dashboard_search, get_logged_user_wise_query_set_for_picker, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request
@@ -46,7 +46,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
-    QCDeskQCAreaAssignmentMappingSerializers
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2423,3 +2423,47 @@ class QCAreaTypeListView(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in QCArea.QC_AREA_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
+
+
+class QCDeskHelperDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True)
+    serializer_class = QCDeskHelperDashboardSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QC Desk Helper Dashboard """
+        info_logger.info("QC Desk Helper Dashboard GET api called.")
+        """ GET QC Desk Helper Dashboard List """
+
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
+        self.queryset = self.filter_qc_desk_helper_dashboard_data()
+
+        qc_desk_helper_dashboard_data = self.queryset.values('qc_desk').distinct()
+
+        serializer = self.serializer_class(qc_desk_helper_dashboard_data, many=True)
+        msg = "" if qc_desk_helper_dashboard_data else "no entry found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_qc_desk_helper_dashboard_data(self):
+        qc_desk_id = self.request.GET.get('qc_desk_id')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area_id = self.request.GET.get('qc_area_id')
+        qc_area = self.request.GET.get('qc_area')
+
+        '''Filters using qc_desk, qc_area'''
+        if qc_desk_id:
+            self.queryset = self.queryset.filter(qc_desk__id=qc_desk_id)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(qc_desk__desk_number=qc_desk)
+
+        if qc_area_id:
+            self.queryset = self.queryset.filter(qc_area__id=qc_area_id)
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id=qc_area)
+
+        return self.queryset
