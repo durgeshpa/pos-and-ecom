@@ -331,7 +331,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     margin = serializers.SerializerMethodField('margin_dt')
 
     def m_cart_product(self, obj):
-        self.context['qty'] = obj.qty
+        self.context['qty'] = abs(obj.qty)
         serializer = ProductsSearchSerializer(obj.cart_product, context=self.context)
         return serializer.data
 
