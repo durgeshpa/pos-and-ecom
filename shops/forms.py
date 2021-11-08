@@ -143,12 +143,16 @@ class ShopForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
     )
 
+    shop_location = forms.CharField(
+        max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'placeholder': 'Enter Location to Search'})
+    )
+
     class Meta:
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
-            'pos_enabled', 'online_inventory_enabled', 'latitude', 'longitude')
+            'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
 
     @classmethod
     def get_shop_type(cls, data):
