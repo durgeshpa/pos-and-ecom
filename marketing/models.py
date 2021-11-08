@@ -152,7 +152,7 @@ class RewardPoint(models.Model):
         except ObjectDoesNotExist:
             on_referral_points = 10
         # Half points if user is not referred
-        points = on_referral_points if referred else on_referral_points
+        points = on_referral_points if referred else int(on_referral_points)
         # Create Reward Point And Log
         with transaction.atomic():
             reward_obj, created = RewardPoint.objects.get_or_create(reward_user=user)
