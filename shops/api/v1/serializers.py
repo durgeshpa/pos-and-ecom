@@ -569,13 +569,15 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
+    latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
+    longitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
 
     class Meta:
         """
         Applied executive feedback create meta class
         """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at')
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at', 'latitude', 'longitude')
 
     def create(self, validated_data):
         """
@@ -589,7 +591,9 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         if executive_feedback.exists():
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
-                                      feedback_date=validated_data['feedback_date'])
+                                      feedback_date=validated_data['feedback_date'],
+                                      latitude=validated_data['latitude'],
+                                      longitude=validated_data['longitude'])
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
