@@ -34,7 +34,8 @@ from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePut
     QCDeskQCAreaAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
-    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search
+    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search, \
+    check_whc_manager_coordinator_supervisor_qc_executive
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -2431,8 +2432,7 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
     queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True)
     serializer_class = QCDeskHelperDashboardSerializer
 
-    @check_whc_manager_coordinator_supervisor_picker
-    @check_qc_executive
+    @check_whc_manager_coordinator_supervisor_qc_executive
     def get(self, request):
         """ GET API for QC Desk Helper Dashboard """
         info_logger.info("QC Desk Helper Dashboard GET api called.")
