@@ -336,7 +336,7 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = DayBeatPlanning
         fields = ('day_beat_plan', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
-                  'shop', 'feedback')
+                  'shop', 'feedback', 'is_active')
 
 
 class ExecutiveReportSerializer(serializers.ModelSerializer):

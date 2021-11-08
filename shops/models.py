@@ -645,7 +645,7 @@ class DayBeatPlanning(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_id', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
+    is_active = models.BooleanField(default=True)
 
 class ExecutiveFeedback(models.Model):
     """
