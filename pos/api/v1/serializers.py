@@ -275,6 +275,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     measurement_category = serializers.SerializerMethodField()
     product_pack_type = serializers.CharField(source='get_product_pack_type_display')
     image = serializers.SerializerMethodField()
+    current_stock = serializers.SerializerMethodField()
 
     @staticmethod
     def get_default_measurement_unit(obj):
@@ -308,10 +309,16 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
             image = retailer_object.image.url
         return image
 
+    @staticmethod
+    def get_current_stock(obj):
+        current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
+        PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
+        return current_stock
+
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
