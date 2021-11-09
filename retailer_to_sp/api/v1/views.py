@@ -6235,8 +6235,9 @@ class NotAttemptReason(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        if ShipmentNotAttempt.objects.filter(shipment=request.data.get('shipment')).exists():
-            msg = {'is_success': False, 'message': ['A shipment cannot be mark not attempt more than once.'],
+        if ShipmentNotAttempt.objects.filter(shipment=request.data.get('shipment'),
+                                             created_at__date=datetime.now().date()).exists():
+            msg = {'is_success': False, 'message': ['A shipment cannot be mark not attempt more than once in a day.'],
                    'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)

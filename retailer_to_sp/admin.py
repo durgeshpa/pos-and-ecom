@@ -1258,7 +1258,19 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
     form = ShipmentNotAttemptForm
     fields = ['not_attempt_reason', 'created_at', 'created_by']
     readonly_fields = ['created_at', 'created_by']
-    extra = 1
+
+    def add_view(self, request, object_id, form_url='', extra_context=None):
+        self.inlines = []
+
+        try:
+            obj = self.model.objects.get(pk=object_id)
+            if not ShipmentNotAttempt.objects.filter(
+                    shipment=obj.shipment, created_at__date=datetime.now().date()).exists():
+                self.extra = 1
+        except self.model.DoesNotExist:
+            pass
+
+        return super(ShipmentNotAttemptAdminNested, self).add_view(request, object_id, form_url, extra_context)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -1373,6 +1385,18 @@ class OrderedProductAdmin(NestedModelAdmin):
         # )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        ShipmentNotAttemptAdminNested.extra = 0
+        try:
+            obj = self.model.objects.get(pk=object_id)
+            if not ShipmentNotAttempt.objects.filter(
+                    shipment_id=obj.id, created_at__date=datetime.date.today()).exists():
+                ShipmentNotAttemptAdminNested.extra = 1
+        except self.model.DoesNotExist:
+            pass
+
+        return super(OrderedProductAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
