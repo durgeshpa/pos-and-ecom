@@ -298,15 +298,17 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
                 linked_product = obj.linked_product.product_pro_image.all()
                 if linked_product:
                     image = linked_product[0].image.url
+                    return image
                 else:
                     parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
                     if parent_product:
                         image = parent_product[0].image.url
+                        return image
             else:
                 return None
         else:
             image = retailer_object.image.url
-        return image
+            return image
 
     class Meta:
         model = RetailerProduct
