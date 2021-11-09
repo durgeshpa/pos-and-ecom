@@ -12,6 +12,7 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
 from rangefilter.filter import DateRangeFilter
 from dal_admin_filters import AutocompleteFilter
+from rangefilter.filter import DateTimeRangeFilter
 
 from accounts.middlewares import get_current_user
 
@@ -386,9 +387,10 @@ class OrderedProductMappingInline(admin.TabularInline):
 class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
-    list_per_page = 10
+    list_per_page = 50
     list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
+    list_filter = [('created_at', DateTimeRangeFilter)]
 
     fieldsets = (
         (_('Shop Details'), {
