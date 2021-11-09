@@ -1399,3 +1399,18 @@ class ShopSpecificationView(APIView):
         Shop.objects.filter(id=kwargs['shop'].id).update(online_inventory_enabled=enable_online_inventory)
         msg = "Enabled Online Inventory Check" if enable_online_inventory else "Disabled Online Inventory Check"
         return api_response(msg, None, status.HTTP_200_OK, True)
+
+
+class StockUpdateReasonListView(GenericAPIView):
+    """
+        Get Stock Update Reason List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for Stock update reason """
+
+        fields = ['key', 'value', ]
+        data = [dict(zip(fields, d)) for d in PosInventoryChange.REMARKS_CHOICES]
+        return api_response("", data, status.HTTP_200_OK, True)
+

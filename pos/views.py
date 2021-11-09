@@ -722,3 +722,4 @@ def stock_update(request, data):
                                                 row.get('reason_for_update'))
             except Exception as e:
                 info_logger.info(f"Exception|POS|stock_update|product id {row.get('product_id')}, e {e}")
+
