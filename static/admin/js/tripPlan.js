@@ -84,7 +84,7 @@ function SubmitFormConfirmDialog(){
 
 function GetURL() {
   var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') + '/';
-  var url = host + 'admin/retailer_to_sp/cart/ -dispatches/';
+  var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
   return url;
 }
 
