@@ -3007,6 +3007,9 @@ class OrderCentral(APIView):
             address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
         except:
             return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
         try:
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
         except ObjectDoesNotExist:
