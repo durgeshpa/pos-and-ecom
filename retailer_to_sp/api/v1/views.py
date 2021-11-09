@@ -453,7 +453,7 @@ class SearchProducts(APIView):
 
     def process_rp(self, output_type, body, shop_id, app_type=None):
         """
-            Modify Es results for response based on output_type - Raw OR Processed
+        Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
@@ -1850,6 +1850,7 @@ class CartCheckout(APIView):
         initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
+
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
@@ -2976,6 +2977,8 @@ class OrderCentral(APIView):
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            elif 'api_response' in initial_validation:
+                return initial_validation['api_response']
             cart = initial_validation['cart']
             payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
@@ -3013,6 +3016,16 @@ class OrderCentral(APIView):
             payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
         except:
             return api_response("Invalid Payment Method")
+
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+        if order_config.value is not None:
+            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+            if order_count >= order_config.value:
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
 
         # check inventory
         cart_products = cart.rt_cart_list.all()
@@ -3150,9 +3163,9 @@ class OrderCentral(APIView):
         # check for product is_deleted
         deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
         if deleted_product:
-            return {'error': 'Few items in your cart are not available.'}
-            # return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
-            #                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+            # return {'error': 'Few items in your cart are not available.'}
+            return {'api_response': api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})}
 
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):

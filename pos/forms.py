@@ -176,7 +176,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
                 raise ValidationError(_(f"Row {row_num} | Invalid product_pack_type. Options are 'packet' or 'loose'"))
-            if row['product_pack_type'] == 'loose':
+            if row['product_pack_type'].lower() == 'loose':
                 self.check_mandatory_data(row, 'measurement_category', row_num)
                 try:
                     measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])

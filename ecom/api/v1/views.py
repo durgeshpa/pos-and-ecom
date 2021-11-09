@@ -62,7 +62,8 @@ class ShopView(APIView):
         """
         if not int(self.request.GET.get('from_location', '0')):
             # Get shop from latest order
-            order = Order.objects.filter(buyer=self.request.user, ordered_cart__cart_type__in=['BASIC', 'ECOM']).last()
+            order = Order.objects.filter(buyer=self.request.user,
+                                         ordered_cart__cart_type__in=['BASIC', 'ECOM']).order_by('id').last()
             if order:
                 return self.serialize(order.seller_shop)
 
@@ -212,7 +213,7 @@ class TagProductView(APIView):
         except:
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop)
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False)
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
