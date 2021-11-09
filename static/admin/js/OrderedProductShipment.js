@@ -96,7 +96,7 @@
                 $("select[id$='rescheduling_reason']").val('');
                 $("input[id$='returned_qty']").prop("readonly", false);
                 $("input[id$='damaged_qty']").prop("readonly", false);
-                $("select[id$='return_reason']").attr("disabled", false);
+                $("select[id$='id_return_reason']").attr("disabled", false);
                 $("select[id$='not_attempt_reason']").attr("disabled", false);
 
               }
