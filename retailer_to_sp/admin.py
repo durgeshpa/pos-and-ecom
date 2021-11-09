@@ -1256,8 +1256,9 @@ class ShipmentReschedulingAdmin(admin.ModelAdmin):
 class ShipmentNotAttemptAdminNested(NestedTabularInline):
     model = ShipmentNotAttempt
     form = ShipmentNotAttemptForm
-    fields = ['not_attempt_reason', ]
-    max_num = 1
+    fields = ['not_attempt_reason', 'created_at', 'created_by']
+    readonly_fields = ['created_at', 'created_by']
+    extra = 1
 
     def has_delete_permission(self, request, obj=None):
         return False
