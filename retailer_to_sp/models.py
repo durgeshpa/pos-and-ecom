@@ -1483,9 +1483,13 @@ class OrderedProduct(models.Model):  # Shipment
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
     DELIVERED = "DELIVERED"
+    PARTIALLY_QC_PASSED = "PARTIALLY_QC_PASSED"
+    QC_REJECTED = "QC_REJECTED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
+        (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
+        (QC_REJECTED, 'QC Rejected'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
@@ -1580,6 +1584,8 @@ class OrderedProduct(models.Model):  # Shipment
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="No. Of Sacks Collected")
     is_customer_notified = models.BooleanField(default=False)
+    qc_area = models.ForeignKey(QCArea, related_name='qc_area_shipment', null=True, blank=True,
+                                on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)

@@ -25,7 +25,8 @@ from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefaul
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
-    picker_dashboard_search, get_logged_user_wise_query_set_for_picker
+    picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
+    get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request
@@ -34,7 +35,8 @@ from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePut
     QCDeskQCAreaAssignmentMapping
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
-    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search
+    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search, \
+    check_whc_manager_coordinator_supervisor_qc_executive
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -46,7 +48,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
-    QCDeskQCAreaAssignmentMappingSerializers
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2423,3 +2425,70 @@ class QCAreaTypeListView(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in QCArea.QC_AREA_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
+
+
+class QCDeskHelperDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True)
+    serializer_class = QCDeskHelperDashboardSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for QC Desk Helper Dashboard """
+        info_logger.info("QC Desk Helper Dashboard GET api called.")
+        """ GET QC Desk Helper Dashboard List """
+
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
+        self.queryset = self.filter_qc_desk_helper_dashboard_data()
+
+        qc_desk_helper_dashboard_data = self.queryset.values('qc_desk').distinct()
+
+        serializer = self.serializer_class(qc_desk_helper_dashboard_data, many=True)
+        msg = "" if qc_desk_helper_dashboard_data else "no entry found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_qc_desk_helper_dashboard_data(self):
+        qc_desk_id = self.request.GET.get('qc_desk_id')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area_id = self.request.GET.get('qc_area_id')
+        qc_area = self.request.GET.get('qc_area')
+
+        '''Filters using qc_desk, qc_area'''
+        if qc_desk_id:
+            self.queryset = self.queryset.filter(qc_desk__id=qc_desk_id)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(qc_desk__desk_number=qc_desk)
+
+        if qc_area_id:
+            self.queryset = self.queryset.filter(qc_area__id=qc_area_id)
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id=qc_area)
+
+        return self.queryset
+
+
+class QCJobsDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects.filter(desk_enabled=True)
+    serializer_class = QCJobsDashboardSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for QC Jobs Dashboard """
+        info_logger.info("QC Jobs Dashboard GET api called.")
+        """ GET QC Jobs Dashboard List """
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
+        self.queryset = self.filter_qc_jobs_dashboard_data()
+
+        qc_jobs_data = self.queryset
+
+        serializer = self.serializer_class(qc_jobs_data, many=True)
+        msg = "" if qc_jobs_data else "no qc job found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_qc_jobs_dashboard_data(self):
+        return self.queryset

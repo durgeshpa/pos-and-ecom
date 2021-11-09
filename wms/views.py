@@ -2858,6 +2858,7 @@ def auto_qc_area_assignment_to_order(order_no=None):
             info_logger.info(desk_area_obj.qc_area)
             desk_area_obj.last_assigned_at = datetime.now()
             desk_area_obj.token_id = order.order_no
+            desk_area_obj.qc_done = False
             desk_area_obj.save()
             order.picker_order.update(qc_area=desk_area_obj.qc_area)
             order.save()

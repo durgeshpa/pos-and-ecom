@@ -1163,12 +1163,12 @@ class QCDeskAdmin(admin.ModelAdmin):
 
 class QCDeskQCAreaAssignmentMappingAdmin(admin.ModelAdmin):
     form = QCDeskQCAreaAssignmentMappingForm
-    list_display = ('qc_desk', 'qc_area', 'token_id', 'last_assigned_at',
+    list_display = ('qc_desk', 'qc_area', 'token_id', 'qc_done', 'last_assigned_at',
                     'desk_enabled', 'area_enabled', 'alternate_area')
     list_filter = [QCDeskAutocomplete, QCAreaAutocomplete]
     list_per_page = 50
     ordering = ('-qc_desk',)
-    readonly_fields = ('qc_desk', 'qc_area', 'token_id', 'last_assigned_at',)
+    readonly_fields = ('qc_desk', 'qc_area', 'token_id', 'qc_done', 'last_assigned_at',)
 
     def desk_enabled(self, obj):
         if obj.qc_desk:
