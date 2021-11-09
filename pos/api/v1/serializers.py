@@ -275,6 +275,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     measurement_category = serializers.SerializerMethodField()
     product_pack_type = serializers.CharField(source='get_product_pack_type_display')
     image = serializers.SerializerMethodField()
+    current_stock = serializers.SerializerMethodField()
 
     @staticmethod
     def get_default_measurement_unit(obj):
@@ -294,21 +295,30 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     def get_image(obj):
         retailer_object = obj.retailer_product_image.last()
         if retailer_object is None:
-            linked_product = obj.linked_product.product_pro_image.all()
-            if linked_product:
-                image = linked_product[0].image.url
+            if obj.linked_product:
+                linked_product = obj.linked_product.product_pro_image.all()
+                if linked_product:
+                    image = linked_product[0].image.url
+                else:
+                    parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
+                    if parent_product:
+                        image = parent_product[0].image.url
             else:
-                parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
-                if parent_product:
-                    image = parent_product[0].image.url
+                return None
         else:
             image = retailer_object.image.url
         return image
 
+    @staticmethod
+    def get_current_stock(obj):
+        current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
+        PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
+        return current_stock
+
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):

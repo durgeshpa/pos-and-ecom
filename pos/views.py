@@ -101,6 +101,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
             else:
                 row['is_deleted'] = True
 
+            if str(row['product_pack_type']).lower() == 'loose':
+                purchase_pack_size = 1
+            else:
+                purchase_pack_size = int(row.get('purchase_pack_size')) if row.get('purchase_pack_size') else 1
+
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
             online_enabled, online_price, is_visible = row.get('product_name'), row.get('product_ean_code'), row.get('mrp'), \
                                            row.get('selling_price'), None, None, None, None, \
@@ -127,7 +132,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                        measure_cat_id, None,
                                                                        row.get('status'), offer_price, offer_sd,
                                                                        offer_ed, None, online_enabled, online_price,
-                                                                       row.get('purchase_pack_size', 1), is_visible)
+                                                                       purchase_pack_size, is_visible)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
@@ -136,7 +141,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                measure_cat_id, None, row.get('status'),
                                                                offer_price, offer_sd, offer_ed, None,
                                                                online_enabled, online_price,
-                                                               row.get('purchase_pack_size', 1), is_visible)
+                                                               purchase_pack_size, is_visible)
                 # Add Inventory
                 PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
                                                 round(Decimal(row.get('quantity')), 3), request.user,
@@ -161,6 +166,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 else:
                     row['online_price'] = None
 
+                if row['purchase_pack_size']:
+                    if str(row['product_pack_type']).lower() == 'loose':
+                        purchase_pack_size = 1
+                    else:
+                        purchase_pack_size = int(row.get('purchase_pack_size'))
                 try:
                     product = RetailerProduct.objects.get(id=row.get('product_id'))
                     old_product = deepcopy(product)
@@ -189,6 +199,12 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                         product.online_enabled = row['online_enabled']
                     if product.online_price != row['online_price']:
                         product.online_price = row['online_price']
+
+                    if product.description != row.get('description'):
+                        product.description = row.get('description')
+
+                    if product.purchase_pack_size != purchase_pack_size:
+                        product.purchase_pack_size = purchase_pack_size
 
                     product.save()
 
