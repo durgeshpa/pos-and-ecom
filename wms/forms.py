@@ -1536,7 +1536,7 @@ class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):
 
     class Meta:
         model = QCDeskQCAreaAssignmentMapping
-        fields = ['qc_desk', 'qc_area', 'token_id', 'last_assigned_at', 'area_enabled', 'alternate_area']
+        fields = ['qc_desk', 'qc_area', 'token_id', 'last_assigned_at', 'area_enabled', 'qc_done', 'alternate_area']
 
     def clean_alternate_area(self):
         if self.cleaned_data['area_enabled']:

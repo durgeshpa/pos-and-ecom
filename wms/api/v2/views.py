@@ -25,7 +25,8 @@ from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefaul
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
-    picker_dashboard_search, get_logged_user_wise_query_set_for_picker, get_logged_user_wise_query_set_for_qc_desk
+    picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
+    get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request
@@ -47,7 +48,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
-    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2438,7 +2439,7 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
         info_logger.info("QC Desk Helper Dashboard GET api called.")
         """ GET QC Desk Helper Dashboard List """
 
-        self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
         self.queryset = self.filter_qc_desk_helper_dashboard_data()
 
         qc_desk_helper_dashboard_data = self.queryset.values('qc_desk').distinct()
@@ -2466,4 +2467,28 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
         if qc_area:
             self.queryset = self.queryset.filter(qc_area__area_id=qc_area)
 
+        return self.queryset
+
+
+class QCJobsDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects.filter(desk_enabled=True)
+    serializer_class = QCJobsDashboardSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for QC Jobs Dashboard """
+        info_logger.info("QC Jobs Dashboard GET api called.")
+        """ GET QC Jobs Dashboard List """
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
+        self.queryset = self.filter_qc_jobs_dashboard_data()
+
+        qc_jobs_data = self.queryset
+
+        serializer = self.serializer_class(qc_jobs_data, many=True)
+        msg = "" if qc_jobs_data else "no qc job found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_qc_jobs_dashboard_data(self):
         return self.queryset

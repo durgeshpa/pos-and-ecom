@@ -744,6 +744,7 @@ class QCDeskQCAreaAssignmentMapping(BaseTimestampModel):
     qc_area = models.ForeignKey(QCArea, related_name='qc_area_assigned_desks', on_delete=models.DO_NOTHING)
     token_id = models.CharField(max_length=30, null=True, blank=True)
     area_enabled = models.BooleanField(default=True)
+    qc_done = models.BooleanField(default=False)
     alternate_area = models.ForeignKey(QCArea, null=True, blank=True, on_delete=models.DO_NOTHING)
     last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
 

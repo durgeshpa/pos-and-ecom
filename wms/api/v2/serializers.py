@@ -1914,8 +1914,8 @@ class QCDeskQCAreaAssignmentMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = QCDeskQCAreaAssignmentMapping
-        fields = ('id', 'qc_desk', 'qc_area', 'token_id', 'area_enabled', 'alternate_area', 'last_assigned_at',
-                  'created_at', 'updated_at')
+        fields = ('id', 'qc_desk', 'qc_area', 'token_id', 'qc_done', 'area_enabled', 'alternate_area',
+                  'last_assigned_at', 'created_at', 'updated_at')
 
 
 class QCDeskQCAreaAssignmentMappingListingSerializer(serializers.ModelSerializer):
@@ -1939,6 +1939,44 @@ class QCDeskHelperDashboardSerializer(serializers.ModelSerializer):
 
     def get_qc_areas(self, obj):
         data_set = QCDeskQCAreaAssignmentMapping.objects.filter(
-            qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False)
+            qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False, qc_done=False)\
+            .order_by('last_assigned_at')
         return QCDeskQCAreaAssignmentMappingListingSerializer(data_set, read_only=True, many=True).data
+
+
+class QCJobsDashboardCountsSerializer(serializers.Serializer):
+    shipments = serializers.SerializerMethodField()
+    pending = serializers.SerializerMethodField()
+    qc_pass = serializers.SerializerMethodField()
+    partial_qc_pass = serializers.SerializerMethodField()
+    rejected = serializers.SerializerMethodField()
+
+    def get_shipments(self, obj):
+        return 0
+
+    def get_pending(self, obj):
+        return QCDeskQCAreaAssignmentMapping.objects.filter(qc_area__id__in=list(obj), qc_done=False).count()
+
+    def get_qc_pass(self, obj):
+        return 0
+
+    def get_partial_qc_pass(self, obj):
+        return 0
+
+    def get_rejected(self, obj):
+        return 0
+
+
+class QCJobsDashboardSerializer(serializers.Serializer):
+    qc_desk = serializers.SerializerMethodField()
+    counts = serializers.SerializerMethodField()
+
+    def get_qc_desk(self, obj):
+        return QCDeskListSerializers(obj, read_only=True).data
+
+    def get_counts(self, obj):
+        qc_areas = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=obj, area_enabled=True).\
+            values_list('qc_area', flat=True)
+        return QCJobsDashboardCountsSerializer(qc_areas, read_only=True).data
+
 

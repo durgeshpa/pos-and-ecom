@@ -2537,9 +2537,9 @@ def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
     return queryset
 
 
-def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
+def get_logged_user_wise_query_set_for_qc_desk_mapping(user, queryset):
     '''
-        GET Logged-in user wise queryset for picker dashboard based on criteria that matches
+        GET Logged-in user wise queryset for qc desk mapping based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
         queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
@@ -2549,4 +2549,19 @@ def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
         queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_desk__qc_executive=user)
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
+    '''
+        GET Logged-in user wise queryset for qc desk based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_executive=user)
     return queryset
