@@ -665,6 +665,7 @@ class PosInventoryChange(models.Model):
         (GRN_UPDATE, 'GRN Update'),
         (SHIPPED, 'Shipped')
     )
+    REMARKS_CHOICES = Choices(('STOCK_UPDATE', 'Stock Update'), ('OTHER', 'Other'))
     product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=3)
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
@@ -673,6 +674,7 @@ class PosInventoryChange(models.Model):
     final_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_final_state', on_delete=models.DO_NOTHING)
     initial_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
     final_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
+    remarks = models.CharField(max_length=100, null=True)
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

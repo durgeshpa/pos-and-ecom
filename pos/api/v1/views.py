@@ -135,6 +135,7 @@ class PosProductView(GenericAPIView):
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
             ean_not_available = data['ean_not_available']
+            remarks=data['reason_for_update']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
@@ -164,7 +165,7 @@ class PosProductView(GenericAPIView):
                     # Update Inventory
                     PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                     PosInventoryState.AVAILABLE, stock_qty, self.request.user,
-                                                    product.sku, PosInventoryChange.STOCK_UPDATE)
+                                                    product.sku, PosInventoryChange.STOCK_UPDATE, remarks)
                 # Change logs
                 ProductChangeLogs.product_update(product, old_product, self.request.user, 'product', product.sku)
                 serializer = RetailerProductResponseSerializer(product)
@@ -200,7 +201,7 @@ class PosProductView(GenericAPIView):
 
                     PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
                                                     PosInventoryState.AVAILABLE, discounted_stock, self.request.user,
-                                                    discounted_product.sku, tr_type)
+                                                    discounted_product.sku, tr_type, remarks)
                 return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
@@ -1398,3 +1399,18 @@ class ShopSpecificationView(APIView):
         Shop.objects.filter(id=kwargs['shop'].id).update(online_inventory_enabled=enable_online_inventory)
         msg = "Enabled Online Inventory Check" if enable_online_inventory else "Disabled Online Inventory Check"
         return api_response(msg, None, status.HTTP_200_OK, True)
+
+
+class StockUpdateReasonListView(GenericAPIView):
+    """
+        Get Stock Update Reason List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for Stock update reason """
+
+        fields = ['key', 'value', ]
+        data = [dict(zip(fields, d)) for d in PosInventoryChange.REMARKS_CHOICES]
+        return api_response("", data, status.HTTP_200_OK, True)
+
