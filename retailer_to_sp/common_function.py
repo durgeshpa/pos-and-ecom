@@ -1,14 +1,10 @@
 import datetime
 import json
-
 from django.core.exceptions import ObjectDoesNotExist
-
 from shops.models import ParentRetailerMapping
-
-today = datetime.datetime.today()
 from global_config.views import get_config
 
-
+today = datetime.datetime.today()
 
 def getShopMapping(shop_id):
     try:

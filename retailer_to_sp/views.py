@@ -10,7 +10,7 @@ from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
 from django.core.files.base import ContentFile
-from django.forms import formset_factory, modelformset_factory, BaseFormSet, ValidationError
+from django.forms import formset_factory, modelformset_factory, BaseFormSet
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q, F
 from django.db import transaction
@@ -30,15 +30,13 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
-                                   check_franchise_inventory_update)
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     TripForm, DispatchForm, AssignPickerForm, )
 from django.views.generic import TemplateView
 from django.contrib import messages
-from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp, ParentRetailerMapping
 from retailer_to_sp.api.v1.serializers import (
@@ -55,13 +53,14 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-from wms.common_functions import cancel_order, cancel_order_with_pick
+from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 
 logger = logging.getLogger('django')
+info_logger = logging.getLogger('file-info')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -1839,3 +1838,41 @@ def create_franchise_po(request, pk):
     except:
         return JsonResponse(
             {'response': "<div class='create-po-resp'><span style='color:crimson;'>Some Error Occurred</span></div>"})
+
+
+@receiver(post_save, sender=Order)
+def create_shipment(sender, instance=None, created=False, **kwargs):
+	if instance.order_status == Order.MOVED_TO_QC:
+		create_order_shipment(instance)
+
+@transaction.atomic
+def create_order_shipment(order_instance):
+    info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
+    shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
+    shipment.save()
+    products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
+        .prefetch_related('sku', 'bin_inventory','bin_inventory__bin__bin')
+    for p in products_picked:
+        ordered_product_mapping = OrderedProductMapping.objects.create(ordered_product=shipment,
+                                                                       product_id=p.sku.id, shipped_qty=p.pickup_quantity,
+                                                                       picked_pieces=p.pickup_quantity)
+
+        for i in p.bin_inventory.all():
+            shipment_product_batch = OrderedProductBatch.objects.create(
+                batch_id=i.batch_id,
+                bin_ids=i.bin.bin.bin_id,
+                pickup_inventory=i,
+                ordered_product_mapping=ordered_product_mapping,
+                pickup=i.pickup,
+                bin=i.bin,  # redundant
+                quantity=i.pickup_quantity,
+                pickup_quantity=i.pickup_quantity,
+                expiry_date=get_expiry_date(i.batch_id),
+                delivered_qty=ordered_product_mapping.delivered_qty,
+                ordered_pieces=i.quantity
+            )
+            i.shipment_batch = shipment_product_batch
+            i.save()
+    info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
+
+
