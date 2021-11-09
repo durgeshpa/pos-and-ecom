@@ -6268,7 +6268,7 @@ class NotAttemptReason(generics.ListCreateAPIView):
 
 def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
-                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
         Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())

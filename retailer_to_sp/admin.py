@@ -1218,7 +1218,8 @@ class ShipmentNotAttemptAdmin(admin.ModelAdmin):
     model = ShipmentNotAttempt
     list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_by')
     list_per_page = 20
-    search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no', 'trip__dispatch_no')
+    search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no',
+                     'trip__dispatch_no')
 
     def order(self, obj):
         return obj.shipment.order
@@ -1259,19 +1260,6 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
     fields = ['not_attempt_reason', 'created_at', 'created_by']
     readonly_fields = ['created_at', 'created_by']
 
-    def add_view(self, request, object_id, form_url='', extra_context=None):
-        self.inlines = []
-
-        try:
-            obj = self.model.objects.get(pk=object_id)
-            if not ShipmentNotAttempt.objects.filter(
-                    shipment=obj.shipment, created_at__date=datetime.now().date()).exists():
-                self.extra = 1
-        except self.model.DoesNotExist:
-            pass
-
-        return super(ShipmentNotAttemptAdminNested, self).add_view(request, object_id, form_url, extra_context)
-
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1282,9 +1270,9 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
 class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     model = OrderedProductMapping
-    fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
+    fields = ['product', 'ordered_qty','expiry_date', 'shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
-    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
+    readonly_fields = ['ordered_qty', 'expiry_date', 'product', 'gf_code',
                        'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
