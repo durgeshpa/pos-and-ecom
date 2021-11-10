@@ -421,6 +421,7 @@ CRONJOBS = [
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
+    ('30 2 * * *', 'shops.cron.get_feedback_valid'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
