@@ -1984,7 +1984,7 @@ class POProductGetSerializer(serializers.ModelSerializer):
 
 
 class POGetSerializer(serializers.ModelSerializer):
-    po_products = POProductGetSerializer(many=True)
+    po_products = serializers.SerializerMethodField()
     raised_by = PosShopUserSerializer()
     last_modified_by = PosShopUserSerializer()
     total_price = serializers.SerializerMethodField()
@@ -1993,6 +1993,17 @@ class POGetSerializer(serializers.ModelSerializer):
     def get_total_price(obj):
         tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
+
+    def get_po_products(self, obj):
+        search_text = self.context['search_text']
+        resp_obj = PosCartProductMapping.objects.filter(cart=obj)
+        if search_text:
+            resp_obj = resp_obj.filter(Q(product__name__icontains=search_text)
+                                       | Q(product__product_ean_code__icontains=search_text)
+                                       | Q(product__sku__icontains=search_text))
+
+        return SmallOffsetPagination().paginate_queryset(
+            POProductGetSerializer(resp_obj, many=True).data, self.context['request'])
 
     class Meta:
         model = PosCart

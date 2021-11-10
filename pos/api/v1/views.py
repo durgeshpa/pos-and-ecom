@@ -1023,12 +1023,19 @@ class POView(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = POSerializer
 
+    def get_serializer_context(self):
+        context = super(POView, self).get_serializer_context()
+        search_text = self.request.GET.get('search_text', None)
+        context.update({"search_text": search_text, "request": self.request})
+        return context
+
     @check_pos_shop
     def get(self, request, *args, **kwargs):
         cart = PosCart.objects.filter(retailer_shop=kwargs['shop'], id=kwargs['pk']).prefetch_related(
             'po_products').last()
         if cart:
-            return api_response('', POGetSerializer(cart).data, status.HTTP_200_OK, True)
+            return api_response('', POGetSerializer(
+                cart, context=self.get_serializer_context()).data, status.HTTP_200_OK, True)
         else:
             return api_response("Purchase Order not found")
 
