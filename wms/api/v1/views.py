@@ -523,6 +523,7 @@ class BinIDList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    @check_whc_manager_coordinator_supervisor_picker
     def get(self, request):
         info_logger.info("Bin ID List GET API called.")
         order_no = request.GET.get('order_no')
@@ -537,18 +538,22 @@ class BinIDList(APIView):
             msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         if isinstance(pickup_orders, Order):
-            pd_qs = PickerDashboard.objects.filter(order=pickup_orders, zone__picker_users=request.user)
+            pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
         else:
-            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders, zone__picker_users=request.user)
+            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders)
+        pd_qs = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, pd_qs)
+
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
+        zones = pd_qs.values_list('zone', flat=True)
         pick_list = []
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__picker_users=request.user) \
-                                                   .exclude(pickup__status='picking_cancelled').\
-            order_by('bin__bin__bin_id')
+                                                           pickup__zone__in=zones) \
+                                                   .exclude(pickup__status='picking_cancelled')\
+                                                   .prefetch_related('bin__bin')\
+                                                   .order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 

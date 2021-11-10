@@ -2520,7 +2520,7 @@ def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
         elif user.has_perm('wms.can_have_zone_coordinator_permission'):
             queryset = queryset.filter(zone__in=list(Zone.objects.filter(
                 coordinator=user).values_list('id', flat=True)))
-        elif user.groups.filter(name='Putaway').exists():
+        elif user.groups.filter(name='Picker Boy').exists():
             queryset = queryset.filter(picker_boy=user)
     elif pickup_type == 2:
         if user.has_perm('wms.can_have_zone_warehouse_permission'):
@@ -2532,7 +2532,7 @@ def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
         elif user.has_perm('wms.can_have_zone_coordinator_permission'):
             queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
                 coordinator=user).values_list('id', flat=True)))
-        elif user.groups.filter(name='Putaway').exists():
+        elif user.groups.filter(name='Picker Boy').exists():
             queryset = queryset.filter(picker_repacks__putaway_user=user)
     return queryset
 
