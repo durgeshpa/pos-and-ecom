@@ -957,8 +957,13 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                         category=retailer_product.measurement_category.category.lower())
                     mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
                                                                               default=True)
+                    mapping.pack_size = 1
+                    mapping.qty = product.qty
+                else:
+                    mapping.pack_size = retailer_product.purchase_pack_size
+                    mapping.qty = int(product.qty * retailer_product.purchase_pack_size)
 
-                mapping.qty = product.qty
+                # mapping.qty = product.qty
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no
