@@ -134,7 +134,16 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id','shop_name','shop_type','imei_no','shop_id')
+        fields = ('id','shop_name','shop_type','imei_no','shop_id', 'latitude', 'longitude')
+
+    def validate(self, data):
+        """Latitude and Longitude for retailer type shops"""
+        shop_type = data.get('shop_type')
+        if shop_type.shop_type == 'r':
+            if not data.get('latitude') or not data.get('longitude'):
+                raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
+        return data
+
 
 
 class ShopPhotoSerializer(serializers.ModelSerializer):
