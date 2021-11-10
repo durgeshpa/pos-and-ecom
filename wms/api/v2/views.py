@@ -1,4 +1,3 @@
-import copy
 import logging
 from datetime import datetime, timedelta
 from itertools import groupby
@@ -20,7 +19,6 @@ from rest_framework.response import Response
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
 from products.models import Product
-
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
@@ -49,7 +47,6 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
-
 from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
@@ -2533,6 +2530,7 @@ class PendingQCJobsView(generics.GenericAPIView):
         area_enabled = self.request.GET.get('area_enabled')
         qc_desk = self.request.GET.get('qc_desk')
         qc_area = self.request.GET.get('qc_area')
+        crate = self.request.GET.get('crate')
 
         '''Filters using warehouse, token_id, area_enabled, qc_desk, qc_area'''
 
@@ -2551,5 +2549,12 @@ class PendingQCJobsView(generics.GenericAPIView):
 
         if qc_area:
             self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
+
+        if crate:
+            pickup_orders_list = Pickup.objects.filter(
+                pickup_type_id__in=self.queryset.values_list('token_id', flat=True),
+                pickup_crates__crate__crate_id__iexact=crate).\
+                values_list('pickup_type_id', flat=True)
+            self.queryset = self.queryset.filter(token_id__in=pickup_orders_list)
 
         return self.queryset
