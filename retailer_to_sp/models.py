@@ -1920,7 +1920,7 @@ class PickerDashboard(models.Model):
         (PICKING_CANCELLED, 'Picking Cancelled'),
         (MOVED_TO_QC, 'Moved To QC Area'),
     )
-
+    PICKING_TYPE_CHOICE = Choices((1, 'ORDER', 'order'), (2, 'REPACKAGING', 'repackaging'))
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
     repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(

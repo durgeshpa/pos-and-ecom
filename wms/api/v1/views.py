@@ -475,11 +475,15 @@ class PickupList(APIView):
         return Response(resp_data, status=status.HTTP_200_OK)
 
     def filter_pickup_list_data(self):
+        warehouse = self.request.user.shop_employee.last().shop
         search_text = self.request.GET.get('search_text')
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
+
+        '''filter by user warehouse'''
+        self.queryset = self.queryset.filter(zone__warehouse=warehouse)
 
         '''search using order number & repackaging number'''
         if search_text:
@@ -526,6 +530,7 @@ class BinIDList(APIView):
     @check_whc_manager_coordinator_supervisor_picker
     def get(self, request):
         info_logger.info("Bin ID List GET API called.")
+        zone = request.GET.get('zone')
         order_no = request.GET.get('order_no')
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
@@ -554,9 +559,7 @@ class BinIDList(APIView):
                                                    .exclude(pickup__status='picking_cancelled')\
                                                    .prefetch_related('bin__bin')\
                                                    .order_by('bin__bin__bin_id')
-        if not pickup_bin_obj.exists():
-            msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
-
+        pickup_bin_obj = self.filter_bins_data(pickup_bin_obj)
         bins_added = []
         for pick_up in pickup_bin_obj:
             if pick_up.bin.bin.id in bins_added:
@@ -582,6 +585,18 @@ class BinIDList(APIView):
                'data': {'bins': serializer.data, 'pickup_created_at': pickup_assigned_date,
                         'current_time': datetime.datetime.now()}}
         return Response(msg, status=status.HTTP_200_OK)
+
+    def filter_bins_data(self, queryset):
+        warehouse = self.request.user.shop_employee.last().shop
+        zone = self.request.GET.get('zone')
+
+        '''filter by user warehouse'''
+        queryset = queryset.filter(warehouse=warehouse)
+
+        if zone:
+            queryset = queryset.filter(pickup__zone__id=zone)
+
+        return queryset
 
 pickup = PickupInventoryManagement()
 

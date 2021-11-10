@@ -2492,3 +2492,17 @@ class QCJobsDashboardView(generics.GenericAPIView):
 
     def filter_qc_jobs_dashboard_data(self):
         return self.queryset
+
+
+class PickingTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for QCAreaTypeList """
+        info_logger.info("Picking Type GET api called.")
+        fields = ['id', 'type']
+        data = [dict(zip(fields, d)) for d in PickerDashboard.PICKING_TYPE_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)
+
