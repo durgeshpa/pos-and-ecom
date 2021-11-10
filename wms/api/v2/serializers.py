@@ -1952,19 +1952,29 @@ class QCJobsDashboardCountsSerializer(serializers.Serializer):
     rejected = serializers.SerializerMethodField()
 
     def get_shipments(self, obj):
-        return 0
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), created_at__date__gte=self.context['start_date'],
+            created_at__date__lte=self.context['end_date']).count()
 
     def get_pending(self, obj):
-        return QCDeskQCAreaAssignmentMapping.objects.filter(qc_area__id__in=list(obj), qc_done=False).count()
+        return QCDeskQCAreaAssignmentMapping.objects.filter(
+            qc_area__id__in=list(obj), qc_done=False, token_id__isnull=False,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
     def get_qc_pass(self, obj):
-        return 0
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.READY_TO_SHIP,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
     def get_partial_qc_pass(self, obj):
-        return 0
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.PARTIALLY_QC_PASSED,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
     def get_rejected(self, obj):
-        return 0
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.QC_REJECTED,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
 
 class QCJobsDashboardSerializer(serializers.Serializer):
@@ -1977,6 +1987,6 @@ class QCJobsDashboardSerializer(serializers.Serializer):
     def get_counts(self, obj):
         qc_areas = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=obj, area_enabled=True).\
             values_list('qc_area', flat=True)
-        return QCJobsDashboardCountsSerializer(qc_areas, read_only=True).data
+        return QCJobsDashboardCountsSerializer(qc_areas, context=self.context, read_only=True).data
 
 
