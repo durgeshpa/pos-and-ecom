@@ -1,4 +1,3 @@
-import copy
 import logging
 from datetime import datetime, timedelta
 from itertools import groupby
@@ -20,7 +19,6 @@ from rest_framework.response import Response
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
 from products.models import Product
-
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
@@ -49,7 +47,6 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
-
 from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
@@ -2476,19 +2473,88 @@ class QCJobsDashboardView(generics.GenericAPIView):
     queryset = QCDesk.objects.filter(desk_enabled=True)
     serializer_class = QCJobsDashboardSerializer
 
+    def get_serializer_context(self):
+        context = super(QCJobsDashboardView, self).get_serializer_context()
+        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date()), "%Y-%m-%d")
+        start_date = end_date - timedelta(days=int(self.request.GET.get('data_days', 0)))
+        context.update({"start_date": start_date.date(), "end_date": end_date.date()})
+        return context
+
     @check_whc_manager_coordinator_supervisor_qc_executive
     def get(self, request):
         """ GET API for QC Jobs Dashboard """
         info_logger.info("QC Jobs Dashboard GET api called.")
         """ GET QC Jobs Dashboard List """
         self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
-        self.queryset = self.filter_qc_jobs_dashboard_data()
-
-        qc_jobs_data = self.queryset
-
-        serializer = self.serializer_class(qc_jobs_data, many=True)
-        msg = "" if qc_jobs_data else "no qc job found"
+        serializer = self.serializer_class(self.queryset, context=self.get_serializer_context(), many=True)
+        msg = "" if self.queryset else "no qc job found"
         return get_response(msg, serializer.data, True)
 
-    def filter_qc_jobs_dashboard_data(self):
+
+class PendingQCJobsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects. \
+        select_related('qc_desk__warehouse', 'qc_desk__warehouse__shop_owner', 'qc_desk__warehouse__shop_type',
+                       'qc_desk__warehouse__shop_type__shop_sub_type',). \
+        filter(token_id__isnull=False, qc_done=False).order_by('last_assigned_at')
+    serializer_class = QCDeskQCAreaAssignmentMappingSerializers
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for Pending QC Jobs """
+        info_logger.info("Pending QC Jobs GET api called.")
+        if request.GET.get('id'):
+            """ Get Pending QC Jobs for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_areas_data = id_validation['data']
+            qc_area_total_count = qc_areas_data.count()
+        else:
+            if not request.GET.get('warehouse'):
+                return get_response("'warehouse' | This is mandatory.")
+            """ GET Pending QC Jobs List """
+            self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
+            self.queryset = self.search_filter_qc_areas_data()
+            qc_area_total_count = self.queryset.count()
+            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no pending jobs found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_qc_areas_data(self):
+        warehouse = self.request.GET.get('warehouse')
+        token_id = self.request.GET.get('token_id')
+        area_enabled = self.request.GET.get('area_enabled')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area = self.request.GET.get('qc_area')
+        crate = self.request.GET.get('crate')
+
+        '''Filters using warehouse, token_id, area_enabled, qc_desk, qc_area'''
+
+        if warehouse:
+            self.queryset = self.queryset.filter(qc_desk__warehouse__id=warehouse)
+
+        if token_id:
+            self.queryset = self.queryset.filter(token_id__icontains=token_id)
+
+        if area_enabled:
+            self.queryset = self.queryset.filter(area_enabled=area_enabled)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(Q(qc_desk__desk_number__icontains=qc_desk) |
+                                                 Q(qc_desk__name__icontains=qc_desk))
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
+
+        if crate:
+            pickup_orders_list = Pickup.objects.filter(
+                pickup_type_id__in=self.queryset.values_list('token_id', flat=True),
+                pickup_crates__crate__crate_id__iexact=crate).\
+                values_list('pickup_type_id', flat=True)
+            self.queryset = self.queryset.filter(token_id__in=pickup_orders_list)
+
         return self.queryset
