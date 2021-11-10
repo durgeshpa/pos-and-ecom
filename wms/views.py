@@ -1900,6 +1900,33 @@ def shipment_reschedule_inventory_change(shipment_list):
                 print(e)
 
 
+def shipment_not_attempt_inventory_change(shipment_list):
+    for shipment in shipment_list:
+        type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        state_picked = InventoryState.objects.filter(inventory_state="picked").last()
+        state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
+        shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
+        with transaction.atomic():
+            try:
+                for shipment_item in shipment_item_list:
+                    shipment_batch_list = OrderedProductBatch.objects.filter(
+                        ordered_product_mapping=shipment_item).all()
+                    for shipment_batch in shipment_batch_list:
+                        InCommonFunctions.create_only_in(shipment.order.seller_shop, 'not_attempt', shipment.pk,
+                                                         shipment_item.product, shipment_batch.batch_id,
+                                                         shipment_batch.quantity, type_normal)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
+                        shipment_item.shipped_qty * -1, "not_attempt", shipment.pk)
+
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
+                        shipment_item.shipped_qty, "not_attempt", shipment.pk)
+
+            except DatabaseError as e:
+                print(e)
+
+
 def populate_expiry_date(request):
     """
     One time activity

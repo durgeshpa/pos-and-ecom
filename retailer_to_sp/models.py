@@ -1482,6 +1482,7 @@ class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
+    NOT_ATTEMPT = "NOT_ATTEMPT"
     DELIVERED = "DELIVERED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
@@ -1500,6 +1501,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
+        (NOT_ATTEMPT, 'Not Attempt'),
         (DELIVERED, 'Delivered')
     )
 
@@ -2398,7 +2400,6 @@ class ShipmentProductMapping(OrderedProductMapping):
                 _('Max. allowed Qty: %s') % max_qty_allowed,
             )
 
-
 ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
 
 
@@ -2445,6 +2446,56 @@ class ShipmentRescheduling(models.Model):
     def __str__(self):
         return str("%s --> %s") % (self.shipment.invoice_no,
                                    self.rescheduling_date)
+
+    def save(self, *args, **kwargs):
+        self.created_by = get_current_user()
+        super().save(*args, **kwargs)
+
+
+class ShipmentNotAttempt(models.Model):
+    UNABLE_TO_ATTEMPT = 'unable_to_attempt'
+    WRONG_ORDER = 'wrong_order'
+    WRONG_DELIVERY_ADDRESS = 'wrong_delivery_address'
+    ITEM_MISS_MATCH = 'item_miss_match'
+    DIFFERENT_ROUTE = 'damaged_item'
+    DAMAGED_ITEM = 'damaged_item'
+    MORE_ITEMS_TO_CARRY = 'more_items_to_carry'
+
+    NOT_ATTEMPT_REASON = (
+        (UNABLE_TO_ATTEMPT, 'UNABLE TO ATTEMPT'),
+        (WRONG_ORDER, 'WRONG ORDER'),
+        (WRONG_DELIVERY_ADDRESS, 'WRONG DELIVERY ADDRESS'),
+        (ITEM_MISS_MATCH, 'ITEM MISS MATCH'),
+        (DIFFERENT_ROUTE, 'DIFFERENT ROUTE'),
+        (DAMAGED_ITEM, 'DAMAGED ITEM'),
+        (MORE_ITEMS_TO_CARRY, 'MORE ITEMS TO CARRY')
+    )
+
+    shipment = models.ForeignKey(
+        OrderedProduct, related_name='not_attempt_shipment',
+        blank=False, null=True, on_delete=models.DO_NOTHING
+    )
+    trip = models.ForeignKey(
+        Trip, related_name="not_attempt_shipment_trip",
+        null=True, blank=False, on_delete=models.DO_NOTHING,
+    )
+    not_attempt_reason = models.CharField(
+        max_length=50, choices=NOT_ATTEMPT_REASON,
+        blank=False, verbose_name='Reason for Not Attempt',
+    )
+    created_by = models.ForeignKey(
+        get_user_model(),
+        related_name='delivery_person',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Shipment Not Attempt'
+
+    def __str__(self):
+        return str(self.shipment.invoice_no)
 
     def save(self, *args, **kwargs):
         self.created_by = get_current_user()
@@ -3016,7 +3067,7 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
     if 'COMPLETED' in instance.shipment_status:
         instance.order.order_status = Order.COMPLETED
         instance.order.save()
-    if instance.shipment_status == OrderedProduct.RESCHEDULED:
+    if instance.shipment_status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
         update_full_part_order_status(instance)
 
 

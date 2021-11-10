@@ -446,6 +446,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
+        ('not_attempt', 'not_attempt'),
         ('expired', 'Expired'),
         ('repackaging', 'Repackaging'),
         ('manual_audit_add', 'Manual Audit Add'),
