@@ -327,7 +327,23 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.selling_price
 
     def get_image(self, obj):
-        return obj.retailer_product_image.last().image.url if obj.retailer_product_image.last() else None
+        retailer_object = obj.retailer_product_image.last()
+        image = None
+        if retailer_object is None:
+            linked_product = obj.linked_product
+            if linked_product:
+                linked_product_image = linked_product.product_pro_image.all()
+                if linked_product_image:
+                    image = linked_product_image[0].image.url
+                else:
+                    parent_product = obj.linked_product.parent_product
+                    if parent_product:
+                        parent_product_image = parent_product.parent_product_pro_image.all()
+                        if parent_product_image:
+                            image = parent_product_image[0].image.url
+        else:
+            image = retailer_object.image.url
+        return image
 
     class Meta:
         model = RetailerProduct
