@@ -1747,7 +1747,7 @@ class PutawayTypeIDSearchView(generics.GenericAPIView):
 
         '''search using bin_id'''
         if search_text:
-            self.queryset = self.queryset.filter(token_id__startswith=search_text)
+            self.queryset = self.queryset.filter(token_id__icontains=search_text)
 
         '''Filters using warehouse'''
         if warehouse:
