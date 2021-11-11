@@ -103,7 +103,6 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
-    dynamic_beat = models.BooleanField(default=False)
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -645,7 +644,7 @@ class DayBeatPlanning(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_id', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
+
 
 class ExecutiveFeedback(models.Model):
     """
@@ -665,5 +664,3 @@ class ExecutiveFeedback(models.Model):
     feedback_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
-    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)

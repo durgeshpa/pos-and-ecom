@@ -336,7 +336,7 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = DayBeatPlanning
         fields = ('day_beat_plan', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
-                  'shop', 'feedback', 'is_active')
+                  'shop', 'feedback')
 
 
 class ExecutiveReportSerializer(serializers.ModelSerializer):
@@ -350,7 +350,6 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     productivity = serializers.SerializerMethodField()
     num_of_order = serializers.SerializerMethodField()
     order_amount = serializers.SerializerMethodField()
-    inactive_shop_mapped = serializers.SerializerMethodField()
 
     def get_executive_name(self, obj):
         """
@@ -376,7 +375,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
@@ -403,7 +402,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
@@ -437,7 +436,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
+        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
@@ -558,38 +557,10 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
 
         return total_amount
 
-    def get_inactive_shop_mapped(self, obj):
-        """
-
-        :param obj: object of shop user mapping
-        :return: count of inactive shop map
-        """
-        # condition to check past day
-        previous_day_date = datetime.today() - timedelta(days=1)
-        base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=False)
-
-        if self._context['report'] is '1':
-            date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
-            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
-
-        # condition to check past week
-        elif self._context['report'] is '2':
-            week_end_date = previous_day_date - timedelta(7)
-            date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
-            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
-
-        # condition to check past month
-        else:
-            week_end_date = previous_day_date - timedelta(30)
-            date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
-            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
-
-        return inactive_shop_map_count
-
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
+        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
@@ -598,15 +569,13 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
-    latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
-    longitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
 
     class Meta:
         """
         Applied executive feedback create meta class
         """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at', 'latitude', 'longitude')
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at')
 
     def create(self, validated_data):
         """
@@ -620,9 +589,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         if executive_feedback.exists():
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
-                                      feedback_date=validated_data['feedback_date'],
-                                      latitude=validated_data['latitude'],
-                                      longitude=validated_data['longitude'])
+                                      feedback_date=validated_data['feedback_date'])
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly

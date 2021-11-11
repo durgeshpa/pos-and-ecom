@@ -1017,7 +1017,7 @@ class PutawayTypeListView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for PutawayTypeList """
         info_logger.info("PutawayTypeList GET api called.")
-        putaway_type_list = ['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING']
+        putaway_type_list = ['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']
         data = [{'id': d, 'type': d} for d in putaway_type_list]
         msg = ""
         return get_response(msg, data, True)
