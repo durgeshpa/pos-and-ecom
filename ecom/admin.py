@@ -77,14 +77,14 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'invoice_no', 'created_at')
+    list_display = ('order', 'buyer_address', 'invoice_no', 'created_at')
 
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer')}),
+            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -95,6 +95,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def buyer(self, obj):
         return obj.order.buyer
+
+    def buyer_address(self, obj):
+        return str(obj.order.ecom_address_order.address)+' '+str(obj.order.ecom_address_order.city)+' '+str(obj.order.ecom_address_order.state)
 
     def sub_total(self, obj):
         return obj.order.ordered_cart.subtotal
