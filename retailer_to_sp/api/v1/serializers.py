@@ -1399,7 +1399,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField()
     product_total_price = serializers.SerializerMethodField()
     product_type = serializers.SerializerMethodField()
-    rt_ordered_product_mapping = OrderedProductBatchSerializer(many=True)
+    rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
 
     class Meta:
@@ -1487,7 +1487,10 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
 
             if mapping_instance.ordered_product.shipment_status != 'SHIPMENT_CREATED':
-                return serializers.ValidationError("Shipment updation is not allowed.")
+                raise serializers.ValidationError("Shipment updation is not allowed.")
+
+            if mapping_instance.is_qc_done:
+                raise serializers.ValidationError("This product is already QC Passed.")
 
             if mapping_instance.product != product:
                 raise serializers.ValidationError("Product updation is not allowed.")
@@ -1510,13 +1513,17 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
         return data
 
-    def update_product_batch_data(self, process_shipments_instance, ordered_product_batch):
-        OrderedProductBatch.objects.filter(id=ordered_product_batch)
+    def update_product_batch_data(self, product_batch_instance, validated_data):
+        try:
+            process_shipments_instance = product_batch_instance.update(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Ordered Product Mapping"""
-        rt_ordered_product_mapping = validated_data.pop('rt_ordered_product_mapping', None)
+        ordered_product_batches = self.initial_data['rt_ordered_product_mapping']
 
         try:
             process_shipments_instance = super().update(instance, validated_data)
@@ -1524,8 +1531,10 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        for ordered_pro in rt_ordered_product_mapping:
-            self.update_product_batch_data(process_shipments_instance, ordered_pro)
+        for product_batch in ordered_product_batches:
+            product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id'])
+            product_batch_id = product_batch.pop('id')
+            self.update_product_batch_data(product_batch_instance, product_batch)
 
         return process_shipments_instance
 
@@ -1550,7 +1559,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         return product_price
 
     def get_product_total_price(self, obj):
-        self.product_total_price = obj.effective_price * obj.shipped_qty
+        self.product_total_price = float(obj.effective_price) * float(obj.shipped_qty)
         return round(self.product_total_price, 2)
 
     @staticmethod
