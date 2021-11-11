@@ -579,8 +579,8 @@ class SearchProducts(APIView):
         p_list = []
         # No Shop Id OR Store Inactive
         if not parent_shop:
-            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
-                                            "visible", "mrp", "ean"]}
+            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
