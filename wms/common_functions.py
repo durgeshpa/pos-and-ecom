@@ -433,7 +433,7 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
             ware_house_weight = weight + ware_house_inventory_obj.weight
             ware_house_inventory_obj.weight = ware_house_weight
-            if ware_house_quantity < 0:
+            if ware_house_quantity < 0 and inventory_state.inventory_state != 'reserved':
                 info_logger.info("create_warehouse_inventory| Negative Inventory |"
                                  " Warehouse-{}, SKU-{}, Inventory Type-{}, Inventory State-{}, Quantity-{}"
                                  .format(warehouse.id, sku.product_sku, inventory_type.inventory_type,
