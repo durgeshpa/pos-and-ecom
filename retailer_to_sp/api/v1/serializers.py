@@ -13,7 +13,7 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
-                                   Trip, PickerDashboard, ShipmentRescheduling)
+                                   Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -1377,3 +1377,91 @@ class ShipmentReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('id', 'return_reason')
+
+
+class OrderedProductBatchSerializer(serializers.ModelSerializer):
+    reason_for_rejection = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderedProductBatch
+        fields = ('id', 'batch_id', 'quantity', 'ordered_pieces', 'delivered_qty', 'already_shipped_qty',
+                  'expiry_date', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'pickup_quantity', 'expired_qty',
+                  'missing_qty', 'rejected_qty', 'reason_for_rejection', 'created_at', 'modified_at')
+
+    @staticmethod
+    def get_reason_for_rejection(obj):
+        return obj.get_reason_for_rejection_display()
+
+
+class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
+    # This serializer is used to fetch the products for a shipment
+    product = ProductSerializer()
+    product_price = serializers.SerializerMethodField()
+    product_total_price = serializers.SerializerMethodField()
+    product_type = serializers.SerializerMethodField()
+    rt_ordered_product_mapping = OrderedProductBatchSerializer(many=True)
+    last_modified_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price',
+                  'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
+                  'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
+                  'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
+                  'picked_pieces', 'rt_ordered_product_mapping')
+
+    @staticmethod
+    def get_product_price(obj):
+        """
+        Get effective product price per piece from OrderedProductMapping instance if available,
+        else get the price instance from CartProductMapping and calculate effective price
+        applicable per piece based on shipped quantity
+        """
+        product_price = 0
+        if obj.effective_price:
+            product_price = obj.effective_price
+        else:
+            cart_product_mapping = CartProductMapping.objects.filter(
+                cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart).last()
+            if cart_product_mapping and cart_product_mapping.cart_product_price:
+                cart_product_price = cart_product_mapping.cart_product_price
+                cart_product_case_size = cart_product_mapping.no_of_pieces/cart_product_mapping.qty
+                shipped_qty_in_pack = math.ceil(obj.shipped_qty / cart_product_case_size)
+                product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack), 2)
+        return product_price
+
+    def get_product_total_price(self, obj):
+        self.product_total_price = obj.effective_price * obj.shipped_qty
+        return round(self.product_total_price, 2)
+
+    @staticmethod
+    def get_product_type(obj):
+        return obj.get_product_type_display()
+
+
+class ShipmentProductSerializer(serializers.ModelSerializer):
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_owner_number = serializers.SerializerMethodField()
+    order_created_date = serializers.SerializerMethodField()
+    rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(many=True)
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
+                  'shop_owner_name', 'shop_owner_number', 'order_created_date',
+                  'rt_order_product_order_product_mapping')
+
+    @staticmethod
+    def get_shop_owner_number(obj):
+        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
+        return shop_owner_number
+
+    @staticmethod
+    def get_shop_owner_name(obj):
+        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
+        return shop_owner_name
+
+    @staticmethod
+    def get_order_created_date(obj):
+        return obj.order.created_at
+
