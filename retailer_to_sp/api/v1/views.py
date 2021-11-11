@@ -2632,12 +2632,12 @@ class OrderCentral(APIView):
                 return api_response("Please Provide A Valid Status To Update Order")
             # CANCEL ORDER
             if order_status == Order.CANCELLED:
-                # Unprocessed orders can be cancelled
-                if order.order_status != Order.ORDERED:
-                    return api_response('This order cannot be cancelled!')
-
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
+                    # Unprocessed orders can be cancelled
+                    if order.order_status != Order.ORDERED:
+                        return api_response('This order cannot be cancelled!')
+
                     # cancel shipment pos order
                     ordered_product = OrderedProduct.objects.filter(order=order).last()
                     ordered_product.shipment_status = 'CANCELLED'
@@ -2649,6 +2649,9 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
+                    # delivered orders can not be cancelled
+                    if order.order_status == Order.DELIVERED:
+                        return api_response('This order cannot be cancelled!')
                     # Update inventory
                     for cp in cart_products:
                         PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
