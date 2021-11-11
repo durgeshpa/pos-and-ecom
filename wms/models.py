@@ -665,7 +665,12 @@ class PosInventoryChange(models.Model):
         (GRN_UPDATE, 'GRN Update'),
         (SHIPPED, 'Shipped')
     )
-    REMARKS_CHOICES = Choices(('STOCK_UPDATE', 'Stock Update'), ('OTHER', 'Other'))
+    REMARKS_CHOICES = Choices(('SHORT/EXCESS', 'Short/Excess'),
+                              ('EAN_MISMATCH', 'EAN Mismatch'),
+                              ('CONSUMABLE', 'Consumable'),
+                              ('DUMP', 'Dump'),
+                              ('DAMAGED', 'Damaged'),
+                              ('OTHER', 'Other'))
     product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=3)
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
