@@ -7,7 +7,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
     POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
-    PickupEntryCreationView, UpdateQCAreaView, PutawayTypeIDSearchView
+    PickupEntryCreationView, UpdateQCAreaView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -46,5 +46,4 @@ urlpatterns = [
     url('putaway-summary/', PutawaySummaryView.as_view(), name='putaway-summary'),
     url('zone-wise-summary/', ZoneWiseSummaryView.as_view(), name='zone-wise-summary'),
     url('putaway-type-list/', PutawayTypeListView.as_view(), name='putaway-type-list'),
-    url('putaway-type-search/', PutawayTypeIDSearchView.as_view(), name='putaway-type-list'),
 ]
