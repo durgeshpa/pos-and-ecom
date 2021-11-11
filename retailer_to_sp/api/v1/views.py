@@ -32,6 +32,8 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+from wms.common_validators import validate_id
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -42,7 +44,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer
+                          ShopSerializer, ShipmentProductSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -111,7 +113,7 @@ from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 
-from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.views import shipment_reschedule_inventory_change
 
@@ -6505,3 +6507,29 @@ class EcomPaymentFailureView(APIView):
 
     def post(self, request, *args, **kwags):
         return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})
+
+
+class ShipmentProductView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__buyer_shop', 'order__buyer_shop__shop_owner').\
+        prefetch_related('rt_order_product_order_product_mapping',
+                         'rt_order_product_order_product_mapping__rt_ordered_product_mapping')
+    serializer_class = ShipmentProductSerializer
+
+    # @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for Shipment Product """
+        info_logger.info("Shipment Product GET api called.")
+        if request.GET.get('id'):
+            """ Get Shipment Products for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shipment_products_data = id_validation['data']
+            shipment_product_total_count = shipment_products_data.count()
+            serializer = self.serializer_class(shipment_products_data, many=True)
+            msg = f"total count {shipment_product_total_count}"
+            return get_response(msg, serializer.data, True)
+        return get_response("'id' | This is mandatory.")
