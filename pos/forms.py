@@ -279,3 +279,100 @@ class MeasurementUnitFormSet(forms.models.BaseInlineFormSet):
 
     class Meta:
         model = MeasurementUnit
+
+
+class RetailerProductsStockUpdateForm(forms.Form):
+    """
+        Select shop for stock update
+    """
+    shop = forms.ModelChoiceField(
+        label='Select Shop',
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', ),
+    )
+    file = forms.FileField(label='Upload Product Stock')
+
+    def __init__(self, *args, **kwargs):
+
+        try:
+            self.shop_id = kwargs.pop('shop_id')
+        except:
+            self.shop_id = ''
+
+        super().__init__(*args, **kwargs)
+
+    def check_mandatory_data(self, row, key_string, row_num):
+        """
+            Check Mandatory Fields from uploaded CSV for creating or updating Retailer Products
+        """
+        if key_string not in row.keys():
+            raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
+
+        if key_string in row.keys():
+            if row[key_string] == '':
+                raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
+
+    def validate_data(self, uploaded_data_list):
+        """
+            Validation for create Products Catalogue
+        """
+        row_num = 1
+        for row in uploaded_data_list:
+            row_num += 1
+            self.check_mandatory_data(row, 'shop_id', row_num)
+            self.check_mandatory_data(row, 'product_id', row_num)
+            self.check_mandatory_data(row, 'current_inventory', row_num)
+            self.check_mandatory_data(row, 'updated_inventory', row_num)
+
+            if row["shop_id"] != self.shop_id:
+                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
+                                        f"Check the shop id, you might be uploading to wrong shop!"))
+
+            if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
+                raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
+
+            if row["current_inventory"] == '':
+                raise ValidationError(_(f"Row {row_num} | {row['current_inventory']} | "
+                                        f"Current Inventory is not valid!"))
+
+            if row["updated_inventory"] == '' or int(row["updated_inventory"]) < 0 :
+                raise ValidationError(_(f"Row {row_num} | {row['updated_inventory']} | "
+                                        f"Update Inventory is not valid!"))
+            if row["current_inventory"] != row["updated_inventory"] \
+                    and ('reason_for_update' not in row or row["reason_for_update"] == ''):
+
+                raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
+                                        f"Reason for update is required!"))
+
+
+
+    def read_file(self, headers, reader):
+        """
+            Reading & validating File Uploaded by user
+        """
+        uploaded_data_by_user_list = []
+        csv_dict = {}
+        count = 0
+        for id, row in enumerate(reader):
+            for ele in row:
+                csv_dict[headers[count]] = ele
+                count += 1
+            uploaded_data_by_user_list.append(csv_dict)
+            csv_dict = {}
+            count = 0
+        self.validate_data(uploaded_data_by_user_list)
+
+    def clean_file(self):
+        """
+            FileField validation Check if file ends with only .csv
+        """
+        if self.cleaned_data.get('file'):
+
+            if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+                raise forms.ValidationError("Please upload only CSV File")
+            else:
+                reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+
+                headers = next(reader, None)
+                self.read_file(headers, reader)
+        return self.cleaned_data['file']

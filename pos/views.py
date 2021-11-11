@@ -1,6 +1,7 @@
 import codecs
 import csv
 import decimal
+import logging
 import os
 import datetime
 from copy import deepcopy
@@ -19,15 +20,16 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from wkhtmltopdf.views import PDFTemplateResponse
 
-from accounts.models import User
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, MeasurementCategory
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
-    PosInventoryChangeCSVDownloadForm
+    PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+
+info_logger = logging.getLogger('file-info')
 
 class RetailerProductAutocomplete(autocomplete.Select2QuerySetView):
     """
@@ -208,14 +210,14 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
                     product.save()
 
-                    if row.get('quantity'):
-                        # Update Inventory
-                        PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
-                                                        PosInventoryState.AVAILABLE, row.get('quantity'),
-                                                        request.user, product.sku, PosInventoryChange.STOCK_UPDATE)
-                        # Change logs
-                        ProductChangeLogs.product_update(product, old_product, request.user, 'product',
-                                                         product.sku)
+                    # if row.get('quantity'):
+                    #     # Update Inventory
+                    #     PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                    #                                     PosInventoryState.AVAILABLE, row.get('quantity'),
+                    #                                     request.user, product.sku, PosInventoryChange.STOCK_UPDATE)
+                    #     # Change logs
+                    #     ProductChangeLogs.product_update(product, old_product, request.user, 'product',
+                    #                                      product.sku)
                 except:
                     return render(request, 'admin/pos/retailerproductscsvupload.html',
                                   {'form': form,
@@ -654,3 +656,101 @@ def get_tax_details(product):
             tcs_amount = tax_details.filter(tax__tax_type='tcs').last().tax.tax_percentage
     return gst_amount, cess_amount, surcharge_amount, tcs_amount
 
+
+def RetailerProductStockDownload(request, *args):
+    """
+    This function will return an Sample File in csv format which can be used for
+    Downloading Retailer Products current stock and update the stock
+    """
+
+    shop_id = request.GET['shop_id']
+    filename = "retailer_product_stock.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'product_ean_code', 'mrp', 'selling_price',
+         'current_inventory', 'discounted_inventory', 'updated_inventory', 'reason_for_update'])
+    product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
+    if product_qs.exists():
+        retailer_products = product_qs \
+            .prefetch_related('shop') \
+            .values('id', 'shop_id', 'shop__shop_name', 'sku', 'name', 'product_ean_code', 'mrp', 'selling_price',
+                    'discounted_product')
+        product_dict = {}
+        discounted_product_ids = []
+        for product in retailer_products:
+            product_dict[product['id']] = product
+            if product['discounted_product'] is not None:
+                discounted_product_ids.append(product['discounted_product'])
+        product_ids = list(product_dict.keys())
+        product_ids.extend(discounted_product_ids)
+        inventory = PosInventory.objects.filter(product_id__in=product_ids,
+                                                inventory_state__inventory_state=PosInventoryState.AVAILABLE)
+        inventory_data = {i.product_id: i.quantity for i in inventory}
+        for product_id, product in product_dict.items():
+            discounted_stock = None
+            if product['discounted_product']:
+                discounted_stock = inventory_data.get(product['discounted_product'], 0)
+            writer.writerow(
+                [product['id'], product['shop_id'], product['shop__shop_name'], product['sku'], product['name'],
+                 product['product_ean_code'], product['mrp'], product['selling_price'],
+                 inventory_data.get(product_id, 0), discounted_stock, '', ''])
+    else:
+        writer.writerow(["Products for selected shop doesn't exists"])
+    return response
+
+
+def update_retailer_product_stock(request):
+    """
+    Products Catalogue Upload View
+    """
+    shop_id = request.POST.get('shop')
+    if request.method == 'POST':
+        form = RetailerProductsStockUpdateForm(request.POST, request.FILES, shop_id=shop_id)
+
+        if form.errors:
+            return render(request, 'admin/pos/retailer_product_stock_update.html', {'form': form})
+
+        if form.is_valid():
+
+            # product_status = request.POST.get('catalogue_product_status')
+            reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
+            header = next(reader, None)
+            uploaded_data_list = []
+            csv_dict = {}
+            count = 0
+            for id, row in enumerate(reader):
+                for ele in row:
+                    csv_dict[header[count]] = ele
+                    count += 1
+                uploaded_data_list.append(csv_dict)
+                csv_dict = {}
+                count = 0
+            stock_update(request, uploaded_data_list)
+            return render(request, 'admin/pos/retailer_product_stock_update.html',
+                          {'form': form,
+                           'success': 'Stock updated successfully!', })
+    else:
+        form = RetailerProductsStockUpdateForm()
+        return render(
+            request,
+            'admin/pos/retailer_product_stock_update.html',
+            {'form': form}
+        )
+
+
+def stock_update(request, data):
+    for row in data:
+        with transaction.atomic():
+            stock_qty = row.get('updated_inventory')
+
+            try:
+                product = RetailerProduct.objects.only('id', 'sku').get(id=row.get('product_id'))
+                # Update Inventory
+                PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                                                PosInventoryState.AVAILABLE, stock_qty,
+                                                request.user, product.sku, PosInventoryChange.STOCK_UPDATE,
+                                                row.get('reason_for_update'))
+            except Exception as e:
+                info_logger.info(f"Exception|POS|stock_update|product id {row.get('product_id')}, e {e}")
