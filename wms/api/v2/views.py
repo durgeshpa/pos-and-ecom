@@ -20,14 +20,14 @@ from gram_to_brand.common_validators import validate_assortment_against_warehous
 from gram_to_brand.models import GRNOrder
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, OrderedProduct
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
     get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway, validate_grouped_request
+    validate_putaway_user_against_putaway, validate_grouped_request, validate_shipment_qc_desk
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
     QCDeskQCAreaAssignmentMapping
@@ -46,7 +46,9 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
-    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
+    ShipmentQCSerializer
+
 from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
@@ -1592,7 +1594,7 @@ class UpdateQCAreaView(generics.GenericAPIView):
 
 class PickerDashboardCrudView(generics.GenericAPIView):
     """API view for PickerDashboard"""
-    # authentication_classes = (authentication.TokenAuthentication,)
+    authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = PickerDashboard.objects. \
         select_related('order', 'repackaging', 'shipment', 'picker_boy', 'zone', 'zone__warehouse',
@@ -2572,3 +2574,30 @@ class PickingTypeListView(generics.GenericAPIView):
         msg = ""
         return get_response(msg, data, True)
 
+
+class ShipmentQCView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentQCSerializer
+    queryset = OrderedProduct.objects. \
+        select_related('order', 'order__seller_shop',
+                       'order__seller_shop__shop_owner', 'order__seller_shop__shop_type',
+                       'order__seller_shop__shop_type__shop_sub_type', 'qc_area', 'qc_area__qc_desk_areas').\
+        order_by('-id')
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for shipment update """
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
+        if 'error' in shipment_data:
+            return get_response(shipment_data['error'])
+        serializer = self.serializer_class(instance=shipment_data['data'], data=modified_data)
+        if serializer.is_valid():
+            shipment = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Shipment updated!', shipment.data)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)

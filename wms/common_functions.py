@@ -2565,3 +2565,15 @@ def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_executive=user)
     return queryset
+
+
+def send_update_to_qcdesk(shipment_instance):
+    '''Update the QCArea assignment mapping on shipment QC start'''
+    info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
+    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no).exists():
+        shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no)\
+            .update(qc_done=True)
+    else:
+        raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
+
+    info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")

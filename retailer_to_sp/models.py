@@ -1484,8 +1484,10 @@ class OrderedProduct(models.Model):  # Shipment
     DELIVERED = "DELIVERED"
     PARTIALLY_QC_PASSED = "PARTIALLY_QC_PASSED"
     QC_REJECTED = "QC_REJECTED"
+    QC_STARTED = "QC_STARTED"
+    SHIPMENT_CREATED = 'SHIPMENT_CREATED'
     SHIPMENT_STATUS = (
-        ('SHIPMENT_CREATED', 'QC Pending'),
+        (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
@@ -1503,7 +1505,8 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
-        (DELIVERED, 'Delivered')
+        (DELIVERED, 'Delivered'),
+        (QC_STARTED, 'QC Started')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
