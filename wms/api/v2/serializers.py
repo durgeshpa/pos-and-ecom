@@ -1990,43 +1990,7 @@ class QCJobsDashboardSerializer(serializers.Serializer):
         return QCJobsDashboardCountsSerializer(qc_areas, context=self.context, read_only=True).data
 
 
-class ShipmentQCSerializer(serializers.Serializer):
-    """ Serializer for Shipment QC"""
-
+class QCDeskSerializer(QCDeskCrudSerializers):
     class Meta:
-        model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'qc_area', 'created_at', 'modified_at')
-
-    def validate(self, data):
-        """Validates the Shipment update requests"""
-
-        if 'id' in self.initial_data and self.initial_data['id']:
-            if 'shipment_status' in self.initial_data and self.initial_data['shipment_status']:
-                try:
-                    shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
-                    shipment_status = shipment.shipment_status
-                except Exception as e:
-                    raise serializers.ValidationError("Invalid Shipment")
-                status = self.initial_data['shipment_status']
-                if status == shipment_status:
-                    raise serializers.ValidationError(f'Shipment already in {status}')
-                elif shipment_status != OrderedProduct.SHIPMENT_CREATED or \
-                        status != OrderedProduct.QC_STARTED:
-                    raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
-                data['shipment_status'] = status
-            else:
-                raise serializers.ValidationError("Only status update is allowed")
-        else:
-            raise serializers.ValidationError("Shipment creation is not allowed.")
-
-        return data
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        try:
-            shipment_instance = super().update(instance, validated_data)
-            send_update_to_qcdesk(shipment_instance)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        return shipment_instance
+        model=QCDesk
+        fields = ('id', 'desk_number', 'name', 'qc_executive')

@@ -1,6 +1,7 @@
 import math
 import datetime
 
+from django.db import transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -9,6 +10,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import UserWithName
+from addresses.models import Address
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
@@ -26,6 +28,9 @@ from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from retailer_backend.utils import SmallOffsetPagination
+from wms.api.v2.serializers import QCDeskCrudSerializers, QCAreaCrudSerializers, QCDeskSerializer, QCAreaSerializer
+from wms.common_functions import send_update_to_qcdesk
+from wms.models import QCDesk
 
 User = get_user_model()
 
@@ -1465,3 +1470,81 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     def get_order_created_date(obj):
         return obj.order.created_at
 
+class AddressSerializer(serializers.ModelSerializer):
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+
+    def get_city(self, obj):
+        return obj.city.city_name
+
+    def get_state(self, obj):
+        return obj.state.state_name
+
+    class Meta:
+        model=Address
+        fields=("pincode", "nick_name", "address_line1", "address_contact_name", "address_contact_number",
+                "address_type", 'city', 'state')
+
+class OrderSerializerForShipment(serializers.ModelSerializer):
+    seller_shop = ShopSerializer()
+    buyer_shop = ShopSerializer()
+    shipping_address = AddressSerializer()
+
+    class Meta:
+        model=Order
+        fields = ('order_no', 'seller_shop', 'buyer_shop', 'shipping_address')
+
+
+class ShipmentQCSerializer(serializers.ModelSerializer):
+    """ Serializer for Shipment QC"""
+    order = OrderSerializerForShipment(read_only=True)
+    created_date = serializers.SerializerMethodField()
+    qc_area = QCAreaSerializer(read_only=True)
+    qc_desk = serializers.SerializerMethodField(read_only=True)
+    status = serializers.CharField()
+
+    def get_qc_desk(self, obj):
+        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data
+
+    def get_created_date(self, obj):
+        return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'order', 'status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area',
+                  'qc_desk', 'created_date')
+
+
+    def validate(self, data):
+        """Validates the Shipment update requests"""
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if 'status' in self.initial_data and self.initial_data['status']:
+                try:
+                    shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
+                    shipment_status = shipment.shipment_status
+                except Exception as e:
+                    raise serializers.ValidationError("Invalid Shipment")
+                status = self.initial_data['status']
+                if status == shipment_status:
+                    raise serializers.ValidationError(f'Shipment already in {status}')
+                elif shipment_status != OrderedProduct.SHIPMENT_CREATED or \
+                        status != OrderedProduct.QC_STARTED:
+                    raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
+                data['shipment_status'] = status
+            else:
+                raise serializers.ValidationError("Only status update is allowed")
+        else:
+            raise serializers.ValidationError("Shipment creation is not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            shipment_instance = super().update(instance, validated_data)
+            send_update_to_qcdesk(shipment_instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return shipment_instance

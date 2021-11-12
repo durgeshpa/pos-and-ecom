@@ -2577,3 +2577,16 @@ def send_update_to_qcdesk(shipment_instance):
         raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
 
     info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+
+
+def get_logged_user_wise_query_set_for_shipment(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.has_perm('wms.can_have_zone_supervisor_permission') or \
+            user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
+    return queryset
