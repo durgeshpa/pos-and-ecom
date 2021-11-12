@@ -1,3 +1,4 @@
+import logging
 import math
 import datetime
 
@@ -30,10 +31,12 @@ from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
-from wms.common_functions import send_update_to_qcdesk
+from wms.common_functions import release_picking_crates, send_update_to_qcdesk
 from wms.models import Crate
 
 User = get_user_model()
+
+info_logger = logging.getLogger('file-info')
 
 
 class PickerDashboardSerializer(serializers.ModelSerializer):
@@ -1472,7 +1475,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'id' in product_batch and product_batch['id']:
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
 
-                if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+                if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'QC_STARTED':
                     raise serializers.ValidationError("Shipment updation is not allowed.")
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
@@ -1496,7 +1499,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
         mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
 
-        if mapping_instance.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+        if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
             raise serializers.ValidationError("Shipment updation is not allowed.")
 
         if mapping_instance.is_qc_done:
@@ -1738,10 +1741,14 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 status = self.initial_data['status']
                 if status == shipment_status:
                     raise serializers.ValidationError(f'Shipment already in {status}')
-                elif shipment_status != OrderedProduct.SHIPMENT_CREATED or \
-                        status != OrderedProduct.QC_STARTED:
+                elif (shipment_status not in [OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED]) \
+                        or (shipment_status == OrderedProduct.SHIPMENT_CREATED and status != OrderedProduct.QC_STARTED) \
+                        or (shipment_status == OrderedProduct.QC_STARTED and status != OrderedProduct.READY_TO_SHIP):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
                 data['shipment_status'] = status
+                if shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
+                    product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
+                    raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
             else:
                 raise serializers.ValidationError("Only status update is allowed")
         else:
@@ -1753,8 +1760,66 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             shipment_instance = super().update(instance, validated_data)
-            send_update_to_qcdesk(shipment_instance)
+            self.post_shipment_status_change(shipment_instance)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_instance
+
+    def post_shipment_status_change(self, shipment_instance):
+        '''
+            Update the QCArea assignment mapping on shipment QC start
+            Release Picking Crates on Shipment QC DOne
+        '''
+        info_logger.info(f"post_shipment_status_change|Shipment ID {shipment_instance.id}")
+        if shipment_instance.shipment_status == OrderedProduct.QC_STARTED:
+            send_update_to_qcdesk(shipment_instance)
+            info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+        elif shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+            release_picking_crates(shipment_instance.order)
+            info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
+                             f"{shipment_instance.order.order_no}")
+
+class ShipmentCityFilterSerializer(serializers.ModelSerializer):
+    city_id = serializers.SerializerMethodField()
+    city_name = serializers.SerializerMethodField()
+
+    def get_city_id(self, obj):
+        return obj.order.shipping_address.city.id
+
+    def get_city_name(self, obj):
+        return obj.order.shipping_address.city.city_name
+
+    class Meta:
+        model=OrderedProduct
+        fields=('city_id', 'city_name')
+
+
+class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
+    pincode = serializers.SerializerMethodField()
+
+    def get_pincode(self, obj):
+        return obj.order.shipping_address.pincode
+
+    class Meta:
+        model=OrderedProduct
+        fields=('pincode',)
+
+
+class ShipmentShopFilterSerializer(serializers.ModelSerializer):
+    buyer_shop_id = serializers.SerializerMethodField()
+    buyer_shop = serializers.SerializerMethodField()
+
+    def get_buyer_shop_id(self, obj):
+        return obj.order.buyer_shop_id
+
+    def get_buyer_shop(self, obj):
+        return obj.order.buyer_shop.__str__()
+
+    class Meta:
+        model=OrderedProduct
+        fields=('buyer_shop_id', 'buyer_shop')
+
+
+
+

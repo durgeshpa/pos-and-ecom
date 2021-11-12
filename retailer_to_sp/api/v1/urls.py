@@ -10,7 +10,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
                     ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
-                    ProcessShipmentView, ShipmentStatusList, ShipmentQCView
+                    ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
+                    ShipmentPincodeFilterView, ShipmentShopFilterView
                     )
 
 router = routers.DefaultRouter()
@@ -86,6 +87,9 @@ urlpatterns = [
     url(r'^process-shipment/$', ProcessShipmentView.as_view()),
     url(r'^shipment-status-list/$', ShipmentStatusList.as_view()),
     url('shipments/', ShipmentQCView.as_view()),
+    url('shipment-city-list/', ShipmentCityFilterView.as_view()),
+    url('shipment-pincode-list/', ShipmentPincodeFilterView.as_view()),
+    url('shipment-shop-list/', ShipmentShopFilterView.as_view()),
 ]
 
 urlpatterns += router.urls

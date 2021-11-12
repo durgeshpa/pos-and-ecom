@@ -45,8 +45,9 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer, 
-                          ShipmentQCSerializer
+                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
+                          ShipmentQCSerializer, ShipmentCityFilterSerializer, ShipmentPincodeFilterSerializer,
+                          ShipmentShopFilterSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -100,7 +101,7 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
 
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, CustomOffsetPaginationDefault25
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -6703,3 +6704,83 @@ class ShipmentStatusList(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in OrderedProduct.SHIPMENT_STATUS]
         msg = ""
         return get_response(msg, data, True)
+
+
+class ShipmentCityFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentCityFilterSerializer
+    queryset = OrderedProduct.objects. \
+        exclude(qc_area__isnull=True). \
+        select_related('order__shipping_address', 'order__shipping_address__city').\
+        only('order__shipping_address__city__id', 'order__shipping_address__city__city_name')
+
+    def get(self, request):
+        self.queryset = self.search_filter_shipment_data()
+        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+
+        if search_text:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=search_text)
+        return self.queryset.distinct('order__shipping_address__city__id')
+
+
+class ShipmentPincodeFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentPincodeFilterSerializer
+    queryset = OrderedProduct.objects. \
+        exclude(qc_area__isnull=True). \
+        select_related('order__shipping_address').\
+        only('order__shipping_address__pincode')
+
+    def get(self, request):
+        self.queryset = self.search_filter_shipment_data()
+        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+
+        if search_text:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode__icontains=search_text)
+        return self.queryset.distinct('order__shipping_address__pincode')
+
+
+class ShipmentShopFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentShopFilterSerializer
+    queryset = OrderedProduct.objects. \
+        exclude(qc_area__isnull=True). \
+        select_related('order__buyer_shop').\
+        only('order__buyer_shop_id', 'order__buyer_shop__shop_name', 'order__buyer_shop__shop_owner',
+             'order__buyer_shop__shop_owner__first_name', 'order__buyer_shop__shop_owner__last_name',
+             'order__buyer_shop__shop_owner__phone_number', 'order__buyer_shop__shop_type',
+             'order__buyer_shop__shop_type__shop_sub_type')
+
+    def get(self, request):
+        self.queryset = self.search_filter_shipment_data()
+        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+
+        if search_text:
+            self.queryset = self.queryset.filter(Q(order__buyer_shop__shop_name__icontains=search_text) |
+                                        Q(order__buyer_shop__shop_name__shop_owner__first_name__icontains=search_text) |
+                                        Q(order__buyer_shop__shop_name__shop_owner__phone_number__icontains=search_text))
+        return self.queryset.distinct('order__buyer_shop_id')

@@ -46,7 +46,8 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
-    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
+    QCDeskSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -1712,6 +1713,7 @@ class OrderStatusSummaryView(generics.GenericAPIView):
             )
         ). \
         exclude(token_id__isnull=True). \
+        exclude(order__rt_order_order_product__isnull=False).\
         values('token_id').annotate(status_list=ArrayAgg(F('picking_status')))
     serializer_class = OrderStatusSerializer
 
@@ -1743,7 +1745,8 @@ class OrderStatusSummaryView(generics.GenericAPIView):
     def filter_picker_summary_data(self):
         zone = self.request.GET.get('zone')
         picker = self.request.GET.get('picker')
-        date = self.request.GET.get('date')
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using zone, picker, date'''
         if zone:
@@ -1751,9 +1754,19 @@ class OrderStatusSummaryView(generics.GenericAPIView):
 
         if picker:
             self.queryset = self.queryset.filter(picker_boy__id=picker)
-        
-        if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    picker_assigned_date__gte=start_date.date(), picker_assigned_date__lte=end_date.date())
+            else:
+                date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__date=date.date())
+
+        # if date:
+        #     self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
@@ -2572,4 +2585,67 @@ class PickingTypeListView(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in PickerDashboard.PICKING_TYPE_CHOICE]
         msg = ""
         return get_response(msg, data, True)
+
+
+class ShipmentQCView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentQCSerializer
+    queryset = OrderedProduct.objects. \
+        select_related('order', 'order__seller_shop',
+                       'order__seller_shop__shop_owner', 'order__seller_shop__shop_type',
+                       'order__seller_shop__shop_type__shop_sub_type', 'qc_area', 'qc_area__qc_desk_areas').\
+        order_by('-id')
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for shipment update """
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
+        if 'error' in shipment_data:
+            return get_response(shipment_data['error'])
+        serializer = self.serializer_class(instance=shipment_data['data'], data=modified_data)
+        if serializer.is_valid():
+            shipment = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Shipment updated!', shipment.data)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class QCDeskFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects. \
+        select_related('warehouse', 'qc_executive').\
+        only('id', 'desk_number', 'name', 'warehouse__id', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner', 'warehouse__shop_owner__first_name',
+             'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'qc_executive__id',
+             'qc_executive__first_name', 'qc_executive__last_name', 'qc_executive__phone_number'). \
+        order_by('-id')
+    serializer_class = QCDeskSerializer
+
+    def get(self, request):
+        info_logger.info("Zone Coordinators api called.")
+        """ GET Zone Coordinators List """
+        self.queryset = self.search_filter_desk_data()
+        qc_desks = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(qc_desks, many=True)
+        msg = "" if qc_desks else "no qc_desks found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_desk_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+        '''search using warehouse name, supervisor's firstname  and coordinator's firstname'''
+        if search_text:
+            self.queryset = qc_desk_search(self.queryset, search_text)
+
+        '''Filters using warehouse, supervisor, coordinator'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('id')
 
