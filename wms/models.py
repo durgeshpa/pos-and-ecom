@@ -755,6 +755,17 @@ class QCDeskQCAreaAssignmentMapping(BaseTimestampModel):
         verbose_name = "QC Desk to Area Assignment Mapping"
 
 
+class QCDeskQCAreaAssignmentMappingTransactionLog(BaseTimestampModel):
+    """
+        Transaction logs where we maintain the history for the
+        QCDeskQCAreaAssignmentMapping model
+    """
+    qc_desk = models.ForeignKey(QCDesk, on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, on_delete=models.DO_NOTHING)
+    token_id = models.CharField(max_length=30, null=True, blank=True)
+    qc_done = models.BooleanField(default=False)
+
+
 class Crate(BaseTimestampUserModel):
     STORAGE, PICKING, DISPATCH = 'SR', 'PK', 'DP'
     CRATE_TYPE_CHOICES = Choices((DISPATCH, 'Dispatch'), (PICKING, 'Picking'), (STORAGE, 'Storage'))
