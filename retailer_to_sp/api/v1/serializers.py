@@ -1696,4 +1696,46 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
                              f"{shipment_instance.order.order_no}")
 
+class ShipmentCityFilterSerializer(serializers.ModelSerializer):
+    city_id = serializers.SerializerMethodField()
+    city_name = serializers.SerializerMethodField()
+
+    def get_city_id(self, obj):
+        return obj.order.shipping_address.city.id
+
+    def get_city_name(self, obj):
+        return obj.order.shipping_address.city.city_name
+
+    class Meta:
+        model=OrderedProduct
+        fields=('city_id', 'city_name')
+
+
+class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
+    pincode = serializers.SerializerMethodField()
+
+    def get_pincode(self, obj):
+        return obj.order.shipping_address.pincode
+
+    class Meta:
+        model=OrderedProduct
+        fields=('pincode',)
+
+
+class ShipmentShopFilterSerializer(serializers.ModelSerializer):
+    buyer_shop_id = serializers.SerializerMethodField()
+    buyer_shop = serializers.SerializerMethodField()
+
+    def get_buyer_shop_id(self, obj):
+        return obj.order.buyer_shop_id
+
+    def get_buyer_shop(self, obj):
+        return obj.order.buyer_shop.__str__()
+
+    class Meta:
+        model=OrderedProduct
+        fields=('buyer_shop_id', 'buyer_shop')
+
+
+
 
