@@ -3154,7 +3154,7 @@ class ShipmentPackaging(BaseTimestampUserModel):
 class ShipmentPackagingMapping(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
                                            on_delete=models.DO_NOTHING)
-    product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
+    ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                 on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
