@@ -213,7 +213,7 @@ class TagProductView(APIView):
         except:
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False)
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
