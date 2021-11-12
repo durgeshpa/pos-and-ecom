@@ -4,14 +4,14 @@ import sys
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 from django.db import transaction
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, m2m_changed, pre_save
 from django.dispatch import receiver
 
 from accounts.models import User
 from common.common_utils import barcode_gen
 from retailer_to_sp.models import PickerDashboard
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk, \
-    QCDeskQCAreaAssignmentMapping
+    QCDeskQCAreaAssignmentMapping, QCDeskQCAreaAssignmentMappingTransactionLog
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -77,6 +77,18 @@ def qc_areas_changed(sender, instance, action, **kwargs):
         for pk in pk_set:
             QCDeskQCAreaAssignmentMapping.objects.update_or_create(qc_desk=instance, qc_area_id=pk, defaults={})
             info_logger.info("QC Desk to QC Area mapping created for qc_desk " + str(instance) + ", area id:" + str(pk))
+
+
+@receiver(pre_save, sender=QCDeskQCAreaAssignmentMapping)
+def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, **kwargs):
+    if not instance._state.adding:
+        try:
+            old_ins = QCDeskQCAreaAssignmentMapping.objects.get(id=instance.id)
+            QCDeskQCAreaAssignmentMappingTransactionLog.objects.create(
+                qc_desk=old_ins.qc_desk, qc_area=old_ins.qc_area, token_id=old_ins.token_id, qc_done=old_ins.qc_done,
+                created_by=old_ins.updated_by, updated_by=old_ins.updated_by)
+        except:
+            pass
 
 
 @receiver(post_save, sender=ZonePickerUserAssignmentMapping)
