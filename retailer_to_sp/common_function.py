@@ -1,6 +1,8 @@
 import datetime
 import json
+
 from django.core.exceptions import ObjectDoesNotExist
+
 from shops.models import ParentRetailerMapping
 from global_config.views import get_config
 

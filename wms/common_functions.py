@@ -22,7 +22,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, QCArea)
+                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -2567,6 +2567,19 @@ def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
     return queryset
 
 
+def get_logged_user_wise_query_set_for_shipment(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.has_perm('wms.can_have_zone_supervisor_permission') or \
+            user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
+    return queryset
+
+
 def send_update_to_qcdesk(shipment_instance):
     '''Update the QCArea assignment mapping on shipment QC start'''
     info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
@@ -2579,14 +2592,9 @@ def send_update_to_qcdesk(shipment_instance):
     info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
 
 
-def get_logged_user_wise_query_set_for_shipment(user, queryset):
-    '''
-        GET Logged-in user wise queryset for shipment based on criteria that matches
-    '''
-    if user.has_perm('wms.can_have_zone_warehouse_permission')\
-            or user.has_perm('wms.can_have_zone_supervisor_permission') or \
-            user.has_perm('wms.can_have_zone_coordinator_permission'):
-        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
-    elif user.has_perm('wms.can_have_qc_executive_permission'):
-        queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
-    return queryset
+def release_picking_crates(order_instance):
+    info_logger.info(f"release_picking_crates|Order No {order_instance.order_no}")
+    if PickupCrate.objects.filter(pickup__pickup_type_id=order_instance.order_no).exists():
+        PickupCrate.objects.filter(pickup__pickup_type_id=order_instance.order_no).update(is_in_use=False)
+    info_logger.info(f"release_picking_crates|Done|Order No {order_instance.order_no}")
+
