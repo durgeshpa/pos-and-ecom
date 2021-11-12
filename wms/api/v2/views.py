@@ -1712,6 +1712,7 @@ class OrderStatusSummaryView(generics.GenericAPIView):
             )
         ). \
         exclude(token_id__isnull=True). \
+        exclude(order__rt_order_order_product__isnull=False).\
         values('token_id').annotate(status_list=ArrayAgg(F('picking_status')))
     serializer_class = OrderStatusSerializer
 
