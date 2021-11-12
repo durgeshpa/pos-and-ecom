@@ -1470,7 +1470,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'id' in product_batch and product_batch['id']:
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
 
-                if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+                if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'QC_STARTED':
                     raise serializers.ValidationError("Shipment updation is not allowed.")
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
@@ -1492,7 +1492,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         if 'id' in self.initial_data and self.initial_data['id']:
             mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
 
-            if mapping_instance.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+            if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
                 raise serializers.ValidationError("Shipment updation is not allowed.")
 
             if mapping_instance.is_qc_done:

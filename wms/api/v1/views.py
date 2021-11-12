@@ -33,7 +33,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 # Logger
 from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
 from ...common_validators import validate_pickup_crates_list
-from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search
+from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -481,6 +481,7 @@ class PickupList(APIView):
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
+        data_days = self.request.GET.get('data_days')
 
         '''filter by user warehouse'''
         self.queryset = self.queryset.filter(zone__warehouse=warehouse)
@@ -500,11 +501,14 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
         if selected_date:
-            try:
-                date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(picker_assigned_date__startswith=date.date())
-            except Exception as e:
-                error_logger.error(e)
+            if data_days:
+                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - datetime.timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    picker_assigned_date__gte=start_date.date(), picker_assigned_date__lte=end_date.date())
+            else:
+                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
 
         return self.queryset
 
@@ -527,7 +531,7 @@ class BinIDList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    @check_whc_manager_coordinator_supervisor_picker
+    @check_picker
     def get(self, request):
         info_logger.info("Bin ID List GET API called.")
         zone = request.GET.get('zone')
@@ -605,6 +609,7 @@ class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    @check_picker
     def get(self, request):
         info_logger.info("Pick up detail GET API called.")
         order_no = request.GET.get('order_no')
@@ -656,6 +661,7 @@ class PickupDetail(APIView):
                         'current_time': datetime.datetime.now()}}
         return Response(msg, status=status.HTTP_200_OK)
 
+    @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}

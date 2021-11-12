@@ -1743,7 +1743,8 @@ class OrderStatusSummaryView(generics.GenericAPIView):
     def filter_picker_summary_data(self):
         zone = self.request.GET.get('zone')
         picker = self.request.GET.get('picker')
-        date = self.request.GET.get('date')
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using zone, picker, date'''
         if zone:
@@ -1751,9 +1752,19 @@ class OrderStatusSummaryView(generics.GenericAPIView):
 
         if picker:
             self.queryset = self.queryset.filter(picker_boy__id=picker)
-        
-        if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    picker_assigned_date__gte=start_date.date(), picker_assigned_date__lte=end_date.date())
+            else:
+                date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(picker_assigned_date__date=date.date())
+
+        # if date:
+        #     self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset
 
