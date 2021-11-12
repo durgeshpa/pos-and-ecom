@@ -24,7 +24,7 @@ from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update, \
-    QCDeskCommonFunction
+    QCDeskCommonFunction, send_update_to_qcdesk
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
@@ -1990,3 +1990,7 @@ class QCJobsDashboardSerializer(serializers.Serializer):
         return QCJobsDashboardCountsSerializer(qc_areas, context=self.context, read_only=True).data
 
 
+class QCDeskSerializer(QCDeskCrudSerializers):
+    class Meta:
+        model=QCDesk
+        fields = ('id', 'desk_number', 'name', 'qc_executive')

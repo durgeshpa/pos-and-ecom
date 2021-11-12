@@ -2520,7 +2520,7 @@ def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
         elif user.has_perm('wms.can_have_zone_coordinator_permission'):
             queryset = queryset.filter(zone__in=list(Zone.objects.filter(
                 coordinator=user).values_list('id', flat=True)))
-        elif user.groups.filter(name='Putaway').exists():
+        elif user.groups.filter(name='Picker Boy').exists():
             queryset = queryset.filter(picker_boy=user)
     elif pickup_type == 2:
         if user.has_perm('wms.can_have_zone_warehouse_permission'):
@@ -2532,7 +2532,7 @@ def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
         elif user.has_perm('wms.can_have_zone_coordinator_permission'):
             queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
                 coordinator=user).values_list('id', flat=True)))
-        elif user.groups.filter(name='Putaway').exists():
+        elif user.groups.filter(name='Picker Boy').exists():
             queryset = queryset.filter(picker_repacks__putaway_user=user)
     return queryset
 
@@ -2564,4 +2564,29 @@ def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
         queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_executive=user)
+    return queryset
+
+
+def send_update_to_qcdesk(shipment_instance):
+    '''Update the QCArea assignment mapping on shipment QC start'''
+    info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
+    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no).exists():
+        shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no)\
+            .update(qc_done=True)
+    else:
+        raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
+
+    info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+
+
+def get_logged_user_wise_query_set_for_shipment(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.has_perm('wms.can_have_zone_supervisor_permission') or \
+            user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
     return queryset

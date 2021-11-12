@@ -1,10 +1,10 @@
+
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from django.utils.crypto import get_random_string
 from django.db.models import Sum
 
 from shops.models import ParentRetailerMapping
-from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart, Trip
+from .models import CartProductMapping, Cart, Trip
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
 
@@ -205,4 +205,5 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
 	if instance.trip_status == Trip.STARTED:
 		send_sms_on_trip_start(instance)
+
 

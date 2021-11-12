@@ -14,9 +14,9 @@ from hashlib import sha512
 from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q
+from django.db.models import F, Sum, Q, Case, When, Value
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import transaction, models
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
@@ -32,8 +32,9 @@ from addresses.models import Address
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
-from wms.common_validators import validate_id, validate_data_format
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive
+from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
+    validate_id_and_warehouse
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -44,7 +45,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer
+                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer, 
+                          ShipmentQCSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -113,7 +115,8 @@ from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 
-from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
+    get_logged_user_wise_query_set_for_shipment
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.views import shipment_reschedule_inventory_change
 
@@ -6584,3 +6587,119 @@ class ProcessShipmentView(generics.GenericAPIView):
             info_logger.info("Process Shipment Updated Successfully.")
             return get_response('process_shipment updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+        
+class ShipmentQCView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentQCSerializer
+    queryset = OrderedProduct.objects.\
+                annotate(
+                    status = Case(
+                                When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
+                                then=Value(OrderedProduct.SHIPMENT_CREATED)),
+                    default=F('shipment_status'), output_field=models.CharField())).\
+                exclude(qc_area__isnull=True).\
+                select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                               'invoice', 'qc_area').\
+                prefetch_related('qc_area__qc_desk_areas'). \
+                order_by('-id')
+                # only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name', 'order__buyer_shop__id',
+                #      'order__buyer_shop__shop_name', 'order__shipping_address__pincode', 'order__shipping_address__nick_name',
+                #      'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+                #      'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+                #      'order__shipping_address__city__city_name', 'order__shipping_address__state__state_name',
+                #      'shipment_status', 'invoice__invoice_no', 'qc_area__id', 'qc_area__area_id', 'qc_area__area_type',
+                #      'created_at').\
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for Putaway """
+        if not request.GET.get('status'):
+            return get_response("'status' | This is mandatory")
+
+        if request.GET.get('id'):
+            """ Get Shipments for specific warehouse """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            self.queryset = id_validation['data']
+
+        else:
+            """ GET Shipment List """
+            self.queryset = self.search_filter_shipment_data()
+            self.queryset = get_logged_user_wise_query_set_for_shipment(request.user, self.queryset)
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for shipment update """
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
+        if 'error' in shipment_data:
+            return get_response(shipment_data['error'])
+        serializer = self.serializer_class(instance=shipment_data['data'], data=modified_data)
+        if serializer.is_valid():
+            shipment = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Shipment updated!', shipment.data)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)
+
+    def search_filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_executive = self.request.GET.get('qc_executive')
+        date = self.request.GET.get('date')
+        status = self.request.GET.get('status')
+        city = self.request.GET.get('city')
+        pincode = self.request.GET.get('pincode')
+        buyer_shop = self.request.GET.get('buyer_shop')
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = shipment_search(self.queryset, search_text)
+
+        '''Filters using warehouse, product, zone, date, status, putaway_type_id'''
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(Q(qc_area__qc_desk_areas__desk_number__icontains=qc_desk)|
+                                                 Q(qc_area__qc_desk_areas__name__icontains=qc_desk))
+
+        if qc_executive:
+            self.queryset = self.queryset.filter(qc_area__qc_desk_areas__qc_executive=qc_executive)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if city:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city)
+
+        if pincode:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode)
+
+        if buyer_shop:
+            self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        return self.queryset.distinct('id')
+
+
+class ShipmentStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for Shipment Status """
+        fields = ['id', 'status']
+        data = [dict(zip(fields, d)) for d in OrderedProduct.SHIPMENT_STATUS]
+        msg = ""
+        return get_response(msg, data, True)

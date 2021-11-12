@@ -328,3 +328,12 @@ def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone
             return {"error": "Crates quantity should be matched with pickup quantity."}
     return {"data": crates_dict}
 
+
+def validate_shipment_qc_desk(queryset, shipment_id, user):
+    shipment = queryset.filter(id=shipment_id).last()
+    if not shipment:
+        return {"error" : "Invalid shipment id"}
+
+    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
+        return {"data": shipment}
+    return {"error": 'Logged in user is not allowed to start QC for this shipment'}

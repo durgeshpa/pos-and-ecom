@@ -21,7 +21,6 @@ from django.core.validators import MinValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
-from retailer_backend import common_function
 from retailer_backend import common_function as CommonFunction
 from .bulk_order_clean import bulk_order_validation
 from .common_function import reserved_args_json_data
@@ -33,12 +32,12 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from addresses.models import Address
 
 from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
+from wms.common_functions import common_on_return_and_partial, \
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
-from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
@@ -1485,8 +1484,10 @@ class OrderedProduct(models.Model):  # Shipment
     DELIVERED = "DELIVERED"
     PARTIALLY_QC_PASSED = "PARTIALLY_QC_PASSED"
     QC_REJECTED = "QC_REJECTED"
+    QC_STARTED = "QC_STARTED"
+    SHIPMENT_CREATED = 'SHIPMENT_CREATED'
     SHIPMENT_STATUS = (
-        ('SHIPMENT_CREATED', 'QC Pending'),
+        (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
@@ -1504,7 +1505,8 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
-        (DELIVERED, 'Delivered')
+        (DELIVERED, 'Delivered'),
+        (QC_STARTED, 'QC Started')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -1921,7 +1923,7 @@ class PickerDashboard(models.Model):
         (PICKING_CANCELLED, 'Picking Cancelled'),
         (MOVED_TO_QC, 'Moved To QC Area'),
     )
-
+    PICKING_TYPE_CHOICE = Choices((1, 'ORDER', 'order'), (2, 'REPACKAGING', 'repackaging'))
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
     repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(

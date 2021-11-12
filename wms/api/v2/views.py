@@ -27,7 +27,7 @@ from wms.common_functions import get_response, serializer_error, get_logged_user
     get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway, validate_grouped_request
+    validate_putaway_user_against_putaway, validate_grouped_request, validate_shipment_qc_desk
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
     QCDeskQCAreaAssignmentMapping
@@ -47,6 +47,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer
+
 from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
@@ -1592,7 +1593,7 @@ class UpdateQCAreaView(generics.GenericAPIView):
 
 class PickerDashboardCrudView(generics.GenericAPIView):
     """API view for PickerDashboard"""
-    # authentication_classes = (authentication.TokenAuthentication,)
+    authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = PickerDashboard.objects. \
         select_related('order', 'repackaging', 'shipment', 'picker_boy', 'zone', 'zone__warehouse',
@@ -2558,3 +2559,17 @@ class PendingQCJobsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(token_id__in=pickup_orders_list)
 
         return self.queryset
+
+
+class PickingTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for QCAreaTypeList """
+        info_logger.info("Picking Type GET api called.")
+        fields = ['id', 'type']
+        data = [dict(zip(fields, d)) for d in PickerDashboard.PICKING_TYPE_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)
+

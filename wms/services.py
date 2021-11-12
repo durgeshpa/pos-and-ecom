@@ -224,3 +224,11 @@ def check_picker(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+def shipment_search(queryset, search_text):
+    '''
+    search using order no or invoice no
+    '''
+    queryset = queryset.filter(Q(invoice__invoice_no__icontains=search_text) | Q(order__order_no__icontains=search_text))
+    return queryset
