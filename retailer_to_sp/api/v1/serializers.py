@@ -1453,7 +1453,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 missing_qty = int(product_batch['missing_qty'])
                 rejected_qty = int(product_batch['rejected_qty'])
             except:
-                return serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
+                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
                                                    "Invalid quantity.")
             if rejected_qty > 0 and \
                     ('reason_for_rejection' not in product_batch or
