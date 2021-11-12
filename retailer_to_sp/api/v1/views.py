@@ -4644,7 +4644,7 @@ class CartStockCheckView(APIView):
         if not self.request.GET.get('address_id'):
             return api_response("Please select an address to place order")
         try:
-            address = EcomAddress.objects.get(id=int(self.request.data.get('address_id')), user=self.request.user)
+            address = EcomAddress.objects.get(id=int(self.request.GET.get('address_id')), user=self.request.user)
         except:
             return api_response("Invalid Address Id")
 
