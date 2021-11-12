@@ -27,10 +27,8 @@ from shops.models import Shop, ShopTiming
 from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
-from retailer_backend.utils import SmallOffsetPagination
-from wms.api.v2.serializers import QCDeskCrudSerializers, QCAreaCrudSerializers, QCDeskSerializer, QCAreaSerializer
+from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import send_update_to_qcdesk
-from wms.models import QCDesk
 
 User = get_user_model()
 
@@ -1400,11 +1398,11 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 
 class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
-    product = ProductSerializer()
+    product = ProductSerializer(read_only=True)
     product_price = serializers.SerializerMethodField()
     product_total_price = serializers.SerializerMethodField()
     product_type = serializers.SerializerMethodField()
-    rt_ordered_product_mapping = OrderedProductBatchSerializer(many=True)
+    rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
 
     class Meta:
@@ -1413,7 +1411,135 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'is_qc_done')
+
+    def validate(self, data):
+
+        if 'product' in self.initial_data and self.initial_data['product']:
+            try:
+                product = Product.objects.get(id=self.initial_data['product'])
+                data['product'] = product
+            except:
+                raise serializers.ValidationError("Invalid product")
+        else:
+            raise serializers.ValidationError("'product' | This is mandatory")
+
+        product_damaged_qty = 0
+        product_expired_qty = 0
+        product_missing_qty = 0
+        product_rejected_qty = 0
+
+        # Batch Validations
+        if 'rt_ordered_product_mapping' not in self.initial_data or \
+                not isinstance(self.initial_data['rt_ordered_product_mapping'], list) or \
+                not self.initial_data['rt_ordered_product_mapping']:
+            raise serializers.ValidationError("'rt_ordered_product_mapping' | This is mandatory")
+
+        for product_batch in self.initial_data['rt_ordered_product_mapping']:
+            if 'batch_id' not in product_batch or not product_batch['batch_id']:
+                raise serializers.ValidationError("'batch_id' | This is mandatory.")
+
+            if 'damaged_qty' not in product_batch or not product_batch['damaged_qty'] or \
+                    'expired_qty' not in product_batch or not product_batch['expired_qty'] or \
+                    'missing_qty' not in product_batch or not product_batch['missing_qty'] or \
+                    'rejected_qty' not in product_batch or not product_batch['rejected_qty']:
+                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
+                                                  "These are mandatory.")
+            try:
+                damaged_qty = int(product_batch['damaged_qty'])
+                expired_qty = int(product_batch['expired_qty'])
+                missing_qty = int(product_batch['missing_qty'])
+                rejected_qty = int(product_batch['rejected_qty'])
+            except:
+                return serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
+                                                   "Invalid quantity.")
+            if rejected_qty > 0 and \
+                    ('reason_for_rejection' not in product_batch or
+                     product_batch['reason_for_rejection'] not in OrderedProductBatch.REJECTION_REASON_CHOICE):
+                raise serializers.ValidationError("'reason_for_rejection' | This is mandatory "
+                                                  "if rejected quantity is greater than zero.")
+
+            product_damaged_qty += damaged_qty
+            product_expired_qty += expired_qty
+            product_missing_qty += missing_qty
+            product_rejected_qty += rejected_qty
+
+            if 'id' in product_batch and product_batch['id']:
+                product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
+
+                if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+                    return serializers.ValidationError("Shipment updation is not allowed.")
+
+                if product_batch_instance.batch_id != product_batch['batch_id']:
+                    raise serializers.ValidationError("'batch_id' | Invalid batch.")
+
+                shipped_qty = product_batch_instance.pickup_quantity - (
+                        product_batch['damaged_qty'] + product_batch['expired_qty'] +
+                        product_batch['missing_qty'] + product_batch['rejected_qty'])
+
+                if shipped_qty < 0 or float(product_batch_instance.pickup_quantity) != float(
+                        shipped_qty + product_batch['damaged_qty'] + product_batch['expired_qty'] +
+                        product_batch['missing_qty'] + product_batch['rejected_qty']):
+                    raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
+                                                      "(damaged_qty, expired_qty, no.of pieces to ship.)")
+            else:
+                raise serializers.ValidationError("'rt_ordered_product_mapping.id' | This is mandatory.")
+
+        # Shipment's Product mapping Id Validation
+        if 'id' in self.initial_data and self.initial_data['id']:
+            mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
+
+            if mapping_instance.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+                raise serializers.ValidationError("Shipment updation is not allowed.")
+
+            if mapping_instance.is_qc_done:
+                raise serializers.ValidationError("This product is already QC Passed.")
+
+            if mapping_instance.product != product:
+                raise serializers.ValidationError("Product updation is not allowed.")
+
+            shipped_qty = mapping_instance.picked_pieces - (product_damaged_qty + product_expired_qty +
+                                                            product_missing_qty + product_rejected_qty)
+            if shipped_qty < 0 or float(mapping_instance.picked_pieces) != float(
+                    shipped_qty + product_damaged_qty + product_expired_qty + product_missing_qty +
+                    product_rejected_qty):
+                raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
+                                                  "(damaged_qty, expired_qty, no.of pieces to ship)")
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory.")
+
+        data['damaged_qty'] = product_damaged_qty
+        data['expired_qty'] = product_expired_qty
+        data['missing_qty'] = product_missing_qty
+        data['rejected_qty'] = product_rejected_qty
+        data['is_qc_done'] = True
+
+        return data
+
+    def update_product_batch_data(self, product_batch_instance, validated_data):
+        try:
+            process_shipments_instance = product_batch_instance.update(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update Ordered Product Mapping"""
+        ordered_product_batches = self.initial_data['rt_ordered_product_mapping']
+
+        try:
+            process_shipments_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        for product_batch in ordered_product_batches:
+            product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id'])
+            product_batch_id = product_batch.pop('id')
+            self.update_product_batch_data(product_batch_instance, product_batch)
+
+        return process_shipments_instance
 
     @staticmethod
     def get_product_price(obj):
@@ -1436,7 +1562,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         return product_price
 
     def get_product_total_price(self, obj):
-        self.product_total_price = obj.effective_price * obj.shipped_qty
+        self.product_total_price = float(obj.effective_price) * float(obj.shipped_qty)
         return round(self.product_total_price, 2)
 
     @staticmethod
@@ -1448,7 +1574,7 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
-    rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(many=True)
+    rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
 
     class Meta:
         model = OrderedProduct

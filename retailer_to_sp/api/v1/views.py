@@ -45,7 +45,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, ShipmentQCSerializer
+                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer, 
+                          ShipmentQCSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -56,7 +57,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return)
+                                   OrderReturn, ReturnItems, Return, OrderedProductMapping)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
     getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -6520,7 +6521,7 @@ class ShipmentProductView(generics.GenericAPIView):
                          'rt_order_product_order_product_mapping__rt_ordered_product_mapping')
     serializer_class = ShipmentProductSerializer
 
-    # @check_whc_manager_coordinator_supervisor_qc_executive
+    @check_whc_manager_coordinator_supervisor_qc_executive
     def get(self, request):
         """ GET API for Shipment Product """
         info_logger.info("Shipment Product GET api called.")
@@ -6537,6 +6538,57 @@ class ShipmentProductView(generics.GenericAPIView):
         return get_response("'id' | This is mandatory.")
 
 
+class ProcessShipmentView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProductMapping.objects.\
+        all()
+    serializer_class = RetailerOrderedProductMappingSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for Process Shipment """
+        info_logger.info("Process Shipment GET api called.")
+
+        if not request.GET.get('id'):
+            return get_response('please provide id to get shipment product detail', False)
+
+        """ Get Process Shipment for specific ID """
+        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        process_shipments_data = id_validation['data']
+
+        serializer = self.serializer_class(process_shipments_data, many=True)
+        msg = "" if process_shipments_data else "no shipment product found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def put(self, request):
+        """ PUT API for Process Shipment Updation """
+
+        info_logger.info("Process Shipment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to process_shipment', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        process_shipment_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=process_shipment_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Process Shipment Updated Successfully.")
+            return get_response('process_shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+        
 class ShipmentQCView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)

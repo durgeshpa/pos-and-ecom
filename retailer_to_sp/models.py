@@ -2004,6 +2004,7 @@ class OrderedProductMapping(models.Model):
     cancellation_date = models.DateTimeField(null=True, blank=True)
     picked_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
                                         validators=[MinValueValidator(0)])
+    is_qc_done = models.BooleanField(default=False)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
