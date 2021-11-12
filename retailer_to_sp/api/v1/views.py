@@ -4641,7 +4641,7 @@ class CartStockCheckView(APIView):
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
-        if not self.request.get('address_id'):
+        if not self.request.GET.get('address_id'):
             return api_response("Please select an address to place order")
         try:
             address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
