@@ -6583,7 +6583,7 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         serializer = self.serializer_class(instance=process_shipment_instance, data=modified_data)
         if serializer.is_valid():
-            serializer.save(updated_by=request.user)
+            serializer.save(last_modified_by=request.user)
             info_logger.info("Process Shipment Updated Successfully.")
             return get_response('process_shipment updated!', serializer.data)
         return get_response(serializer_error(serializer), False)

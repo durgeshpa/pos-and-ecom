@@ -1439,10 +1439,10 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
-            if 'damaged_qty' not in product_batch or not product_batch['damaged_qty'] or \
-                    'expired_qty' not in product_batch or not product_batch['expired_qty'] or \
-                    'missing_qty' not in product_batch or not product_batch['missing_qty'] or \
-                    'rejected_qty' not in product_batch or not product_batch['rejected_qty']:
+            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None or \
+                    'expired_qty' not in product_batch or product_batch['expired_qty'] is None or \
+                    'missing_qty' not in product_batch or product_batch['missing_qty'] is None or \
+                    'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
                 raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
                                                   "These are mandatory.")
             try:
@@ -1451,7 +1451,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 missing_qty = int(product_batch['missing_qty'])
                 rejected_qty = int(product_batch['rejected_qty'])
             except:
-                return serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
+                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
                                                    "Invalid quantity.")
             if rejected_qty > 0 and \
                     ('reason_for_rejection' not in product_batch or
@@ -1468,7 +1468,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
 
                 if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
-                    return serializers.ValidationError("Shipment updation is not allowed.")
+                    raise serializers.ValidationError("Shipment updation is not allowed.")
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
