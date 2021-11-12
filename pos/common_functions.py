@@ -371,6 +371,8 @@ class PosCartCls(object):
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
+            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled and cart_product.retailer_product.online_price:
+                cart_product.selling_price = cart_product.retailer_product.online_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()

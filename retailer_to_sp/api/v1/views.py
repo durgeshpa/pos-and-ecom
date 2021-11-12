@@ -4641,6 +4641,17 @@ class CartStockCheckView(APIView):
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
+        if not self.request.GET.get('address_id'):
+            return api_response("Please select an address to check stock")
+        try:
+            address = EcomAddress.objects.get(id=int(self.request.GET.get('address_id')), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
+
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
