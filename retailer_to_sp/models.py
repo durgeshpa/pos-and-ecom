@@ -31,7 +31,8 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 
 from addresses.models import Address
 
-from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, InventoryState, Bin, Zone, QCArea, \
+    BaseTimestampUserModel, Crate
 from wms.common_functions import common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
@@ -3135,3 +3136,25 @@ class PickerPerformanceData(PickerDashboard):
         proxy = True
         verbose_name = 'Picker Performance Dashboard'
         verbose_name_plural = 'Picker Performance Dashboard'
+
+
+class ShipmentPackaging(BaseTimestampUserModel):
+    CRATE, SACK, BOX = 'CRATE', 'SACK', 'BOX'
+    PACKAGING_TYPE_CHOICES = Choices(
+        (CRATE, 'Crate'),
+        (SACK, 'Sack'),
+        (BOX, 'Box')
+    )
+    shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
+    packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
+    warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()
+
+
+class ShipmentPackagingMapping(BaseTimestampUserModel):
+    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
+                                           on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
+                                on_delete=models.DO_NOTHING)
+    crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()

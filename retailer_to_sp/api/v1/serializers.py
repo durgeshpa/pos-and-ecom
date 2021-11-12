@@ -15,7 +15,7 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
-                                   Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch)
+                                   Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -1402,16 +1402,18 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField()
     product_total_price = serializers.SerializerMethodField()
     product_type = serializers.SerializerMethodField()
+    box_used_in_shipment = serializers.SerializerMethodField()
+    sack_used_in_shipment = serializers.SerializerMethodField()
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
 
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price',
+        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price', 'is_qc_done',
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'is_qc_done')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'box_used_in_shipment', 'sack_used_in_shipment')
 
     def validate(self, data):
 
@@ -1439,10 +1441,10 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
-            if 'damaged_qty' not in product_batch or not product_batch['damaged_qty'] or \
-                    'expired_qty' not in product_batch or not product_batch['expired_qty'] or \
-                    'missing_qty' not in product_batch or not product_batch['missing_qty'] or \
-                    'rejected_qty' not in product_batch or not product_batch['rejected_qty']:
+            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None or \
+                    'expired_qty' not in product_batch or product_batch['expired_qty'] is None or \
+                    'missing_qty' not in product_batch or product_batch['missing_qty'] is None or \
+                    'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
                 raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
                                                   "These are mandatory.")
             try:
@@ -1468,7 +1470,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
 
                 if product_batch_instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
-                    return serializers.ValidationError("Shipment updation is not allowed.")
+                    raise serializers.ValidationError("Shipment updation is not allowed.")
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
@@ -1568,6 +1570,16 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_product_type(obj):
         return obj.get_product_type_display()
+
+    @staticmethod
+    def get_box_used_in_shipment(obj):
+        return ShipmentPackaging.objects.filter(
+            shipment=obj.ordered_product, packaging_type=ShipmentPackaging.BOX).exists()
+
+    @staticmethod
+    def get_sack_used_in_shipment(obj):
+        return ShipmentPackaging.objects.filter(
+            shipment=obj.ordered_product, packaging_type=ShipmentPackaging.SACK).exists()
 
 
 class ShipmentProductSerializer(serializers.ModelSerializer):
