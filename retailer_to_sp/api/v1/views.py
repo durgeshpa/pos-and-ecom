@@ -58,7 +58,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return, OrderedProductMapping)
+                                   OrderReturn, ReturnItems, Return, OrderedProductMapping, ShipmentPackaging)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
     getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -6794,3 +6794,14 @@ class ShipmentShopFilterView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping',
                                             shop_name_address_mapping__pincode=pincode)
         return self.queryset
+
+
+class ShipmentProductRejectionReasonList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in OrderedProductBatch.REJECTION_REASON_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)

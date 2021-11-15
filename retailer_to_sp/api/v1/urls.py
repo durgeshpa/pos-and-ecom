@@ -11,7 +11,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
                     ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
-                    ShipmentPincodeFilterView, ShipmentShopFilterView
+                    ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList
                     )
 
 router = routers.DefaultRouter()
@@ -90,6 +90,7 @@ urlpatterns = [
     url('shipment-city-list/', ShipmentCityFilterView.as_view()),
     url('shipment-pincode-list/', ShipmentPincodeFilterView.as_view()),
     url('shipment-shop-list/', ShipmentShopFilterView.as_view()),
+    url('rejection-reason/', ShipmentProductRejectionReasonList.as_view()),
 ]
 
 urlpatterns += router.urls
