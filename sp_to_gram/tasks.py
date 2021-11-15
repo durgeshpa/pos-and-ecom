@@ -82,6 +82,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	if inventory_type is None:
 		inventory_type = type_normal
 	product_dict = None
+	shop = None
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
 		if product is None:
@@ -107,11 +108,19 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		margin = 0
 		ptr = 0
 		pack_size = None
+		brand_case_size = None
 		try:
 			pack_size = product.product_inner_case_size if product.product_inner_case_size else None
 		except Exception as e:
 			info_logger.exception("pack size is not defined for {}".format(product.product_name))
 			continue
+
+		try:
+			brand_case_size = product.product_case_size if product.product_case_size else None
+		except Exception as e:
+			info_logger.exception("brand case size is not defined for {}".format(product.product_name))
+			continue
+
 		price_details = []
 		if product_price:
 			price_details = product_price
@@ -197,13 +206,14 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"product_images": product_images,
 			"user_selected_qty": user_selected_qty,
 			"pack_size": pack_size,
+			"brand_case_size": brand_case_size,
 			"margin": margin,
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":visible,
-			"ean":ean,
-			"price_details" : price_details,
+			"visible": visible,
+			"ean": ean,
+			"price_details": price_details,
 			"is_discounted": is_discounted,
 			"expiry_date": expiry_date
 		}
