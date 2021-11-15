@@ -1311,8 +1311,17 @@ class OrderedProductAdmin(NestedModelAdmin):
     classes = ['table_inline', ]
 
     def previous_trip(self, obj):
-        if obj and obj.rescheduling_shipment.all().exists():
+        if obj and obj.rescheduling_shipment.all().exists() and obj.not_attempt_shipment.all().exists():
+            rescheduling_shipment = obj.rescheduling_shipment.last()
+            not_attempt_shipment = obj.not_attempt_shipment.last()
+            if rescheduling_shipment.created_at > not_attempt_shipment.created_at:
+                return obj.rescheduling_shipment.last().trip
+            else:
+                return obj.not_attempt_shipment.last().trip
+        elif obj and obj.rescheduling_shipment.all().exists():
             return obj.rescheduling_shipment.last().trip
+        elif obj and obj.not_attempt_shipment.all().exists():
+            return obj.not_attempt_shipment.last().trip
         return '-'
 
     def download_invoice(self, obj):
