@@ -14,9 +14,11 @@ from accounts.models import UserWithName
 from addresses.models import Address
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
+from retailer_to_sp.common_validators import validate_shipment_crates_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
-                                   Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch)
+                                   Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
+                                   ShipmentPackagingMapping)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -30,6 +32,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk
+from wms.models import Crate
 
 User = get_user_model()
 
@@ -1405,16 +1408,18 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField()
     product_total_price = serializers.SerializerMethodField()
     product_type = serializers.SerializerMethodField()
+    box_used_in_shipment = serializers.SerializerMethodField()
+    sack_used_in_shipment = serializers.SerializerMethodField()
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
 
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price',
+        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price', 'is_qc_done',
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'is_qc_done')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'box_used_in_shipment', 'sack_used_in_shipment')
 
     def validate(self, data):
 
@@ -1489,27 +1494,71 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'rt_ordered_product_mapping.id' | This is mandatory.")
 
         # Shipment's Product mapping Id Validation
-        if 'id' in self.initial_data and self.initial_data['id']:
-            mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
-
-            if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
-                raise serializers.ValidationError("Shipment updation is not allowed.")
-
-            if mapping_instance.is_qc_done:
-                raise serializers.ValidationError("This product is already QC Passed.")
-
-            if mapping_instance.product != product:
-                raise serializers.ValidationError("Product updation is not allowed.")
-
-            shipped_qty = mapping_instance.picked_pieces - (product_damaged_qty + product_expired_qty +
-                                                            product_missing_qty + product_rejected_qty)
-            if shipped_qty < 0 or float(mapping_instance.picked_pieces) != float(
-                    shipped_qty + product_damaged_qty + product_expired_qty + product_missing_qty +
-                    product_rejected_qty):
-                raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
-                                                  "(damaged_qty, expired_qty, no.of pieces to ship)")
-        else:
+        if 'id' not in self.initial_data and self.initial_data['id'] is None:
             raise serializers.ValidationError("'id' | This is mandatory.")
+
+        mapping_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last()
+
+        if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
+            raise serializers.ValidationError("Shipment updation is not allowed.")
+
+        if mapping_instance.is_qc_done:
+            raise serializers.ValidationError("This product is already QC Passed.")
+
+        if mapping_instance.product != product:
+            raise serializers.ValidationError("Product updation is not allowed.")
+
+        shipped_qty = mapping_instance.picked_pieces - (product_damaged_qty + product_expired_qty +
+                                                        product_missing_qty + product_rejected_qty)
+        if shipped_qty < 0 or float(mapping_instance.picked_pieces) != float(
+                shipped_qty + product_damaged_qty + product_expired_qty + product_missing_qty +
+                product_rejected_qty):
+            raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
+                                              "(damaged_qty, expired_qty, no.of pieces to ship)")
+
+        warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
+
+        if 'packaging' in self.initial_data and self.initial_data['packaging']:
+            if 'type' not in self.initial_data['packaging'] or not self.initial_data['packaging']['type']:
+                raise serializers.ValidationError("'packaging.type' | This is mandatory")
+            if self.initial_data['packaging']['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK,
+                                                              ShipmentPackaging.BOX]:
+                raise serializers.ValidationError("'packaging.type' | Invalid packaging type")
+            if self.initial_data['packaging']['type'] == ShipmentPackaging.CRATE:
+                validate_crates = validate_shipment_crates_list(
+                    self.initial_data['packaging'], shipped_qty, warehouse_id)
+                if 'error' in validate_crates:
+                    raise serializers.ValidationError(validate_crates['error'])
+                existing_crates_list = list(ShipmentPackagingMapping.objects.filter(
+                    shipment_packaging__shipment=mapping_instance.ordered_product).\
+                    values_list('crate__crate_id', flat=True).distinct('crate__crate_id'))
+                crate_quantity = len(existing_crates_list)
+                for crate_obj in validate_crates['data']['crates']:
+                    if crate_obj['crate_id'] not in existing_crates_list:
+                        existing_crates_list.append(crate_obj['crate_id'])
+                        crate_quantity += 1
+                self.initial_data['packaging']['quantity'] = crate_quantity
+            elif self.initial_data['packaging']['type'] in [ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
+                if 'is_new' not in self.initial_data['packaging'] or \
+                        self.initial_data['packaging']['is_new'] is None:
+                    raise serializers.ValidationError("'packaging.is_new' | This is mandatory for SACK & BOX.")
+                if self.initial_data['packaging']['is_new'] not in [True, False]:
+                    raise serializers.ValidationError("'packaging.is_new' | Invalid choice.")
+
+                shipment_packaging_instance = ShipmentPackaging.objects.filter(
+                    shipment=mapping_instance.ordered_product, packaging_type=self.initial_data['packaging']['type'],
+                    warehouse_id=warehouse_id).last()
+                qty = 0
+                if shipment_packaging_instance:
+                    qty = shipment_packaging_instance.quantity
+                if self.initial_data['packaging']['is_new'] or qty == 0:
+                    qty += 1
+                self.initial_data['packaging']['quantity'] = qty
+            packaging = self.initial_data['packaging']
+            packaging['warehouse_id'] = warehouse_id
+            data['packaging'] = packaging
+        else:
+            raise serializers.ValidationError("'packaging' | This is mandatory")
 
         data['damaged_qty'] = product_damaged_qty
         data['expired_qty'] = product_expired_qty
@@ -1518,6 +1567,17 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         data['is_qc_done'] = True
 
         return data
+
+    def create_update_shipment_packaging(self, shipment, packaging_type, warehouse_id, quantity, updated_by):
+        instance, created = ShipmentPackaging.objects.update_or_create(
+            shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id,
+            defaults={'quantity': quantity, 'created_by': updated_by, 'updated_by': updated_by})
+        return instance
+
+    def create_shipment_packaging_mapping(self, shipment_packaging, ordered_product, crate, quantity, updated_by):
+        return ShipmentPackagingMapping.objects.create(
+            shipment_packaging=shipment_packaging, ordered_product=ordered_product, crate=crate, quantity=quantity,
+            created_by=updated_by, updated_by=updated_by)
 
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
@@ -1530,6 +1590,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Update Ordered Product Mapping"""
         ordered_product_batches = self.initial_data['rt_ordered_product_mapping']
+        packaging = validated_data['packaging']
 
         try:
             process_shipments_instance = super().update(instance, validated_data)
@@ -1541,6 +1602,19 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id'])
             product_batch_id = product_batch.pop('id')
             self.update_product_batch_data(product_batch_instance, product_batch)
+
+        if packaging:
+            shipment_packaging = self.create_update_shipment_packaging(
+                process_shipments_instance.ordered_product, packaging['type'], packaging['warehouse_id'],
+                packaging['quantity'], validated_data['last_modified_by'])
+            if packaging['type'] == ShipmentPackaging.CRATE:
+                for crate_obj in packaging['crates']:
+                    crate_instance = Crate.objects.filter(
+                        crate_id=crate_obj['crate_id'], warehouse__id=packaging['warehouse_id'],
+                        crate_type=Crate.DISPATCH).last()
+                    shipment_packaging_mapping_instance = self.create_shipment_packaging_mapping(
+                        shipment_packaging, process_shipments_instance, crate_instance,
+                        int(crate_obj['quantity']), validated_data['last_modified_by'])
 
         return process_shipments_instance
 
@@ -1571,6 +1645,16 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_product_type(obj):
         return obj.get_product_type_display()
+
+    @staticmethod
+    def get_box_used_in_shipment(obj):
+        return ShipmentPackaging.objects.filter(
+            shipment=obj.ordered_product, packaging_type=ShipmentPackaging.BOX).exists()
+
+    @staticmethod
+    def get_sack_used_in_shipment(obj):
+        return ShipmentPackaging.objects.filter(
+            shipment=obj.ordered_product, packaging_type=ShipmentPackaging.SACK).exists()
 
 
 class ShipmentProductSerializer(serializers.ModelSerializer):
