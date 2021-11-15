@@ -433,7 +433,7 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
             ware_house_weight = weight + ware_house_inventory_obj.weight
             ware_house_inventory_obj.weight = ware_house_weight
-            if ware_house_quantity < 0:
+            if ware_house_quantity < 0 and inventory_state.inventory_state != 'reserved':
                 info_logger.info("create_warehouse_inventory| Negative Inventory |"
                                  " Warehouse-{}, SKU-{}, Inventory Type-{}, Inventory State-{}, Quantity-{}"
                                  .format(warehouse.id, sku.product_sku, inventory_type.inventory_type,
@@ -1649,6 +1649,8 @@ def get_expiry_date(batch_id):
     """
     if len(batch_id) == 23:
         expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
+    elif len(batch_id) == 24:
+        expiry_date = batch_id[18:20] + '/' + batch_id[20:22] + '/' + '20' + batch_id[22:24]
     else:
         expiry_date = '30/' + batch_id[17:19] + '/20' + batch_id[19:21]
     return expiry_date
