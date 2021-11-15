@@ -28,10 +28,11 @@ from rest_framework import status, generics, permissions, authentication
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from addresses.models import Address
+from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 
 from barCodeGenerator import barcodeGen
+from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
     validate_id_and_warehouse
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search
@@ -46,8 +47,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
-                          ShipmentQCSerializer, ShipmentCityFilterSerializer, ShipmentPincodeFilterSerializer,
-                          ShipmentShopFilterSerializer
+                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -101,7 +101,7 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
 
-from retailer_backend.utils import SmallOffsetPagination, CustomOffsetPaginationDefault25
+from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -6707,80 +6707,90 @@ class ShipmentStatusList(generics.GenericAPIView):
 
 
 class ShipmentCityFilterView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = CitySerializer
     permission_classes = (AllowAny,)
-    serializer_class = ShipmentCityFilterSerializer
-    queryset = OrderedProduct.objects. \
-        exclude(qc_area__isnull=True). \
-        select_related('order__shipping_address', 'order__shipping_address__city').\
-        only('order__shipping_address__city__id', 'order__shipping_address__city__city_name')
+    queryset = City.objects.all()
 
     def get(self, request):
-        self.queryset = self.search_filter_shipment_data()
-        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shipment_data, many=True)
-        msg = "" if shipment_data else "no shipment found"
+        """ GET Shop List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.city_search(search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no city found"
         return get_response(msg, serializer.data, True)
 
-    def search_filter_shipment_data(self):
-        """ Filters the Shipment data based on request"""
-        search_text = self.request.GET.get('search_text')
-
-        if search_text:
-            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=search_text)
-        return self.queryset.distinct('order__shipping_address__city__id')
+    def city_search(self, search_text):
+        '''
+        search using city_name & state_name based on criteria that matches
+        '''
+        queryset = self.queryset.filter(Q(city_name__icontains=search_text) |
+                                        Q(state__state_name__icontains=search_text))
+        return queryset
 
 
 class ShipmentPincodeFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentPincodeFilterSerializer
-    queryset = OrderedProduct.objects. \
-        exclude(qc_area__isnull=True). \
-        select_related('order__shipping_address').\
-        only('order__shipping_address__pincode')
+    queryset = Pincode.objects.all()
 
     def get(self, request):
-        self.queryset = self.search_filter_shipment_data()
-        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shipment_data, many=True)
-        msg = "" if shipment_data else "no shipment found"
+        self.queryset = self.search_filter_pincode()
+        pincode_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pincode_data, many=True)
+        msg = "" if pincode_data else "no pincode found"
         return get_response(msg, serializer.data, True)
 
-    def search_filter_shipment_data(self):
+    def search_filter_pincode(self):
         """ Filters the Shipment data based on request"""
         search_text = self.request.GET.get('search_text')
+        city = self.request.GET.get('city')
 
         if search_text:
-            self.queryset = self.queryset.filter(order__shipping_address__pincode__icontains=search_text)
-        return self.queryset.distinct('order__shipping_address__pincode')
+            self.queryset = self.queryset.filter(Q(pincode__icontains=search_text)|
+                                                 Q(city__city_name__icontains=search_text))
+
+        if city:
+            self.queryset = self.queryset.filter(city_id=city)
+
+        return self.queryset.distinct('pincode')
 
 
 class ShipmentShopFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    serializer_class = ShipmentShopFilterSerializer
-    queryset = OrderedProduct.objects. \
-        exclude(qc_area__isnull=True). \
-        select_related('order__buyer_shop').\
-        only('order__buyer_shop_id', 'order__buyer_shop__shop_name', 'order__buyer_shop__shop_owner',
-             'order__buyer_shop__shop_owner__first_name', 'order__buyer_shop__shop_owner__last_name',
-             'order__buyer_shop__shop_owner__phone_number', 'order__buyer_shop__shop_type',
-             'order__buyer_shop__shop_type__shop_sub_type')
+    permission_classes = (permissions.AllowAny,)
+    queryset = Shop.objects.filter(shop_type__shop_type__in =['r', 'f'], status=True, approval_status=2).\
+                            prefetch_related('shop_owner').\
+                            only('id', 'shop_name', 'shop_owner', 'shop_owner__phone_number', 'shop_type'). \
+                            order_by('-id')
+    serializer_class = ShopBasicSerializer
 
     def get(self, request):
-        self.queryset = self.search_filter_shipment_data()
-        shipment_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shipment_data, many=True)
-        msg = "" if shipment_data else "no shipment found"
+        """ GET Shop List """
+        self.queryset = self.shop_search()
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no shop found"
         return get_response(msg, serializer.data, True)
 
-    def search_filter_shipment_data(self):
-        """ Filters the Shipment data based on request"""
+    def shop_search(self):
+        '''
+        search using shop_name & parent shop based on criteria that matches
+        '''
+
         search_text = self.request.GET.get('search_text')
+        city = self.request.GET.get('city')
+        pincode = self.request.GET.get('pincode')
 
         if search_text:
-            self.queryset = self.queryset.filter(Q(order__buyer_shop__shop_name__icontains=search_text) |
-                                        Q(order__buyer_shop__shop_name__shop_owner__first_name__icontains=search_text) |
-                                        Q(order__buyer_shop__shop_name__shop_owner__phone_number__icontains=search_text))
-        return self.queryset.distinct('order__buyer_shop_id')
+            self.queryset = self.queryset.filter(Q(shop_name__icontains=search_text) | Q(
+                retiler_mapping__parent__shop_name__icontains=search_text))
+        if city:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping',
+                                            shop_name_address_mapping__city_id=city)
+        if pincode:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping',
+                                            shop_name_address_mapping__pincode=pincode)
+        return self.queryset

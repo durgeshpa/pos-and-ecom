@@ -11,7 +11,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import UserWithName
-from addresses.models import Address
+from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.common_validators import validate_shipment_crates_list
@@ -1780,46 +1780,14 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
                              f"{shipment_instance.order.order_no}")
 
-class ShipmentCityFilterSerializer(serializers.ModelSerializer):
-    city_id = serializers.SerializerMethodField()
-    city_name = serializers.SerializerMethodField()
-
-    def get_city_id(self, obj):
-        return obj.order.shipping_address.city.id
-
-    def get_city_name(self, obj):
-        return obj.order.shipping_address.city.city_name
-
+class CitySerializer(serializers.ModelSerializer):
     class Meta:
-        model=OrderedProduct
-        fields=('city_id', 'city_name')
-
+        model = City
+        fields = ('id', 'city_name')
 
 class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
-    pincode = serializers.SerializerMethodField()
-
-    def get_pincode(self, obj):
-        return obj.order.shipping_address.pincode
+    city = CitySerializer()
 
     class Meta:
-        model=OrderedProduct
-        fields=('pincode',)
-
-
-class ShipmentShopFilterSerializer(serializers.ModelSerializer):
-    buyer_shop_id = serializers.SerializerMethodField()
-    buyer_shop = serializers.SerializerMethodField()
-
-    def get_buyer_shop_id(self, obj):
-        return obj.order.buyer_shop_id
-
-    def get_buyer_shop(self, obj):
-        return obj.order.buyer_shop.__str__()
-
-    class Meta:
-        model=OrderedProduct
-        fields=('buyer_shop_id', 'buyer_shop')
-
-
-
-
+        model = Pincode
+        fields = ('id', 'pincode', 'city')

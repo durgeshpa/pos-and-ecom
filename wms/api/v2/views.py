@@ -2587,34 +2587,6 @@ class PickingTypeListView(generics.GenericAPIView):
         return get_response(msg, data, True)
 
 
-class ShipmentQCView(generics.GenericAPIView):
-
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects. \
-        select_related('order', 'order__seller_shop',
-                       'order__seller_shop__shop_owner', 'order__seller_shop__shop_type',
-                       'order__seller_shop__shop_type__shop_sub_type', 'qc_area', 'qc_area__qc_desk_areas').\
-        order_by('-id')
-
-    @check_qc_executive
-    def put(self, request):
-        """ PUT API for shipment update """
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-        shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
-        if 'error' in shipment_data:
-            return get_response(shipment_data['error'])
-        serializer = self.serializer_class(instance=shipment_data['data'], data=modified_data)
-        if serializer.is_valid():
-            shipment = serializer.save(updated_by=request.user, data=modified_data)
-            return get_response('Shipment updated!', shipment.data)
-        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
-        return Response(result, status=status.HTTP_200_OK)
-
-
 class QCDeskFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -2628,10 +2600,8 @@ class QCDeskFilterView(generics.GenericAPIView):
     serializer_class = QCDeskSerializer
 
     def get(self, request):
-        info_logger.info("Zone Coordinators api called.")
-        """ GET Zone Coordinators List """
         self.queryset = self.search_filter_desk_data()
-        qc_desks = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
+        qc_desks = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(qc_desks, many=True)
         msg = "" if qc_desks else "no qc_desks found"
         return get_response(msg, serializer.data, True)
