@@ -6805,3 +6805,14 @@ class ShipmentProductRejectionReasonList(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in OrderedProductBatch.REJECTION_REASON_CHOICE]
         msg = ""
         return get_response(msg, data, True)
+
+
+class PackagingTypeList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.PACKAGING_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
