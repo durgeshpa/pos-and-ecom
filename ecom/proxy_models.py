@@ -16,7 +16,8 @@ class EcomCartProductMapping(CartProductMapping):
 class EcomOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
-        verbose_name = 'Order'
+        verbose_name = 'Ecommerce Order'
+        app_label = 'ecom'
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
