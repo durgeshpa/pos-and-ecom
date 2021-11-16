@@ -485,6 +485,7 @@ class PickupList(APIView):
         '''filter by pickup type'''
 
         if pickup_type:
+            pickup_type = int(pickup_type)
             if pickup_type == 1:
                 self.queryset = self.queryset.filter(order__isnull=False)
             elif pickup_type == 2:
