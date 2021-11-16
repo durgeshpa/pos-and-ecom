@@ -1507,7 +1507,7 @@ class OrderedProduct(models.Model):  # Shipment
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
         (DELIVERED, 'Delivered'),
-        (QC_STARTED, 'QC Started')
+        (QC_STARTED, 'QC Started'),
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -3152,9 +3152,13 @@ class ShipmentPackaging(BaseTimestampUserModel):
 
 
 class ShipmentPackagingMapping(BaseTimestampUserModel):
+    REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
                                            on_delete=models.DO_NOTHING)
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                 on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    is_ready_for_dispatch = models.BooleanField(default=False)
+    reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
+

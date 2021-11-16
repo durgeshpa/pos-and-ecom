@@ -14,7 +14,7 @@ from accounts.models import UserWithName
 from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
-from retailer_to_sp.common_validators import validate_shipment_crates_list
+from retailer_to_sp.common_validators import validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
@@ -1525,7 +1525,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                                                               ShipmentPackaging.BOX]:
                 raise serializers.ValidationError("'packaging.type' | Invalid packaging type")
             if self.initial_data['packaging']['type'] == ShipmentPackaging.CRATE:
-                validate_crates = validate_shipment_crates_list(
+                validate_crates = validate_shipment_package_list(self.initial_data['packaging']['type'],
                     self.initial_data['packaging'], shipped_qty, warehouse_id)
                 if 'error' in validate_crates:
                     raise serializers.ValidationError(validate_crates['error'])
@@ -1533,17 +1533,16 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                     shipment_packaging__shipment=mapping_instance.ordered_product).\
                     values_list('crate__crate_id', flat=True).distinct('crate__crate_id'))
                 crate_quantity = len(existing_crates_list)
-                for crate_obj in validate_crates['data']['crates']:
-                    if crate_obj['crate_id'] not in existing_crates_list:
-                        existing_crates_list.append(crate_obj['crate_id'])
+                for crate_obj in validate_crates['data']['packages']:
+                    if crate_obj['package_id'] not in existing_crates_list:
+                        existing_crates_list.append(crate_obj['package_id'])
                         crate_quantity += 1
                 self.initial_data['packaging']['quantity'] = crate_quantity
             elif self.initial_data['packaging']['type'] in [ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
-                if 'is_new' not in self.initial_data['packaging'] or \
-                        self.initial_data['packaging']['is_new'] is None:
-                    raise serializers.ValidationError("'packaging.is_new' | This is mandatory for SACK & BOX.")
-                if self.initial_data['packaging']['is_new'] not in [True, False]:
-                    raise serializers.ValidationError("'packaging.is_new' | Invalid choice.")
+                validate_packages = validate_shipment_package_list(self.initial_data['packaging']['type'],
+                                                             self.initial_data['packaging'], shipped_qty, warehouse_id)
+                if 'error' in validate_packages:
+                    raise serializers.ValidationError(validate_packages['error'])
 
                 shipment_packaging_instance = ShipmentPackaging.objects.filter(
                     shipment=mapping_instance.ordered_product, packaging_type=self.initial_data['packaging']['type'],
@@ -1551,8 +1550,9 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 qty = 0
                 if shipment_packaging_instance:
                     qty = shipment_packaging_instance.quantity
-                if self.initial_data['packaging']['is_new'] or qty == 0:
-                    qty += 1
+                for package in validate_packages['data']['packages']:
+                    if package['is_new'] or qty == 0:
+                        qty += 1
                 self.initial_data['packaging']['quantity'] = qty
             packaging = self.initial_data['packaging']
             packaging['warehouse_id'] = warehouse_id
@@ -1607,14 +1607,16 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             shipment_packaging = self.create_update_shipment_packaging(
                 process_shipments_instance.ordered_product, packaging['type'], packaging['warehouse_id'],
                 packaging['quantity'], validated_data['last_modified_by'])
-            if packaging['type'] == ShipmentPackaging.CRATE:
-                for crate_obj in packaging['crates']:
+            for package_obj in packaging['packages']:
+                crate_instance = None
+                if packaging['type'] == ShipmentPackaging.CRATE:
                     crate_instance = Crate.objects.filter(
-                        crate_id=crate_obj['crate_id'], warehouse__id=packaging['warehouse_id'],
+                        crate_id=package_obj['package_id'], warehouse__id=packaging['warehouse_id'],
                         crate_type=Crate.DISPATCH).last()
-                    shipment_packaging_mapping_instance = self.create_shipment_packaging_mapping(
-                        shipment_packaging, process_shipments_instance, crate_instance,
-                        int(crate_obj['quantity']), validated_data['last_modified_by'])
+                shipment_packaging_mapping_instance = self.create_shipment_packaging_mapping(
+                    shipment_packaging, process_shipments_instance, crate_instance,
+                    int(package_obj['quantity']), validated_data['last_modified_by'])
+
 
         return process_shipments_instance
 
@@ -1746,7 +1748,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         or (shipment_status == OrderedProduct.QC_STARTED and status != OrderedProduct.READY_TO_SHIP):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
                 data['shipment_status'] = status
-                if shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
+                if status == OrderedProduct.READY_TO_SHIP and\
+                        shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
             else:
@@ -1791,3 +1794,56 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
         fields = ('id', 'pincode', 'city')
+
+
+class DispatchItemDetailsSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField(read_only=True)
+    quantity = serializers.IntegerField(read_only=True)
+
+    def get_product(self, obj):
+        return ProductSerializer(obj.ordered_product.product).data
+
+    class Meta:
+        model = ShipmentPackagingMapping
+        fields = ('id', 'product', 'quantity', 'is_ready_for_dispatch')
+
+    def validate(self, data):
+        if 'id' not in self.initial_data or not self.initial_data['id']:
+            raise serializers.ValidationError("'id' | This is required")
+        elif 'is_ready_for_dispatch' not in self.initial_data or not self.initial_data['is_ready_for_dispatch']:
+            raise serializers.ValidationError("'is_ready_for_dispatch' | This is required.")
+        elif self.initial_data['is_ready_for_dispatch'] not in [True, False]:
+            raise serializers.ValidationError("'is_ready_for_dispatch' | This can only be True/False")
+
+        data['is_ready_for_dispatch'] = self.initial_data['is_ready_for_dispatch']
+
+        if not self.initial_data['is_ready_for_dispatch']:
+            if 'reason_for_rejection' not in self.initial_data or not self.initial_data['reason_for_rejection']:
+                raise serializers.ValidationError("'reason_for_rejection' | This is required")
+            elif int(self.initial_data['reason_for_rejection']) not in ShipmentPackagingMapping.REASON_FOR_REJECTION:
+                raise serializers.ValidationError("'reason_for_rejection' | This is invalid")
+            data['reason_for_rejection'] = self.initial_data['reason_for_rejection']
+
+        package_mapping = ShipmentPackagingMapping.objects.get(id=self.initial_data['id'])
+        if package_mapping.is_ready_for_dispatch:
+            raise serializers.ValidationError("Package already marked ready for dispatch")
+        return data
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            package_instance = super().update(instance, validated_data)
+            # self.post_dispatch_package_update(package_instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return package_instance
+
+
+class DispatchItemsSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True)
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'packaging_type', 'quantity', 'created_by', 'packaging_details')

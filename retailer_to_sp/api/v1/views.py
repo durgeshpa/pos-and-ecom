@@ -47,7 +47,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
-                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer
+                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
+                          DispatchItemsSerializer, DispatchItemDetailsSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -58,7 +59,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return, OrderedProductMapping, ShipmentPackaging)
+                                   OrderReturn, ReturnItems, Return, OrderedProductMapping, ShipmentPackaging,
+                                   ShipmentPackagingMapping)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
     getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -132,6 +134,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
 from retailer_backend.settings import AWS_MEDIA_URL
 
 from retailer_backend.settings import AWS_MEDIA_URL
+from ...common_validators import validate_shipment_dispatch_item
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -6597,10 +6600,7 @@ class ShipmentQCView(generics.GenericAPIView):
     serializer_class = ShipmentQCSerializer
     queryset = OrderedProduct.objects.\
                 annotate(
-                    status = Case(
-                                When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
-                                then=Value(OrderedProduct.SHIPMENT_CREATED)),
-                    default=F('shipment_status'), output_field=models.CharField())).\
+                    status =F('shipment_status')).\
                 exclude(qc_area__isnull=True).\
                 select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                                'invoice', 'qc_area').\
@@ -6801,6 +6801,9 @@ class ShipmentProductRejectionReasonList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in OrderedProductBatch.REJECTION_REASON_CHOICE]
         msg = ""
@@ -6812,7 +6815,76 @@ class PackagingTypeList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
+        '''
+        API to get packaging type list
+        '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in ShipmentPackaging.PACKAGING_TYPE_CHOICES]
         msg = ""
         return get_response(msg, data, True)
+
+
+class DispatchItemsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects.all()
+    serializer_class = DispatchItemsSerializer
+
+    def get(self, request):
+        '''
+        API to get all the packages for a shipment
+        '''
+        if not request.GET.get('shipment_id'):
+            return get_response("'shipment_id' | This is mandatory")
+        self.queryset = self.filter_packaging_items()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no dispatch details found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_packaging_items(self):
+        shipment_id = self.request.GET.get('shipment_id')
+
+        if shipment_id:
+            self.queryset = self.queryset.filter(shipment_id=shipment_id)
+        return self.queryset
+
+
+class DispatchItemsUpdateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackagingMapping.objects.all()
+    serializer_class = DispatchItemDetailsSerializer
+
+
+    def put(self, request):
+
+        '''
+        API to mark dispatch packages as ready to be dispatched
+        '''
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to process item', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+
+        if 'shipment_id' not in modified_data:
+            return get_response('please provide shipment id to process this item', False)
+
+        dispatch_data = validate_shipment_dispatch_item(self.queryset, int(modified_data['id']),
+                                                        int(modified_data['shipment_id']))
+        if 'error' in dispatch_data:
+            return get_response(dispatch_data['error'])
+        serializer = self.serializer_class(instance=dispatch_data['data'], data=modified_data)
+        if serializer.is_valid():
+            dispatch_item = serializer.save(updated_by=request.user, data=modified_data)
+            return get_response('Dispatch updated!', dispatch_item.data)
+        result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
+        return Response(result, status=status.HTTP_200_OK)

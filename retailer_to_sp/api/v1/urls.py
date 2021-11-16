@@ -12,7 +12,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
-                    PackagingTypeList
+                    PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView
                     )
 
 router = routers.DefaultRouter()
@@ -93,6 +93,8 @@ urlpatterns = [
     url('shipment-shop-list/', ShipmentShopFilterView.as_view()),
     url('rejection-reason/', ShipmentProductRejectionReasonList.as_view()),
     url('packaging-type/', PackagingTypeList.as_view()),
+    url('dispatch-items/', DispatchItemsView.as_view()),
+    url('dispatch-update/', DispatchItemsUpdateView.as_view()),
 ]
 
 urlpatterns += router.urls

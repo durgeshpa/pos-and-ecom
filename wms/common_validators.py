@@ -334,6 +334,6 @@ def validate_shipment_qc_desk(queryset, shipment_id, user):
     if not shipment:
         return {"error" : "Invalid shipment id"}
 
-    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
+    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True).exists():
         return {"data": shipment}
     return {"error": 'Logged in user is not allowed to start QC for this shipment'}
