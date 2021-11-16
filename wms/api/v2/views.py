@@ -27,7 +27,7 @@ from wms.common_functions import get_response, serializer_error, get_logged_user
     get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway, validate_grouped_request, validate_shipment_qc_desk
+    validate_putaway_user_against_putaway, validate_grouped_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
     QCDeskQCAreaAssignmentMapping

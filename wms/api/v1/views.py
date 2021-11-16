@@ -20,8 +20,8 @@ from retailer_to_sp.models import Order, PickerDashboard
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q, Sum
-from django.db import transaction
+from django.db.models import Q, Sum, Case, When, F
+from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
@@ -31,7 +31,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
                                   get_logged_user_wise_query_set_for_pickup_list)
 
 # Logger
-from ..v2.serializers import PicklistSerializer, RepackagingTypePicklistSerializer
+from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
 
@@ -433,37 +433,33 @@ class PickupList(APIView):
     def get(self, request):
         info_logger.info("PickupList api called.")
         """ GET Pickup List API"""
-
-        pickuptype = request.GET.get('type')
-        if not pickuptype:
-            return Response({'is_success': True, 'message': "'type' | This is mandatory.", 'data': None},
-                            status=status.HTTP_200_OK)
-        if pickuptype:
-            pickuptype = int(pickuptype)
-        if pickuptype not in [1, 2]:
-            return Response({'is_success': True, 'message': "'type' | Please provide a valid type.", 'data': None},
+        validate_request = validate_pickup_request(request)
+        if "error" in validate_request:
+            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
                             status=status.HTTP_200_OK)
 
-        if pickuptype == 1:
-            self.serializer_class = PicklistSerializer
-            self.queryset = PickerDashboard.objects.filter(
-                order__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
-                order_by('-created_at')
-
-        if pickuptype == 2:
-            self.serializer_class = RepackagingTypePicklistSerializer
-            self.queryset = PickerDashboard.objects.filter(
-                repackaging__isnull=False, picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
-                order_by('-created_at')
-
+        self.serializer_class = PicklistSerializer
+        self.queryset = PickerDashboard.objects.filter(
+            Q(order__isnull=False, order__order_status__in=[Order.PICKUP_CREATED, Order.PICKING_ASSIGNED,
+                                                            Order.PICKING_COMPLETE, Order.PARTIAL_MOVED_TO_QC,
+                                                            Order.MOVED_TO_QC]) |
+            Q(repackaging__isnull=False),
+            picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
+            annotate(token_id=Case(
+                                    When(order=None,
+                                         then=F('repackaging')),
+                                    default=F('order'),
+                                    output_field=models.CharField(),
+                                )).\
+            order_by('-created_at')
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
         self.queryset = self.filter_pickup_list_data()
 
         # picking_complete count
-        picking_complete = self.queryset.filter(picking_status='picking_complete').count()
+        picking_complete = self.queryset.filter(picking_status='picking_complete').order_by().distinct('token_id').count()
 
         # picking_assigned count
-        picking_assigned = self.queryset.count()
+        picking_assigned = self.queryset.order_by().distinct('token_id').count()
 
         data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
@@ -477,22 +473,30 @@ class PickupList(APIView):
     def filter_pickup_list_data(self):
         warehouse = self.request.user.shop_employee.last().shop
         search_text = self.request.GET.get('search_text')
-        picker_boy = self.request.GET.get('picker_boy')
+        # picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
         data_days = self.request.GET.get('data_days')
+        pickup_type = self.request.GET.get('type')
 
         '''filter by user warehouse'''
         self.queryset = self.queryset.filter(zone__warehouse=warehouse)
+        '''filter by pickup type'''
+
+        if pickup_type:
+            if pickup_type == 1:
+                self.queryset = self.queryset.filter(order__isnull=False)
+            elif pickup_type == 2:
+                self.queryset = self.queryset.filter(repackaging__isnull=False)
 
         '''search using order number & repackaging number'''
         if search_text:
             self.queryset = pickup_search(self.queryset, search_text)
 
         '''Filters using picker_boy, selected_date, picking_status'''
-        if picker_boy:
-            self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+        # if picker_boy:
+        #     self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
 
         if zone:
             self.queryset = self.queryset.filter(zone__id=zone)

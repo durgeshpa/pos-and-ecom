@@ -329,11 +329,31 @@ def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone
     return {"data": crates_dict}
 
 
+def validate_pickup_request(request):
+    data_days = request.GET.get('data_days')
+    created_at = request.GET.get('date')
+    pickuptype = request.GET.get('type')
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    if created_at:
+        try:
+            created_at = datetime.strptime(created_at, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+
+    if int(pickuptype) not in [1, 2]:
+        return {"error": "'type' | This is invalid."}
+
+    return {"data": request}
+
+
 def validate_shipment_qc_desk(queryset, shipment_id, user):
     shipment = queryset.filter(id=shipment_id).last()
     if not shipment:
         return {"error" : "Invalid shipment id"}
 
-    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True).exists():
+    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
         return {"data": shipment}
     return {"error": 'Logged in user is not allowed to start QC for this shipment'}
