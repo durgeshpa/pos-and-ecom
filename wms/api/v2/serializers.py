@@ -1461,8 +1461,12 @@ class PicklistSerializer(serializers.ModelSerializer):
     def get_qc_area(self, obj):
         qc_area = obj.qc_area.area_id if obj.qc_area else None
         if not qc_area:
-            qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area.area_id \
-                if obj.order.picker_order.filter(qc_area__isnull=False).exists() else None
+            if obj.order:
+                qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area.area_id \
+                    if obj.order.picker_order.filter(qc_area__isnull=False).exists() else None
+            elif obj.repackaging:
+                qc_area = obj.repackaging.picker_repacks.filter(qc_area__isnull=False).last().qc_area.area_id \
+                    if obj.repackaging.picker_repacks.filter(qc_area__isnull=False).exists() else None
         return qc_area
 
     class Meta:
