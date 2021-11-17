@@ -32,7 +32,7 @@ from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunc
 
 # Logger
 from ..v2.serializers import PicklistSerializer
-from ...common_validators import validate_pickup_crates_list
+from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
 
 info_logger = logging.getLogger('file-info')

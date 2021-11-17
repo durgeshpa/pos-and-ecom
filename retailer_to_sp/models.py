@@ -1487,6 +1487,7 @@ class OrderedProduct(models.Model):  # Shipment
     QC_REJECTED = "QC_REJECTED"
     QC_STARTED = "QC_STARTED"
     SHIPMENT_CREATED = 'SHIPMENT_CREATED'
+    READY_TO_DISPATCH = 'READY_TO_DISPATCH'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -1819,25 +1820,25 @@ class OrderedProduct(models.Model):  # Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.order.ordered_cart.cart_type == 'AUTO':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         if self.order.ordered_cart.cart_type == 'BASIC':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         elif self.order.ordered_cart.cart_type == 'ECOM':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -1845,14 +1846,14 @@ class OrderedProduct(models.Model):  # Shipment
                 # populate_data_on_qc_pass(self.order)
 
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
                 # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -3149,6 +3150,7 @@ class ShipmentPackaging(BaseTimestampUserModel):
     packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    dispatch_ready_qty = models.PositiveIntegerField(default=0)
 
 
 class ShipmentPackagingMapping(BaseTimestampUserModel):
@@ -3158,7 +3160,7 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                 on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(null=True)
     is_ready_for_dispatch = models.BooleanField(default=False)
     reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
 
