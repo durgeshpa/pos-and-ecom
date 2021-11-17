@@ -775,7 +775,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     def get_shipment_status(self, obj):
         shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
         if shipment_status_obj:
-            return shipment_status_obj.last().shipment_status
+            return shipment_status_obj.last().get_shipment_status_display()
         return ""
 
     def get_rt_order_order_product(self, obj):
@@ -941,7 +941,7 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     def get_shipment_status(self, obj):
         shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
         if shipment_status_obj:
-            return shipment_status_obj.last().shipment_status
+            return shipment_status_obj.last().get_shipment_status_display()
         return ""
 
     def to_representation(self, instance):
