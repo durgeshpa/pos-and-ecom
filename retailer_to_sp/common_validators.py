@@ -1,8 +1,10 @@
-from retailer_to_sp.models import ShipmentPackaging
+from django.db.models import Q
+
+from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping
 from wms.models import Crate
 
 
-def validate_shipment_crates_list(crates_dict, quantity, warehouse_id):
+def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
     if 'crates' not in crates_dict or not crates_dict['crates']:
         return {"error": "Missing 'crates' in shipment_crates for packaging_type 'CRATE'."}
     if not isinstance(crates_dict['crates'], list):
@@ -22,9 +24,12 @@ def validate_shipment_crates_list(crates_dict, quantity, warehouse_id):
         if not Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
                                     crate_type=Crate.DISPATCH).exists():
             return {"error": "Invalid crates selected in packaging."}
-    #     total_crate_qty += crate_qty
-    # if total_crate_qty != int(quantity):
-    #     return {"error": "Crates quantity should be matched with shipped quantity."}
+        crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
+                                    crate_type=Crate.DISPATCH).last()
+    if crate.crate_shipments.filter(
+            ~Q(shipment_packaging__shipment=shipment),
+            ~Q(status__in=ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.DISPATCHED).exists()):
+        return {"error" : "This crate is being used for some other shipment."}
     return {"data": crates_dict}
 
 

@@ -1529,7 +1529,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if package_obj['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
                     raise serializers.ValidationError("'packaging type' | Invalid packaging type")
                 if package_obj['type'] == ShipmentPackaging.CRATE:
-                    validate_crates = validate_shipment_crates_list(package_obj, shipped_qty, warehouse_id)
+                    validate_crates = validate_shipment_crates_list(package_obj, warehouse_id,
+                                                                    mapping_instance.ordered_product)
                     if 'error' in validate_crates:
                         raise serializers.ValidationError(validate_crates['error'])
                     existing_crates_list = list(ShipmentPackagingMapping.objects.filter(
@@ -1809,7 +1810,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity', 'is_ready_for_dispatch')
+        fields = ('id', 'product', 'quantity', 'status')
 
     def validate(self, data):
         if 'id' not in self.initial_data or not self.initial_data['id']:
@@ -1819,7 +1820,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
         elif self.initial_data['is_ready_for_dispatch'] not in [True, False]:
             raise serializers.ValidationError("'is_ready_for_dispatch' | This can only be True/False")
 
-        data['is_ready_for_dispatch'] = self.initial_data['is_ready_for_dispatch']
+        data['status'] = ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
 
         if not self.initial_data['is_ready_for_dispatch']:
             if 'reason_for_rejection' not in self.initial_data or not self.initial_data['reason_for_rejection']:
@@ -1829,7 +1830,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
             data['reason_for_rejection'] = self.initial_data['reason_for_rejection']
 
         package_mapping = ShipmentPackagingMapping.objects.get(id=self.initial_data['id'])
-        if package_mapping.is_ready_for_dispatch:
+        if package_mapping.status != ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.PACKED:
             raise serializers.ValidationError("Package already marked ready for dispatch")
         return data
 
