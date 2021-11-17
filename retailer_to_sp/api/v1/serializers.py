@@ -1357,6 +1357,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField('shop_id_dt')
     trip_details = serializers.SerializerMethodField()
     shipment_status = serializers.SerializerMethodField()
+    order_status_detail = serializers.SerializerMethodField()
 
     def get_shipment_status(self, obj):
         shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
@@ -1365,13 +1366,16 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
         return ""
 
     def get_order_status(self, obj):
-        # if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
-        #              Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
-        #     return obj.order_status
-        # elif obj.order_status in [Order.DISPATCHED]:
-        #     return 'In Transit'
-        # elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
-        #     return 'Completed'
+        if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
+                                Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
+            return 'New'
+        elif obj.order_status in [Order.DISPATCHED]:
+            return 'In Transit'
+        elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
+            return 'Completed'
+        return obj.order_status
+
+    def order_status_detail(self, obj):
         return obj.get_order_status_display()
 
     def get_trip_details(self, obj):
@@ -1403,7 +1407,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
-                  'trip_details')
+                  'trip_details', 'order_status_detail')
 
 
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
