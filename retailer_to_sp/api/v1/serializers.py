@@ -1330,6 +1330,13 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
     trip_details = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().shipment_status
+        return ""
 
     def get_order_status(self, obj):
         if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
@@ -1368,7 +1375,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Order
-        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
+        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
                   'trip_details')
 
