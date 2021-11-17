@@ -1375,7 +1375,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
             return 'Completed'
         return obj.order_status
 
-    def order_status_detail(self, obj):
+    def get_order_status_detail(self, obj):
         return obj.get_order_status_display()
 
     def get_trip_details(self, obj):
