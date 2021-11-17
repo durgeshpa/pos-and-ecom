@@ -67,7 +67,7 @@ def bestseller_product():
                 # Get online order product
                 online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
                 online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
-                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product, status = 'active', is_deleted=False)
+                online_product = RetailerProduct.objects.filter(rt_cart_retailer_product__in = online_ordered_product, status = 'active', is_deleted=False, online_enabled=True)
                 # Inventory Check and exclude product whose inventory is not available
                 online_product = check_inventory(online_product)
                 #sort by max value
@@ -148,7 +148,7 @@ def bestseller_product():
                 freshly_arrived_tag = tag.get(key='freshly-arrived')
                 tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = freshly_arrived_tag).order_by('-created_at')
                 fresh_inventory = InventoryChangePos.objects.filter(Q(transaction_type = 'GRN Add') | Q(transaction_type = 'GRN Update'))
-                fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop, is_deleted=False)
+                fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop, is_deleted=False, online_enabled=True)
                 # Inventory Check and exclude product whose inventory is not available
                 fresh_product = check_inventory(fresh_product)
                 if fresh_product.exists():
