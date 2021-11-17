@@ -1557,12 +1557,11 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                     qty += package_obj['count']
                     package_obj['quantity'] = qty
             if not is_box_sack_used and total_product_qty != int(shipped_qty):
-                return {"error": "Crates quantity should match total shipped quantity."}
-            packaging = self.initial_data['packaging']
-            data['packaging'] = packaging
-        else:
+                raise serializers.ValidationError("Crates quantity should match total shipped quantity.")
+        elif shipped_qty > 0:
             raise serializers.ValidationError("'packaging' | This is mandatory")
 
+        data['packaging'] = self.initial_data['packaging']
         data['damaged_qty'] = product_damaged_qty
         data['expired_qty'] = product_expired_qty
         data['missing_qty'] = product_missing_qty
@@ -1801,16 +1800,29 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
         fields = ('id', 'pincode', 'city')
 
 
+class CrateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Crate
+        fields = ('id', 'crate_id')
+
+
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
+    status = serializers.SerializerMethodField()
+    crate = CrateSerializer()
 
     def get_product(self, obj):
         return ProductSerializer(obj.ordered_product.product).data
 
+    @staticmethod
+    def get_status(obj):
+        return obj.get_status_display()
+
+
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity', 'status')
+        fields = ('id', 'product', 'quantity', 'status', 'crate')
 
     def validate(self, data):
         if 'id' not in self.initial_data or not self.initial_data['id']:
@@ -1857,4 +1869,4 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'packaging_type', 'quantity', 'created_by', 'packaging_details')
+        fields = ('id', 'packaging_type','quantity', 'created_by', 'packaging_details')
