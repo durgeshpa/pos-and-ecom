@@ -1759,11 +1759,12 @@ class OrderStatusSummaryView(generics.GenericAPIView):
             if data_days:
                 end_date = datetime.strptime(selected_date, "%Y-%m-%d")
                 start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
                 self.queryset = self.queryset.filter(
-                    picker_assigned_date__gte=start_date.date(), picker_assigned_date__lte=end_date.date())
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
             else:
-                date = datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(picker_assigned_date__date=date.date())
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
 
         # if date:
         #     self.queryset = self.queryset.filter(created_at__date=date)

@@ -459,7 +459,7 @@ class PickupList(APIView):
         picking_complete = self.queryset.filter(picking_status='picking_complete').order_by().distinct('token_id').count()
 
         # picking_assigned count
-        picking_assigned = self.queryset.order_by().distinct('token_id').count()
+        picking_assigned = self.queryset.filter(picking_status='picking_assigned').order_by().distinct('token_id').count()
 
         data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(data, many=True)
@@ -471,7 +471,7 @@ class PickupList(APIView):
         return Response(resp_data, status=status.HTTP_200_OK)
 
     def filter_pickup_list_data(self):
-        warehouse = self.request.user.shop_employee.last().shop
+        # warehouse = self.request.user.shop_employee.last().shop
         search_text = self.request.GET.get('search_text')
         # picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
@@ -480,10 +480,9 @@ class PickupList(APIView):
         data_days = self.request.GET.get('data_days')
         pickup_type = self.request.GET.get('type')
 
-        '''filter by user warehouse'''
-        self.queryset = self.queryset.filter(zone__warehouse=warehouse)
+        # '''filter by user warehouse'''
+        # self.queryset = self.queryset.filter(zone__warehouse=warehouse)
         '''filter by pickup type'''
-
         if pickup_type:
             pickup_type = int(pickup_type)
             if pickup_type == 1:
@@ -509,11 +508,12 @@ class PickupList(APIView):
             if data_days:
                 end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 start_date = end_date - datetime.timedelta(days=int(data_days))
+                end_date = end_date +datetime.timedelta(days=1)
                 self.queryset = self.queryset.filter(
-                    picker_assigned_date__gte=start_date.date(), picker_assigned_date__lte=end_date.date())
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
             else:
                 selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(picker_assigned_date__date=selected_date)
+                self.queryset = self.queryset.filter(created_at__date=selected_date)
 
         return self.queryset
 

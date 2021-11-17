@@ -343,7 +343,7 @@ def validate_pickup_request(request):
         except Exception as e:
             return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
 
-    if int(pickuptype) not in [1, 2]:
+    if pickuptype and int(pickuptype) not in [1, 2]:
         return {"error": "'type' | This is invalid."}
 
     return {"data": request}
