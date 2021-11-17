@@ -525,6 +525,10 @@ class NoteSerializer(serializers.ModelSerializer):
 class OrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
     #rt_order_product_note = NoteSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
 
     def invoice_link_id(self, obj):
         current_url = self.context.get("current_url", None)
