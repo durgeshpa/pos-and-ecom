@@ -14,7 +14,7 @@
     <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/test.css">
     <style>
 		table tr td,th,h4,span,address{
-			font-size:10px;
+			font-size:12px;
 		}
         /*.receipt{
           width: 76mm;
@@ -44,23 +44,19 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="barcode">
 
-                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="30px" width="100px">
-                    </div>
-                </div>
-            </div>
 
         </div>
 
          <div class="col-md-12  ">
              <center>
                         <address>
-                            <span>Shop : </span>
-                            <strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
+                            <br/>
+                            <span style="font:14px"><strong>{{shipment.order.seller_shop.shop_name}}</strong></span>
+                            <br>
                             {{nick_name}}<br> {{address_line1}}<br>
                             {{city}}, {{state}}, {{pincode}}<br>
+                            GSTIN No : {{retailer_gstin_number}}<br>
                             Contact : {{address_contact_number}}<br>
                         </address>
              </center>
@@ -68,16 +64,32 @@
         <hr style="border-top: 1px solid black;">
         <div class="col-md-12" >
             <div class="table ">
-                <table class="table table-bordered" >
+                <table class="table" >
                     <tr>
-                        <td class="text-center " >
-                            <b>Order ID:</b>b>{{shipment.order.order_no}}
+                        <td class="text-left no-line" >
+                            <b>Customer:&nbsp;</b>{{shipment.order.buyer.first_name}}
                         </td>
                        <!--  <td class="text-center small">
                             Order Date <br>{{shipment.order.created_at}}
                         </td> -->
-                        <td class="text-center " >
-                            Invoice No <br>{{shipment.invoice_no}}
+
+                        <td class="text-right no-line">
+                            <b>Date:&nbsp; </b>:{{order.created_at|date:"M d, Y" }}
+                        </td>
+                        <!-- <td class="text-center small">
+                            Invoice Date <br>{{shipment.created_at}}
+                        </td> -->
+                    </tr>
+                    <tr>
+                        <td class="text-left no-line" >
+                            <b>Order No:&nbsp;</b>{{order.order_no}}
+                        </td>
+                       <!--  <td class="text-center small">
+                            Order Date <br>{{shipment.order.created_at}}
+                        </td> -->
+
+                        <td class="text-right no-line">
+                            <b>Pay Type:&nbsp; </b>:{{payment_type}}
                         </td>
                         <!-- <td class="text-center small">
                             Invoice Date <br>{{shipment.created_at}}
@@ -87,15 +99,12 @@
                         <!-- <td class="text-center " >
                             Order ID.<br>{{shipment.order.order_no}}
                         </td> -->
-                        <td class="text-center">
-                            Order Date <br>{{shipment.order.created_at|date:"M d, Y" }}
+                        <td class="text-left no-line" colspan="2">
+                            <b>Invoice No:&nbsp; </b>{{shipment.invoice_no}}
                         </td>
                         <!-- <td class="text-center " >
                             Invoice No <br>{{shipment.invoice_no}}
                         </td> -->
-                        <td class="text-center">
-                            Invoice Date <br>{{shipment.created_at|date:"M d, Y" }}
-                        </td>
                     </tr>
                 </table>
             </div>
@@ -138,7 +147,7 @@
                         <td>No.</td>
                         <td colspan="4">Product</td>
                         <td>MRP</td>
-                        <td>Qty</td>
+                        <td>QTY </td>
                         <td>Rate</td>
                         <td>Amount</td>
                     </tr>
@@ -209,36 +218,10 @@
                         <td colspan="12"></td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="no-line">Amount Chargeable (in words): </td>
-
-                    </tr>
-                    <tr>
-                        <td colspan="11">INR {{rupees}} only</td>
+                        <td colspan="11" class="no-line"><b>Amount Chargeable (in words):</b> INR {{rupees}} only</td>
                     </tr>
                     </tbody>
                 </table>
-            </div>
-            <!-- <div class="table">
-                <div class="table">
-                    <table class="table table-bordered">
-                        <thead>
-                        <tr>
-                            <td class="text-left" colspan="7">
-                                <strong style="font-size:12px">Declaration:
-                                <br>
-                                <strong style="font-size:11px"> We declare that this invoice shows the actual price
-                                    of the goods described and that all particulars are true and correct.
-                                <br>
-                                <strong style="font-size:11px">Note: This is a computer generated
-                                    invoice <br><br>
-                            </td>
-                        </tr>
-                        </thead>
-                    </table>
-                </div>
-                </div>
-                </div>
-            </div> -->
 
             <div class="text-left" style="margin: auto;">
                 Declaration:
@@ -248,9 +231,16 @@
                                all particulars are true and correct.
                 <br>
                                Note: This is a computer generated invoice <br><br>
-                  <td class="no-line" style="display:block;">E .&amp; O. E</td>
-            </div>
 
+            </div>
+            <div class="col-md-6">
+                <div class="barcode">
+
+                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="60px" width="200px">
+                    </div>
+                </div>
+                 <div class="no-line" style="display:block;">E .&amp; O. E</div>
+            </div>
 
         </div>
     </div>

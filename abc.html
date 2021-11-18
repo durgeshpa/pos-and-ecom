@@ -14,7 +14,7 @@
     <link rel="stylesheet" type="text/css" href="http://127.0.0.1:8000/static/admin/css/test.css">
     <style>
 		table tr td,th,h4,span,address{
-			font-size:10px;
+			font-size:12px;
 		}
         /*.receipt{
           width: 76mm;
@@ -40,23 +40,19 @@
                     
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="barcode">
 
-                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,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lubrqv/880/zg7kU6ColJcW1wLDZbJ6NOBwOEamrq/Ojn2vWrBGPfyF+/fXX9vb2oKCgVatWKQ2aGzX333+/uTbqa6X1sQe2cvIms4eAlJwWTErW1NR0d3c7J5rgWLdunedxlquxsbFDhw6JyObNm6Ojo31ddXt7u4gEBwebM1xX8fHxzgIRSUxMFJGLFy+6PacyPDzc2NgoIpcvX/ajny+//HJcXFxZWVl+fn5LS0tfX19FRcUDDzwgInv27Fm8eLG3BltbW48fPy4iW7Zs0cfordL62ANbOUmT3ENASvrvuuuu83wW79ixY340dfPNNyckJIyNjVVWVjonmpSc8HT7pZdeqq2tjY6Ozs/P92PV/f39ImIuLDY0NKSmps6aNevVV18VkYiICBHp6+szlStXrhSR0dHRDz74wLWFgoIC84ioacrXfqakpJw5c2bTpk0vvPDCggULZs2adeedd46MjBQWFuojKisrGx0dXbhwodsZq/VK62MPbOUkTXIPASk5LdhstnXr1onLSXdjY2NDQ4PNZjMP33jz7bffvvjiizabrbS0dMGCBZPsht1uHx0ddTgcdrvdtW/mh9TU1LvuuktEdu7cWVpa2t7e3tPTU1xcvHv37nnz5sl41xYt9rOioqK2ttZ1pa2trZWVleaynTfmJNo8uq+Py0qlPvbpU+mrqd1D/j9xKdd/TU1NU7jbZWdnl5aWOi/PnThxQkTS09OV2xdnz57dtGmT3W5/7bXXcnJy/FvvNddcIyLmYHDx4sX19fXOWQMDA84Co6CgIDMzs7m5+bHHHnNOTE5OzsvL279//6xZs/zo5+7du19//fXY2NiioqL169dHRUX99ttvzz///JEjR8rLy2tqakwEu6murjZPJj366KP6AJVK62MPbKXfpmQPAceS00VWVlZQUFBtba15c3HC0+36+vrs7Oze3t5du3Y9++yzfq/XZNDo6KjnVcW2tjb537vMSUlJP//8865du5KTk8PCwuLj4x9//PEzZ86Yk0fz5KNP/WxoaDh8+LCIFBcXb9u2LTExcebMmRkZGceOHbvxxhtbWlq8nSQWFxeLSEZGhuetD+uV1sce2Er/TNUeAlJyupgzZ455etycdJv/ekvJS5curV27tq2tLS8vz1yY95u5nSoiFy5ccJtl7rG6hcu8efMOHz5cV1c3ODjY2tpaWFgYHx9vbqHedNNNvvazurp6bGwsODjYbaRhYWFmyqlTpzyXunr1qnkUf8IDSb3S+tgDW+mHKdxDQEpOI87ngS5cuNDS0hIbG3vbbbd5lnV1dWVlZf31118bNmwoLi6e5NWr5ORkc0fV7c9t9PT01NTUyH9v2iiam5vNQ8vr16/3tZ/O944dXv6Px+O+mPzpp5/29PSEhoZu3rxZ75teaX3sga301dTuIeDdG59N+bs3TuaILDU19e233xaRhx56yLOmr6/v9ttvF5HVq1c7/6zGhPx4Q9EcgCjvyRl2u/2+++4TkWXLlvnRzy+++MJ07LPPPnOdPjQ0ZN47yszM9FzK3KreuHGj0jGLldbHHthKV/qn6d8eAgUp6bN/LiXtdrs5uDAHEWVlZW4FQ0NDa9euFZFbb721p6fH+tr171VdXZ15nebee+9taGjo7+8vKSkxD6O4/c2F6urqhx9+uLKysqOjo7+///Tp0+b4MSgoqKqqyo9+9vf3m7f0YmJiCgsLL1682NfX9+OPP959992mw0VFRW6LmFv/IvLll1/qo7ZSaX3sga10pXyafu8hUJCSPrOekhb/cpor5+Uzm83W1tbmNre6ulpp0DOFly5d6q1y6dKlrpXFxcWez/GsWLHC7WDE+Tqwq9DQULe3sH3q58mTJ6OiosYt27p1q91ud9sI+/btE5G5c+cODw/r299ipcWxB7zSyqfp6x4CK0hJn/2jKXn06FEz1+0E1vjnUtLhcJw6deqee+6JiYkJDw9fsmRJfn6+21+1cDgco6Ojn3zyydq1axMSEsLDw5OSkp544onz589Psp9NTU1PP/10WlpaZGRkSEjI/Pnzc3JyvvrqK88tMDY2tnDhQhHZsWOHl63uc6XFsQe8kpQMFJvDy1VzAIBwjxsAdKQkAGhISQDQkJIAoCElAUBDSgKAhpQEAA0pCQAaUhIANKQkAGhISQDQkJIAoCElAUBDSgKAhpQEAA0pCQAaUhIANKQkAGj+A8fnn9oWbNmbAAAAAElFTkSuQmCC" height="30px" width="100px">
-                    </div>
-                </div>
-            </div>
 
         </div>
 
          <div class="col-md-12  ">
              <center>
                         <address>
-                            <span>Shop : </span>
-                            <strong>Noida pincode</strong><br>
+                            <br/>
+                            <span style="font:14px"><strong>Noida pincode</strong></span>
+                            <br>
                             hfhdh<br> hshdhhx<br>
                             Noida, Uttar Pradesh, 201301<br>
+                            GSTIN No : 123456789123456<br>
                             Contact : 7763886418<br>
                         </address>
              </center>
@@ -64,34 +60,47 @@
         <hr style="border-top: 1px solid black;">
         <div class="col-md-12" >
             <div class="table ">
-                <table class="table table-bordered" >
+                <table class="table" >
                     <tr>
-                        <td class="text-center " >
-                            Order ID.<br>FOR21092877000012
+                        <td class="text-left no-line" >
+                            <b>Customer:&nbsp;</b>Pallavi
                         </td>
                        <!--  <td class="text-center small">
-                            Order Date <br>Oct. 26, 2021, 11:33 a.m.
+                            Order Date <br>Nov. 18, 2021, 5:33 p.m.
                         </td> -->
-                        <td class="text-center " >
-                            Invoice No <br>FIV21092877000012
+
+                        <td class="text-right no-line">
+                            <b>Date:&nbsp; </b>:Nov 18, 2021
                         </td>
                         <!-- <td class="text-center small">
-                            Invoice Date <br>Oct. 26, 2021, 11:33 a.m.
+                            Invoice Date <br>Nov. 18, 2021, 5:33 p.m.
+                        </td> -->
+                    </tr>
+                    <tr>
+                        <td class="text-left no-line" >
+                            <b>Order No:&nbsp;</b>FOR21092877000061
+                        </td>
+                       <!--  <td class="text-center small">
+                            Order Date <br>Nov. 18, 2021, 5:33 p.m.
+                        </td> -->
+
+                        <td class="text-right no-line">
+                            <b>Pay Type:&nbsp; </b>:cash
+                        </td>
+                        <!-- <td class="text-center small">
+                            Invoice Date <br>Nov. 18, 2021, 5:33 p.m.
                         </td> -->
                     </tr>
                     <tr>
                         <!-- <td class="text-center " >
-                            Order ID.<br>FOR21092877000012
+                            Order ID.<br>FOR21092877000061
                         </td> -->
-                        <td class="text-center">
-                            Order Date <br>Oct 26, 2021
+                        <td class="text-left no-line" colspan="2">
+                            <b>Invoice No:&nbsp; </b>FIV21092877000061
                         </td>
                         <!-- <td class="text-center " >
-                            Invoice No <br>FIV21092877000012
+                            Invoice No <br>FIV21092877000061
                         </td> -->
-                        <td class="text-center">
-                            Invoice Date <br>Oct 26, 2021
-                        </td>
                     </tr>
                 </table>
             </div>
@@ -134,7 +143,7 @@
                         <td>No.</td>
                         <td colspan="4">Product</td>
                         <td>MRP</td>
-                        <td>Qty</td>
+                        <td>QTY </td>
                         <td>Rate</td>
                         <td>Amount</td>
                     </tr>
@@ -144,11 +153,11 @@
                     
                     <tr class="text-center small" style="text-align:center;">
                         <td>1</td>
-                        <td colspan="4">pal test 11</td>
-                        <td>99.78</td>
-                        <td>1</td>
-                        <td>44.89</td>
-                        <td>44.89/-
+                        <td colspan="4">Test</td>
+                        <td>288.00</td>
+                        <td>6</td>
+                        <td>22.0</td>
+                        <td>132.00/-
                         </td>
                     </tr>
                     
@@ -156,11 +165,11 @@
                     
                     <tr class="text-center small" style="text-align:center;">
                         <td>2</td>
-                        <td colspan="4">Test 112</td>
-                        <td>12.00/piece</td>
-                        <td>1.000 piece</td>
-                        <td>10.00/piece</td>
-                        <td>10.00/-
+                        <td colspan="4">new check 4</td>
+                        <td>800.00</td>
+                        <td>1</td>
+                        <td>500.0</td>
+                        <td>500.00/-
                         </td>
                     </tr>
                     
@@ -168,10 +177,10 @@
                     
                     <tr class="text-center small" style="text-align:center;">
                         <td>3</td>
-                        <td colspan="4">Test product</td>
-                        <td>100.00</td>
-                        <td>1</td>
-                        <td>100.0</td>
+                        <td colspan="4">New loose product</td>
+                        <td>200.00/Kg</td>
+                        <td>1.000 Kg</td>
+                        <td>100.00/Kg</td>
                         <td>100.00/-
                         </td>
                     </tr>
@@ -180,11 +189,11 @@
                     
                     <tr class="text-center small" style="text-align:center;">
                         <td>4</td>
-                        <td colspan="4">GRAMFACTORY CASHEW BROKEN 4 PC 100 GM</td>
-                        <td>12.00/Kg</td>
-                        <td>1.000 Kg</td>
-                        <td>10.00/Kg</td>
-                        <td>10.00/-
+                        <td colspan="4">new 1st</td>
+                        <td>40.00</td>
+                        <td>1</td>
+                        <td>0.0</td>
+                        <td>0.00/-
                         </td>
                     </tr>
                     
@@ -193,9 +202,9 @@
                         <td></td>
                         <td colspan="4"></td>
                         <td></td>
-                        <td class="thick-line">4.000 PCS</td>
+                        <td class="thick-line">9.000 PCS</td>
                         <td class="thick-line"></td>
-                        <td class="thick-line">₹164.89/-</td>
+                        <td class="thick-line">₹732.0/-</td>
                     </tr>
                     <tr class="text-center small" style="text-align:center;">
                         <td class="no-line"></td>
@@ -212,7 +221,7 @@
                         <td class="no-line"></td>
                         <td class="no-line">Discount</td>
                         <td class="no-line" colspan="2">
-                            ₹ 0.0/-
+                            ₹ 13.99/-
                         </td>
                     </tr>
                     
@@ -223,43 +232,17 @@
                         <td class="no-line"></td>
                         <td class="no-line">Total</td>
                         <td class="no-line" colspan="2">
-                            <strong style="font-size: medium;"> ₹165/-</strong>
+                            <strong style="font-size: medium;"> ₹718/-</strong>
                         </td>
                     </tr>
                     <tr class="text-center small">
                         <td colspan="12"></td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="no-line">Amount Chargeable (in words): </td>
-
-                    </tr>
-                    <tr>
-                        <td colspan="11">INR one hundred and sixty-five only</td>
+                        <td colspan="11" class="no-line"><b>Amount Chargeable (in words):</b> INR seven hundred and eighteen only</td>
                     </tr>
                     </tbody>
                 </table>
-            </div>
-            <!-- <div class="table">
-                <div class="table">
-                    <table class="table table-bordered">
-                        <thead>
-                        <tr>
-                            <td class="text-left" colspan="7">
-                                <strong style="font-size:12px">Declaration:
-                                <br>
-                                <strong style="font-size:11px"> We declare that this invoice shows the actual price
-                                    of the goods described and that all particulars are true and correct.
-                                <br>
-                                <strong style="font-size:11px">Note: This is a computer generated
-                                    invoice <br><br>
-                            </td>
-                        </tr>
-                        </thead>
-                    </table>
-                </div>
-                </div>
-                </div>
-            </div> -->
 
             <div class="text-left" style="margin: auto;">
                 Declaration:
@@ -269,9 +252,16 @@
                                all particulars are true and correct.
                 <br>
                                Note: This is a computer generated invoice <br><br>
-                  <td class="no-line" style="display:block;">E .&amp; O. E</td>
-            </div>
 
+            </div>
+            <div class="col-md-6">
+                <div class="barcode">
+
+                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,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" height="60px" width="200px">
+                    </div>
+                </div>
+                 <div class="no-line" style="display:block;">E .&amp; O. E</div>
+            </div>
 
         </div>
     </div>
