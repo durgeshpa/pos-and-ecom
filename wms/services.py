@@ -232,3 +232,31 @@ def shipment_search(queryset, search_text):
     '''
     queryset = queryset.filter(Q(invoice__invoice_no__icontains=search_text) | Q(order__order_no__icontains=search_text))
     return queryset
+
+
+def check_whc_manager_qc_executive(view_func):
+    """
+    Decorator to validate request from warehouse manager / Coordinator / Supervisor / QC Executive
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('wms.can_have_zone_warehouse_permission') or \
+                user.has_perm('wms.can_have_qc_executive_permission'):
+            return view_func(self, request, *args, **kwargs)
+        return get_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
+def check_whc_manager_dispatch_executive(view_func):
+    """
+    Decorator to validate request from warehouse manager / Coordinator / Supervisor / QC Executive
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('wms.can_have_zone_warehouse_permission') \
+            or user.groups.filter(name='Dispatch Executive'):
+            return view_func(self, request, *args, **kwargs)
+        return get_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func

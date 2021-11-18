@@ -1488,13 +1488,14 @@ class OrderedProduct(models.Model):  # Shipment
     QC_STARTED = "QC_STARTED"
     SHIPMENT_CREATED = 'SHIPMENT_CREATED'
     READY_TO_DISPATCH = 'READY_TO_DISPATCH'
+    OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
-        ('READY_TO_DISPATCH', 'Ready to Dispatch'),
-        ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        (READY_TO_DISPATCH, 'Ready to Dispatch'),
+        (OUT_FOR_DELIVERY, 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
         ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
         ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),

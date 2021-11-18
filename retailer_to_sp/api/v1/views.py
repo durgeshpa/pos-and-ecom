@@ -2,10 +2,15 @@ import logging
 import re
 from decimal import Decimal
 import json
+from urllib import request
+
 import requests
 from datetime import datetime, timedelta
 from datetime import date as datetime_date
 from operator import itemgetter
+
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.http import HttpResponse
 from num2words import num2words
 from elasticsearch import Elasticsearch
 from decouple import config
@@ -35,7 +40,8 @@ from barCodeGenerator import barcodeGen
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
     validate_id_and_warehouse
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
+    check_whc_manager_dispatch_executive
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -48,7 +54,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchItemDetailsSerializer
+                          DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -119,7 +125,7 @@ from sp_to_gram.tasks import es_search, upload_shop_stock
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
-    get_logged_user_wise_query_set_for_shipment
+    get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.views import shipment_reschedule_inventory_change
 
@@ -6830,6 +6836,7 @@ class DispatchItemsView(generics.GenericAPIView):
     queryset = ShipmentPackaging.objects.all()
     serializer_class = DispatchItemsSerializer
 
+    @check_whc_manager_dispatch_executive
     def get(self, request):
         '''
         API to get all the packages for a shipment
@@ -6856,7 +6863,7 @@ class DispatchItemsUpdateView(generics.GenericAPIView):
     queryset = ShipmentPackagingMapping.objects.all()
     serializer_class = DispatchItemDetailsSerializer
 
-
+    @check_whc_manager_dispatch_executive
     def put(self, request):
 
         '''
@@ -6888,3 +6895,117 @@ class DispatchItemsUpdateView(generics.GenericAPIView):
             return get_response('Dispatch updated!', dispatch_item.data)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
         return Response(result, status=status.HTTP_200_OK)
+
+
+class DispatchDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProduct.objects.filter(
+        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.READY_TO_DISPATCH,
+                             OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.RESCHEDULED])
+    serializer_class = DispatchDashboardSerializer
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Dispatch Status Summary GET api called.")
+        """ GET Dispatch Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_dispatch(self.request.user, self.queryset)
+        self.queryset = self.filter_dispatch_summary_data()
+        dispatch_summary_data = {"total": 0, "qc_done": 0, "ready_to_dispatch": 0,
+                                 "out_for_delivery": 0, "rescheduled": 0}
+        for obj in self.queryset:
+            if obj.shipment_status == OrderedProduct.READY_TO_SHIP:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['qc_done'] += 1
+            elif obj.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['ready_to_dispatch'] += 1
+            elif obj.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['out_for_delivery'] += 1
+            elif obj.shipment_status == OrderedProduct.RESCHEDULED:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['rescheduled'] += 1
+        serializer = self.serializer_class(dispatch_summary_data)
+        msg = "" if dispatch_summary_data else "no dispatch summary found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_dispatch_summary_data(self):
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
+
+        return self.queryset
+
+
+class DownloadShipmentInvoice(APIView):
+    """
+    This class is creating and downloading single pdf and bulk pdf along with zip for Invoices
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """
+        :param request: request params
+        :return: zip folder which contains the pdf files
+        """
+        shipment_ids = request.data.get('shipment_ids')
+        # check condition for single pdf download using download invoice link
+        if len(shipment_ids) == 1:
+            # check pk is exist or not for Order product model
+            ordered_product = get_object_or_404(OrderedProduct, pk=shipment_ids[0])
+            # call pdf generation method to generate pdf and download the pdf
+            pdf_generation(request, ordered_product)
+            result = requests.get(ordered_product.invoice.invoice_pdf.url)
+            file_prefix = PREFIX_INVOICE_FILE_NAME
+            # generate pdf file
+            response = single_pdf_file(ordered_product, result, file_prefix)
+            # return response
+        else:
+            # list of file path for every pdf file
+            file_path_list = []
+            # list of created date for every pdf file
+            pdf_created_date = []
+            for pk in shipment_ids:
+                # check pk is exist or not for Order product model
+                ordered_product = get_object_or_404(OrderedProduct, pk=pk)
+                # call pdf generation method to generate and save pdf
+                pdf_generation(request, ordered_product)
+                # append the pdf file path
+                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
+                # append created date for pdf file
+                pdf_created_date.append(ordered_product.created_at)
+            # condition to check the download file count
+            if len(pdf_created_date) == 1:
+                result = requests.get(ordered_product.invoice.invoice_pdf.url)
+                file_prefix = PREFIX_INVOICE_FILE_NAME
+                # generate pdf file
+                response = single_pdf_file(ordered_product, result, file_prefix)
+                return response
+            else:
+                # get merged pdf file name
+                prefix_file_name = INVOICE_DOWNLOAD_ZIP_NAME
+                merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+                # call function to merge pdf files
+                merged_file_url = merge_pdf_files(file_path_list, merge_pdf_name)
+                file_pointer = requests.get(merged_file_url)
+                # response = HttpResponse(file_pointer, content_type='application/msword')
+                # response['Content-Disposition'] = 'attachment; filename=NameOfFile'
+                response = HttpResponse(file_pointer.content, content_type='application/pdf')
+                response['Content-Disposition'] = 'attachment; filename="{}"'.format(merge_pdf_name)
+
+                return response
+        return response

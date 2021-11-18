@@ -2609,3 +2609,12 @@ def release_picking_crates(order_instance):
         PickupCrate.objects.filter(pickup__pickup_type_id=order_instance.order_no).update(is_in_use=False)
     info_logger.info(f"release_picking_crates|Done|Order No {order_instance.order_no}")
 
+
+def get_logged_user_wise_query_set_for_dispatch(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.groups.filter(name='Dispatch Executive'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    return queryset

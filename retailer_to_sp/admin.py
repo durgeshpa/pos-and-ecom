@@ -1494,7 +1494,7 @@ class ShipmentAdmin(NestedModelAdmin):
         return False
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED' or obj.invoice_no == '-':
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] or obj.invoice_no == '-':
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %

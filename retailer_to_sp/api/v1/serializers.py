@@ -1810,7 +1810,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
     status = serializers.SerializerMethodField()
-    crate = CrateSerializer()
+    crate = CrateSerializer(read_only=True)
 
     def get_product(self, obj):
         return ProductSerializer(obj.ordered_product.product).data
@@ -1825,13 +1825,14 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
         fields = ('id', 'product', 'quantity', 'status', 'crate')
 
     def validate(self, data):
-        if 'id' not in self.initial_data or not self.initial_data['id']:
+        if 'shipment_id' not in self.initial_data or not self.initial_data['shipment_id']:
+            raise serializers.ValidationError("'shipment_id' | This is required")
+        elif 'id' not in self.initial_data or not self.initial_data['id']:
             raise serializers.ValidationError("'id' | This is required")
         elif 'is_ready_for_dispatch' not in self.initial_data or not self.initial_data['is_ready_for_dispatch']:
             raise serializers.ValidationError("'is_ready_for_dispatch' | This is required.")
         elif self.initial_data['is_ready_for_dispatch'] not in [True, False]:
             raise serializers.ValidationError("'is_ready_for_dispatch' | This can only be True/False")
-
         data['status'] = ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
 
         if not self.initial_data['is_ready_for_dispatch']:
@@ -1841,6 +1842,9 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'reason_for_rejection' | This is invalid")
             data['reason_for_rejection'] = self.initial_data['reason_for_rejection']
 
+        shipment = OrderedProduct.objects.filter(id=self.initial_data['shipment_id']).last()
+        if shipment.shipment_status != OrderedProduct.READY_TO_SHIP:
+            raise serializers.ValidationError("Shipment is not in QC Passed state")
         package_mapping = ShipmentPackagingMapping.objects.get(id=self.initial_data['id'])
         if package_mapping.status != ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.PACKED:
             raise serializers.ValidationError("Package already marked ready for dispatch")
@@ -1859,9 +1863,15 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
 
     def post_dispatch_package_update(self, package_instance):
         '''Increament the count of dispatch ready packages'''
-        package_instance.shipment_packaging.dispatch_ready_qty = \
-            package_instance.shipment_packaging.dispatch_ready_qty + 1
-        package_instance.shipment_packaging.save()
+        if package_instance.shipment_packaging.packaging_type in ['BOX', 'SACK'] \
+                or package_instance.crate_id not in \
+            package_instance.shipment_packaging.packaging_details.filter(~Q(crate=package_instance.crate),
+                status=ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).values_list('crate_id', flat=True):
+
+            package_instance.shipment_packaging.dispatch_ready_qty = \
+                package_instance.shipment_packaging.dispatch_ready_qty + 1
+
+            package_instance.shipment_packaging.save()
 
 
 class DispatchItemsSerializer(serializers.ModelSerializer):
@@ -1870,3 +1880,11 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentPackaging
         fields = ('id', 'packaging_type','quantity', 'created_by', 'packaging_details')
+
+
+class DispatchDashboardSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    qc_done = serializers.IntegerField()
+    ready_to_dispatch = serializers.IntegerField()
+    out_for_delivery = serializers.IntegerField()
+    rescheduled = serializers.IntegerField()
