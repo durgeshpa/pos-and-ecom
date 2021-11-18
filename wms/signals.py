@@ -96,7 +96,10 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
     """ Assign Token for exiting QC Area mapped order """
     if instance.token_id is None and instance.qc_area:
         picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area). \
-            filter(picking_status='moved_to_qc', shipment__shipment_status='SHIPMENT_CREATED').last()
+            filter(picking_status='moved_to_qc', order__rt_order_order_product__isnull=True).last()
+        if not picker_instance:
+            picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area).filter(
+                picking_status='moved_to_qc', order__rt_order_order_product__shipment_status='SHIPMENT_CREATED').last()
         if picker_instance:
             if picker_instance.order:
                 token_id = picker_instance.order.order_no
