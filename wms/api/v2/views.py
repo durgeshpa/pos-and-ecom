@@ -1592,7 +1592,7 @@ class UpdateQCAreaView(generics.GenericAPIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
-class PickerDashboardCrudView(generics.GenericAPIView):
+class PickerUserReAssignmentView(generics.GenericAPIView):
     """API view for PickerDashboard"""
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
