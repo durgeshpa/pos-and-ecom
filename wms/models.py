@@ -736,7 +736,7 @@ class QCDesk(BaseTimestampUserModel):
         verbose_name = "QC Desk"
 
 
-class QCDeskQCAreaAssignmentMapping(BaseTimestampModel):
+class QCDeskQCAreaAssignmentMapping(BaseTimestampUserModel):
     """
         Mapping model of QC Desk and QC Area where we maintain the last assigned QC Area for next assignment
     """
@@ -755,7 +755,7 @@ class QCDeskQCAreaAssignmentMapping(BaseTimestampModel):
         verbose_name = "QC Desk to Area Assignment Mapping"
 
 
-class QCDeskQCAreaAssignmentMappingTransactionLog(BaseTimestampModel):
+class QCDeskQCAreaAssignmentMappingTransactionLog(BaseTimestampUserModel):
     """
         Transaction logs where we maintain the history for the
         QCDeskQCAreaAssignmentMapping model
