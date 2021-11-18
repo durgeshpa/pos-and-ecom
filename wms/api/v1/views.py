@@ -732,7 +732,7 @@ class PickupDetail(APIView):
             if not isinstance(crate_obj, dict):
                 return {"error": "Key 'pickup_crates' can be of object type only."}
             validated_data = validate_pickup_crates_list(crate_obj, pickup_quantity[cnt], warehouse,
-                                                         picker_dash_obj.zone)
+                                                         picker_dash_obj.zone, order_no)
             if 'error' in validated_data:
                 msg['message'] = validated_data['error']
                 return Response(msg, status=status.HTTP_200_OK)

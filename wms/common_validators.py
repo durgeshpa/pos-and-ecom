@@ -4,7 +4,7 @@ from datetime import datetime
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Subquery, OuterRef, Case, When
+from django.db.models import Subquery, OuterRef, Case, When, Q
 from django.db.models.functions import Cast
 
 from shops.models import Shop
@@ -304,7 +304,7 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     return {'data': putaway}
 
 
-def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone):
+def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone, order_no):
     if 'is_crate_applicable' not in crates_dict:
         return {"error": "Missing 'is_crate_applicable' in pickup_crates."}
     if crates_dict['is_crate_applicable'] is True:
@@ -323,6 +323,10 @@ def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone
             if not Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
                                         crate_type=Crate.PICKING, zone=zone).exists():
                 return {"error": "Invalid crates selected in pickup_crates."}
+            crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
+                                        crate_type=Crate.PICKING, zone=zone).last()
+            if crate.crates_pickup.filter(~Q(pickup__pickup_type_id=order_no), is_in_use=True).exists():
+                return {"error" : f"Crate {crate_obj['crate_id']} is already being used for some other pickup"}
             total_crate_qty += int(crate_obj['quantity'])
         if total_crate_qty != pickup_quantity:
             return {"error": "Crates quantity should be matched with pickup quantity."}
