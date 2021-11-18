@@ -104,6 +104,7 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
                 picking_status='moved_to_qc', order__rt_order_order_product__shipment_status='SHIPMENT_CREATED').last()
         if picker_instance and picker_instance.order:
             instance.token_id = picker_instance.order.order_no
+            instance.qc_done = False
             instance.save()
 
 
