@@ -91,6 +91,21 @@ def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, *
             pass
 
 
+@receiver(post_save, sender=QCDeskQCAreaAssignmentMapping)
+def assign_token_for_existing_qc_area(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """ Assign Token for exiting QC Area mapped order """
+    if instance.token_id is None and instance.qc_area:
+        picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area). \
+            filter(picking_status='moved_to_qc', shipment__shipment_status='SHIPMENT_CREATED').last()
+        if picker_instance:
+            if picker_instance.order:
+                token_id = picker_instance.order.order_no
+            else:
+                token_id = picker_instance.repackaging.repackaging_no
+            instance.token_id = token_id
+            instance.save()
+
+
 @receiver(post_save, sender=ZonePickerUserAssignmentMapping)
 def reassign_picker_boy(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Reassign picker user to alternate users for the mapped orders """
