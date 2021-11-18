@@ -1746,14 +1746,14 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                                               OrderedProduct.READY_TO_SHIP]) \
                     or (shipment_status == OrderedProduct.SHIPMENT_CREATED and status != OrderedProduct.QC_STARTED) \
                     or (shipment_status == OrderedProduct.QC_STARTED and status != OrderedProduct.READY_TO_SHIP) \
-                    or (shipment_status == OrderedProduct.READY_TO_SHIP and status != OrderedProduct.READY_TO_DISPATCH):
+                    or (shipment_status == OrderedProduct.READY_TO_SHIP and status != OrderedProduct.MOVED_TO_DISPATCH):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
                 data['shipment_status'] = status
                 if status == OrderedProduct.READY_TO_SHIP and\
                         shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
-                elif status == OrderedProduct.READY_TO_DISPATCH and \
+                elif status == OrderedProduct.MOVED_TO_DISPATCH and \
                 shipment.shipment_packaging.filter(~Q(quantity=F('dispatch_ready_qty'))).exists():
                     raise serializers.ValidationError(' Some item/s still not ready for dispatch')
             else:
@@ -1885,6 +1885,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
 class DispatchDashboardSerializer(serializers.Serializer):
     total = serializers.IntegerField()
     qc_done = serializers.IntegerField()
+    moved_to_dispatch = serializers.IntegerField()
     ready_to_dispatch = serializers.IntegerField()
     out_for_delivery = serializers.IntegerField()
     rescheduled = serializers.IntegerField()

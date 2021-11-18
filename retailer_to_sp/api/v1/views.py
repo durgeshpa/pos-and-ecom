@@ -2716,7 +2716,7 @@ class OrderCentral(APIView):
                 order.delivery_person = delivery_person
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
-                shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+                shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
                 shipment.save()
@@ -3528,7 +3528,7 @@ class OrderCentral(APIView):
             PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED, PosInventoryState.SHIPPED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.SHIPPED)
         # Invoice Number Generate
-        shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+        shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
         shipment.save()
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
@@ -6689,7 +6689,7 @@ class ShipmentQCView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         if city:
-            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city)
+            self.queryset = self.queryset.filter(order__shipping_address__city_id=city)
 
         if pincode:
             self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode)
@@ -6901,8 +6901,9 @@ class DispatchDashboardView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = OrderedProduct.objects.filter(
-        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.READY_TO_DISPATCH,
-                             OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.RESCHEDULED])
+        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.MOVED_TO_DISPATCH,
+                             OrderedProduct.READY_TO_DISPATCH, OrderedProduct.OUT_FOR_DELIVERY,
+                             OrderedProduct.RESCHEDULED])
     serializer_class = DispatchDashboardSerializer
 
     @check_whc_manager_dispatch_executive
@@ -6913,12 +6914,15 @@ class DispatchDashboardView(generics.GenericAPIView):
 
         self.queryset = get_logged_user_wise_query_set_for_dispatch(self.request.user, self.queryset)
         self.queryset = self.filter_dispatch_summary_data()
-        dispatch_summary_data = {"total": 0, "qc_done": 0, "ready_to_dispatch": 0,
+        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch":0, "ready_to_dispatch": 0,
                                  "out_for_delivery": 0, "rescheduled": 0}
         for obj in self.queryset:
             if obj.shipment_status == OrderedProduct.READY_TO_SHIP:
                 dispatch_summary_data['total'] += 1
                 dispatch_summary_data['qc_done'] += 1
+            if obj.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['moved_to_dispatch'] += 1
             elif obj.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 dispatch_summary_data['total'] += 1
                 dispatch_summary_data['ready_to_dispatch'] += 1

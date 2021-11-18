@@ -1489,11 +1489,13 @@ class OrderedProduct(models.Model):  # Shipment
     SHIPMENT_CREATED = 'SHIPMENT_CREATED'
     READY_TO_DISPATCH = 'READY_TO_DISPATCH'
     OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
+    MOVED_TO_DISPATCH = 'MOVED_TO_DISPATCH'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
+        (MOVED_TO_DISPATCH, 'Moved to dispatch'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (OUT_FOR_DELIVERY, 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
@@ -1821,25 +1823,25 @@ class OrderedProduct(models.Model):  # Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.order.ordered_cart.cart_type == 'AUTO':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         if self.order.ordered_cart.cart_type == 'BASIC':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         elif self.order.ordered_cart.cart_type == 'ECOM':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -1847,14 +1849,14 @@ class OrderedProduct(models.Model):  # Shipment
                 # populate_data_on_qc_pass(self.order)
 
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
                 # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
-            if self.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
