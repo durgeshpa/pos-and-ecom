@@ -75,7 +75,9 @@ def qc_areas_changed(sender, instance, action, **kwargs):
         QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=instance, qc_area_id__in=pk_set).delete()
     if action == 'post_add':
         for pk in pk_set:
-            QCDeskQCAreaAssignmentMapping.objects.update_or_create(qc_desk=instance, qc_area_id=pk, defaults={})
+            QCDeskQCAreaAssignmentMapping.objects.update_or_create(
+                qc_desk=instance, qc_area_id=pk,
+                defaults={"created_by": instance.updated_by, "updated_by": instance.updated_by})
             info_logger.info("QC Desk to QC Area mapping created for qc_desk " + str(instance) + ", area id:" + str(pk))
 
 
