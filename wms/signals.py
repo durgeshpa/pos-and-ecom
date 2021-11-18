@@ -100,11 +100,8 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
         if not picker_instance:
             picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area).filter(
                 picking_status='moved_to_qc', order__rt_order_order_product__shipment_status='SHIPMENT_CREATED').last()
-        if picker_instance:
-            if picker_instance.order:
-                token_id = picker_instance.order.order_no
-            else:
-                token_id = picker_instance.repackaging.repackaging_no
+        if picker_instance and picker_instance.order:
+            token_id = picker_instance.order.order_no
             instance.token_id = token_id
             instance.save()
 
