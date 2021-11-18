@@ -38,7 +38,7 @@ ORDER_STATUS_MAP = {
 ONLINE_ORDER_STATUS_MAP = {
     1: [Order.ORDERED],
     2: [Order.OUT_FOR_DELIVERY, Order.PICKUP_CREATED],
-    3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED],
+    3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED, Order.CANCELLED],
     4: [Order.CANCELLED],
     5: [Order.OUT_FOR_DELIVERY],
     6: [Order.PICKUP_CREATED],
@@ -371,6 +371,8 @@ class PosCartCls(object):
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
+            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled and cart_product.retailer_product.online_price:
+                cart_product.selling_price = cart_product.retailer_product.online_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()
