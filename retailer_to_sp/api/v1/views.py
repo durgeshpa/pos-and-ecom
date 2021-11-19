@@ -7022,3 +7022,17 @@ class DownloadShipmentInvoice(APIView):
 
                 return response
         return response
+
+
+class DispatchPackageRejectionReasonList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackagingMapping.REASON_FOR_REJECTION]
+        msg = ""
+        return get_response(msg, data, True)
