@@ -313,9 +313,10 @@ def DownloadRetailerCatalogue(request, *args):
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
-         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'product_pack_type',
+         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock','discounted_price', 'product_pack_type',
          'measurement_category', 'purchase_pack_size', 'available_for_online_orders', 'online_order_price',
-         'is_visible'])
+         'is_visible','offer_price','offer_start_date','offer_end_date'])
+
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
     if product_qs.exists():
         retailer_products = product_qs \
@@ -335,7 +336,7 @@ def DownloadRetailerCatalogue(request, *args):
                     'linked_product__parent_product__parent_brand__brand_name',
                     'linked_product__parent_product__parent_brand__brand_parent__brand_name',
                     'status', 'discounted_product', 'discounted_product__sku', 'online_enabled', 'online_price',
-                    'is_deleted')
+                    'is_deleted', 'offer_price', 'offer_start_date', 'offer_end_date')
         product_dict = {}
         discounted_product_ids = []
         for product in retailer_products:
@@ -347,6 +348,7 @@ def DownloadRetailerCatalogue(request, *args):
         inventory = PosInventory.objects.filter(product_id__in=product_ids,
                                                 inventory_state__inventory_state=PosInventoryState.AVAILABLE)
         inventory_data = {i.product_id: i.quantity for i in inventory}
+        is_visible = 'False'
         for product_id, product in product_dict.items():
             category = product[
                 'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
@@ -364,8 +366,10 @@ def DownloadRetailerCatalogue(request, *args):
                 brand = sub_brand
                 sub_brand = None
             discounted_stock = None
+            discounted_price = None
             if product['discounted_product']:
                 discounted_stock = inventory_data.get(product['discounted_product'], 0)
+                discounted_price = RetailerProduct.objects.filter(id=product['discounted_product']).last().selling_price
             measurement_category = product['measurement_category__category']
             if product['online_enabled']:
                 online_enabled = 'Yes'
@@ -381,9 +385,10 @@ def DownloadRetailerCatalogue(request, *args):
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
-                 product['discounted_product__sku'], discounted_stock, product['product_pack_type'],
+                 product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
-                 product['online_price'], is_visible])
+                 product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
+                 product['offer_end_date']])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
