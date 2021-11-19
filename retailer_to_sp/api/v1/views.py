@@ -1118,7 +1118,7 @@ class CartCentral(GenericAPIView):
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
-            checkout_data.pop('amount_payable', None)
+            #checkout_data.pop('amount_payable', None)
             cart_data.update(checkout_data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
