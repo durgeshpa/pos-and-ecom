@@ -960,7 +960,7 @@ class AuditInventory(APIView):
                                                                           inventory_type_id=inventory_type,
                                                                           defaults={'quantity': 0, 'in_stock':True},)
                 pick_bin_inventory = PickupBinInventory(warehouse=warehouse, pickup_id=pickup_id, batch_id=batch_id,
-                                                        quantity=0, bin=bin_inv_obj)
+                                                        quantity=0, bin=bin_inv_obj, zone=bin_inv_obj.bin.zone)
             # Check if pickup is already done for this batch bin combination
             if pick_bin_inventory.pickup_quantity and pick_bin_inventory.remarks:
                 continue

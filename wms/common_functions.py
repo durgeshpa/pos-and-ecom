@@ -344,9 +344,14 @@ class CommonBinInventoryFunctions(object):
                         pbi = PickupBinInventory.objects.filter(warehouse=pb.warehouse, batch_id=pb.batch_id,
                                                                 pickup=pb.pickup, bin=target_bin_inv_object).last()
                         if not pbi:
-                            PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
-                                                              pickup=pb.pickup, bin=target_bin_inv_object,
-                                                              quantity=qty_to_move_from_pickup)
+                            CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                                pb.warehouse, target_bin_inv_object.bin.zone, pb.pickup, pb.batch_id,
+                                                target_bin_inv_object, qty_to_move_from_pickup,
+                                                target_bin_inv_object.quantity, None)
+
+                            # PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                            #                                   pickup=pb.pickup, bin=target_bin_inv_object,
+                            #                                   quantity=qty_to_move_from_pickup)
                         else:
                             pbi.quantity += qty_to_move_from_pickup
                             pbi.save()
