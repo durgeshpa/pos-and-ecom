@@ -214,15 +214,15 @@ class PosInventoryCls(object):
         i_qty, f_qty = None, None
         if transaction_type == PosInventoryChange.STOCK_UPDATE:
             i_qty = pos_inv.quantity
-            f_qty = Decimal(qty)
+            f_qty = pos_inv.quantity
+            qty_change = pos_inv.quantity
             if i_qty == f_qty:
                 info_logger.info(f"POS|stock_inventory|initial quantity {i_qty} and final quantity {f_qty} is same")
                 return
-        qty_change = pos_inv.quantity
-        i_qty = pos_inv.quantity
-        f_qty = pos_inv.quantity
-        # pos_inv.quantity = Decimal(qty)
-        pos_inv.save()
+        else:
+            qty_change = Decimal(qty) - pos_inv.quantity
+            pos_inv.quantity = Decimal(qty)
+            pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
                                                 f_state_obj, user, i_qty, f_qty, remarks)
 
