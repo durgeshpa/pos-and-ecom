@@ -1829,7 +1829,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'shipment_id' | This is required")
         elif 'id' not in self.initial_data or not self.initial_data['id']:
             raise serializers.ValidationError("'id' | This is required")
-        elif 'is_ready_for_dispatch' not in self.initial_data or not self.initial_data['is_ready_for_dispatch']:
+        elif 'is_ready_for_dispatch' not in self.initial_data:
             raise serializers.ValidationError("'is_ready_for_dispatch' | This is required.")
         elif self.initial_data['is_ready_for_dispatch'] not in [True, False]:
             raise serializers.ValidationError("'is_ready_for_dispatch' | This can only be True/False")
@@ -1841,6 +1841,7 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
             elif int(self.initial_data['reason_for_rejection']) not in ShipmentPackagingMapping.REASON_FOR_REJECTION:
                 raise serializers.ValidationError("'reason_for_rejection' | This is invalid")
             data['reason_for_rejection'] = self.initial_data['reason_for_rejection']
+            data['status'] = ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.REJECTED
 
         shipment = OrderedProduct.objects.filter(id=self.initial_data['shipment_id']).last()
         if shipment.shipment_status != OrderedProduct.READY_TO_SHIP:
@@ -1866,7 +1867,9 @@ class DispatchItemDetailsSerializer(serializers.ModelSerializer):
         if package_instance.shipment_packaging.packaging_type in ['BOX', 'SACK'] \
                 or package_instance.crate_id not in \
             package_instance.shipment_packaging.packaging_details.filter(~Q(crate=package_instance.crate),
-                status=ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).values_list('crate_id', flat=True):
+                status__in=[ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH,
+                            ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.REJECTED]).\
+                    values_list('crate_id', flat=True):
 
             package_instance.shipment_packaging.dispatch_ready_qty = \
                 package_instance.shipment_packaging.dispatch_ready_qty + 1

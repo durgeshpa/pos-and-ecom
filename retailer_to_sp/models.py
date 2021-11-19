@@ -3160,6 +3160,7 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
     DISPATCH_STATUS_CHOICES = Choices(('PACKED', 'Packed'),
                               ('READY_TO_DISPATCH', 'Ready to dispatch'),
+                              ('REJECTED', 'Rejected'),
                               ('DISPATCHED', 'Dispatched'))
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
                                            on_delete=models.DO_NOTHING)
