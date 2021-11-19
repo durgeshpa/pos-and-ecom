@@ -474,9 +474,9 @@ def RetailerCatalogueSampleFile(request, *args):
          'measurement_category', 'purchase_pack_size', 'available_for_online_orders', 'online_order_price',
          'is_visible'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes'])
-    writer.writerow(["", 36966, "", "", 'Packet Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", 'packet', "", 2, 'No', '', 'No'])
+                     "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21", "2021-11-23"])
+    writer.writerow(["", 36966, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF',  'XYZ', "",
+                     "", "", "", "", 'active', 2, "", "", "", 'packet', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21", "2021-11-23"])
 
     return response
 
