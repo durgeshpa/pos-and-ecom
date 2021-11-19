@@ -442,7 +442,8 @@ class PickupList(APIView):
         self.queryset = PickerDashboard.objects.filter(
             Q(order__isnull=False, order__order_status__in=[Order.PICKUP_CREATED, Order.PICKING_ASSIGNED,
                                                             Order.PICKING_PARTIAL_COMPLETE, Order.PICKING_COMPLETE,
-                                                            Order.PARTIAL_MOVED_TO_QC, Order.MOVED_TO_QC]) |
+                                                            Order.PARTIAL_MOVED_TO_QC, Order.MOVED_TO_QC],
+             order__rt_order_order_product__isnull=True) |
             Q(repackaging__isnull=False),
             picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
             annotate(token_id=Case(
