@@ -346,7 +346,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return image
 
 
-class Meta:
+    class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'mrp', 'online_price', 'image')
 
