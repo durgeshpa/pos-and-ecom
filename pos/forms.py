@@ -174,7 +174,6 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 elif int(row['discounted_stock']) < 0:
                     raise ValidationError("Invalid discounted stock")
 
->>>>>>> 3a406a516 ([#sample download file while upload file)
             if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \
                     ['yes', 'no']:
                 raise ValidationError("Available for Online Orders should be Yes OR No")

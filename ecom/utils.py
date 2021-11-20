@@ -211,4 +211,3 @@ def generate_ecom_order_csv_report(queryset):
         ])
 
     return response
->>>>>>> ab51fd928 (Fixed subtotal and shop type issue in ecom order report/ fixed shop type issue in pos order report.)
