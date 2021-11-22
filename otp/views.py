@@ -279,7 +279,7 @@ class RequestOTPCls(object):
             Generate and send new otp on call
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
-        sms_body = "OTP for your GramFactory account is %s" % otp
+        sms_body = "OTP for your Peppertap account is %s" % otp
         message = SendVoiceSms(phone=ph_no, body=sms_body)
         message.send()
         phone_otp.last_otp = timezone.now()
@@ -295,7 +295,7 @@ class RequestOTPCls(object):
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
-        sms_body = "%s is your One Time Password for GramFactory Account. Request time is %s, %s IST." % (
+        sms_body = "%s is your One Time Password for Peppertap Account. Request time is %s, %s IST." % (
             otp, date, time)
         message = SendSms(phone=ph_no, body=sms_body)
         message.send()
