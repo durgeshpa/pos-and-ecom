@@ -497,7 +497,7 @@ class PickupList(APIView):
 
         '''Filters using picker_boy, selected_date, picking_status'''
         if picker_boy:
-            self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+            self.queryset = self.queryset.filter(picker_boy=picker_boy)
 
         if zone:
             self.queryset = self.queryset.filter(zone__id=zone)
