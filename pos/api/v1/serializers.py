@@ -203,7 +203,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp,
+                                                  is_deleted=False).exclude(id=pid).exists():
             raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
