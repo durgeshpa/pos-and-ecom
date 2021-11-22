@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 
 import codecs
@@ -8,6 +9,7 @@ import decimal
 from dal import autocomplete
 from django import forms
 import csv
+from tempus_dominus.widgets import DateTimePicker
 
 from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
     MeasurementUnit
@@ -205,6 +207,18 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
+
+            # check for offer price
+            if 'offer_price' in row.keys() and row['offer_price']:
+                if decimal.Decimal(row['offer_price']) > decimal.Decimal(row['mrp']):
+                    raise ValidationError("Offer Price should be equal to OR less than MRP")
+                if not 'offer_start_date' in row.keys() or not row['offer_start_date']:
+                    raise ValidationError("Offer Start Date is missing")
+                if not 'offer_end_date' in row.keys() or not row['offer_end_date']:
+                    raise ValidationError("Offer End Date is missing")
+                if row['offer_start_date'] > row['offer_end_date']:
+                    raise ValidationError("Offer start date should be less than offer end date")
+
             # Check if product with this ean code and mrp already exists
             if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
                                               product_ean_code=row.get('product_ean_code'),
@@ -394,3 +408,25 @@ class RetailerProductsStockUpdateForm(forms.Form):
                 headers = next(reader, None)
                 self.read_file(headers, reader)
         return self.cleaned_data['file']
+
+
+class RetailerOrderedReportForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
+                                     pos_enabled=True, pos_shop__status=True),
+        widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
+    )

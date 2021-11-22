@@ -345,7 +345,6 @@ class ProductSerializer(serializers.ModelSerializer):
             image = retailer_object.image.url
         return image
 
-
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'mrp', 'online_price', 'image')
@@ -448,6 +447,7 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         attrs['products'] = products_info
         return attrs
+
 
 class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:
