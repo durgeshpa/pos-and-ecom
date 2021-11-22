@@ -148,11 +148,7 @@ def bestseller_product():
                 freshly_arrived_tag = tag.get(key='freshly-arrived')
                 tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = freshly_arrived_tag).order_by('-created_at')
                 fresh_inventory = InventoryChangePos.objects.filter(Q(transaction_type = 'GRN Add') | Q(transaction_type = 'GRN Update'))
-<<<<<<< HEAD
                 fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop, is_deleted=False, online_enabled=True)
-=======
-                fresh_product = RetailerProduct.objects.filter(id__in = fresh_inventory.values('product__id'), shop = shop, is_deleted=False,online_enabled=True)
->>>>>>> 0e8df4d59 (image issue)
                 # Inventory Check and exclude product whose inventory is not available
                 fresh_product = check_inventory(fresh_product)
                 if fresh_product.exists():
