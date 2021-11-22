@@ -1,6 +1,13 @@
+from requests.exceptions import HTTPError
+
 from django.http import HttpRequest
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from django.utils.encoding import force_text
+from django.contrib.auth.forms import SetPasswordForm
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode as uid_decoder
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -14,14 +21,19 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
-from rest_framework import serializers
-from requests.exceptions import HTTPError
+from marketing.models import ReferralCode
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from otp.models import PhoneOTP
+from otp.views import ValidateOTPInternal
+
 UserModel = get_user_model()
+
 
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
     serialize allauth SocialAccounts for use with a REST API
     """
+
     class Meta:
         model = SocialAccount
         fields = (
@@ -31,6 +43,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             'last_login',
             'date_joined',
         )
+
 
 class SocialLoginSerializer(serializers.Serializer):
     access_token = serializers.CharField(required=False, allow_blank=True)
@@ -191,8 +204,19 @@ class RegisterSerializer(serializers.Serializer):
         return get_adapter().clean_password(password)
 
     def validate(self, data):
+        """
+        Check For Password Fields Match and OTP verification
+        """
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
+
+        # OTP should be verified when registering with phone number
+        number = data['username']
+        user_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if user_otp and user_otp.is_verified:
+            pass
+        else:
+            raise serializers.ValidationError(_("Please verify your mobile number first!"))
         return data
 
     def custom_signup(self, request, user):
@@ -218,5 +242,139 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
+class MlmOtpRegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=allauth_settings.USERNAME_REQUIRED
+    )
+    user_exists = serializers.CharField(default=False)
+    otp = serializers.CharField(required=True, max_length=6, min_length=6)
+    referral_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, default=None)
+
+    def validate(self, data):
+        data['user_exists'] = False
+        existing_user = UserModel.objects.filter(phone_number=data['username']).last()
+        if existing_user:
+            data['user_exists'] = True
+            if ReferralCode.is_marketing_user(existing_user):
+                raise serializers.ValidationError("You are already registered for rewards! Please login.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
+        if phone_otp:
+            to_verify_otp = ValidateOTPInternal()
+            msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid OTP")
+        return data
+
+    @staticmethod
+    def validate_referral_code(value):
+        if value:
+            user_ref_code = ReferralCode.objects.filter(referral_code=value).last()
+            if not user_ref_code:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
+        return value
+
+    def get_cleaned_data(self):
+        return {
+            'username': self.validated_data.get('username', ''),
+            'password1': self.validated_data.get('password1', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'imei_no': self.validated_data.get('imei_no', '')
+        }
+
+    def save(self, request):
+        user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
+        if not user:
+            adapter = get_adapter()
+            user = adapter.new_user(request)
+            self.cleaned_data = self.get_cleaned_data()
+            adapter.save_user(request, user, self)
+            setup_user_email(request, user, [])
+
+        ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
+        return user
+
+
 class VerifyEmailSerializer(serializers.Serializer):
     key = serializers.CharField()
+
+
+class EcomRegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=get_username_max_length(),
+                                     min_length=allauth_settings.USERNAME_MIN_LENGTH,
+                                     required=allauth_settings.USERNAME_REQUIRED)
+    first_name = serializers.CharField(required=True, write_only=True)
+    referral_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, default=None)
+    password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    uid = serializers.CharField(required=False, default=None)
+    token = serializers.CharField(required=False, default=None)
+    user_exists = serializers.BooleanField(default=False)
+
+    set_password_form_class = SetPasswordForm
+    set_password_form = None
+
+    def validate_password1(self, password):
+        return get_adapter().clean_password(password)
+
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError(_("The two password fields didn't match."))
+        user_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
+        if not user_otp or not user_otp.is_verified:
+            raise serializers.ValidationError(_("Please verify your mobile number first!"))
+
+        user = UserModel.objects.filter(phone_number=data['username']).last()
+        # To change password if user exists
+        if user:
+            data['user_exists'] = True
+            # Validate uid
+            try:
+                uid = force_text(uid_decoder(data['uid']))
+                user = UserModel._default_manager.get(pk=uid)
+            except (TypeError, ValueError, OverflowError, UserModel.DoesNotExist):
+                raise serializers.ValidationError("Invalid request")
+            # validate verification token
+            if not default_token_generator.check_token(user, data['token']):
+                raise serializers.ValidationError("Invalid request")
+            self.set_password_form = self.set_password_form_class(user=user, data={'new_password1': data['password1'],
+                                                                                   'new_password2': data['password2']})
+            if not self.set_password_form.is_valid():
+                raise serializers.ValidationError(self.set_password_form.errors)
+
+        data['is_ecom_user'] = True
+        return data
+
+    def get_cleaned_data(self):
+        return {
+            'username': self.validated_data.get('username', ''),
+            'password1': self.validated_data.get('password1', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'imei_no': self.validated_data.get('imei_no', ''),
+            'is_ecom_user': self.validated_data.get('is_ecom_user', ''),
+        }
+
+    def save(self, request):
+        if not UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).exists():
+            adapter = get_adapter()
+            user = adapter.new_user(request)
+            self.cleaned_data = self.get_cleaned_data()
+            adapter.save_user(request, user, self)
+            setup_user_email(request, user, [])
+        else:
+            self.set_password_form.save()
+            user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
+            user.first_name = self.validated_data.get('first_name', '')
+        user.is_ecom_user = True
+        user.save()
+        ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
+        return user

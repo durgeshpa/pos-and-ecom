@@ -1,0 +1,61 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Wms | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/wms/">Bins</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/wms/bin/">Bin<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Bulk Bin Updation</a>{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+                <h1>{% block content_header %}{% endblock %}</h1>
+         <div id="content-main">
+                <ul class="object-tools">
+                </ul>
+                {% if error %}
+                <span class="errornote">{{ error|escape }}</span>
+            {% endif %}
+           <form method="post" enctype="multipart/form-data" id="bin-upload-form">
+
+                  <div>
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+<!--      {% if ordered_form.errors %}-->
+<!--            {% for field in ordered_form %}-->
+<!--                {% for error in field.errors %}-->
+<!--                <span class="errornote">{{ error|escape }}</span>-->
+<!--            {% endfor %}-->
+<!--                {% endfor %}-->
+<!--          {% for error in ordered_form.non_field_errors %}-->
+<!--            <span class="errornote">{{ error|escape }}</span>-->
+<!--          {% endfor %}-->
+<!--      {% endif %}-->
+
+
+
+                         {{form.as_p}}
+        </fieldset>
+
+                       <div class="form-row field-download-csv">
+        <li>
+            <a href="/wms/download/bin/csv/" id="id_download"> Download Sample Bin file</a>
+        </li>
+    </div>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save" id="save">
+                     </div>
+                  </div>
+    </form>
+    {% endblock %}
+         <!-- END Content -->
+
+{% block javascript %}
+<script >
+$(document).ready(function() {
+      $("#bin-upload-form").submit(function( event ) {
+      document.getElementById('save').disabled = true;
+<!--      event.preventDefault();-->
+    });
+     });
+</script>
+{% endblock %}
+

@@ -1,8 +1,53 @@
-
-from retailer_backend.messages import ERROR_MESSAGES
-from retailer_to_sp.api.v1.views import release_blocking
+from django.db.models.signals import post_save, post_delete, pre_save
+from django.dispatch import receiver
+from django.utils.crypto import get_random_string
 from django.db.models import Sum
+
 from shops.models import ParentRetailerMapping
+from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart, Trip
+from pos.offers import BasicCartOffers
+from retailer_backend import common_function
+
+
+# @receiver(post_save, sender=OrderedProduct)
+# def update_picking_status(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status 
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if instance.shipment_status == "SHIPMENT_CREATED":
+#         # assign shipment to picklist
+#         # tbd : if manual(by searching relevant picklist id) or automated 
+#         picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_in_progress").update(
+#             shipment=instance)
+
+#     if instance.shipment_status == "READY_TO_SHIP":
+#         # assign picking_status to done and create new picklist id 
+#         picker = PickerDashboard.objects.get(shipment=instance).update(picking_status="picking_complete")
+
+#         # if more shipment required
+#         PickerDashboard.objects.create(
+#             order=instance.order,
+#             picking_status="picking_pending",
+#             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+#             )
+
+
+
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status 
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+#             )
+from .utils import send_sms_on_trip_start
 
 
 class ReservedOrder(object):
@@ -97,4 +142,67 @@ class ReservedOrder(object):
 			for cart_product in cart_products:
 				self.product_reserved(
 					cart_product.cart_product, int(cart_product.no_of_pieces), cart)
+
+
+@receiver(post_save, sender=CartProductMapping)
+def create_offers(sender, instance=None, created=False, **kwargs):
+	"""
+		Update offers on cart after any product (quantity) is updated
+		Check combo on product, check cart level discount
+	"""
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
+		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type == 1 and instance.selling_price:
+		# Get combo coupon for product
+		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
+		# Check and apply/remove combo offers
+		offers_list = BasicCartOffers.basic_combo_offers(float(instance.qty), float(instance.selling_price),
+														 instance.retailer_product.id, offer[0] if offer else {},
+														 instance.cart.offers)
+		# Recheck cart discount according to updated cart value
+		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list,
+															  instance.cart.seller_shop.id)
+		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
+
+
+@receiver(post_delete, sender=CartProductMapping)
+def remove_offers(sender, instance=None, created=False, **kwargs):
+	"""
+		Update offers on cart after any product is deleted
+		Remove combo on this product, check cart level discount
+	"""
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
+		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type:
+		# Remove if any combo products added
+		offers_list = BasicCartOffers.update_combo(instance.retailer_product.id, instance.cart.offers, [])
+		# Recheck cart discount according to updated cart value
+		offers_list = BasicCartOffers.basic_cart_offers_check(instance.cart, offers_list, instance.cart.seller_shop.id)
+		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
+
+
+@receiver(pre_save, sender=Cart)
+def create_cart_no(sender, instance=None, created=False, **kwargs):
+	if not instance.cart_no and instance.seller_shop:
+		bill_add_id = instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk
+		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+			while Cart.objects.filter(cart_no=cart_no).exists():
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+			instance.cart_no = cart_no
+		elif instance.cart_type in ['ECOM']:
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+			while Cart.objects.filter(cart_no=cart_no).exists():
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+			instance.cart_no = cart_no
+		elif instance.cart_type == 'BULK':
+			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
+		elif instance.cart_type == 'DISCOUNTED':
+			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
+
+
+@receiver(post_save, sender=Trip)
+def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
+	if instance.trip_status == Trip.STARTED:
+		send_sms_on_trip_start(instance)
 

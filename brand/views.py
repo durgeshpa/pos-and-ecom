@@ -14,18 +14,11 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
 
-def save_vendor(vendor):
-    parent_brands=[]
-    for brand_dt in vendor.vendor_brand_mapping.filter(status=True):
-        parent_brands.append(vendor.get_parent_or_self(brand_dt))
-    vendor.vendor_products_brand = list(set(parent_brands))
-    vendor.save()
-
 class SearchProduct(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
-        product_id = self.request.GET.get('product_id')
+        product_id = int(self.request.GET.get('product_id'))
         product_sku = '-'
         product_obj = Product.objects.filter(id=product_id)
         if product_obj.exists():

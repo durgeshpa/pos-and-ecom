@@ -2,6 +2,8 @@ from dal import autocomplete
 from products.models import Product
 from brand.models import Brand
 from categories.models import Category
+from banner.models import BannerData, Banner
+from addresses.models import Pincode, City
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -58,6 +60,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(product_name__istartswith=self.q)
         return qs
 
+
 from shops.models import Shop
 from django.db.models import Q
 class BannerShopAutocomplete(autocomplete.Select2QuerySetView):
@@ -66,3 +69,32 @@ class BannerShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
+
+class BannerDataAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Banner.objects.all()
+        if self.q:
+            qs = qs.filter(name__icontains=self.q)
+        return qs
+
+class RetailerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+class PincodeAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Pincode.objects.all()
+        if self.q:
+            qs = qs.filter(pincode__icontains=self.q)
+        return qs
+
+class CityAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = City.objects.all()
+        if self.q:
+            qs = qs.filter(city_name__icontains=self.q)
+        return qs
+

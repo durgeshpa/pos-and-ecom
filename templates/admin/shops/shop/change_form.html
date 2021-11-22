@@ -1,0 +1,66 @@
+{% extends "admin/change_form.html" %} {% load i18n %}
+
+{% block content %}
+{{ block.super }}
+<style>
+        .required_field_red::after {
+            content: "*";
+            color: red;
+            margin-left: 2px;
+        }
+
+
+</style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAU5dn61zE0lb83wcXAbDiBEHAxh4kTBRw&libraries=places">
+</script>
+    <script>
+        let autocomplete = new google.maps.places.Autocomplete($("#id_shop_location")[0], {
+            componentRestrictions: {country: ["in"]}
+        });
+
+        google.maps.event.addListener(autocomplete, 'place_changed', function() {
+                let place = autocomplete.getPlace();
+                $('#id_latitude').val(place.geometry.location.lat());
+                $('#id_longitude').val(place.geometry.location.lng());
+            });
+    </script>
+<script>
+        $(document).ready(function(jQuery) {
+            function enableForPosAction () {
+                shop_type = $("#id_shop_type").children("option:selected").text();
+                if (shop_type == 'Franchise - foco' || shop_type == 'Franchise - fofo'){
+                    $('.field-pos_enabled').removeClass('hidden');
+                    $('.field-latitude').removeClass('hidden');
+                    $('.field-longitude').removeClass('hidden');
+                    $('.field-shop_location').addClass('hidden');
+                }
+                else if(shop_type == 'Retailer - gm'){
+                    $('.field-pos_enabled').addClass('hidden');
+                    $('.field-latitude').removeClass('hidden');
+                    $('.field-longitude').removeClass('hidden');
+                    $('.field-shop_location').removeClass('hidden');
+                }
+                else {
+                    $('.field-pos_enabled').addClass('hidden');
+                    $('.field-latitude').addClass('hidden');
+                    $('.field-longitude').addClass('hidden');
+                    $('#id_pos_enabled').prop("checked", false);
+                    $('#id_latitude').val(0);
+                    $('#id_longitude').val(0);
+                    $('.field-shop_location').addClass('hidden');
+                }
+            }
+
+            enableForPosAction();
+
+            document.getElementById('id_shop_type').onchange = function() {
+                enableForPosAction();
+            };
+        });
+
+
+</script>
+
+{% endblock %}

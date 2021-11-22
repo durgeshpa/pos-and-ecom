@@ -3,14 +3,16 @@ from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
 from rest_framework.response import Response
-from addresses.models import Country, State, City, Area, Address
+from addresses.models import Country, State, City, Area, Address, Pincode
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
-        AreaSerializer, AddressSerializer)
+        AreaSerializer, AddressSerializer, PinCityStateSerializer)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
-from shops.models import Shop
+from shops.models import Shop, ShopUserMapping
 from django.http import Http404
+from rest_framework import serializers
+from pos.common_functions import api_response
 
 
 class CountryView(generics.ListAPIView):
@@ -112,17 +114,22 @@ class AddressView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        user_shops = Shop.objects.filter(shop_owner=self.request.user)
-        queryset = Address.objects.filter(shop_name__in=user_shops)
         shop_id = self.request.query_params.get('shop_id', None)
-        if shop_id is not None:
-            queryset = queryset.filter(shop_name=shop_id)
+        queryset = Address.objects.filter(shop_name=shop_id)
         return queryset
 
     def create(self, request, *args, **kwargs):
+        pincode_id = Pincode.objects.filter(
+            city=request.data.get('city', None),
+            pincode=request.data.get('pincode', None))
+        if not pincode_id.exists():
+            msg = {'is_success': False,
+                   'message': ['Invalid pincode for selected City'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(pincode_link=pincode_id.last())
             msg = {'is_success': True,
                     'message': ["Address added successfully"],
                     'response_data': serializer.data}
@@ -230,7 +237,51 @@ class DefaultAddressView(generics.ListCreateAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True if serializer.data else False,
-                'message': None,
+                'message': [""],
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+
+class SellerShopAddress(generics.ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = AddressSerializer
+
+    def get_queryset(self):
+        queryset = Address.objects.none()
+        shop_id = self.request.query_params.get('shop_id', None)
+        if shop_id is not None:
+            queryset = Address.objects.filter(shop_name_id=shop_id)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        shipping_queryset = queryset.filter(address_type='shipping')
+        billing_queryset = queryset.filter(address_type='billing')
+        shipping_serializer = self.get_serializer(shipping_queryset, many=True)
+        billing_serializer = self.get_serializer(billing_queryset, many=True)
+
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (queryset.count())],
+                'response_data': {'shipping_address':shipping_serializer.data,
+                                'billing_address':billing_serializer.data}}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+
+class PinCityStateView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PinCityStateSerializer
+
+    def get(self, request, *args, **kwargs):
+        pin_code = self.request.GET.get('pincode')
+        if not pin_code:
+            return api_response("Please provide a pin code")
+        pin_code_obj = Pincode.objects.filter(pincode=pin_code).select_related(
+            'city', 'city__state').last()
+        if pin_code_obj:
+            data = self.serializer_class(pin_code_obj).data
+            return api_response('', data, status.HTTP_200_OK, True)
+        return api_response('No City Found For Given Pin Code')

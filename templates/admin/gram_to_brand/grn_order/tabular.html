@@ -1,0 +1,554 @@
+{% load i18n admin_urls static admin_modify %}
+<div class="js-inline-admin-formset inline-group" id="{{ inline_admin_formset.formset.prefix }}-group"
+     data-inline-type="tabular"
+     data-inline-formset="{{ inline_admin_formset.inline_formset_data }}">
+  <div class="tabular inline-related {% if forloop.last %}last-related{% endif %}">
+{{ inline_admin_formset.formset.management_form }}
+<fieldset class="module {{ inline_admin_formset.classes }}">
+   <h2>{{ inline_admin_formset.opts.verbose_name_plural|capfirst }}</h2>
+   {{ inline_admin_formset.formset.non_form_errors }}
+   <table>
+     <thead><tr>
+       <th class="original"></th>
+     {% for field in inline_admin_formset.fields %}
+       {% if not field.widget.is_hidden %}
+         <th{% if field.required %} class="required"{% endif %}>{{ field.label|capfirst }}
+         {% if field.help_text %}&nbsp;<img src="{% static "admin/img/icon-unknown.svg" %}" class="help help-tooltip" width="10" height="10" alt="({{ field.help_text|striptags }})" title="{{ field.help_text|striptags }}">{% endif %}
+         </th>
+
+         {% if field.label == 'Product mrp' %}
+            <th>
+                Add New Child SKU
+            </th>
+         {% endif %}
+
+       {% endif %}
+     {% endfor %}
+     {% if inline_admin_formset.formset.can_delete %}<th>{% trans "Delete?" %}</th>{% endif %}
+     </tr></thead>
+
+     <tbody>
+     {% for inline_admin_form in inline_admin_formset %}
+        {% if inline_admin_form.form.non_field_errors %}
+        <tr><td colspan="{{ inline_admin_form|cell_count }}">{{ inline_admin_form.form.non_field_errors }}</td></tr>
+        {% endif %}
+        <tr class="form-row {% cycle "row1" "row2" %} {% if inline_admin_form.original or inline_admin_form.show_url %}has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"
+             id="{{ inline_admin_formset.formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}">
+        <td class="original">
+          {% if inline_admin_form.original or inline_admin_form.show_url %}<p>
+          {% if inline_admin_form.original %}
+          {{ inline_admin_form.original }}
+          {% if inline_admin_form.model_admin.show_change_link and inline_admin_form.model_admin.has_registered_model %}<a href="{% url inline_admin_form.model_admin.opts|admin_urlname:'change' inline_admin_form.original.pk|admin_urlquote %}" class="{% if inline_admin_formset.has_change_permission %}inlinechangelink{% else %}inlineviewlink{% endif %}">{% if inline_admin_formset.has_change_permission %}{% trans "Change" %}{% else %}{% trans "View" %}{% endif %}</a>{% endif %}
+          {% endif %}
+          {% if inline_admin_form.show_url %}<a href="{{ inline_admin_form.absolute_url }}">{% trans "View on site" %}</a>{% endif %}
+            </p>{% endif %}
+          {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+          {{ inline_admin_form.fk_field.field }}
+          {% spaceless %}
+          {% for fieldset in inline_admin_form %}
+            {% for line in fieldset %}
+              {% for field in line %}
+                {% if field.field.is_hidden %} {{ field.field }} {% endif %}
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+          {% endspaceless %}
+        </td>
+        {% for fieldset in inline_admin_form %}
+          {% for line in fieldset %}
+            {% for field in line %}
+              {% if not field.field.is_hidden %}
+              <td{% if field.field.name %} class="field-{{ field.field.name }}"{% endif %}>
+              {% if field.is_readonly %}
+                  <p id="p-{{ field.field.name }}">{{ field.contents }}</p>
+              {% else %}
+                  {{ field.field.errors.as_ul }}
+                  {{ field.field }}
+              {% endif %}
+              </td>
+
+              {% if field.field.name == 'product_mrp' %}
+                  <td>
+                    <a href="javascript:;" class="button_add_new_child"><img src="/static/admin/img/icon-addlink.svg" alt="Add"></a>
+                  </td>
+                {% endif %}
+
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% endfor %}
+        {% if inline_admin_formset.formset.can_delete %}
+          <td class="delete">{% if inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+        {% endif %}
+        </tr>
+     {% endfor %}
+     </tbody>
+   </table>
+</fieldset>
+  </div>
+</div>
+<script>(function($){
+    $('.button_add_new_child').click(function(){
+        var product_id = $(this).closest('tr').children('.field-product').children('select').val();
+        var win = window.open(`/admin/products/product/add/?product=${product_id}`, '_blank');
+        if (win) {
+            win.focus();
+        }
+    })})(django.jQuery);
+</script>
+<script type="text/javascript">
+(function($) {
+    'use strict';
+    $.fn.formsetCustom = function(opts) {
+        var options = $.extend({}, $.fn.formset.defaults, opts);
+        var $this = $(this);
+        var $parent = $this.parent();
+        var updateElementIndexCustom = function(el, prefix, ndx, parent_product_row) {
+            if ($(el).is(":input:not([type=hidden])")) {
+                // set value from parent element
+                var exclude_copy = ["-manufacture_date", "-expiry_date", "-best_before_year","-best_before_month",
+                "-product_invoice_qty","-delivered_qty","-returned_qty"];
+                var el_id_ends_with = el.id.split("__prefix__").pop()
+                if(!exclude_copy.includes(el_id_ends_with))
+                {
+                    var parent_el_val = $(parent_product_row).find($("[id$='"+el_id_ends_with+"']")).val();
+                    $(el).val(parent_el_val);
+                }
+
+
+            }
+            if ($(el).is("p")) {
+            var exclude_copy = ["field-download_batch_id_barcode"];
+            var el_id_ends_with = el.id.replace("p-","field-")
+            if(!exclude_copy.includes(el_id_ends_with))
+            {
+                 var parent_el_val = $(parent_product_row).find("."+el_id_ends_with).find("p").html();
+                 $(el).html(parent_el_val);
+            }
+            }
+            if ($(el).is("select")) {
+                // set value from parent element
+                var el_id_ends_with = el.id.split("__prefix__").pop()
+                var parent_el = $(parent_product_row).find($("[id$='"+el_id_ends_with+"']"));
+
+                if ($(el).attr('data-autocomplete-light-url')) {
+                    var parent_el_clone = parent_el.children("option:selected").clone();
+                    $(el).append(parent_el_clone);
+                    var parent_el_val = parent_el.children("option:selected").val();
+                    $(el).val(parent_el_val);
+                }
+                else {
+                    var parent_el_val = parent_el.children("option:selected").val();
+                    $(el).val(parent_el_val);
+                }
+            }
+
+            var id_regex = new RegExp("(" + prefix + "-(\\d+|__prefix__))");
+            var replacement = prefix + "-" + ndx;
+            if ($(el).prop("for")) {
+                $(el).prop("for", $(el).prop("for").replace(id_regex, replacement));
+            }
+            if (el.id) {
+                el.id = el.id.replace(id_regex, replacement);
+            }
+            if (el.name) {
+                el.name = el.name.replace(id_regex, replacement);
+            }
+        };
+        var totalForms = $("#id_" + options.prefix + "-TOTAL_FORMS").prop("autocomplete", "off");
+        var nextIndex = parseInt(totalForms.val(), 10);
+        var maxForms = $("#id_" + options.prefix + "-MAX_NUM_FORMS").prop("autocomplete", "off");
+        var minForms = $("#id_" + options.prefix + "-MIN_NUM_FORMS").prop("autocomplete", "off");
+        var addButton;
+
+        /**
+         * The "Add another MyModel" button below the inline forms.
+         */
+        var addMoreExpiryDate = function() {
+
+
+            $(".field-expiry_date input[id$='expiry_date']").each(function() {
+                var expirty_date = $(this);
+                var matches = $(this).attr('id').match(/(\d+)/);
+                if (matches) {
+                    var row_id = matches[0]
+                    var link = "\u00A0|\u00A0 <span id='"+row_id+"-extra-expiry'><a href='#' id='"+row_id+"-extra-expiry' class='addlink'></a></span>"
+
+                   if (! $(this).next("span#"+row_id+"-extra-expiry").length) {
+                        $(expirty_date).after(link);
+                   }
+ 
+                }
+            });
+        };
+
+        var addExpiryDateClickHandler = function() {
+        $("a[id$='extra-expiry']").click(function(e) {
+            e.preventDefault();
+            var template = $("#" + options.prefix + "-empty");
+            var row = template.clone(true);
+            row.removeClass(options.emptyCssClass)
+                .addClass(options.formCssClass)
+                .attr("id", options.prefix + "-" + nextIndex);
+            addInlineDeleteButton(row);
+            var parent_product_row = $(this).closest('tr');
+            row.find("*").each(function() {
+                //console.log(this);
+                //console.log($(parent_product_row).find($(this)).val());
+                updateElementIndexCustom(this, options.prefix, totalForms.val(), parent_product_row);
+            });
+            // Insert the new form when it has been fully edited.
+            row.insertAfter($(parent_product_row));
+            // Update number of total forms.
+            $(totalForms).val(parseInt(totalForms.val(), 10) + 1);
+            nextIndex += 1;
+            // Hide the add button if there's a limit and it's been reached.
+            if ((maxForms.val() !== '') && (maxForms.val() - totalForms.val()) <= 0) {
+                addButton.parent().hide();
+            }
+            // Show the remove buttons if there are more than min_num.
+            toggleDeleteButtonVisibility(row.closest('.inline-group'));
+
+            // Pass the new form to the post-add callback, if provided.
+            if (options.added) {
+                options.added(row);
+            }
+            $(document).trigger('formset:added', [row, options.prefix]);
+            });
+        };
+
+        var addInlineAddButton = function() {
+            if (addButton === null) {
+                if ($this.prop("tagName") === "TR") {
+                    // If forms are laid out as table rows, insert the
+                    // "add" button in a new table row:
+                    var numCols = $this.eq(-1).children().length;
+                    $parent.append('<tr class="' + options.addCssClass + '"><td colspan="' + numCols + '"><a href="#">' + options.addText + "</a></tr>");
+                    addButton = $parent.find("tr:last a");
+                } else {
+                    // Otherwise, insert it immediately after the last form:
+                    $this.filter(":last").after('<div class="' + options.addCssClass + '"><a href="#">' + options.addText + "</a></div>");
+                    addButton = $this.filter(":last").next().find("a");
+                }
+            }
+            addButton.on('click', addInlineClickHandler);
+        };
+
+        var addInlineClickHandler = function(e) {
+            e.preventDefault();
+            var template = $("#" + options.prefix + "-empty");
+            var row = template.clone(true);
+            row.removeClass(options.emptyCssClass)
+                .addClass(options.formCssClass)
+                .attr("id", options.prefix + "-" + nextIndex);
+            addInlineDeleteButton(row);
+            row.find("*").each(function() {
+                updateElementIndexCustom(this, options.prefix, totalForms.val());
+            });
+            // Insert the new form when it has been fully edited.
+            row.insertBefore($(template));
+            // Update number of total forms.
+            $(totalForms).val(parseInt(totalForms.val(), 10) + 1);
+            nextIndex += 1;
+            // Hide the add button if there's a limit and it's been reached.
+            if ((maxForms.val() !== '') && (maxForms.val() - totalForms.val()) <= 0) {
+                addButton.parent().hide();
+            }
+            // Show the remove buttons if there are more than min_num.
+            toggleDeleteButtonVisibility(row.closest('.inline-group'));
+
+            // Pass the new form to the post-add callback, if provided.
+            if (options.added) {
+                options.added(row);
+            }
+            $(document).trigger('formset:added', [row, options.prefix]);
+        };
+
+        /**
+         * The "X" button that is part of every unsaved inline.
+         * (When saved, it is replaced with a "Delete" checkbox.)
+         */
+        var addInlineDeleteButton = function(row) {
+            if (row.is("tr")) {
+                // If the forms are laid out in table rows, insert
+                // the remove button into the last table cell:
+                row.children(":last").append('<div><a class="' + options.deleteCssClass + '" href="#">' + options.deleteText + "</a></div>");
+            } else if (row.is("ul") || row.is("ol")) {
+                // If they're laid out as an ordered/unordered list,
+                // insert an <li> after the last list item:
+                row.append('<li><a class="' + options.deleteCssClass + '" href="#">' + options.deleteText + "</a></li>");
+            } else {
+                // Otherwise, just insert the remove button as the
+                // last child element of the form's container:
+                row.children(":first").append('<span><a class="' + options.deleteCssClass + '" href="#">' + options.deleteText + "</a></span>");
+            }
+            // Add delete handler for each row.
+            row.find("a." + options.deleteCssClass).on('click', inlineDeleteHandler.bind(this));
+        };
+
+        var inlineDeleteHandler = function(e1) {
+            e1.preventDefault();
+            var deleteButton = $(e1.target);
+            var row = deleteButton.closest('.' + options.formCssClass);
+            var inlineGroup = row.closest('.inline-group');
+            // Remove the parent form containing this button,
+            // and also remove the relevant row with non-field errors:
+            var prevRow = row.prev();
+            if (prevRow.length && prevRow.find('ul.errorlist.nonfield').length !== 0) {
+                prevRow.remove();
+            }
+            row.remove();
+            nextIndex -= 1;
+            // Pass the deleted form to the post-delete callback, if provided.
+            if (options.removed) {
+                options.removed(row);
+            }
+            $(document).trigger('formset:removed', [row, options.prefix]);
+            // Update the TOTAL_FORMS form count.
+            var forms = $("." + options.formCssClass);
+            $("#id_" + options.prefix + "-TOTAL_FORMS").val(forms.length);
+            // Show add button again once below maximum number.
+            if ((maxForms.val() === '') || (maxForms.val() - forms.length) > 0) {
+                addButton.parent().show();
+            }
+            // Hide the remove buttons if at min_num.
+            toggleDeleteButtonVisibility(inlineGroup);
+            // Also, update names and ids for all remaining form controls so
+            // they remain in sequence:
+            var i, formCount;
+            var updateElementCallback = function() {
+                updateElementIndexCustom(this, options.prefix, i);
+            };
+            for (i = 0, formCount = forms.length; i < formCount; i++) {
+                updateElementIndexCustom($(forms).get(i), options.prefix, i);
+                $(forms.get(i)).find("*").each(updateElementCallback);
+            }
+        };
+
+        var toggleDeleteButtonVisibility = function(inlineGroup) {
+            if ((minForms.val() !== '') && (minForms.val() - totalForms.val()) >= 0) {
+                inlineGroup.find('.inline-deletelink').hide();
+            } else {
+                inlineGroup.find('.inline-deletelink').show();
+            }
+        };
+
+        $this.each(function(i) {
+            $(this).not("." + options.emptyCssClass).addClass(options.formCssClass);
+        });
+
+        // Create the delete buttons for all unsaved inlines:
+            var tr_rows = $(this);
+            $this.filter('.' + options.formCssClass + ':not(.has_original):not(.' + options.emptyCssClass + ')').each(function() {
+
+                var product_val=$(this).find("select[id$='product']").children("option:selected").val();
+                var product_rows=tr_rows.find('select option[value="'+product_val+'"]:selected').closest('tr');
+                var current_index = $(product_rows).index($(this));
+                if (current_index !== 0) {
+                    var previous_row = $(this).prev("tr");
+                    if (previous_row.find(".errorlist").length > 0) {
+                        previous_row.insertAfter($(product_rows[current_index-1]));
+                        $(this).insertAfter(previous_row);
+                    }
+                    else{
+                        $(this).insertAfter($(product_rows[current_index-1]));
+                    }
+                    addInlineDeleteButton($(this));
+                }
+            });
+            toggleDeleteButtonVisibility($this);
+
+        // Create the add button, initially hidden.
+                // addButton = options.addButton;
+                // addInlineAddButton();
+        addMoreExpiryDate();
+        addExpiryDateClickHandler();
+
+        // Show the add button if allowed to add more items.
+        // Note that max_num = None translates to a blank string.
+            // var showAddButton = maxForms.val() === '' || (maxForms.val() - totalForms.val()) > 0;
+            // if ($this.length && showAddButton) {
+            //     addButton.parent().show();
+            // } else {
+            //     addButton.parent().hide();
+            // }
+        return this;
+    };
+
+    /* Setup plugin defaults */
+    $.fn.formset.defaults = {
+        prefix: "form", // The form prefix for your django formset
+        addText: "add another", // Text for the add link
+        deleteText: "remove", // Text for the delete link
+        addCssClass: "add-row", // CSS class applied to the add link
+        deleteCssClass: "delete-row", // CSS class applied to the delete link
+        emptyCssClass: "empty-row", // CSS class applied to the empty row
+        formCssClass: "dynamic-form", // CSS class applied to each form in a formset
+        added: null, // Function called each time a new form is added
+        removed: null, // Function called each time a form is deleted
+        addButton: null // Existing add button to use
+    };
+
+
+    // Tabular inlines ---------------------------------------------------------
+    $.fn.tabularFormsetCustom = function(selector, options) {
+        var $rows = $(this);
+
+        var reinitDateTimeShortCutsCustom = function() {
+            // Reinitialize the calendar and clock widgets by force
+            if (typeof DateTimeShortcuts !== "undefined") {
+                $(".datetimeshortcuts").remove();
+                DateTimeShortcuts.init();
+            }
+        };
+
+        var updateSelectFilterCustom = function() {
+            // If any SelectFilter widgets are a part of the new form,
+            // instantiate a new SelectFilter instance for it.
+            if (typeof SelectFilter !== 'undefined') {
+                $('.selectfilter').each(function(index, value) {
+                    var namearr = value.name.split('-');
+                    SelectFilter.init(value.id, namearr[namearr.length - 1], false);
+                });
+                $('.selectfilterstacked').each(function(index, value) {
+                    var namearr = value.name.split('-');
+                    SelectFilter.init(value.id, namearr[namearr.length - 1], true);
+                });
+            }
+        };
+
+        var initPrepopulatedFieldsCustom = function(row) {
+            row.find('.prepopulated_field').each(function() {
+                var field = $(this),
+                    input = field.find('input, select, textarea'),
+                    dependency_list = input.data('dependency_list') || [],
+                    dependencies = [];
+                $.each(dependency_list, function(i, field_name) {
+                    dependencies.push('#' + row.find('.field-' + field_name).find('input, select, textarea').attr('id'));
+                });
+                if (dependencies.length) {
+                    input.prepopulate(dependencies, input.attr('maxlength'));
+                }
+            });
+        };
+
+        $rows.formsetCustom({
+            prefix: options.prefix,
+            addText: options.addText,
+            formCssClass: "dynamic-" + options.prefix,
+            deleteCssClass: "inline-deletelink",
+            deleteText: options.deleteText,
+            emptyCssClass: "empty-form",
+            added: function(row) {
+                initPrepopulatedFieldsCustom(row);
+                reinitDateTimeShortCutsCustom();
+                updateSelectFilterCustom();
+            },
+            addButton: options.addButton
+        });
+
+        return $rows;
+    };
+
+    // Stacked inlines ---------------------------------------------------------
+    $.fn.stackedFormsetCustom = function(selector, options) {
+        var $rows = $(this);
+        var updateInlineLabelCustom = function(row) {
+            $(selector).find(".inline_label").each(function(i) {
+                var count = i + 1;
+                $(this).html($(this).html().replace(/(#\d+)/g, "#" + count));
+            });
+        };
+
+        var reinitDateTimeShortCutsCustom = function() {
+            // Reinitialize the calendar and clock widgets by force, yuck.
+            if (typeof DateTimeShortcuts !== "undefined") {
+                $(".datetimeshortcuts").remove();
+                DateTimeShortcuts.init();
+            }
+        };
+
+        var updateSelectFilterCustom = function() {
+            // If any SelectFilter widgets were added, instantiate a new instance.
+            if (typeof SelectFilter !== "undefined") {
+                $(".selectfilter").each(function(index, value) {
+                    var namearr = value.name.split('-');
+                    SelectFilter.init(value.id, namearr[namearr.length - 1], false);
+                });
+                $(".selectfilterstacked").each(function(index, value) {
+                    var namearr = value.name.split('-');
+                    SelectFilter.init(value.id, namearr[namearr.length - 1], true);
+                });
+            }
+        };
+
+        var initPrepopulatedFieldsCustom = function(row) {
+            row.find('.prepopulated_field').each(function() {
+                var field = $(this),
+                    input = field.find('input, select, textarea'),
+                    dependency_list = input.data('dependency_list') || [],
+                    dependencies = [];
+                $.each(dependency_list, function(i, field_name) {
+                    dependencies.push('#' + row.find('.form-row .field-' + field_name).find('input, select, textarea').attr('id'));
+                });
+                if (dependencies.length) {
+                    input.prepopulate(dependencies, input.attr('maxlength'));
+                }
+            });
+        };
+
+        $rows.formsetCustom({
+            prefix: options.prefix,
+            addText: options.addText,
+            formCssClass: "dynamic-" + options.prefix,
+            deleteCssClass: "inline-deletelink",
+            deleteText: options.deleteText,
+            emptyCssClass: "empty-form",
+            removed: updateInlineLabelCustom,
+            added: function(row) {
+                initPrepopulatedFieldsCustom(row);
+                reinitDateTimeShortCutsCustom();
+                updateSelectFilterCustom();
+                updateInlineLabelCustom(row);
+            },
+            addButton: options.addButton
+        });
+
+        return $rows;
+    };
+
+    $(document).ready(function() {
+           $("#grn_order_grn_order_product-group").each(function() {
+        // $(document.querySelector('[id$="expiry_date"]')).each(function() {
+            var data = $(this).data(),
+                inlineOptions = data.inlineFormset,
+                selector;
+            switch(data.inlineType) {
+            case "stacked":
+                selector = inlineOptions.name + "-group .inline-related";
+                $(selector).stackedFormsetCustom(selector, inlineOptions.options);
+                break;
+            case "tabular":
+                selector = inlineOptions.name + "-group .tabular.inline-related tbody:first > tr.form-row";
+                $(selector).tabularFormsetCustom(selector, inlineOptions.options);
+                break;
+            }
+        });
+
+            if( $("select[id$='product']").has('option').length > 0 ) {
+            $("select[id$='product']").attr('disabled', true);
+            }
+            $("input[id$='product_mrp']").prop('readonly', true).css('border','none');
+            $("input[id$='po_product_quantity']").prop('readonly', true).css('border','none');
+            $("input[id$='po_product_price']").prop('readonly', true).css('border','none');
+            $("input[id$='already_grned_product']").prop('readonly', true).css('border','none');
+            $("input[id$='already_returned_product']").prop('readonly', true).css('border','none');
+            $("input[id$='zone']").prop('readonly', true).css('border','none');
+
+            $( "form" ).submit(function( event ) {
+              $("select[id$='product']").attr('disabled', false);
+            });
+
+    });
+})(django.jQuery);
+</script>

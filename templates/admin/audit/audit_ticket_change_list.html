@@ -1,0 +1,62 @@
+{% extends "admin/change_list.html" %} {% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load ticket_count %}
+
+{% block content %}
+    {% get_open_ticket_count as open_count %}
+    {% get_closed_ticket_count as closed_count %}
+    <div>
+        <div style="float: left;">
+            <table style="width: 90%;">
+                <thead>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>Total Open Tickets</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>{{open_count}}</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="float: left;">
+            <table style="width: 90%;">
+                <thead>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>Total Closed Tickets</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>{{closed_count}}</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{ block.super }}
+{% endblock %}
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:audit-csv-upload' %}" class="addlink">Bulk Upload Audit Details</a>
+    </li>
+{% endblock %}

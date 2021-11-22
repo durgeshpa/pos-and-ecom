@@ -1,17 +1,19 @@
 from django import forms
-from .models import Vendor, Brand, BrandPosition
+from django.core.validators import EMPTY_VALUES, validate_email
+from django.utils.translation import ugettext_lazy as _
+
+from .models import Vendor, BrandPosition
 from django.urls import reverse
-import datetime, csv, codecs, re
-from django.core.exceptions import ValidationError
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import Product, ProductVendorMapping
 from addresses.models import City, State
 from dal import autocomplete
 from shops.models import Shop
 
+
 class VendorForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
+    email_id = forms.CharField(max_length=255,
+                               widget= forms.Textarea(attrs={'placeholder': 'Enter comma separated email ids'}))
 
     class Media:
         js = ('https://code.jquery.com/jquery-3.2.1.js','admin/js/vendor/vendor_form.js',
@@ -37,32 +39,30 @@ class VendorForm(forms.ModelForm):
             'style':'width: 25%'
             }
 
-        self.fields['vendor_products_csv'].help_text = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_export_for_vendor'))
+    def to_list(self, value):
 
-    def clean_vendor_products_csv(self):
-        if self.cleaned_data['vendor_products_csv']:
-            if not self.cleaned_data['vendor_products_csv'].name[-4:] in ('.csv'):
-                raise forms.ValidationError("Sorry! Only csv file accepted")
-            reader = csv.reader(codecs.iterdecode(self.cleaned_data['vendor_products_csv'], 'utf-8'))
-            first_row = next(reader)
-            for id,row in enumerate(reader):
-                if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+        """
+        normalizes the data to a list of the email strings.
+        """
+        if value in EMPTY_VALUES:
+            return []
 
-                try:
-                    Product.objects.get(pk=row[0])
-                except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+        value = [item.strip() for item in value.split(',') if item.strip()]
 
-                if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
+        return list(set(value))
 
-                if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
-
-                if not row[6] or not re.match("^[\d\,]*$", row[6]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
-            return self.cleaned_data['vendor_products_csv']
+    def clean(self):
+        cleaned_data = super(VendorForm, self).clean()
+        email_filed_value = cleaned_data.get('email_id')
+        email_list = self.to_list(email_filed_value)
+        if email_list in EMPTY_VALUES :
+            raise forms.ValidationError('This field is required.')
+        for email in email_list:
+            try:
+                validate_email(email)
+            except forms.ValidationError:
+                raise forms.ValidationError(_("'%s' is not a valid email address.") % email)
+        return cleaned_data
 
 
 class BrandForm(forms.ModelForm):
@@ -75,27 +75,3 @@ class BrandForm(forms.ModelForm):
     class Meta:
         Model = BrandPosition
         fields = '__all__'
-
-class ProductVendorMappingForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete', )
-    )
-    sku = forms.CharField(disabled=True, required=False)
-
-    def __init__(self, *args, **kwargs):
-        super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            self.fields['product'].disabled = True
-            self.fields['product_price'].widget.attrs['readonly'] = True
-            self.fields['product_mrp'].widget.attrs['readonly'] = True
-            self.fields['case_size'].widget.attrs['readonly'] = True
-            self.fields['sku'].initial = kwargs['instance'].sku
-
-    class Meta:
-        Model = ProductVendorMapping
-        fields = ('product','sku','product_price','product_mrp','case_size')
-
-    class Media:
-        js = ('/static/admin/js/brand_vendor_form.js',)

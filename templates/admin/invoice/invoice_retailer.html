@@ -1,0 +1,208 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters_invoice_sp %}
+{% load humanize %}
+{% load mathfilters %}
+
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>invoice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">
+    <style>
+		table tr td,th,h4,span,address{
+			font-size:10px;
+		}
+    </style>
+</head>
+<body>
+<div class="row">
+    <div class="col-lg-12">
+        <div class="row" style="padding-bottom:10px; margin-bottom: 10px; border-bottom: solid 1px #7B7B7A; position:relative">
+            <div class=" col-md-6">
+                <div class=" col-sm-12">
+                    <h4 style="font-size:20px"><strong>INVOICE</strong></h4>
+                </div>
+                <div class="col-sm-12">
+                    {% if payment_type == 'neft' %}
+                    <h5 style="font-size:20px">Prepaid Order</h5>
+                    {% elif payment_type == 'cash_on_delivery' %}
+                    <h5 style="font-size:20px">Cash On Delivery</h5>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="barcode">
+                    <div class="pull-right">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-12">
+            <div class="table">
+                <table class="table table-bordered">
+                    <tr>
+                        <td class="text-center">
+                            <strong>Order ID.</strong><br>{{shipment.order.order_no}}
+                        </td>
+                        <td class="text-center">
+                            <strong>Order Date <br>{{shipment.order.created_at}}</strong>
+                        </td>
+                        <td class="text-center">
+                            <strong>Invoice No <br>{{shipment.invoice_no}}</strong>
+                        </td>
+                        <td class="text-center">
+                            <strong>Invoice Date <br>{{shipment.created_at}}</strong>
+                        </td>
+                        <td class="text-center">
+                            <strong>FSSAI License No. <br>{{license_number}}</strong>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="col-xs-9">
+                        <address>
+                            <span>Customer Details:</span><br>
+                            <strong style="text-transform:capitalize;">{{shipment.order.buyer.first_name}} {{shipment.order.buyer.last_name}}</strong><br>
+                            {{shipment.order.buyer.phone_number}}<br>
+                        </address>
+                    </div>
+                    <div class="col-xs-3">
+                        <address>
+                            <span>Shop :</span><br>
+                            <strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
+                            {{nick_name}}, {{address_line1}}, {{city}}<br>
+                            {{address_contact_number}}<br>
+							<strong>State Name:</strong> <span>{{state}} </span><strong>Pincode:</strong> <span>{{pincode}}</span><br>
+                        </address>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title"><strong>Order summary</strong></h3>
+            </div>
+            <div class="panel-body">
+                <div class="table">
+                    <table class="table table-condensed">
+                        <thead>
+                        <tr class="text-center" style="text-align:center;">
+                            <td><strong>Serial No.</strong></td>
+                            <td><strong>Description of Goods</strong></td>
+                            <td><strong>MRP</strong></td>
+                            <td><strong>Quantity</strong></td>
+                            <td><strong>Rate</strong></td>
+                            <td><strong>Amount</strong></td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for m in product_listing %}
+                        {% if m.qty != 0 %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td><strong>{{forloop.counter}}</strong></td>
+                            <td><strong>{{ m.product_short_description}}</strong></td>
+                            <td><strong>{{ m.mrp}}</strong></td>
+                            <td>{{m.qty}}</td>
+                            <td>{{m.rate}}</td>
+                            <td><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="thick-line"><strong>{{sum_qty|floatformat:"0"}} PCS</strong></td>
+                            <td class="thick-line"></td>
+                            <td class="thick-line"><strong>₹{{total| intcomma}}/-</strong></td>
+                        </tr>
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="thick-line"></td>
+                            <td class="thick-line"></td>
+                        </tr>
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Discount</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{discount| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        {% if reward_value != 0 %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Reward Value Used</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{reward_value| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        <tr class="text-center" style="text-align:center;">
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"><strong>Total</strong></td>
+                            <td class="no-line" colspan="2">
+                                <strong>₹ {{total_amount| intcomma}}/- </strong>
+                            </td>
+                        </tr>
+                        <tr class="text-center">
+                            <td colspan="12"></td>
+                        </tr>
+                        <tr>
+                            <td colspan="8" class="no-line"><strong>Amount Chargeable (in words): </strong></td>
+                            <td class="no-line">E . &amp; O . E</td>
+                        </tr>
+                        <tr>
+                            <td colspan="11"><strong>INR {{rupees}} only</strong></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table">
+                    <div class="table">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <td class="text-left" colspan="7">
+                                    <strong style="font-size:12px">Declaration:</strong>
+                                    <br>
+                                    <strong style="font-size:11px"> We declare that this invoice shows the actual price
+                                        of the goods described and that all particulars are true and correct.</strong>
+                                    <br>
+                                    <strong style="font-size:11px">Note: This is a computer generated
+                                        invoice </strong><br><br>
+                                </td>
+                            </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -33,9 +33,9 @@
 
     </style>
 
-  <script
-    src="https://code.jquery.com/jquery-2.1.1.js"></script>  {{ form.media }}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
+       {{ ordered_form.media }}
+
+
 <!--<script type="text/javascript" src="/admin/jsi18n/"></script>-->
 <!--<script type="text/javascript" src="/static/admin/js/vendor/jquery/jquery.js"></script>-->
 <!--<script type="text/javascript" src="/static/admin/js/jquery.init.js"></script>-->
@@ -123,9 +123,9 @@
 
 
 
-<li>
-<input type="button" id="update_button" value="AUTO FILL NO. OF PIECES TO SHIP">
-</li>
+<!--<li>-->
+<!--<input type="button" id="update_button" value="AUTO FILL NO. OF PIECES TO SHIP">-->
+<!--</li>-->
 
 
 
@@ -173,7 +173,15 @@
                 {% endfor %}
             {% endif %}
 {{ordered_form.management_form}}
-  {{ordered_form.as_p}}
+<button type="submit" class="fetch">Fetch</button>
+    {% for field in ordered_form.visible_fields %}
+     <p>
+
+         {{ field.label_tag }}
+          {{ field }}
+          {{ field.help_text }}
+  </p>
+    {% endfor %}
 
 
 
@@ -227,6 +235,7 @@
          <th>No. of already Shipped Pieces
 
          </th>
+         <th>Picked_pieces</th>
          <th>No. of Pieces to Ship
 
          </th>
@@ -236,11 +245,8 @@
 
      <tbody>
 
-
-
         {% for order_form in formset %}
-{% if order_form.errors %}
-
+      {% if order_form.errors %}
 
           {% for error in order_form.non_field_errors %}
             <p class="errornote">{{ error|escape }}</p>
@@ -253,6 +259,7 @@
             <td> <b>{{ order_form.ordered_qty }}</b></td>
             <td> <b>{{ order_form.already_shipped_qty }}</b></td>
             <td> <b>{{ order_form.to_be_shipped_qty }}</b></td>
+            <td> <b>{{ order_form.picked_pieces }}</b></td>
           <td>{{ order_form.shipped_qty.errors }}{{ order_form.shipped_qty }}</td>
 
         </tr>
@@ -284,9 +291,9 @@
 
 </div>
 {% elif not ordered_form.order.value %}
-<ul class="messagelist">
-    <li class="warning">Please select an Order first!</li>
-</ul>
+<!--<ul class="messagelist">-->
+<!--    <li class="warning">Please select an Order first!</li>-->
+<!--</ul>-->
 {% else %}
 <ul class="messagelist">
     <li class="warning">All the Shipments of this particular Order has been created successfully!</li>
@@ -318,12 +325,13 @@
     </div>
     <!-- END Content -->
 
-    <div id="footer"></div>
+    <div id="footer">
+
+    </div>
 </div>
 <!-- END Container -->
 
 </body>
-<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
 <script>
 $(document).ready(function(){
 
@@ -352,13 +360,13 @@ $('#reload_page').click(function(){
 //   $("input[id$='ordered_qty']").attr("readOnly", true);
 //   $("input[id$='already_shipped_qty']").attr("readOnly", true);
 
-  $('select#id_order').select2({width: '50%'});
+  // $('select#id_order').select2({width: '50%'});
      // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
   //   $('select#id_shipment_status').select2({width: '50%'});
 
   // $("select[id$='product']").attr("disabled", true);
 
-    $("select#id_order").change(function(){
+    $("select#id_order").on("change", function(e) {
         $("#submitbutton").hide();
         $("table").html('Loading! Please wait...');
          var selectedOrder= $(this).children("option:selected").val();
@@ -395,5 +403,20 @@ $('form').preventDoubleSubmission();
 //     $(this).find(':input').prop('disabled', false);
 //   });
 // });
+</script>
+
+
+<script type="text/javascript">
+
+    var form_enabled = true;
+    $( document ).ready(function() {
+        $('.submit-row').on('click','input[type=submit]', function(e){
+               $('.submit-row').hide();
+                setTimeout(function(){
+                    $('.submit-row').show();
+                }, 2000);
+        });
+    });
+
 </script>
 </html>

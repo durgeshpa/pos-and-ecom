@@ -26,9 +26,13 @@
 {% block content %}
 
         <!-- Content -->
-    <button onclick="window.history.back();" class="btn btn-default" type="button">Back</button>
+
       <div id="content" class="flex">
-        <h1>Products List</h1>
+        <h1><strong>{{ shop }}</strong></h1>
+        <a style="float: right;" href="/admin/shops/shop/shop_stock_download/{{ shop.id }}/">Download</a>x
+        <!--<h1>Products List</h1>-->
+        <span>This list only displays the “Available Qty” ie qty which is  free for placing orders</span>
+        <br>
         <div id="content-main">
           <div class="module filtered" id="changelist">
 
@@ -37,48 +41,59 @@
                 <table id="result_list">
                   <thead>
                     <tr>
-                      <th scope="col" class="action-checkbox-column">
-                        <div class="text"></div>
+
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=1">SKU Id</a></div>
                         <div class="clear"></div>
                       </th>
 
                       <th scope="col" class="sortable column-country">
-                        <div class="text"><a href="?o=1">Product ID</a></div>
-                        <div class="clear"></div>
-                      </th>
-
-                      <th scope="col" class="sortable column-country">
-                        <div class="text"><a href="?o=2">GF code</a></div>
+                        <div class="text"><a href="?o=2">Product Name</a></div>
                         <div class="clear"></div>
                       </th>
                       <th scope="col" class="sortable column-country">
-                        <div class="text"><a href="?o=2">SKU Id</a></div>
+                        <div class="text"><a href="?o=2">MRP</a></div>
                         <div class="clear"></div>
                       </th>
                       <th scope="col" class="sortable column-country">
-                        <div class="text"><a href="?o=3">Product Name</a></div>
+                        <div class="text"><a href="#">Parent ID</a></div>
+                        <div class="clear"></div>
+                      </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="#">Parent Name</a></div>
                         <div class="clear"></div>
                       </th>
                       <th scope="col" class="sortable column-state_name">
-                        <div class="text"><a href="?o=4">Available Qty </a></div>
+                        <div class="text"><a href="?o=4">Normal Qty </a></div>
                         <div class="clear"></div>
                       </th>
                       <th scope="col" class="sortable column-state_name">
                         <div class="text"><a href="?o=5">Damaged Qty </a></div>
                         <div class="clear"></div>
                       </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=3">Expired Qty</a></div>
+                        <div class="clear"></div>
+                      </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=3">Missing Qty</a></div>
+                        <div class="clear"></div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for dt in shop_products %}
+                    {% for key,value in products.items %}
                     <tr class="row1">
-                        <td class="action-checkbox"></td>
-                        <th class="field-country nowrap">{{ dt.product }}</th>
-                        <th class="field-country nowrap">{{ dt.product__product_gf_code }}</th>
-                        <th class="field-country nowrap">{{ dt.product__product_sku }}</th>
-                        <th class="field-country nowrap">{{ dt.product__product_name }}</th>
-                        <td class="field-state_name">{{ dt.product_qty_sum }}</td>
-                        <td class="field-state_name">{{ dt.damaged_qty_sum }}</td>
+                        <td class="field-country nowrap">{{ value.sku }}</td>
+                        <td class="field-country nowrap">{{ value.name }}</td>
+                        <td class="field-country nowrap">{{ value.mrp }}</td>
+                        <td class="field-country nowrap">{{ value.parent_id }}</td>
+                        <td class="field-country nowrap">{{ value.parent_name }}</td>
+                        <td class="field-country nowrap">{{ value.normal }}</td>
+                        <td class="field-country nowrap">{% if value.damaged is None %}0{% else %}{{value.damaged}}{% endif %}</td>
+                        <td class="field-country nowrap">{% if value.expired is None %}0{% else %}{{value.expired}}{% endif %}</td>
+                        <td class="field-country nowrap">{% if value.missing is None %}0{% else %}{{value.missing}}{% endif %}</td>
+
                     </tr>
                   {% endfor %}
                   </tbody>
@@ -86,9 +101,6 @@
               </div>
               <!--<p class="paginator">2 states</p>-->
             </form>
-          </div>
-          <div>You can <a href="{% url 'admin:StockAdjustment' shop_id=shop.id %}">Upload Stock list</a> to update the stocks </div>
-        </div>
         <br class="clear">
       </div>
 

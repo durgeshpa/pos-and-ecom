@@ -6,8 +6,8 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, BrandSerializer
-from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
+from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, HomePageSerializer
+from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page, HomePageMessage
 from retailer_to_sp.models import OrderedProduct, Feedback
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -30,8 +30,29 @@ class GetSlotBannerListView(APIView):
 
         if pos_name and position_name and shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
-                data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                retailer_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                parent = retailer_mapping.parent
+                buyer_shop = retailer_mapping.retailer
+                buyer_shop_address = buyer_shop.shop_name_address_mapping.filter(address_type='shipping')
+                if buyer_shop_address.exists():
+                    banner_slot = BannerPosition.objects.filter(shop=parent.id, buyer_shop__in=[buyer_shop])
+                    if banner_slot.count() == 0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id, pincode__in=[buyer_shop_address.last().pincode_link])
+                    if banner_slot.count() == 0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id,city__in=[buyer_shop_address.last().city])
+                    if banner_slot.count() == 0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id,buyer_shop=None,pincode=None,city=None)
+
+                    data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
+                        slot__bannerslot__name=pos_name, slot=banner_slot.last()).filter(
+                        Q(banner_data__banner_start_date__isnull=True)
+                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                else:
+                    data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
+                        slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(
+                        Q(banner_data__banner_start_date__isnull=True)
+                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+
                 for d in data:
                     if d.banner_data.brand:
                         pass
@@ -119,6 +140,17 @@ class GetPageBannerListView(APIView):
         banner_data_serializer = BannerDataSerializer(data,many=True)
 
         return Response({"message":[""], "response_data": banner_data_serializer.data ,"is_success": is_success})
+
+
+class GetMessageListView(APIView):
+
+    permission_classes = (AllowAny,)
+
+    def get(self,*args,**kwargs):
+        data = HomePageMessage.objects.filter(is_active=True).last()
+        is_success = True
+        home_page_serializer = HomePageSerializer(data)
+        return Response({"message":[""], "response_data": home_page_serializer.data, "is_success": is_success})
 
 
 '''@api_view(['GET', 'POST'])

@@ -36,8 +36,16 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
     		<div class="invoice-title">
-    			<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
-    		</div>
+				<div class="col-xs-5">
+    				<h4 class="invoice">Debit Note No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4>
+				</div>
+				<div class="col-xs-4">
+					<h4 class="pull-right order_id">FSSAI License No:- <span class="order_id_no"><strong>{{ license_number }}</strong>
+				</div>
+				<div class="col-xs-3">
+					<h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+				</div>
+			</div>
 
     		<div class="row">
     			<div class="col-xs-6">
@@ -47,7 +55,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.gf_billing_address.nick_name}}, {{shop.order.ordered_cart.gf_billing_address.address_line1}}, {{shop.order.ordered_cart.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 
 					<address>
@@ -56,7 +64,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.gf_shipping_address.nick_name}}, {{shop.order.ordered_cart.gf_shipping_address.address_line1}}, {{shop.order.ordered_cart.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>{{cin}}</span>
     				</address>
 					<address>
 						<span>Party :</span><br>
@@ -64,7 +72,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.ordered_cart.supplier_name.company_name}}, {{shop.order.ordered_cart.supplier_name.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{shop.order.ordered_cart.supplier_name.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.supplier_name.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN No.:</strong> <span>---</span>
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">
@@ -161,25 +169,25 @@ table tr td,th,h4,span,address{
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
-                    {% for m in products %}
-                    {% if m.returned_qty > 0  %}
+                    {% for key,value in products.items %}
+                    {% if value.returned_qty > 0  %}
     								<td><strong>{{forloop.counter}}</strong></td>
-										<td class="text-center">{{ m.product.product_sku}}</td>
-    								<td class="text-center">{{ m.product.product_short_description}}</td>
+										<td class="text-center">{{ value.product.product_sku}}</td>
+    								<td class="text-center">{{ value.product.product_short_description}}</td>
 
-    								<td class="text-center">{{ m.product.product_hsn}}</td>
-										   {% for n in m.product.product_pro_tax.all %}
+    								<td class="text-center">{{ value.product.product_hsn}}</td>
+										   {% for n in value.product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
 		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
 													{% endif %}
 												{% endfor %}
 
-									<td class="text-center">{{m.returned_qty}}</td>
-    								<td class="text-center">{{m.po_product_price}}</td>
+									<td class="text-center">{{value.returned_qty}}</td>
+    								<td class="text-center">{{value.po_product_price}}</td>
     								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.returned_qty | returned_qty}}</div>
+										   <div style="display:none"> {{value.returned_qty | returned_qty}}</div>
 
-    								<td class="text-right">{{m.po_product_price | po_product_price | intcomma }}/-</td>
+    								<td class="text-right">{{value.po_product_price | po_product_price | intcomma }}/-</td>
     							</tr>
                   {% endif %}
 									{% endfor %}
@@ -196,7 +204,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount | floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.ordered_cart.supplier_state.state == shop.order.shipping_address.state %}
     							<tr>
@@ -284,7 +292,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Total</strong></td>
-    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
@@ -340,11 +348,19 @@ table tr td,th,h4,span,address{
 								<strong>Declaration</strong> <br>
 We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
 									</td>
-        							<td class="text-right" colspan="5" height="100">
-
-										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
- Authorised Signatory
-									</td>
+									{% if is_gf_shop %}
+										<td class="text-center" colspan="4" height="100">
+											<strong>For GFDN Services Pvt Ltd</strong> <br>
+											<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80" style="text-align: center">
+											<br>
+										</td>
+									{% else %}
+										<td class="text-center" colspan="4" height="100">
+											<strong>For ADDISTRO TECHNOLOGIES PVT LTD</strong></br>
+											<img src="{{scheme}}://{{url}}/static/admin/img/addistro_stamp.png" width="90" height="80" style="text-align: center">
+											<br>
+										</td>
+									{% endif %}
 
 
                                 </tr>

@@ -75,6 +75,8 @@
     $("select[id$='rescheduling_reason']").change(function() {
       $('option:selected', $(this)).each(function() {
             swal({
+              closeOnClickOutside: false,
+              closeOnEsc: false,
               icon: "warning",
               text: "Are you sure to Reschedule the Shipment?",
               dangerMode: false,
@@ -87,12 +89,15 @@
                 $("input[id$='damaged_qty']").val(0);
                 $("input[id$='damaged_qty']").prop("readonly", true);
                 $("select[id='id_return_reason']").val('');
-                $("select[id='id_return_reason']").attr("disabled", true); 
+                $("select[id='id_return_reason']").attr("disabled", true);
+                $("select[id$='not_attempt_reason']").val('');
+                $("select[id$='not_attempt_reason']").attr("disabled", true);
               } else {
                 $("select[id$='rescheduling_reason']").val('');
                 $("input[id$='returned_qty']").prop("readonly", false);
                 $("input[id$='damaged_qty']").prop("readonly", false);
-                $("select[id='id_return_reason']").attr("disabled", false); 
+                $("select[id='id_return_reason']").attr("disabled", false);
+                $("select[id$='not_attempt_reason']").attr("disabled", false);
 
               }
             });
@@ -101,10 +106,38 @@
   });
 
 
-    if ($('select#id_return_reason').prop('disabled')){
-         $("select[id$='rescheduling_reason']").attr("disabled", true);
-         $("input[id$='rescheduling_date']").prop("readonly", false);
-    }
+    $("select[id$='not_attempt_reason']").change(function() {
+      $('option:selected', $(this)).each(function() {
+            swal({
+              closeOnClickOutside: false,
+              closeOnEsc: false,
+              icon: "warning",
+              text: "Are you sure to not attempt the Shipment?",
+              dangerMode: false,
+              buttons: ['No', 'Yes'],
+            })
+            .then(willDelete => {
+              if (willDelete) {
+                $("input[id$='returned_qty']").val(0);
+                $("input[id$='returned_qty']").prop("readonly", true);
+                $("input[id$='damaged_qty']").val(0);
+                $("input[id$='damaged_qty']").prop("readonly", true);
+                $("select[id='id_return_reason']").val('');
+                $("select[id='id_return_reason']").attr("disabled", true);
+                $("select[id$='rescheduling_reason']").val('');
+                $("select[id$='rescheduling_reason']").attr("disabled", true);
+              } else {
+                $("select[id$='not_attempt_reason']").val('');
+                $("input[id$='returned_qty']").prop("readonly", false);
+                $("input[id$='damaged_qty']").prop("readonly", false);
+                $("select[id='id_return_reason']").attr("disabled", false);
+                $("select[id$='rescheduling_reason']").attr("disabled", false);
+
+              }
+            });
+      });
+
+  });
 
     });
 

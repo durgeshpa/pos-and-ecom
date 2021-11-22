@@ -4,9 +4,10 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from brand.models import Brand
 from categories.models import Category
-from .models import Banner , BannerPosition
+from .models import Banner , BannerPosition, BannerData
 from shops.models import Shop
 from products.models import Product
+from addresses.models import Pincode, City
 
 class BannerForm(forms.ModelForm):
     category = forms.ModelChoiceField(required=False,
@@ -66,7 +67,33 @@ class BannerPositionForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
         required=False
     )
+    buyer_shop = forms.ModelMultipleChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:retailer-shop-autocomplete', ),
+        required=False
+    )
+    pincode = forms.ModelMultipleChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:pincode-autocomplete', ),
+        required=False
+    )
+    city = forms.ModelMultipleChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:city-autocomplete', ),
+        required=False
+    )
 
     class Meta:
         Model = BannerPosition
+        fields = '__all__'
+
+
+class BannerDataPosition(forms.ModelForm):
+    banner_data = forms.ModelChoiceField(
+        queryset=Banner.objects.all(),
+        widget=autocomplete.ModelSelect2(url='banner-data-autocomplete',),
+    )
+
+    class Meta:
+        Model = BannerData
         fields = '__all__'

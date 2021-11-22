@@ -7,11 +7,14 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from otp.sms import SendSms
 import datetime
 from .tasks import phone_otp_instance
 from django.db import transaction
 from rest_framework.authtoken.models import Token
+
+#from notification_center.utils import SendNotification
 
 
 USER_TYPE_CHOICES = (
@@ -28,6 +31,8 @@ USER_DOCUMENTS_TYPE_CHOICES = (
     ("pc", "PAN Card"),
     ("dl", "Driving License"),
     ("uidai", "Aadhaar Card"),
+    ("pp", "Passport"),
+    ("vc", "Voter Card"),
 )
 
 class UserManager(BaseUserManager):
@@ -62,15 +67,20 @@ class UserManager(BaseUserManager):
 
         return self._create_user(phone_number, password, **extra_fields)
 
+
 class User(AbstractUser):
     """User model."""
     username = None
+    first_name = models.CharField(max_length=254)
+    last_name = models.CharField(max_length=254)
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
     user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
+    is_whatsapp = models.BooleanField(default=False)
+    is_ecom_user = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()
@@ -79,7 +89,21 @@ class User(AbstractUser):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_photo.url))
 
     def __str__(self):
-        return "%s"%(str(self.phone_number))
+        return "%s - %s"%(str(self.phone_number), self.first_name)
+
+
+# class UserInfo(models.Model):
+#     user = models.ForeignKey(User, related_name="user_info", on_delete=models.CASCADE)
+#     shop  = models.ForeignKey(Shop, related_name="shop", on_delete=models.CASCADE)
+#     location = models.CharField(max_length=255, null=True, blank=True)
+#     last_login = models.DateField()
+#     last_order_date = models.DateField()
+
+#     def __str__(self):
+#         return "%s-%s" %(self.user, self.pk)
+
+#     class Meta:
+#         verbose_name = "User Info"
 
 
 class UserWithName(User):
@@ -127,14 +151,23 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
             username = instance.first_name
         else:
             username = instance.phone_number
-        message = SendSms(phone=instance.phone_number,
-                          body = '''\
-                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
-Thanks,
-Team GramFactory
-                                ''' % (username))
 
-        message.send()
+        activity_type = "SIGNUP"
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.phone_number
+        from notification_center.models import Template
+        template = Template.objects.get(type="ORDER_RECEIVED").id
+        from notification_center.utils import SendNotification
+        SendNotification(user_id=instance.id, activity_type=template, data=data).send()    
+#         message = SendSms(phone=instance.phone_number,
+#                           body = '''\
+#                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+# Thanks,
+# Team GramFactory
+#                                 ''' % (username))
+
+#         message.send()
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -145,8 +178,16 @@ def create_phone_otp_instance(sender, instance=None, created=False, **kwargs):
 
 
 class AppVersion(models.Model):
+    AppTypeChoices = (
+        ('delivery', 'delivery'),
+        ('retailer', 'retailer'),
+        ('ecommerce', 'ecommerce'),
+        ('pos', 'pos'),
+        ('warehouse', 'warehouse')
+        )    
     app_version = models.CharField(max_length=200)
     update_recommended = models.BooleanField(default=False)
+    app_type = models.CharField(max_length=50, choices=AppTypeChoices, default='retailer')
     force_update_required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

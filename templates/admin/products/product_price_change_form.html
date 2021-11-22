@@ -1,0 +1,36 @@
+{% extends "admin/change_form.html" %} {% load i18n %} 
+
+{% block content %}
+    {{ block.super }}
+    <script>
+        (function($){
+            $(document).ready(function(jQuery) {
+                var product = document.getElementById('id_product').value;
+                if(product) {
+                    getProductDetails(product);
+                }
+            });
+            function getProductDetails(val) {
+                ajax_url = "/product/fetch-product-details/";
+                $.ajax({
+                    url: ajax_url,
+                    type : 'GET',
+                    data: { 'product': val },
+                    contentType: "application/json; charset=utf-8",
+                    success: function (data) {
+                        if(data.found === true){
+                            document.getElementById('id_mrp').value = data.product_mrp;
+                        }
+                        return true;
+                    },
+                    error: function (data) {
+                        console.log("ERROR");
+                        console.error(data);
+                        return true;
+                    },
+                    cache: false
+                });
+            }
+        })(django.jQuery);
+    </script>
+{% endblock %}

@@ -1,0 +1,48 @@
+
+server {
+    server_name qa.gramfactory.com;
+    valid_referers server_names  *.gramfactory.com;
+    location = /favicon.ico { access_log off; log_not_found off; }
+
+    location /static/ {
+            root /home/ubuntu/project/retailer-backend;
+    }
+    location /nginx-health {
+        access_log off;
+        return 200;
+    }
+    location / {
+       # if ($http_host != server_name){
+       #   return   403;
+       # }
+
+        include proxy_params;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://unix:/home/ubuntu/project/retailer-backend/retailer-backend.sock;
+        proxy_buffers 8 32k;
+        proxy_buffer_size 64k;
+        proxy_connect_timeout 75s;
+        proxy_read_timeout 300s;
+
+
+    }
+
+    location /admin {
+#        auth_basic "Restricted Access";
+#        auth_basic_user_file /etc/.htpasswd;
+        include proxy_params;
+        if ($http_host!=server_name){
+          return   403;
+        }
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://unix:/home/ubuntu/project/retailer-backend/retailer-backend.sock;
+#        proxy_pass http://0.0.0.0:8000;
+        proxy_buffers 8 32k;
+        proxy_buffer_size 64k;
+        proxy_connect_timeout 75s;
+        proxy_read_timeout 300s;
+    }
+}

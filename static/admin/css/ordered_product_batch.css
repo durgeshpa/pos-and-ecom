@@ -1,0 +1,59 @@
+.table_inline .batch_inline h2
+{
+display:none
+}
+
+.table_inline  .batch_inline .djn-thead{
+display:none
+}
+.table_inline  a.add{
+display:none}
+
+.table_inline  td{
+width:10%}
+.table_inline  .batch_inline td{width:11.4%}
+.table_inline  td.field-batch_id{
+width:22%}
+.table_inline td.field-product{
+width:22%;
+}
+.table_inline td.field-product p{
+font-weight: bold;
+}
+
+.table_inline  .original{
+width:0%
+}
+
+/* return view css */
+.return_table_inline .return_batch_inline h2
+{
+display:none
+}
+
+.return_table_inline  .return_batch_inline .djn-thead{
+display:none
+}
+.return_table_inline  a.add{
+display:none}
+
+.return_table_inline  td{
+width:13%}
+.return_table_inline  .return_batch_inline td{width:13.2%}
+.return_table_inline  td.field-batch_id{
+width:22%}
+.return_table_inline td.field-product{
+width:22%
+}
+.return_table_inline td.field-product p{
+font-weight: bold;
+}
+.return_table_inline  .original{
+width:0%
+}
+input[readonly] {
+  background-color: #e3e3e3;
+}
+input[disabled] {
+  background-color: #e3e3e3;
+}

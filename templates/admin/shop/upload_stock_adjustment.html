@@ -15,17 +15,15 @@
     </style>
   {% endif %}
 {% endblock %}
-
 {% block extrahead %}
 {{ block.super }}
 {{ media.js }}
 {% endblock %}
-
 {% block breadcrumbs %}
     <div class="breadcrumbs">
         <a href="/admin/">{% trans "Home" %}</a> >
         <a href="/admin/shops/">{% trans "Shops" %}</a> >
-        <a href="/admin/shops/shop/adjust-stock/{{shop.id}}/">{% trans "Shops" %}</a> >
+        <a href="/admin/shops/shop/adjust-stock/{{shop.id}}/" id="link">{% trans "Shops" %}</a> >
         Update Stock
     </div>{% endblock %}
 
@@ -51,7 +49,7 @@
                   <p class="errornote">{{ error|escape }}</p>
                 {% endfor %}
             {% endif %}
-            
+
             {{form.management_form}}
             {{form.as_p}}
             <div><a href="{% url 'admin:ShopStocks' shop_id=shop.id %}">Download</a> sample file here </div>
@@ -62,8 +60,20 @@
       </div>
     </form>
   </div>
+                  <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script>
+    $( document ).ready(function() {
+     $('#id_shop').on('change', function(){
+          window.history.pushState($(this).val(), 'newtitle', '/admin/shops/shop/');
+          window.location= 'adjust-stock/' + $(this).val();
+            });
+      });
+
+    </script>
   <br class="clear">
+
 {% endblock %}
+
 
 
 

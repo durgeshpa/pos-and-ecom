@@ -1,0 +1,16 @@
+SWfrom retailer_to_sp.models import *
+from django.db.models import Count, F, Value, Sum
+orders = Order.objects.filter(seller_shop_id=172).exclude(buyer_shop_id__in=[6,127,42])
+carts = Cart.objects.filter(rt_order_cart_mapping__in=orders)
+cart_products = CartProductMapping.objects.filter(cart__cart_status="ordered").filter(cart__in=carts)
+cart_products_filtered = cart_products.values('cart_product').annotate(sold_qty=Sum('qty')).annotate(product_name=F('cart_product__product_name')).annotate(inner_case=F('cart_product__product_inner_case_size'))
+
+
+
+
+
+
+
+
+
+cart_products = CartProductMapping.objects.filter(cart__cart_status="ordered").values('cart_product').annotate(sold_qty=Sum('qty')).annotate(product_name=F('cart_product__product_name')).annotate(inner_case=F('cart_product__product_inner_case_size'))

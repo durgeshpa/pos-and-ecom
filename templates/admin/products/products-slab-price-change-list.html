@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %} {% load i18n %}
+{% load static %}
+{% load staticfiles %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:slab_product_price_csv_upload' %}" class="addlink">Bulk Create Product Price</a>
+    </li>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Upload Products | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/pos/" xmlns="http://www.w3.org/1999/html">Pos</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/pos/retailerproduct/">Retailer products</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Products</a>{% endblock %}
+
+{% block content %}
+    <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     <h4 style="margin: 10px">{{form.as_p}}</h4>
+                  </fieldset>
+                  <h3 style="margin-left: 30px"><a id="id_download" onclick="shop_id_status_validation()" style="margin-top: 15px;">Download Sample FIle</a></h3>
+               </div>
+               <div class="submit-row">
+                  <input type="submit" value="Save" class="button" name="_save" id="saveBtn">
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+
+<script>
+   function shop_id_status_validation(){
+       var id_shop = document.getElementById("id_shop");
+       var shop_id = id_shop.options[id_shop.selectedIndex].value;
+       if(shop_id===""){
+               alert("Please 'Select a Shop'");
+       }
+   }
+   document.getElementById("id_shop").onchange = function(event){
+       var id_shop = document.getElementById("id_shop");
+       var shop_id = id_shop.options[id_shop.selectedIndex].value;
+         if(shop_id != ""){
+            document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}" + "?shop_id=" + shop_id;
+          }
+   };
+</script>
+{% endblock %}

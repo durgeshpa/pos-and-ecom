@@ -3,25 +3,23 @@ import xlsxwriter
 
 from django.http import HttpResponse
 
-from addresses.models import Address, City, State
+from addresses.models import Address, City, State, Shop
 
 
 def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
     states_list = State.objects.values_list('state_name', flat=True)
-
     output = io.BytesIO()
     data = Address.objects.values_list(
-        'shop_name_id', 'shop_name__shop_name',
-        'shop_name__shop_type__shop_type',
-        'shop_name__shop_owner__phone_number',
-        'shop_name__status', 'id', 'nick_name', 'address_line1',
-        'address_contact_name', 'address_contact_number', 'pincode',
-        'state__state_name', 'city__city_name', 'address_type'
-    ).filter(shop_name__in=queryset)
-
+        'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type__shop_type',
+        'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
+        'address_line1', 'address_contact_name', 'address_contact_number',
+        'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
+        'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name',
+        'shop_name__created_at').filter(shop_name__in=queryset)
     data_rows = data.count()
-    workbook = xlsxwriter.Workbook(output)
+    workbook = xlsxwriter.Workbook(output, {'default_date_format':
+                                            'dd/mm/yy hh:mm:ss'})
     worksheet = workbook.add_worksheet()
     unlocked = workbook.add_format({'locked': 0})
 
@@ -52,6 +50,9 @@ def create_shops_excel(queryset):
     worksheet.set_column('L:L', 20)
     worksheet.set_column('M:M', 20)
     worksheet.set_column('N:N', 10)
+    worksheet.set_column('O:O', 20)
+    worksheet.set_column('P:P', 40)
+    worksheet.set_column('Q:Q', 20)
 
     # to set the hieght of row
     worksheet.set_row(0, 36)
@@ -71,10 +72,19 @@ def create_shops_excel(queryset):
     worksheet.write('L1', 'State', header_format)
     worksheet.write('M1', 'City', header_format)
     worksheet.write('N1', 'Address Type', header_format)
+    worksheet.write('O1', 'IMEI', header_format)
+    worksheet.write('P1', 'Parent Shop Name', header_format)
+    worksheet.write('Q1', 'Shop created at', header_format)
+
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
-            worksheet.write(row_num + 1, col_num, cell_data)
+            if cell_data and col_num == 16:
+                worksheet.write_datetime(row_num + 1, col_num, cell_data)
+            elif cell_data and col_num == 4:
+                worksheet.write_boolean(row_num + 1, col_num, cell_data)
+            else:
+                worksheet.write(row_num + 1, col_num, cell_data)
 
     worksheet.data_validation(
         'L2:L{}'.format(data_rows + 1),

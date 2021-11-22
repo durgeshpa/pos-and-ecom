@@ -17,6 +17,10 @@ venv/
 env/
 build/
 develop-eggs/
+kinesis-to-es/
+live_server_key.pem
+pylogicaldecoding-master/
+static/jet/
 dist/
 downloads/
 eggs/
@@ -45,3 +49,18 @@ static_root
 media/
 */migrations/
 **/migrations/**
+.mypy_cache/
+.vscode/
+celerybeat-schedule
+# exclude everything
+barcode_tmp/*
+
+# exception to the rule
+!barcode_tmp/.gitkeep
+pos/scripts/pos_data.csv
+products/management/dest_pack_update.csv
+retailer_backend/dummy_shipments.py
+static/django-admin-autocomplete-filter/
+static_1/
+static_root_1/
+wms/migration.py

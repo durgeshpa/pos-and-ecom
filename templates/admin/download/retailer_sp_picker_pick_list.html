@@ -1,0 +1,93 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+<html lang="en">
+<head>
+  <title>Pick List</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+  <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style2.css">
+</head>
+<body>
+
+<div class="container-fluid" >
+  <div class="col-md-6" >
+    <div class="barcode">
+      <div class="pull-right">Order No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+    </div>
+  </div>
+
+  </div>
+    <table class="table">
+    <thead>
+      <tr>
+        <th class="no-border">Order ID : {{order_obj.order_no}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Name : {{buyer_shop}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping Address : {{buyer_shipping_address}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping City : {{buyer_shipping_city}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Contact No : {{buyer_contact_no}}</th>
+      </tr>
+    </thead>
+    </table>
+  {% if shipment %}
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Product SKU</th>
+          <th>Product MRP</th>
+          <th>To be picked quantity</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for shipment in shipment_products %}
+        <tr>
+          <td>{{ shipment.product_name }}</td>
+          <td>{{ shipment.product_sku }}</td>
+          <td>{{ shipment.product_mrp }}</td>
+          <td>{{ shipment.to_be_shipped_qty }}</td>
+          <td></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Product SKU</th>
+          <th>Product MRP</th>
+          <th>Ordered Quantity</th>
+          <!-- <th>No of Pieces</th> -->
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for cart in cart_products %}
+        <tr>
+          <td>{{ cart.product_name }}</td>
+          <td>{{ cart.product_sku }}</td>
+          <td>{{ cart.product_mrp }}</td>
+          <td>{{ cart.ordered_qty }}</td>
+          <!-- <td>{{ cart.no_of_pieces }}</td> -->
+          <td></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+
+</body>
+</html>

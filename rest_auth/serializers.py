@@ -1,11 +1,17 @@
+import logging
+
 from django.contrib.auth import get_user_model, authenticate
 from django.conf import settings
-from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 from django.core.validators import RegexValidator
+
+from rest_framework import serializers, exceptions, status
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -19,23 +25,26 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
-from rest_framework import serializers, exceptions
-from rest_framework.exceptions import ValidationError
+from otp.models import PhoneOTP
+from otp.views import ValidateOTPInternal
+from marketing.models import ReferralCode
+from pos.common_functions import filter_pos_shop
+from shops.models import PosShopUserMapping
 
 from .models import TokenModel
 from .utils import import_callable
 
-from otp.models import PhoneOTP
-
-# Get the UserModel
 UserModel = get_user_model()
 
-from django.utils.translation import ugettext
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     username = serializers.CharField(
-        validators = [phone_regex],
+        validators=[phone_regex],
         max_length=get_username_max_length(),
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=True
@@ -44,7 +53,6 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(style={'input_type': 'password'})
 
     def _validate_email(self, email, password):
-        user = None
 
         if email and password:
             user = authenticate(email=email, password=password)
@@ -55,7 +63,6 @@ class LoginSerializer(serializers.Serializer):
         return user
 
     def _validate_username(self, username, password):
-        user = None
 
         if username and password:
             user = authenticate(username=username, password=password)
@@ -64,9 +71,7 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg)
         return user
 
-
     def _validate_username_email(self, username, email, password):
-        user = None
 
         if email and password:
             user = authenticate(email=email, password=password)
@@ -130,6 +135,174 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
+class MlmOtpLoginSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        number = attrs.get('username')
+
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user or (user and not ReferralCode.is_marketing_user(user)):
+            raise serializers.ValidationError("You are not registered for rewards. Please register first.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTPInternal()
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
+        attrs['user'] = user
+        return attrs
+
+
+class PosOtpLoginSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+    app_type = serializers.IntegerField(required=False)
+
+    def validate(self, attrs):
+        """
+        Verify entered otp and user for login
+        """
+
+        number = attrs.get('username')
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user:
+            raise serializers.ValidationError("You are not registered on PepperTap.")
+        # Check Shop
+        qs = filter_pos_shop(user)
+        if not qs.exists():
+            raise serializers.ValidationError("You are not registered on PepperTap POS.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTPInternal()
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
+        attrs['user'] = user
+        return attrs
+
+
+class EcomOtpLoginSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        number = attrs.get('username')
+
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user:
+            raise serializers.ValidationError("You are not registered. Please sign up.")
+
+        phone_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if phone_otp:
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTPInternal()
+            msg, status_code = to_verify_otp.verify(attrs.get('otp'), phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occurred. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
+        attrs['user'] = user
+        return attrs
+
+
+class MlmResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    referral_code = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    email_id = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_access_token(obj):
+        return obj['token']
+
+    @staticmethod
+    def get_phone_number(obj):
+        return obj['user'].phone_number
+
+    @staticmethod
+    def get_referral_code(obj):
+        referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
+        return referral_code_obj.referral_code if referral_code_obj else ''
+
+    @staticmethod
+    def get_name(obj):
+        return obj['user'].first_name.capitalize() if obj['user'].first_name else ''
+
+    @staticmethod
+    def get_email_id(obj):
+        return obj['user'].email if obj['user'].email else ''
+
+
+class LoginResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+
+    def get_access_token(self, obj):
+        return obj['token']
+
+
+class PosLoginResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+    shop_id = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+    is_delivery_person = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_access_token(obj):
+        return obj['token']
+
+    @staticmethod
+    def get_shop_id(obj):
+        return obj['shop_object'].id if obj['shop_object'] else ''
+
+    @staticmethod
+    def get_shop_name(obj):
+        return obj['shop_object'].shop_name if obj['shop_object'] else ''
+
+    @staticmethod
+    def get_user_type(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).user_type
+
+    @staticmethod
+    def get_is_delivery_person(obj):
+        return PosShopUserMapping.objects.get(shop=obj['shop_object'], user=obj['user']).is_delivery_person
+
+
 class TokenSerializer(serializers.ModelSerializer):
     """
     Serializer for Token model.
@@ -144,10 +317,70 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     """
     User model w/o password
     """
+
     class Meta:
         model = UserModel
         fields = ('pk', 'username', 'email', 'first_name', 'last_name')
-        read_only_fields = ('email', )
+        read_only_fields = ('email',)
+
+
+class RetailUserDetailsSerializer(serializers.ModelSerializer):
+    """
+    Retailer User Serializer
+    """
+    shop_name = serializers.SerializerMethodField()
+    shop_image = serializers.SerializerMethodField()
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_shipping_address = serializers.SerializerMethodField()
+
+    def get_shop_name(self, obj):
+        """
+        obj:-User object
+        return:- shop name
+        """
+        shop = self.context.get('shop')
+        return shop.shop_name
+
+    def get_shop_image(self, obj):
+        """
+        obj:-User object
+        return:- shop image
+        """
+        shop = self.context.get('shop')
+        try:
+            return shop.shop_name_photos.all()[0].shop_photo.url
+        except Exception as e:
+            error_logger.info(e)
+        return None
+
+    def get_shop_owner_name(self, obj):
+        """
+        obj:-User object
+        return:- owner name
+        """
+        shop = self.context.get('shop')
+        try:
+            return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
+        except Exception as e:
+            error_logger.info(e)
+        return None
+
+    def get_shop_shipping_address(self, obj):
+        """
+        obj:-User object
+        return:- shipping address
+        """
+        shop = self.context.get('shop')
+        try:
+            return shop.get_shop_shipping_address
+        except Exception as e:
+            error_logger.info(e)
+        return None
+
+    class Meta:
+        model = UserModel
+        fields = ('pk', 'email', 'first_name', 'last_name', 'shop_name', 'shop_image',
+                  'shop_owner_name', 'shop_shipping_address',)
 
 
 class JWTSerializer(serializers.Serializer):
@@ -170,26 +403,32 @@ class JWTSerializer(serializers.Serializer):
         return user_data
 
 
+# Todo remove
 class PasswordResetSerializer(serializers.ModelSerializer):
     """
     Serializer for requesting an OTP for password reset.
     """
+
     class Meta:
         model = PhoneOTP
         fields = (
             'phone_number',
         )
 
+
+# Todo remove
 class PasswordResetValidateSerializer(serializers.ModelSerializer):
     """
     Validate the otp send to mobile number for password reset
     """
+
     class Meta:
         model = PhoneOTP
         fields = (
             'phone_number',
             'otp'
         )
+
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
@@ -278,3 +517,20 @@ class PasswordChangeSerializer(serializers.Serializer):
         if not self.logout_on_password_change:
             from django.contrib.auth import update_session_auth_hash
             update_session_auth_hash(self.request, self.user)
+
+
+def api_serializer_errors(s_errors):
+    """
+        Invalid request payload
+    """
+    errors = []
+    for field in s_errors:
+        for error in s_errors[field]:
+            errors.append(error if 'non_field_errors' in field else ''.join('{} : {}'.format(field, error)))
+    return Response({'is_success': False, 'message': errors, 'response_data': None},
+                    status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class EcomAccessSerializer(serializers.Serializer):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_number = serializers.CharField(validators=[phone_regex], max_length=10, required=True)

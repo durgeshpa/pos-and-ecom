@@ -1,0 +1,90 @@
+{% extends "admin/change_form.html" %}
+{% block submit_buttons_bottom %}
+
+<div id="message">
+</div>
+        <div class="form-row field-upload-csv">
+            <label class = "required">
+                Day Wise Shop Mapping CSV
+            </label>
+                <input type="file" name="file" required id="id_file">
+
+        </div>
+
+        <div class="form-row field-download-csv">
+        <li>
+            <a href="javascript:void(0);" id="id_download"> Download Sample CSV file</a>
+        </li>
+    </div>
+
+{{ block.super }}
+<script type="text/javascript" >
+(function($) {
+    $(document).ready(function() {
+    $("#id_download").click(function( event )
+    {
+        var shop_user_mapping = document.getElementById('id_executive').value;
+        if(shop_user_mapping.length < 1)
+        {
+        alert("Please select one of the Sales Executive to download the sample .csv file.");
+        }
+        else
+        {
+        window.location="/shops/upload/beat_csv/sample/?shop_user_mapping="+ shop_user_mapping
+        }
+    });
+  });
+
+
+  $("#beatplanning_form").submit(function( event ) {
+        event.preventDefault();
+        $form = $(this)
+        var formData = new FormData(this);
+        ajax_url = "/shops/upload/csv/"
+        var shop_user_mapping = document.getElementById('id_executive').value;
+        if(shop_user_mapping.length < 1)
+        {
+            alert("Please select one of the Sales Executive to upload/download the .csv file.");
+        }
+        else
+        {
+            $.ajax({
+                url: ajax_url,
+                type : 'POST',
+                data : formData,
+                contentType: "application/json; charset=utf-8",
+                success: function (data) {
+                    $("#message").show();
+                    $('#message').html(data.message);
+                    $("#id_file").val("");
+                    $('#message').css('color','green');
+                    $("#message").delay(6000).hide("slow");
+                    return true;
+                },
+                error: function (data) {
+                    $("#message").show();
+                    $('#message').html(data.responseJSON.message);
+                    $("#id_file").val("");
+                    $('#message').css('color','red');
+                    $("#message").delay(6000).hide("slow");
+                    return true;
+                },
+                cache: false,
+                contentType: false,
+                processData: false
+             });
+        }
+    });
+
+})(django.jQuery);
+
+
+
+</script>
+{% endblock %}
+
+
+
+
+
+

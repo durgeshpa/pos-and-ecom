@@ -73,7 +73,6 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
         instance.order_id = order_id_pattern_r_gram(instance.pk)
         instance.save()
 
-
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rtg_cart_product_mapping', on_delete=models.CASCADE)
@@ -235,13 +234,12 @@ class Payment(models.Model):
         self.name = "Payment/%s"%(self.pk)
         super(Payment, self).save()
 
-
     def __str__(self):
         return self.name
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-
+#TODO: Make an appropriate method for this process
     if created:
         if instance.order_id.ordered_by.first_name:
             username = instance.order_id.ordered_by.first_name
@@ -254,6 +252,13 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
 
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.order_id.ordered_by
+        data['order_no'] = order_no
+        data['items_count'] = items_count
+        data['total_amount'] = total_amount
+        data['shop_name'] = shop_name
 
         message = SendSms(phone=instance.order_id.ordered_by,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\

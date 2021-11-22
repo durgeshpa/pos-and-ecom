@@ -1,0 +1,37 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Wms | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/wms/">Wms</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/wms/audit/">Audits<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Download Current Inventory List</a>{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+                <h1>{% block content_header %}{% endblock %}</h1>
+         <div id="content-main">
+                <ul class="object-tools">
+                </ul>
+                {% if error %}
+                <span class="errornote">{{ error|escape }}</span>
+            {% endif %}
+           <form method="post" enctype="multipart/form-data">
+
+                  <div>
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+
+                         {{form.as_p}}
+        </fieldset>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                     </div>
+                  </div>
+    </form>
+    {% endblock %}
+         <!-- END Content -->
+
+{% block javascript %}
+<script >
+
+</script>
+{% endblock %}

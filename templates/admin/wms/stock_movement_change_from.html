@@ -1,0 +1,82 @@
+{% extends "admin/change_form.html" %}
+{% block submit_buttons_bottom %}
+
+<div id="message">
+</div>
+        <div class="form-row field-upload-csv">
+            <label class = "required">
+                Upload CSV file
+            </label>
+                <input type="file" name="file" required id="id_file">
+
+        </div>
+
+        <div class="form-row field-download-csv">
+        <li>
+            <a href="javascript:void(0);" id="id_download"> Download Sample CSV file</a>
+        </li>
+    </div>
+
+{{ block.super }}
+<script type="text/javascript" >
+(function($) {
+    $(document).ready(function() {
+    $("#id_download").click(function( event )
+    {
+        var inventory_movement_type = document.getElementById('id_inventory_movement_type').value;
+        if(inventory_movement_type == 1)
+        {
+        alert("Please select one of the Inventory movement type for download.");
+        }
+        else
+        {
+        window.location="/wms/download/inventory_csv/sample/?inventory_movement_type="+ inventory_movement_type
+        }
+    });
+  });
+
+
+  $("#stockmovementcsvupload_form").submit(function( event ) {
+        event.preventDefault();
+        $form = $(this)
+        var formData = new FormData(this);
+        ajax_url = "/wms/upload/csv/"
+        var inventory_movement_type = document.getElementById('id_inventory_movement_type').value;
+        if(inventory_movement_type == 1)
+        {
+            alert("Please select one of the Inventory movement type for upload/download the .csv file.");
+        }
+        else
+        {
+            $.ajax({
+                url: ajax_url,
+                type : 'POST',
+                data : formData,
+                contentType: "application/json; charset=utf-8",
+                success: function (data) {
+                    $("#message").show();
+                    $('#message').html(data.message);
+                    $("#id_file").val("");
+                    $('#message').css('color','green');
+                    return true;
+                },
+                error: function (data) {
+                    $("#message").show();
+                    $('#message').html(data.responseJSON.message);
+                    $("#id_file").val("");
+                    $('#message').css('color','red');
+                    return true;
+                },
+                cache: false,
+                contentType: false,
+                processData: false
+             });
+        }
+    });
+
+})(django.jQuery);
+
+
+
+</script>
+{% endblock %}

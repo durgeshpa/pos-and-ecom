@@ -6,12 +6,19 @@
   <title>Pick List</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/bootstrap.css' %}">
-  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/style2.css' %}">
+  <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+  <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style2.css">
 </head>
 <body>
 
 <div class="container-fluid" >
+  <div class="col-md-6" >
+    <div class="barcode">
+      <div class="pull-right">Order No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+    </div>
+  </div>
+
+  </div>
 	<table class="table">
 	<thead>
       <tr>
@@ -33,29 +40,63 @@
 	</table>
   <table class="table table-bordered">
     <thead>
+      <th>Expiry Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th>Product Description Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> MRP Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> Cleanliness/ Damage Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
       <tr>
         <th>Product Name</th>
         <th>Product SKU</th>
         <th>Product MRP</th>
-        <th>Ordered Quantity</th>
-        <th>No of Pieces</th>
-        <th>Picked Quantity</th>
+        <th>To Be Picked Qty</th>
+        <th>Batch ID</th>
+        <th>BIN ID</th>
+        <th>ZONE</th>
         <th>Remark</th>
       </tr>
     </thead>
     <tbody>
     {% for cart in cart_products %}
       <tr>
-        <td>{{ cart.product_name }}</td>
-        <td>{{ cart.product_sku }}</td>
-        <td>{{ cart.product_mrp }}</td>
-        <td>{{ cart.ordered_qty }}</td>
-        <td>{{ cart.no_of_pieces }}</td>
+        <td>{{ cart.product }}</td>
+        <td>{{ cart.sku }}</td>
+        <td>{{ cart.mrp }}</td>
+        <td>{{ cart.qty }}</td>
+        <td>{{ cart.batch_id }}</td>
+        <td>{{ cart.bin }}</td>
+        <td>{{ zone }}</td>
+         <td>--------</td>
         <td></td>
 		<td></td>
       </tr>
     {% endfor %}
     </tbody>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Picker Signature:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Biller Signature:</th>
+    </thead>
   </table>
 </div>
 

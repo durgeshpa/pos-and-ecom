@@ -14,7 +14,7 @@
                 for (index = 0; index < response.product_qty.length; index++) {
                    opt++;
 
-                  $('#id_grn_order_grn_order_product-'+index+'-product option:eq('+opt+')').prop('selected', true).prop('readonly', true);
+                  //$('#id_grn_order_grn_order_product-'+index+'-product option:eq('+opt+')').prop('selected', true).prop('readonly', true);
                   $('#id_grn_order_grn_order_product-'+index+'-po_product_quantity').val(response.product_qty[index]).prop('readonly', true);
                   $('#id_grn_order_grn_order_product-'+index+'-po_product_price').val(response.product_price[index]).prop('readonly', true);
                   //$('#id_grn_order_grn_order_product-'+index+'-already_grned_product').val(response.product_count[index]);
@@ -125,9 +125,11 @@
                     var row_no = row_id.match(/(\d+)/g);
                     if(response['success']) {
                        $('#id_grn_order_grn_order_product-'+row_no+'-already_grned_product').val(response['response_data']).prop('readonly', true);
+                       $('#id_grn_order_grn_order_product-'+row_no+'-already_returned_product').val(response['response_data']).prop('readonly', true)
 
                     }else{
                        $('#id_grn_order_grn_order_product-'+row_no+'-already_grned_product').val(0).prop('readonly', true);
+                       $('#id_grn_order_grn_order_product-'+row_no+'-already_returned_product').val(response['response_data']).prop('readonly', true)
                     }
                },
                error: function (request, status, error) {

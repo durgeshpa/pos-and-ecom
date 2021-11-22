@@ -3,8 +3,8 @@
     'use strict';
     $(document).ready(function() {
         Select2Field('#id_seller_shop');
-        Select2Field('#id_buyer_shop'); 
-        Select2Field('#id_cart_status');        
+        Select2Field('#id_buyer_shop');
+        Select2Field('#id_cart_status');
 
         //$("[id$='no_of_pieces']").prop('readonly', true);
 
@@ -37,7 +37,7 @@
                             $("#id_rt_cart_list-"+row_no+"-product_inner_case_size").val(response_inner_case_size);
 
                             var qty = $("#id_rt_cart_list-"+row_no+"-qty").val();
-                            $(no_of_pieces_id).val(qty*response_case_size*response_inner_case_size);
+                            $(no_of_pieces_id).val(qty*response_inner_case_size);
 
                          }else{
                             $("[id$='no_of_pieces']").prop('readonly', false);
@@ -48,7 +48,7 @@
                     error: function (request, status, error) {
                          console.log(request.responseText);
                     }
-                });        
+                });
         });
     }
 
@@ -61,7 +61,7 @@
             var case_size = $("#id_rt_cart_list-"+row_no+"-product_case_size").val();
             var inner_case_size = $("#id_rt_cart_list-"+row_no+"-product_inner_case_size").val();
 
-            $(no_of_pieces_id).val(qty*case_size*inner_case_size);
+            $(no_of_pieces_id).val(qty*inner_case_size);
         });
     }
 

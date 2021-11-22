@@ -1,0 +1,63 @@
+{% extends "admin/change_form.html" %} {% load i18n %} 
+
+{% block content %}
+    {{ block.super }}
+    <style>
+        .required_field_red::after {
+            content: "*";
+            color: red;
+            margin-left: 2px;
+        }
+    </style>
+    <script>
+        $(document).ready(function(jQuery) {
+            var parent_product_div = document.getElementsByClassName("field-parent_product");
+            parent_product_div[0].getElementsByTagName('div')[0].innerHTML += `<a href="/admin/products/parentproduct/add/"><img src="/static/admin/img/icon-addlink.svg" alt="Add"></a>`;
+            document.getElementById('id_use_parent_image').onchange = function() {
+                if ($('#id_use_parent_image').is(":checked")) {
+                    $(".tabular.inline-related").first().children('fieldset').children('h2').removeClass('required_field_red');
+                } else {
+                    $(".tabular.inline-related").first().children('fieldset').children('h2').addClass('required_field_red');
+                }
+            };
+            if ($("#id_repackaging_type").length != 0){
+                if($("#id_repackaging_type").val() != 'destination'){
+                    $("#destination_product_pro-group").addClass('hidden');
+	                $("#destination_product_repackaging-group").addClass('hidden');
+	                $("#packing_product_rt-group").addClass('hidden');
+                }
+                document.getElementById('id_repackaging_type').onchange = function() {
+                    if ($('#id_repackaging_type').val() == 'destination') {
+                        $("#destination_product_pro-group").removeClass('hidden');
+                        $("#destination_product_repackaging-group").removeClass('hidden');
+                        $("#packing_product_rt-group").removeClass('hidden');
+                        $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
+                        $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').addClass('required_field_red');
+                    } else {
+                        $("#destination_product_pro-group").addClass('hidden');
+                        $("#destination_product_repackaging-group").addClass('hidden');
+                        $("#packing_product_rt-group").addClass('hidden');
+                        $(".tabular.inline-related").last().children('fieldset').children('h2').removeClass('required_field_red');
+                        $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').removeClass('required_field_red');
+                    }
+                };
+            }
+        });
+    </script>
+    <script>
+        function calc_final_fg_and_conversion_cost(elem) {
+            var item_row = $(elem).closest('tr');
+            var sum = 0;
+            var raw_mat_cost = Number(item_row.children('.field-raw_material').children('input').val());
+            var wastage_cost = Number(item_row.children('.field-wastage').children('input').val());
+            var fumigation_cost = Number(item_row.children('.field-fumigation').children('input').val());
+            var label_printing_cost = Number(item_row.children('.field-label_printing').children('input').val());
+            var packing_labour_cost = Number(item_row.children('.field-packing_labour').children('input').val());
+            var primary_pm_cost = Number(item_row.children('.field-primary_pm_cost').children('input').val());
+            var secondary_pm_cost = Number(item_row.children('.field-secondary_pm_cost').children('input').val());
+            sum = raw_mat_cost + wastage_cost + fumigation_cost + label_printing_cost + packing_labour_cost + primary_pm_cost + secondary_pm_cost;
+            item_row.children('.field-final_fg_cost').children('input').val(sum);
+            item_row.children('.field-conversion_cost').children('input').val(sum - raw_mat_cost);
+        }
+    </script>
+{% endblock %}

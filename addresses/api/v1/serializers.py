@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from addresses.models import (Country, State, City, Area, Address)
+from addresses.models import (Country, State, City, Area, Address, Pincode)
+from retailer_backend.validators import PinCodeValidator
 
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,7 +33,11 @@ class AreaSerializer(serializers.ModelSerializer):
 
 from shops.api.v1.serializers import ShopSerializer
 
+
 class AddressSerializer(serializers.ModelSerializer):
+
+    pincode = serializers.CharField(max_length=6, min_length=6,
+                                    validators=[PinCodeValidator])
 
     class Meta:
         model = Address
@@ -41,8 +46,8 @@ class AddressSerializer(serializers.ModelSerializer):
             'city': {'required': True},
             'state': {'required': True},
             'shop_name': {'required': True},
-            'address_line1': {'required': True},
             'pincode': {'required': True},
+            'address_line1': {'required': True},
             'address_contact_number': {'required': True},
             'address_contact_name': {'required': True},
         }
@@ -53,3 +58,20 @@ class AddressSerializer(serializers.ModelSerializer):
         response['state'] = StateSerializer(instance.state).data
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
+
+
+class PinCityStateSerializer(serializers.ModelSerializer):
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_city(obj):
+        return obj.city.city_name
+
+    @staticmethod
+    def get_state(obj):
+        return obj.city.state.state_name
+
+    class Meta:
+        model = Pincode
+        fields = ('pincode', 'city', 'state')

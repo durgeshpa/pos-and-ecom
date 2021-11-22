@@ -5,27 +5,35 @@
 
 	@media print {
      body{
-         width: 21cm;
+         width: 100%;
          height: 29.7cm;
 
          /* change the margins as you want them to be. */
     }
-		
-		table tr td,th,h4,span,address{
-			
-			font-size:10px 
+
+		table,tr,td,th,h4,span,address{
+
+			font-size:10px
 		}
-		
-		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{ padding: 2px
+
+		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{ padding: 2px;
 		}
-		
+
 		#Header, #Footer { display: none !important; }
  }
 
+body{
 
+			font-size:10px
+		}
+
+table,tr,td,th,h4,span,address{
+
+			font-size:10px
+		}
 
 h4.invoice{
-	float: left;		
+	float: left;
 }
 
 .invoice-title
@@ -35,16 +43,16 @@ border-bottom: #d5d4d4 solid 1px;
 display: block;
 margin-bottom: 20px;
 width: 100%;
-	
+
 }
 
-.invoice-title.order_id{	
-	
+.invoice-title.order_id{
+
 }
 
 .invoice_no,.order_id_no{
 	font-weight: normal;
-	
+
 }
 
 

@@ -43,6 +43,9 @@
                         data-inline-type="tabular"
                         data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
                         <div class="tabular inline-related last-related">
+                           <div>
+                              <span>Total Invoices Added : </span><span id="total_invoices"></span>
+                           </div>
                            <fieldset id="inline" class="module ">
                            <table id="formset" class="form">
                               <tbody id="data">
@@ -55,7 +58,9 @@
                                     <th>Invoice City</th>
                                     <th>Invoice Date</th>
                                     <th>Order</th>
+                                    <th>Shipment Weight (gm)</th>
                                     <th>Shipment Address</th>
+
                                  </tr>
                                  <tr id="loading">
                                     <th>Loading...</th>
@@ -75,192 +80,8 @@
             <br class="clear">
          </div>
          <!-- END Content -->
-{% endblock %}
-
-{% block javascript %}
-<script >
-    
-  var list = new Array();
-
-  $(document).ready(function() {
-    HideField('tr#heading');
-    HideField('tr#loading');
-    Select2Field('#id_seller_shop');
-    Select2Field('#id_delivery_boy');
-    SubmitFormConfirmDialog();
-    GetResultOnChangeSellerShop();
-    GetResultOnTypingArea();
-    AddCheckedIDToList();
-  });
-
-
-
-function Select2Field(id) {
-  $(id).select2();
-}
-
-function HideField(id){
-  $(id).hide();
-}
-
-function ShowField(id){
-  $(id).show();
-}
-
-function SubmitFormConfirmDialog(){
-  $('form').bind('submit', function(e) {
-      if ($('input[type=checkbox]:checked').length) {
-          var c = confirm("Click OK to continue?");
-          return c;
-      } else {
-          e.preventDefault(e);
-          alert("Please select at least one shipment");
-
-      }
-  }); 
-}
-
-function GetURL() {
-  var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') + '/';
-  var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
-  return url;
-}
-
-function GetResultOnTypingArea(){
-  $('#id_search_by_area').on('input', function() {
-      EmptyElement('tbody#data');
-      HideField('tr#heading');
-      ShowField('tr#loading');
-      var area = $(this).val();
-      var seller_shop = $('#id_seller_shop').val();
-      var trip_id = $('#id_trip_id').val();
-
-      if (seller_shop.length == 0) {
-          alert("Please select Seller Shop first!");
-      } else {
-          $.ajax({
-              url: GetURL(),
-              data: {
-                  'seller_shop_id': seller_shop,
-                  'area': area,
-                  'trip_id': trip_id
-
-              },
-              success: function(data) {
-                CheckResponse(data);
-              }
-          });
-      }
-  });
-}
-
-function GetResultOnChangeSellerShop() {
-  $("#id_seller_shop").change(function() {
-      $('option:selected', $(this)).each(function() {
-          EmptyElement('tbody#data');
-          HideField('tr#heading');
-          ShowField('tr#loading');
-          var seller_shop_id = $("option:selected").val();
-          $.ajax({
-              url: GetURL(),
-              data: {
-                  'seller_shop_id': seller_shop_id
-              },
-              success: function(data) {
-                CheckResponse(data);
-              }
-          });
-      });
-
-  });
-}
-
-function CheckResponse(data){
-  if (data['is_success']){
-    EmptyElement('tbody#data');
-    ShowField('tr#heading');
-    HideField('tr#loading');
-    CreateResponseTable(data);
-  } else{
-    EmptyElement('tbody#data');
-    HideField('tr#heading');
-    HideField('tr#loading');
-    ShowMessage(data['message']);
-  }
-}
-
-function ShowMessage(msg){
-  $("tbody#data").append("<tr><td>"+msg+"<td></tr>");
-}
-
-function CreateResponseTable(data){
-  for (var i = 0; i < data['response_data'].length; i++) {
-      var pk = data['response_data'][i]['pk'];
-      var trip = data['response_data'][i]['trip'];
-      var order = "<td>" + data['response_data'][i]['order'] + "</td>";
-      var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
-      if (GetTripStatus() == ('COMPLETED')){
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      }else {
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      }      var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
-      var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
-      var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
-      var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
-      var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "'></td>";
-
-
-      if (jQuery.inArray(pk.toString(), list)!='-1') {
-
-      if (data['response_data'][i]['shipment_status'] == ('Rescheduled')){
-
-        var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
-      $("tbody#data").prepend("<tr style='background-color:rgba(255, 99, 71, 0.5);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
-
-          } else {
-
-        var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
-      $("tbody#data").prepend("<tr>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
-
-          }
-
-
-      } 
-      else {
-
-      if (data['response_data'][i]['shipment_status'] == ('Rescheduled')){
-        $("tbody#data").append("<tr style='background-color:rgba(255, 99, 71, 0.5);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
-      } else {
-        $("tbody#data").append("<tr>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");        
-      }
-
-    }
-
-
-
-  }
-}
-
-function EmptyElement(id){
-  $(id).empty();
-}
-
-function GetTripStatus(){
-  return $('select#id_trip_status').val();
-}
-
-function AddCheckedIDToList(){
-  $(document).on("change", "input[type='checkbox']", function () {
-    if(this.checked) {
-          list.push($(this).val());
-          $('#id_selected_id').val(list);
-    } else {
-          list.splice($.inArray($(this).val(), list),1);
-          $('#id_selected_id').val(list);
-      }
-  });
-
-}
-</script>
+{% load static %}
+<!-- <script src="{% static 'admin/js/trip.js' %}"></script>-->
+ <script src="{% static 'admin/js/trip.js' %}?v=0.001"></script>
 {% endblock %}
 

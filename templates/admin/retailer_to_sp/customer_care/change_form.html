@@ -1,0 +1,25 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+{% block admin_change_form_document_ready %}
+
+<script type="text/javascript" >
+
+(function ($) {
+          $("textarea").keyup(function() {
+            if ($(this).val() != "") {
+            $("textarea[id$='comment']").prop("disabled", true);
+                  }
+            else {
+          $("textarea[id$='comment']").prop("disabled", false);
+                }
+              });
+
+
+})(django.jQuery);
+
+
+
+</script>
+
+
+{% endblock %}
