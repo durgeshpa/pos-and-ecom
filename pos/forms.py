@@ -156,6 +156,24 @@ class RetailerProductsCSVUploadForm(forms.Form):
                         raise ValidationError(
                             _(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
+            #Check for discounted product
+            if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price')=='':
+                raise ValidationError(_(f"Row {row_num} | 'Discounted Product' cannot be created for new product | Provide product Id"))
+
+            if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
+                product = RetailerProduct.objects.filter(id=row["product_id"]).last()
+                if product.sku_type == 4:
+                    raise ValidationError("This product is already discounted. Further discounted product"
+                                                      " cannot be created.")
+                elif 'discounted_stock' not in row.keys() or not row['discounted_stock']:
+                    raise ValidationError("Discounted stock is required to create discounted product")
+                elif decimal.Decimal(row['discounted_price']) <= 0:
+                    raise ValidationError("Discounted Price should be greater than 0")
+                elif decimal.Decimal(row['discounted_price']) >= decimal.Decimal(row['selling_price']):
+                    raise ValidationError("Discounted Price should be less than selling price")
+                elif int(row['discounted_stock']) < 0:
+                    raise ValidationError("Invalid discounted stock")
+
             if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \
                     ['yes', 'no']:
                 raise ValidationError("Available for Online Orders should be Yes OR No")

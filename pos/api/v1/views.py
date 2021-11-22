@@ -103,7 +103,7 @@ class PosProductView(GenericAPIView):
                     RetailerProductCls.create_images(product, modified_data['images'])
                 product.save()
                 # Add Inventory
-                PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
                                                 round(Decimal(stock_qty), 3), self.request.user, product.sku,
                                                 PosInventoryChange.STOCK_ADD)
                 serializer = RetailerProductResponseSerializer(product)
@@ -163,7 +163,7 @@ class PosProductView(GenericAPIView):
                 product.save()
                 if 'stock_qty' in modified_data:
                     # Update Inventory
-                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                    PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                     PosInventoryState.AVAILABLE, stock_qty, self.request.user,
                                                     product.sku, PosInventoryChange.STOCK_UPDATE, remarks)
                 # Change logs
@@ -199,7 +199,7 @@ class PosProductView(GenericAPIView):
                         RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
                                                         self.request.user, 'product', discounted_product.sku)
 
-                    PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
+                    PosInventoryCls.app_stock_inventory(discounted_product.id, initial_state,
                                                     PosInventoryState.AVAILABLE, discounted_stock, self.request.user,
                                                     discounted_product.sku, tr_type, remarks)
                 return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)

@@ -562,7 +562,10 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            if cart_pro.retailer_product.online_price:
+                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
+            else:
+                total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_discount(self, obj):
