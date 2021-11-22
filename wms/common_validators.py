@@ -353,6 +353,24 @@ def validate_pickup_request(request):
     return {"data": request}
 
 
+def validate_data_days_date_request(request):
+    data_days = request.GET.get('data_days')
+    date = request.GET.get('date', None)
+
+    if not date:
+        return {"error": "'date' | This is mandatory."}
+    else:
+        try:
+            date = datetime.strptime(date, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'date' format should be YYYY-MM-DD."}
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    return {"data": request}
+
+
 def validate_shipment_qc_desk(queryset, shipment_id, user):
     shipment = queryset.filter(id=shipment_id).last()
     if not shipment:

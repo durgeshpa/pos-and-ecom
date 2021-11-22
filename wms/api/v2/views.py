@@ -27,7 +27,7 @@ from wms.common_functions import get_response, serializer_error, get_logged_user
     get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway, validate_grouped_request
+    validate_putaway_user_against_putaway, validate_grouped_request, validate_data_days_date_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
     QCDeskQCAreaAssignmentMapping
@@ -1912,6 +1912,9 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
         info_logger.info("Order Status Summary GET api called.")
         """ GET Order Status Summary List """
 
+        validated_data = validate_data_days_date_request(self.request)
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
         self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
         self.queryset = self.filter_picker_summary_data()
         zone_wise_data = []
@@ -1941,6 +1944,7 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
         zone = self.request.GET.get('zone')
         picker = self.request.GET.get('picker')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using zone, picker, date'''
         if zone:
@@ -1950,7 +1954,15 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(picker_boy__id=picker)
         
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
 
         return self.queryset
 
