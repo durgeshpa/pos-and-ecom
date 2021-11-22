@@ -2649,9 +2649,13 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
+                    if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                                   last().user_type == 'manager':
+                        return api_response('Only MANAGER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
+
                     # Update inventory
                     for cp in cart_products:
                         PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
@@ -2967,6 +2971,8 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
 
         if not self.request.data.get('address_id'):
             return api_response("Please select an address to place order")
@@ -2986,6 +2992,15 @@ class OrderCentral(APIView):
             payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
         except:
             return api_response("Invalid Payment Method")
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
 
         # Check day order count
         order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
@@ -4635,6 +4650,8 @@ class CartStockCheckView(APIView):
             Check stock qty cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         try:
             cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
                                                                      seller_shop=kwargs['shop'], cart_status='active')
@@ -4655,6 +4672,15 @@ class CartStockCheckView(APIView):
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 

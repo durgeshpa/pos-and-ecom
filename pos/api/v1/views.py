@@ -122,7 +122,7 @@ class PosProductView(GenericAPIView):
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
-        if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id']):
+        if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id', 'reason_for_update']):
             pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
             if 'error' in pos_shop_user_obj:
                 return api_response(pos_shop_user_obj['error'])
@@ -135,7 +135,7 @@ class PosProductView(GenericAPIView):
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
             ean_not_available = data['ean_not_available']
-            remarks=data['reason_for_update']
+            remarks = data['reason_for_update']
 
             with transaction.atomic():
                 old_product = deepcopy(product)

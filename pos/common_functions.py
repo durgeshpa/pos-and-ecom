@@ -680,6 +680,8 @@ def check_pos_shop(view_func):
             shop = Shop.objects.filter(id=shop_id).last()
             if not shop:
                 return api_response("Shop not available!")
+            if not shop.online_inventory_enabled:
+                return api_response("Franchise Shop Is Not Online Enabled!")
         else:
             qs = filter_pos_shop(request.user)
             qs = qs.filter(id=shop_id)
@@ -708,7 +710,7 @@ def pos_check_permission_delivery_person(view_func):
     @wraps(view_func)
     def _wrapped_view_func(self, request, *args, **kwargs):
         if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
-                                                 user_type__in=['manager', 'cashier']).exists():
+                                                 user_type__in=['manager', 'cashier', 'store_manager']).exists():
             return api_response("You are not authorised to make this change!")
         return view_func(self, request, *args, **kwargs)
 

@@ -63,15 +63,18 @@ class ShopView(APIView):
         if not int(self.request.GET.get('from_location', '0')):
             # Get shop from latest order
             order = Order.objects.filter(buyer=self.request.user,
-                                         ordered_cart__cart_type__in=['BASIC', 'ECOM']).order_by('id').last()
+                                         ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                         seller_shop__online_inventory_enabled=True).order_by('id').last()
             if order:
                 return self.serialize(order.seller_shop)
 
             # check mapped pos shop
-            shop_map = ShopCustomerMap.objects.filter(user=self.request.user).last()
+            shop_map = ShopCustomerMap.objects.filter(user=self.request.user,
+                                                      shop__online_inventory_enabled=True).last()
             if shop_map:
                 return self.serialize(shop_map.shop)
 
+            return api_response('No shop found!')
         return self.shop_from_location()
 
     def shop_from_location(self):
@@ -234,7 +237,8 @@ class UserShopView(APIView):
         # shop_customer_mapping = ShopCustomerMap.objects.filter(user=user)
         # shop = Shop.objects.filter(registered_shop__in=shop_customer_mapping)
         is_success, data, message = False, [], "No shop found"
-        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                      seller_shop__online_inventory_enabled=True)
         shop = []
         for order in orders:
             if order.seller_shop not in shop:
