@@ -1118,7 +1118,7 @@ class CartCentral(GenericAPIView):
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
-            #checkout_data.pop('amount_payable', None)
+            checkout_data.pop('amount_payable', None)
             cart_data.update(checkout_data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
@@ -2987,6 +2987,15 @@ class OrderCentral(APIView):
         except:
             return api_response("Invalid Payment Method")
 
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
+
         # Check day order count
         order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
         if order_config.value is not None:
@@ -4655,6 +4664,14 @@ class CartStockCheckView(APIView):
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
