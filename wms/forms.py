@@ -54,36 +54,62 @@ class BulkBinUpdation(forms.Form):
             info_logger.info("xls data validation has been started.")
 
             if len(row[0]) > 50:
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse Name can't exceed more then 50 chars."))
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," +
+                                        "Warehouse Name can't exceed more then 50 chars."))
 
             if not row[2]:
                 raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Bin Type must not be empty."))
 
             if not row[2] in ['PA', 'SR', 'HD']:
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Bin Type must be start with PA, SR and HD."))
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," +
+                                        "Bin Type must be start with PA, SR and HD."))
 
             # Bin ID Validation
             bin_validation, message = bin_id_validation(row[3], row[2])
             if bin_validation is False:
                 raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + message))
 
+            # Warehouse Validation
             if not row[1]:
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse field must not be empty. It should be Integer."))
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," +
+                                        "Warehouse field must not be empty. It should be Integer."))
 
             if not Shop.objects.filter(pk=row[1]).exists():
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse id does not exist in the system."))
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," +
+                                        "Warehouse id does not exist in the system."))
 
-            else:
-                warehouse = Shop.objects.filter(id=int(row[1]))
-                if warehouse.exists():
-                    warehouse_obj = warehouse.last()
-                    """
-                        Single virtual bin auto created for franchise shops when shop is approved. More bins cannot be created.
-                    """
-                    if warehouse_obj.shop_type.shop_type == 'f':
-                        raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", Bin cannot be added for Franchise Shop."))
-                    if Bin.objects.filter(warehouse=warehouse_obj, bin_id=row[3]).exists():
-                        raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + 'Same Bin ID is exists in a system with same Warehouse. Please re-verify at your end.'))
+            warehouse_obj = Shop.objects.filter(id=int(row[1])).last()
+
+            # Zone Validation
+            if not row[4]:
+                raise ValidationError(
+                    _("Issue in Row" + " " + str(row_id + 1) + ", " + "Zone field must not be empty."))
+
+            if not Zone.objects.filter(zone_number=row[4]).exists():
+                raise ValidationError(
+                    _("Issue in Row" + " " + str(row_id + 1) + ", " + "Zone number does not exist in the system."))
+
+            if not Zone.objects.filter(zone_number=row[4], warehouse=warehouse_obj).exists():
+                raise ValidationError(_("Issue in Row" + " " + str(
+                    row_id + 1) + ", " + "Zone number does not mapped with the selected warehouse."))
+
+            zone_instance = Zone.objects.filter(zone_number=row[4], warehouse=warehouse_obj).last()
+
+            """
+                Single virtual bin auto created for franchise shops when shop is approved. 
+                More bins cannot be created.
+            """
+            if warehouse_obj.shop_type.shop_type == 'f':
+                raise ValidationError(
+                    _("Issue in Row" + " " + str(row_id + 1) + ", Bin cannot be added for Franchise Shop."))
+            if Bin.objects.filter(warehouse=warehouse_obj, bin_id=row[3]).exists():
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," +
+                                        'Same Bin ID is exists in a system with same Warehouse. '
+                                        'Please re-verify at your end.'))
+            if Bin.objects.filter(warehouse=warehouse_obj, bin_id=row[3], zone=zone_instance).exists():
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Same Bin ID is exists in a system with same Warehouse and Zone. "
+                                        "Please re-verify at your end."))
 
             info_logger.info("Validation of File format successfully passed.")
             form_data_list.append(row)

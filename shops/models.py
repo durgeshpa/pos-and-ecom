@@ -36,9 +36,10 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
-MANAGER, CASHIER, DELIVERY_PERSON = 'manager', 'cashier', 'delivery_person'
+MANAGER, CASHIER, DELIVERY_PERSON, STORE_MANAGER = 'manager', 'cashier', 'delivery_person', 'store_manager'
 USER_TYPE_CHOICES = (
     (MANAGER, 'Manager'),
+    (STORE_MANAGER, 'Store Manager'),
     (CASHIER, 'Cashier'),
     (DELIVERY_PERSON, 'Delivery Person')
 )
@@ -664,3 +665,6 @@ class ExecutiveFeedback(models.Model):
     feedback_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
+    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
+    is_valid = models.BooleanField(default=True)

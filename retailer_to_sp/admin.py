@@ -32,10 +32,11 @@ from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
-                                  update_shipment_status_verified, reshedule_update_shipment, RetailerCart, assign_picker,
+                                  update_shipment_status_verified, reshedule_update_shipment, RetailerCart,
+                                  assign_picker,
                                   assign_picker_change, UserWithNameAutocomplete, SellerAutocomplete,
                                   ShipmentOrdersAutocomplete, BuyerShopAutocomplete, BuyerParentShopAutocomplete,
-                                  DownloadPickList, DownloadPickListPicker)
+                                  DownloadPickList, DownloadPickListPicker, not_attempt_update_shipment)
 from sp_to_gram.models import (
     OrderedProductMapping as SpMappedOrderedProductMapping,
 )
@@ -46,11 +47,12 @@ from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
-                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm, OrderedProductBatchingForm)
+                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm, OrderedProductBatchingForm, ShipmentNotAttemptForm)
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
+                     ShipmentNotAttempt)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -1211,6 +1213,27 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
         return False
 
 
+@admin.register(ShipmentNotAttempt)
+class ShipmentNotAttemptAdmin(admin.ModelAdmin):
+    model = ShipmentNotAttempt
+    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_by')
+    list_per_page = 20
+    search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no',
+                     'trip__dispatch_no')
+
+    def order(self, obj):
+        return obj.shipment.order
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(ShipmentRescheduling)
 class ShipmentReschedulingAdmin(admin.ModelAdmin):
     model = ShipmentRescheduling
@@ -1231,12 +1254,25 @@ class ShipmentReschedulingAdmin(admin.ModelAdmin):
         return False
 
 
+class ShipmentNotAttemptAdminNested(NestedTabularInline):
+    model = ShipmentNotAttempt
+    form = ShipmentNotAttemptForm
+    fields = ['not_attempt_reason', 'created_at', 'created_by']
+    readonly_fields = ['created_at', 'created_by']
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     model = OrderedProductMapping
-    fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
+    fields = ['product', 'ordered_qty', 'expiry_date', 'shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
-    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
+    readonly_fields = ['ordered_qty', 'expiry_date', 'product', 'gf_code',
                        'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
@@ -1254,7 +1290,7 @@ class OrderedProductAdmin(NestedModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     actions = ['download_bulk_invoice']
     list_per_page = FIFTY
-    inlines = [ShipmentReschedulingAdminNested, OrderedProductMappingAdmin,]
+    inlines = [ShipmentReschedulingAdminNested, ShipmentNotAttemptAdminNested, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
@@ -1275,8 +1311,17 @@ class OrderedProductAdmin(NestedModelAdmin):
     classes = ['table_inline', ]
 
     def previous_trip(self, obj):
-        if obj and obj.rescheduling_shipment.all().exists():
+        if obj and obj.rescheduling_shipment.all().exists() and obj.not_attempt_shipment.all().exists():
+            rescheduling_shipment = obj.rescheduling_shipment.last()
+            not_attempt_shipment = obj.not_attempt_shipment.last()
+            if rescheduling_shipment.created_at > not_attempt_shipment.created_at:
+                return obj.rescheduling_shipment.last().trip
+            else:
+                return obj.not_attempt_shipment.last().trip
+        elif obj and obj.rescheduling_shipment.all().exists():
             return obj.rescheduling_shipment.last().trip
+        elif obj and obj.not_attempt_shipment.all().exists():
+            return obj.not_attempt_shipment.last().trip
         return '-'
 
     def download_invoice(self, obj):
@@ -1322,6 +1367,12 @@ class OrderedProductAdmin(NestedModelAdmin):
             [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
             reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
                                       formsets_dict['ShipmentReschedulingFormFormSet'])
+
+        elif (not form_instance.not_attempt_shipment.exists()) and ('ShipmentNotAttemptFormFormSet' in formsets_dict and
+            [i for i in formsets_dict['ShipmentNotAttemptFormFormSet'].cleaned_data if i]):
+            not_attempt_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
+                                        formsets_dict['ShipmentNotAttemptFormFormSet'])
+
         elif form_instance.shipment_status in complete_shipment_status:
             update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
@@ -1331,6 +1382,18 @@ class OrderedProductAdmin(NestedModelAdmin):
         # )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        ShipmentNotAttemptAdminNested.extra = 0
+        try:
+            obj = self.model.objects.get(pk=object_id)
+            if not ShipmentNotAttempt.objects.filter(
+                    shipment_id=obj.id, created_at__date=datetime.date.today()).exists():
+                ShipmentNotAttemptAdminNested.extra = 1
+        except self.model.DoesNotExist:
+            pass
+
+        return super(OrderedProductAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}

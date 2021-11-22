@@ -7,6 +7,7 @@ from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 
 from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
 from .models import Address, Tag, TagProductMapping
+from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 
 
@@ -77,14 +78,16 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'invoice_no', 'created_at')
+    list_display = ('order', 'buyer_address', 'invoice_no', 'created_at')
+
+    actions = ['download_order_reports']
 
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer')}),
+            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -95,6 +98,10 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def buyer(self, obj):
         return obj.order.buyer
+
+    def buyer_address(self, obj):
+        return str(obj.order.ecom_address_order.address) + ' ' + str(obj.order.ecom_address_order.city) + ' ' + str(
+            obj.order.ecom_address_order.state)
 
     def sub_total(self, obj):
         return obj.order.ordered_cart.subtotal
@@ -133,6 +140,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def download_order_reports(self, request, queryset):
+        return generate_ecom_order_csv_report(queryset)
+
     class Media:
         pass
 
@@ -158,6 +168,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(TagProductMapping)
 class TagProductMappingAdmin(admin.ModelAdmin):
     form = TagProductForm
@@ -175,12 +186,13 @@ class TagProductMappingAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
-    
-    def get_fields (self, request, obj=None, **kwargs):
+
+    def get_fields(self, request, obj=None, **kwargs):
         fields = super().get_fields(request, obj, **kwargs)
         fields.remove('product')
         fields.append('product')
         return fields
+
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):

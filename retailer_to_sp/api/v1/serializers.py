@@ -13,7 +13,7 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
-                                   Trip, PickerDashboard, ShipmentRescheduling)
+                                   Trip, PickerDashboard, ShipmentRescheduling, ShipmentNotAttempt)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -124,6 +124,14 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+    order_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
+
+    def get_order_status(self, obj):
+        return obj.order.get_order_status_display()
 
     def get_shop_owner_number(self, obj):
         shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
@@ -140,7 +148,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         #fields = '__all__'
-        fields = ('id','invoice_no','shipment_status','invoice_amount',
+        fields = ('id','invoice_no','shipment_status','invoice_amount', 'order_status',
             'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
             'order_created_date', 'rt_order_product_order_product_mapping')
         #depth = 1
@@ -329,9 +337,10 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
     margin = serializers.SerializerMethodField('margin_dt')
+    qty = serializers.SerializerMethodField('qty_dt')
 
     def m_cart_product(self, obj):
-        self.context['qty'] = obj.qty
+        self.context['qty'] = abs(obj.qty)
         serializer = ProductsSearchSerializer(obj.cart_product, context=self.context)
         return serializer.data
 
@@ -407,6 +416,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                 margin = (((float(product_mrp) - obj.item_effective_prices) / float(product_mrp)) * 100)
             return round(margin, 2)
         return False
+
+    def qty_dt(self, obj):
+        return abs(obj.qty)
 
     class Meta:
         model = CartProductMapping
@@ -513,6 +525,10 @@ class NoteSerializer(serializers.ModelSerializer):
 class OrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
     #rt_order_product_note = NoteSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
 
     def invoice_link_id(self, obj):
         current_url = self.context.get("current_url", None)
@@ -758,6 +774,13 @@ class OrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     #rt_order_order_product = ListOrderedProductSerializer(many=True)
     rt_order_order_product = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -774,7 +797,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
-        fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
+        fields = ('id','ordered_cart','order_no','total_final_amount','order_status', 'shipment_status','shipping_address',
                   'created_at','modified_at','rt_order_order_product')
 
 # Order List Related Serializer End
@@ -917,6 +940,13 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     rt_order_order_product = ListOrderedProductSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def to_representation(self, instance):
         representation = super(GramMappedOrderSerializer, self).to_representation(instance)
@@ -926,7 +956,7 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = GramMappedOrder
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
-                  'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
+                  'total_tax_amount','total_final_amount','order_status', 'shipment_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
 
 
@@ -1326,16 +1356,27 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
     trip_details = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+    order_status_detail = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def get_order_status(self, obj):
         if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
-                     Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
+                                Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
             return 'New'
         elif obj.order_status in [Order.DISPATCHED]:
             return 'In Transit'
         elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
             return 'Completed'
         return obj.order_status
+
+    def get_order_status_detail(self, obj):
+        return obj.get_order_status_display()
 
     def get_trip_details(self, obj):
         qs = Trip.objects.filter(rt_invoice_trip__order_id=obj.id)
@@ -1364,14 +1405,22 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Order
-        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
+        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
-                  'trip_details')
+                  'trip_details', 'order_status_detail')
+
 
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentRescheduling
         fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+
+class ShipmentNotAttemptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentNotAttempt
+        fields = ('shipment', 'not_attempt_reason',)
+
 
 class ShipmentReturnSerializer(serializers.ModelSerializer):
     class Meta:

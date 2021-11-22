@@ -446,6 +446,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
+        ('not_attempt', 'not_attempt'),
         ('expired', 'Expired'),
         ('repackaging', 'Repackaging'),
         ('manual_audit_add', 'Manual Audit Add'),
@@ -665,12 +666,21 @@ class PosInventoryChange(models.Model):
         (GRN_UPDATE, 'GRN Update'),
         (SHIPPED, 'Shipped')
     )
+    REMARKS_CHOICES = Choices(('SHORT/EXCESS', 'Short/Excess'),
+                              ('EAN_MISMATCH', 'EAN Mismatch'),
+                              ('CONSUMABLE', 'Consumable'),
+                              ('DUMP', 'Dump'),
+                              ('DAMAGED', 'Damaged'),
+                              ('OTHER', 'Other'))
     product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=3)
     transaction_type = models.CharField(max_length=25, choices=transaction_type)
     transaction_id = models.CharField(max_length=25)
     initial_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_initial_state', on_delete=models.DO_NOTHING)
     final_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_final_state', on_delete=models.DO_NOTHING)
+    initial_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
+    final_qty = models.DecimalField(max_digits=10, decimal_places=3, null=True)
+    remarks = models.CharField(max_length=100, null=True)
     changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

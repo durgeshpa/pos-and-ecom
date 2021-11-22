@@ -15,6 +15,7 @@ from django.conf.urls import url
 from django.urls import reverse
 from django.utils.html import format_html
 
+from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
@@ -1474,8 +1475,8 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity')
     list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'source_picking_status',
                     'destination_sku_name', 'destination_product_sku', 'destination_batch_id',
-                    'destination_sku_quantity', 'download_batch_id_barcode', 'created_at', 'modified_at')
-    actions = ["export_as_csv_products_repackaging"]
+                    'destination_sku_quantity', 'download_source_batch_id_barcode', 'created_at', 'modified_at')
+    actions = ["export_as_csv_products_repackaging", 'download_destination_barcode']
 
     change_list_template = 'admin/products/repackaging_change_list.html'
 
@@ -1526,7 +1527,7 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                    ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
 
-    def download_batch_id_barcode(self, obj):
+    def download_source_batch_id_barcode(self, obj):
         html_ret = '';
         if obj.source_sku:
             outs = Out.objects.filter(out_type='repackaging', out_type_id=obj.id, sku=obj.source_sku)
@@ -1552,6 +1553,21 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                         html_ret += '--<br>'
         html_ret = '-' if html_ret == '' else html_ret;
         return format_html(html_ret)
+
+    def download_destination_barcode(self, request, queryset):
+        info_logger.info("download Barocde List for Destination Batch.")
+        bin_id_list = {}
+        for obj in queryset:
+            if obj.destination_batch_id:
+                temp_data = {"qty": obj.destination_sku_quantity,
+                             "data": {"SKU": obj.destination_sku.product_name,
+                                      "Batch": obj.destination_batch_id,
+                                      "MRP": obj.destination_sku.product_mrp if obj.destination_sku.product_mrp else ''}}
+                product_id = str(obj.destination_sku.id).zfill(5)
+                barcode_id = str("2" + product_id + str(obj.destination_batch_id[-6:]))
+                bin_id_list[barcode_id] = temp_data
+        return merged_barcode_gen(bin_id_list)
+    download_destination_barcode.short_description = "Download Destination Batch Barcode"
 
     def has_change_permission(self, request, obj=None):
         if obj and obj.status and obj.status == 'completed' and request.method == "GET":

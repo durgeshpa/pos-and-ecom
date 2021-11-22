@@ -126,7 +126,6 @@ class ShopTypeSerializer(serializers.ModelSerializer):
         return response
 
 
-
 class ShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField('my_shop_id')
 
@@ -135,7 +134,17 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id','shop_name','shop_type','imei_no','shop_id')
+        fields = ('id','shop_name','shop_type','imei_no','shop_id', 'latitude', 'longitude')
+
+    def validate(self, data):
+        """Latitude and Longitude for retailer type shops"""
+        shop_type = data.get('shop_type')
+        if shop_type.shop_type == 'r':
+            if not data.get('latitude') or not data.get('longitude'):
+                raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
+        return data
+
+
 
 class ShopPhotoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -569,6 +578,8 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
+    latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=False)
+    longitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=False)
 
     class Meta:
         """
@@ -589,7 +600,9 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         if executive_feedback.exists():
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
-                                      feedback_date=validated_data['feedback_date'])
+                                      feedback_date=validated_data['feedback_date'],
+                                      latitude=validated_data.get('latitude', None),
+                                      longitude=validated_data.get('longitude', None))
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly

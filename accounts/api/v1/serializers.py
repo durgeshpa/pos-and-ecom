@@ -117,3 +117,21 @@ class PosShopUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('phone_number', 'name', 'email')
+
+
+class ECommerceAppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppVersion
+        fields = ('app_version', 'update_recommended', 'force_update_required')
+
+
+class PosAppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppVersion
+        fields = ('app_version', 'update_recommended', 'force_update_required')
+
+
+class WarehouseAppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppVersion
+        fields = ('app_version', 'update_recommended', 'force_update_required')

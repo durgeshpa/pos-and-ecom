@@ -302,6 +302,8 @@ class BinAdmin(admin.ModelAdmin):
                    ]
     list_per_page = 50
 
+    change_list_template = 'admin/wms/bin_change_list.html'
+
     class Media:
         js = ('admin/js/picker.js',)
 

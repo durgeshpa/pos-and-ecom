@@ -19,7 +19,7 @@ class PosShopAutocomplete(autocomplete.Select2QuerySetView):
         # if not self.request.user.is_authenticated:
         #     return Shop.objects.none()
         qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
-                                 pos_enabled=True)
+                                 pos_enabled=True, pos_shop__status=True)
         if self.q:
             qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
         return qs
@@ -41,3 +41,4 @@ class ProductInvEanSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(Q(product__product_ean_code__icontains=self.value()))
+

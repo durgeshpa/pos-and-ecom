@@ -97,6 +97,7 @@ def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
     product = instance.grn_order.order.ordered_cart.po_products.filter(product=instance.product)
     product.update(is_grn_done=True)
 
+
 @receiver(pre_save, sender=RetailerProduct)
 def set_online_price(sender, instance=None, created=False, **kwargs):
     if instance.online_enabled:
