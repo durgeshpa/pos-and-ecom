@@ -11,23 +11,22 @@
     <title>invoice</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
-    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/test.css">
+    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/invoice_retailer_3inch.css">
     <style>
-		table tr td,th,h4,span,address{
-			font-size:12px;
-		}
-        /*.receipt{
+		/*
+        .receipt{
           width: 76mm;
           border: 2px solid black;
           margin-right:-10mm ;
 
 
-        }*/
-    /*.receipt {
+        }
+    .receipt {
     padding: 1mm;
     width: 80mm;
     border: 1px solid black;
-       }*/
+       }
+       */
     </style>
 </head>
 <body>
@@ -38,9 +37,9 @@
             <div class=" col-md-6">
                 <div class="col-sm-12" style="text-align:center;">
                     {% if payment_type == 'neft' %}
-                    <h5 style="font-size:20px">Prepaid Order</h5>
+                    <h5 style="font-size:24px">Prepaid Order</h5>
                     {% elif payment_type == 'cash_on_delivery' %}
-                    <h5 style="font-size:20px">Cash On Delivery</h5>
+                    <h5 style="font-size:24px">Cash On Delivery</h5>
                     {% endif %}
                 </div>
             </div>
@@ -52,7 +51,7 @@
              <center>
                         <address>
                             <br/>
-                            <span style="font:14px"><strong>{{shipment.order.seller_shop.shop_name}}</strong></span>
+                            <span style="font:16px"><strong>{{shipment.order.seller_shop.shop_name}}</strong></span>
                             <br>
                             {{nick_name}}<br> {{address_line1}}<br>
                             {{city}}, {{state}}, {{pincode}}<br>
@@ -72,9 +71,10 @@
                        <!--  <td class="text-center small">
                             Order Date <br>{{shipment.order.created_at}}
                         </td> -->
-
-                        <td class="text-right no-line">
-                            <b>Date:&nbsp; </b>:{{order.created_at|date:"M d, Y" }}
+                        </tr>
+                        <tr>
+                        <td class="text-left no-line">
+                            <b>Date:&nbsp;</b>{{order.created_at|date:"M d, Y" }}
                         </td>
                         <!-- <td class="text-center small">
                             Invoice Date <br>{{shipment.created_at}}
@@ -87,9 +87,10 @@
                        <!--  <td class="text-center small">
                             Order Date <br>{{shipment.order.created_at}}
                         </td> -->
-
-                        <td class="text-right no-line">
-                            <b>Pay Type:&nbsp; </b>:{{payment_type}}
+                    </tr>
+                    <tr>
+                        <td class="text-left no-line">
+                            <b>Pay Type:&nbsp;</b>{{payment_type}}
                         </td>
                         <!-- <td class="text-center small">
                             Invoice Date <br>{{shipment.created_at}}
@@ -99,8 +100,8 @@
                         <!-- <td class="text-center " >
                             Order ID.<br>{{shipment.order.order_no}}
                         </td> -->
-                        <td class="text-left no-line" colspan="2">
-                            <b>Invoice No:&nbsp; </b>{{shipment.invoice_no}}
+                        <td class="text-left no-line" >
+                            <b>Invoice No:&nbsp;</b>{{shipment.invoice_no}}
                         </td>
                         <!-- <td class="text-center " >
                             Invoice No <br>{{shipment.invoice_no}}
@@ -188,8 +189,8 @@
                         <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line">Discount</td>
-                        <td class="no-line" colspan="2">
-                            ₹ {{discount| intcomma}}/-
+                        <td class="no-line" colspan="3">
+                            ₹{{discount| intcomma}}/-
                         </td>
                     </tr>
                     {% if reward_value != 0 %}
@@ -211,7 +212,7 @@
                         <td class="no-line"></td>
                         <td class="no-line">Total</td>
                         <td class="no-line" colspan="2">
-                            <strong style="font-size: medium;"> ₹{{total_amount|floatformat:0| intcomma}}/-</strong>
+                            <strong> ₹{{total_amount|floatformat:0| intcomma}}/-</strong>
                         </td>
                     </tr>
                     <tr class="text-center small">

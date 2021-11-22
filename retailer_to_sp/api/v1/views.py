@@ -5164,7 +5164,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
-
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
@@ -5262,31 +5261,34 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,"payment_type":ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        # with open("bill.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        #
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
 
-        content = render_to_string(template_name, data)
-        with open("abc.html", 'w') as static_file:
-            static_file.write(content)
-
-        # try:
-        #     # create_invoice_data(ordered_product)
-        #     ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-        #                                              save=True)
-        #     phone_number = order.buyer.phone_number
-        #     shop_name = order.seller_shop.shop_name
-        #     media_url = ordered_product.invoice.invoice_pdf.url
-        #     file_name = ordered_product.invoice.invoice_no
-        #     # whatsapp api call for sending an invoice
-        #     if delay:
-        #         whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-        #     else:
-        #         return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-        # except Exception as e:
-        #     logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
-        #     logger.exception(e)
+        try:
+            # create_invoice_data(ordered_product)
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+                                                     save=True)
+            phone_number = order.buyer.phone_number
+            shop_name = order.seller_shop.shop_name
+            media_url = ordered_product.invoice.invoice_pdf.url
+            file_name = ordered_product.invoice.invoice_no
+            # whatsapp api call for sending an invoice
+            phone_number='9990580531'
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+            else:
+                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
+            logger.exception(e)
 
 
 def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items,

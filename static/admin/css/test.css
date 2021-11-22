@@ -17,11 +17,6 @@
          /*margin-right: 70mm;
 */    }
 
-		table,tr,td,th,h4,span,address{
-
-			font-size:12px
-		}
-
 		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td
 		{
 		padding: 2px; !important;
@@ -32,13 +27,10 @@
 
 body{
 
-			font-size:12px
+			font-size:16px;
+			font-family:Perfect DOS VGA\ 437 Win,Menlo,Consolas,monospace;
 		}
 
-table,tr,td,th,h4,span,address{
-
-			font-size:12px
-		}
 
 h4.invoice{
 	float: left;
@@ -49,7 +41,7 @@ h4.invoice{
 float: left;
 border-bottom: #d5d4d4 solid 1px;
 display: block;
-margin-bottom: 20px;
+margin-bottom: 24px;
 width: 100%;
 
 }
@@ -58,10 +50,7 @@ width: 100%;
 
 }
 
-.invoice_no,.order_id_no{
-	font-weight: normal;
 
-}
 
 
 	.invoice-title h2, .invoice-title h3 {
