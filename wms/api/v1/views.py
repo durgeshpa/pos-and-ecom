@@ -571,6 +571,9 @@ class BinIDList(APIView):
         pickup_bin_obj = self.filter_bins_data(pickup_bin_obj)
         bins_added = {}
         for pick_up in pickup_bin_obj:
+            if bins_added.get(pick_up.bin.bin.id) is not None and \
+                    bins_added[pick_up.bin.bin.id]["pickup_status"] != 'picking_complete':
+                continue
             if pick_up.pickup_quantity is None:
                 pickup_status = 'picking_pending'
             elif pick_up.pickup_quantity == pick_up.quantity:
@@ -579,6 +582,7 @@ class BinIDList(APIView):
                 pickup_status = 'picking_partial'
             else:
                 pickup_status = 'picking_pending'
+
             bins_added[pick_up.bin.bin.id] = {"id": pick_up.bin.bin.id, "bin_id": pick_up.bin.bin.bin_id,
                                               "pickup_status": pickup_status}
         pick_list = bins_added.values()
