@@ -36,9 +36,10 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
-MANAGER, CASHIER, DELIVERY_PERSON = 'manager', 'cashier', 'delivery_person'
+MANAGER, CASHIER, DELIVERY_PERSON, STORE_MANAGER = 'manager', 'cashier', 'delivery_person', 'store_manager'
 USER_TYPE_CHOICES = (
     (MANAGER, 'Manager'),
+    (STORE_MANAGER, 'Store Manager'),
     (CASHIER, 'Cashier'),
     (DELIVERY_PERSON, 'Delivery Person')
 )
