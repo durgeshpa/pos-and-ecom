@@ -2,6 +2,13 @@ import json
 import logging
 import re
 from datetime import date as datetime_date
+from operator import itemgetter
+
+from django.template import loader
+from django.template.loader import render_to_string
+from num2words import num2words
+from elasticsearch import Elasticsearch
+from decouple import config
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -5215,8 +5222,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     order = Order.objects.filter(id=order_id).last()
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
-    template_name = 'admin/invoice/invoice_retailer.html'
-
+    template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
@@ -5249,14 +5255,15 @@ def pdf_generation_retailer(request, order_id, delay=True):
             product_pro_price_ptr = cart_product_map.selling_price
             product = cart_product_map.retailer_product
             product_pack_type = product.product_pack_type
+            default_unit="piece"
             if product_pack_type == 'loose':
-                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True).unit
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
-                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
-                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit,
                 "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
@@ -5299,7 +5306,11 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # CIN
         cin_number = getShopCINNumber(shop_name)
         # GSTIN
-        gstin_number = getShopCINNumber(shop_name)
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+
+
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -5307,13 +5318,19 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
-                "license_number": license_number, "seller_gstin_number": gstin_number,
-                "cin": cin_number}
-
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
+                "cin": cin_number,"payment_type":ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        # with open("bill.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        #
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
+
         try:
             # create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
