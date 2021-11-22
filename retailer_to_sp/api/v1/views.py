@@ -2990,7 +2990,7 @@ class OrderCentral(APIView):
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         if order_config.value is not None:
-            order_amount = cart.order_amount
+            order_amount = cart.order_amount_after_discount
             if order_amount < order_config.value:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
@@ -4667,7 +4667,7 @@ class CartStockCheckView(APIView):
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         if order_config.value is not None:
-            order_amount = cart.order_amount
+            order_amount = cart.order_amount_after_discount
             if order_amount < order_config.value:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
