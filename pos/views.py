@@ -1,4 +1,4 @@
-Gimport codecs
+import codecs
 import csv
 import decimal
 import logging
