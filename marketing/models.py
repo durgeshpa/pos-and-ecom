@@ -170,7 +170,7 @@ class RewardPoint(models.Model):
         referral_code = referral_code_obj.referral_code if referral_code_obj else ''
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s off on"
-                               " next purchase. Login and share your referral code:%s with friends and win more points ."
+                               " next purchase. Login and share your referral code:%s with friends and win more points."
                                % (points, int(points / used_reward_factor), referral_code))
         message.send()
 

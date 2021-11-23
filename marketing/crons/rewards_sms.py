@@ -70,7 +70,7 @@ def notify():
                     used_reward_factor = 4
                 message = SendSms(phone=reward_obj.reward_user.phone_number,
                                   body="Congratulations, you have won {} reward points because {} friends"
-                                       " shopped using your referral code! Shop at PepperTap store and avail discounts."
+                                       " shopped using your referral code! Shop at PepperTap store and avail discounts"
                                        " upto {} INR"
                                   .format(total_points, n_users, round(total_points / used_reward_factor, 2)))
 
