@@ -344,9 +344,14 @@ class CommonBinInventoryFunctions(object):
                         pbi = PickupBinInventory.objects.filter(warehouse=pb.warehouse, batch_id=pb.batch_id,
                                                                 pickup=pb.pickup, bin=target_bin_inv_object).last()
                         if not pbi:
-                            PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
-                                                              pickup=pb.pickup, bin=target_bin_inv_object,
-                                                              quantity=qty_to_move_from_pickup)
+                            CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                                pb.warehouse, target_bin_inv_object.bin.zone, pb.pickup, pb.batch_id,
+                                                target_bin_inv_object, qty_to_move_from_pickup,
+                                                target_bin_inv_object.quantity, None)
+
+                            # PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                            #                                   pickup=pb.pickup, bin=target_bin_inv_object,
+                            #                                   quantity=qty_to_move_from_pickup)
                         else:
                             pbi.quantity += qty_to_move_from_pickup
                             pbi.save()
@@ -1185,8 +1190,9 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
-                            (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
+                    if (instance.rt_order_order_product.all()[0].shipment_status in ['READY_TO_SHIP',
+                                                                                     'MOVED_TO_DISPATCH',
+                                                                                     'READY_TO_DISPATCH']):
                         pickup_order = pickup_bin.shipment_batch
                         put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
                                                                  putaway_type='CANCELLED',

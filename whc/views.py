@@ -202,6 +202,7 @@ class AutoOrderProcessor:
             shipment = shipments.last()
             shipment.shipment_status = OrderedProduct.READY_TO_SHIP
             shipment.save()
+            shipment.rt_order_product_order_product_mapping.all().update(is_qc_done=True)
             return
         info_logger.info("WarehouseConsolidation|shipment_qc|No Shipment found, order id-{}".format(order.id))
         raise Exception("Exception|WarehouseConsolidation|shipment_qc|Shipment QC could not be done")

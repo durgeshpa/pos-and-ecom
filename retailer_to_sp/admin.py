@@ -1280,7 +1280,7 @@ class OrderedProductAdmin(NestedModelAdmin):
         return '-'
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED':
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'READY_TO_SHIP']:
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
@@ -1573,9 +1573,9 @@ class ShipmentAdmin(NestedModelAdmin):
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:
             return format_html("<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Order Cancelled</a>" %(obj.id))
-
-        return obj.invoice_no if obj.invoice_no != '-' else format_html(
-            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+        return obj.invoice_no
+        # return obj.invoice_no if obj.invoice_no != '-' else format_html(
+        #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
 
     def save_model(self, request, obj, form, change):

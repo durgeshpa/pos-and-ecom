@@ -589,7 +589,7 @@ def trip_planning(request):
 TRIP_SHIPMENT_STATUS_MAP = {
     'READY': 'READY_TO_DISPATCH',
     'STARTED': "OUT_FOR_DELIVERY",
-    'CANCELLED': "READY_TO_SHIP",
+    'CANCELLED': "MOVED_TO_DISPATCH",
     'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED",
     'CLOSED': "FULLY_DELIVERED_AND_VERIFIED"
 }
@@ -662,7 +662,7 @@ def trip_planning_change(request, pk):
                         for shipment in trip_shipments:
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
-                        trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
+                        trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
@@ -750,14 +750,14 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status='READY_TO_SHIP') |
+                Q(shipment_status='MOVED_TO_DISPATCH') |
                 Q(shipment_status='RESCHEDULED') |
                 Q(trip=trip_id), order__seller_shop=seller_shop
             ).order_by('-rank')
 
         elif seller_shop and trip_id:
             dispatches = Dispatch.objects.filter(
-                Q(shipment_status='READY_TO_SHIP') |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status='RESCHEDULED') |
                 Q(trip=trip_id), order__seller_shop=seller_shop)
 
@@ -768,7 +768,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
             ).order_by('-rank')
@@ -777,7 +777,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.select_related(
                 'order', 'order__shipping_address', 'order__ordered_cart'
             ).filter(
-                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
             ).order_by('invoice__invoice_no')
@@ -785,7 +785,7 @@ class LoadDispatches(APIView):
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
-            ).filter(Q(shipment_status='READY_TO_SHIP') |
+            ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                      Q(shipment_status=OrderedProduct.RESCHEDULED) |
                      Q(trip=trip_id)).order_by('-rank')
 
@@ -840,19 +840,19 @@ def load_dispatches(request):
     if seller_shop and area and trip_id:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(Q(shipment_status='READY_TO_SHIP') |
+        ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                  Q(trip=trip_id), order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop and trip_id:
-        dispatches = Dispatch.objects.filter(Q(shipment_status='READY_TO_SHIP') |
+        dispatches = Dispatch.objects.filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                                              Q(trip=trip_id), order__seller_shop=seller_shop)
     elif seller_shop and area:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
+        ).filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH, order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop:
-        dispatches = Dispatch.objects.select_related('order').filter(shipment_status='READY_TO_SHIP',
+        dispatches = Dispatch.objects.select_related('order').filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH,
                                                                      order__seller_shop=seller_shop)
         # serializer = DispatchSerializer(dispatches, many=True)
         # msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
@@ -865,7 +865,7 @@ def load_dispatches(request):
     elif area and trip_id:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(Q(shipment_status='READY_TO_SHIP') |
+        ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                  Q(trip=trip_id)).order_by('-rank')
 
     elif area:
@@ -1638,7 +1638,7 @@ class OrderCancellation(object):
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
-            elif (self.last_shipment_status in ['READY_TO_SHIP', OrderedProduct.RESCHEDULED] and
+            elif (self.last_shipment_status in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
@@ -1878,6 +1878,9 @@ def create_shipment(sender, instance=None, created=False, **kwargs):
 @transaction.atomic
 def create_order_shipment(order_instance):
     info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
+    if OrderedProduct.objects.filter(order=order_instance).exists():
+        info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
+        return
     shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
     shipment.save()
     products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\

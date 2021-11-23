@@ -1531,6 +1531,11 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 picker_dashboard_instance = PickerDashboard.objects.get(id=self.initial_data['id'])
             except Exception as e:
                 raise serializers.ValidationError("Invalid Picking Entry")
+
+            if picker_dashboard_instance.repackaging:
+                raise serializers.ValidationError('This picking is of repackaging type, '
+                                                  'this cannot be moved to QC Area.')
+
             if picker_dashboard_instance.picking_status not in ['picking_complete', 'moved_to_qc']:
                 raise serializers.ValidationError('This picking is not yet completed')
 

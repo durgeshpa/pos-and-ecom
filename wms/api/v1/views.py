@@ -441,8 +441,9 @@ class PickupList(APIView):
         self.serializer_class = PicklistSerializer
         self.queryset = PickerDashboard.objects.filter(
             Q(order__isnull=False, order__order_status__in=[Order.PICKUP_CREATED, Order.PICKING_ASSIGNED,
-                                                            Order.PICKING_COMPLETE, Order.PARTIAL_MOVED_TO_QC,
-                                                            Order.MOVED_TO_QC]) |
+                                                            Order.PICKING_PARTIAL_COMPLETE, Order.PICKING_COMPLETE,
+                                                            Order.PARTIAL_MOVED_TO_QC, Order.MOVED_TO_QC],
+             order__rt_order_order_product__isnull=True) |
             Q(repackaging__isnull=False),
             picking_status__in=['picking_assigned', 'picking_complete', 'moved_to_qc']).\
             annotate(token_id=Case(
@@ -473,7 +474,7 @@ class PickupList(APIView):
     def filter_pickup_list_data(self):
         # warehouse = self.request.user.shop_employee.last().shop
         search_text = self.request.GET.get('search_text')
-        # picker_boy = self.request.GET.get('picker_boy')
+        picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
@@ -495,8 +496,8 @@ class PickupList(APIView):
             self.queryset = pickup_search(self.queryset, search_text)
 
         '''Filters using picker_boy, selected_date, picking_status'''
-        # if picker_boy:
-        #     self.queryset = self.queryset.filter(picker_boy__phone_number=picker_boy)
+        if picker_boy:
+            self.queryset = self.queryset.filter(picker_boy=picker_boy)
 
         if zone:
             self.queryset = self.queryset.filter(zone__id=zone)
@@ -562,19 +563,17 @@ class BinIDList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
-        pick_list = []
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                            pickup__zone__in=zones) \
                                                    .exclude(pickup__status='picking_cancelled')\
                                                    .prefetch_related('bin__bin')\
                                                    .order_by('bin__bin__bin_id')
         pickup_bin_obj = self.filter_bins_data(pickup_bin_obj)
-        bins_added = []
+        bins_added = {}
         for pick_up in pickup_bin_obj:
-            if pick_up.bin.bin.id in bins_added:
+            if bins_added.get(pick_up.bin.bin.id) is not None and \
+                    bins_added[pick_up.bin.bin.id]["pickup_status"] != 'picking_complete':
                 continue
-            bins_added.append(pick_up.bin.bin.id)
-
             if pick_up.pickup_quantity is None:
                 pickup_status = 'picking_pending'
             elif pick_up.pickup_quantity == pick_up.quantity:
@@ -584,11 +583,9 @@ class BinIDList(APIView):
             else:
                 pickup_status = 'picking_pending'
 
-            pick_list.append({
-                "id": pick_up.bin.bin.id,
-                "bin_id": pick_up.bin.bin.bin_id,
-                "pickup_status": pickup_status
-            })
+            bins_added[pick_up.bin.bin.id] = {"id": pick_up.bin.bin.id, "bin_id": pick_up.bin.bin.bin_id,
+                                              "pickup_status": pickup_status}
+        pick_list = bins_added.values()
         serializer = OrderBinsSerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK',
                'data': {'bins': serializer.data, 'pickup_created_at': pickup_assigned_date,
@@ -959,12 +956,12 @@ class PickupComplete(APIView):
                             if pd_queryset. \
                                     exclude(picking_status__in=['picking_complete', 'picking_cancelled']).exists():
                                 rep_qs.update(source_picking_status='picking_partial_complete')
-                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                info_logger.info("PickupComplete | " + str(rep_obj.repackaging_no) +
                                                  " | picking_partial_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for the selected items"})
                             else:
                                 rep_qs.update(source_picking_status='picking_complete')
-                                info_logger.info("PickupComplete | " + str(rep_qs.repackaging_no) +
+                                info_logger.info("PickupComplete | " + str(rep_obj.repackaging_no) +
                                                  " | picking_complete.")
                                 return Response({'is_success': True, 'message': "Pickup complete for all the items"})
                     else:

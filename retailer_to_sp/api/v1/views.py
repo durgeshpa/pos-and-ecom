@@ -2716,7 +2716,7 @@ class OrderCentral(APIView):
                 order.delivery_person = delivery_person
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
-                shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+                shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
                 shipment.save()
@@ -3528,7 +3528,7 @@ class OrderCentral(APIView):
             PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED, PosInventoryState.SHIPPED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.SHIPPED)
         # Invoice Number Generate
-        shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+        shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
         shipment.save()
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
@@ -6611,14 +6611,15 @@ class ShipmentQCView(generics.GenericAPIView):
                 select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                                'invoice', 'qc_area').\
                 prefetch_related('qc_area__qc_desk_areas'). \
+                only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name', 'order__buyer_shop__id',
+                     'order__buyer_shop__shop_name', 'order__shipping_address__pincode', 'order__shipping_address__pincode_link_id',
+                     'order__shipping_address__nick_name', 'order__shipping_address__address_line1',
+                     'order__shipping_address__address_contact_name', 'order__shipping_address__address_contact_number',
+                     'order__shipping_address__address_type', 'order__shipping_address__city_id',
+                     'order__shipping_address__city__city_name', 'order__shipping_address__state__state_name',
+                     'shipment_status', 'invoice__invoice_no', 'qc_area__id', 'qc_area__area_id', 'qc_area__area_type',
+                     'created_at').\
                 order_by('-id')
-                # only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name', 'order__buyer_shop__id',
-                #      'order__buyer_shop__shop_name', 'order__shipping_address__pincode', 'order__shipping_address__nick_name',
-                #      'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
-                #      'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
-                #      'order__shipping_address__city__city_name', 'order__shipping_address__state__state_name',
-                #      'shipment_status', 'invoice__invoice_no', 'qc_area__id', 'qc_area__area_id', 'qc_area__area_type',
-                #      'created_at').\
 
     @check_whc_manager_coordinator_supervisor_qc_executive
     def get(self, request):
@@ -6666,7 +6667,9 @@ class ShipmentQCView(generics.GenericAPIView):
         date = self.request.GET.get('date')
         status = self.request.GET.get('status')
         city = self.request.GET.get('city')
+        city_name = self.request.GET.get('city_name')
         pincode = self.request.GET.get('pincode')
+        pincode_no = self.request.GET.get('pincode_no')
         buyer_shop = self.request.GET.get('buyer_shop')
 
         '''search using warehouse name, product's name'''
@@ -6689,10 +6692,16 @@ class ShipmentQCView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         if city:
-            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city)
+            self.queryset = self.queryset.filter(order__shipping_address__city_id=city)
+
+        if city_name:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city_name)
+
+        if pincode_no:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode_no)
 
         if pincode:
-            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode)
+            self.queryset = self.queryset.filter(order__shipping_address__pincode_link_id=pincode)
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
@@ -6833,7 +6842,7 @@ class PackagingTypeList(generics.GenericAPIView):
 class DispatchItemsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.all()
+    queryset = ShipmentPackaging.objects.order_by('packaging_type')
     serializer_class = DispatchItemsSerializer
 
     @check_whc_manager_dispatch_executive
@@ -6860,8 +6869,8 @@ class DispatchItemsView(generics.GenericAPIView):
 class DispatchItemsUpdateView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackagingMapping.objects.all()
-    serializer_class = DispatchItemDetailsSerializer
+    queryset = ShipmentPackaging.objects.all()
+    serializer_class = DispatchItemsSerializer
 
     @check_whc_manager_dispatch_executive
     def put(self, request):
@@ -6901,8 +6910,9 @@ class DispatchDashboardView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = OrderedProduct.objects.filter(
-        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.READY_TO_DISPATCH,
-                             OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.RESCHEDULED])
+        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.MOVED_TO_DISPATCH,
+                             OrderedProduct.READY_TO_DISPATCH, OrderedProduct.OUT_FOR_DELIVERY,
+                             OrderedProduct.RESCHEDULED])
     serializer_class = DispatchDashboardSerializer
 
     @check_whc_manager_dispatch_executive
@@ -6913,12 +6923,15 @@ class DispatchDashboardView(generics.GenericAPIView):
 
         self.queryset = get_logged_user_wise_query_set_for_dispatch(self.request.user, self.queryset)
         self.queryset = self.filter_dispatch_summary_data()
-        dispatch_summary_data = {"total": 0, "qc_done": 0, "ready_to_dispatch": 0,
+        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch":0, "ready_to_dispatch": 0,
                                  "out_for_delivery": 0, "rescheduled": 0}
         for obj in self.queryset:
             if obj.shipment_status == OrderedProduct.READY_TO_SHIP:
                 dispatch_summary_data['total'] += 1
                 dispatch_summary_data['qc_done'] += 1
+            if obj.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                dispatch_summary_data['total'] += 1
+                dispatch_summary_data['moved_to_dispatch'] += 1
             elif obj.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 dispatch_summary_data['total'] += 1
                 dispatch_summary_data['ready_to_dispatch'] += 1
@@ -7009,3 +7022,17 @@ class DownloadShipmentInvoice(APIView):
 
                 return response
         return response
+
+
+class DispatchPackageRejectionReasonList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.REASON_FOR_REJECTION]
+        msg = ""
+        return get_response(msg, data, True)

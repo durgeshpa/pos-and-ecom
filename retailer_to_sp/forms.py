@@ -701,6 +701,8 @@ class ShipmentForm(forms.ModelForm):
                 data['shipment_status'] != OrderedProduct.READY_TO_SHIP):
             raise forms.ValidationError(
                 _('You can only close the order in QC Passed state'), )
+        raise forms.ValidationError(
+            _('This action is not allowed'), )
         return data
 
 
