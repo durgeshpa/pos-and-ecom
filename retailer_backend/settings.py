@@ -90,7 +90,6 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
-    'rest_framework_swagger',
     'categories',
     'adminsortable',
     'mptt',
@@ -146,6 +145,7 @@ INSTALLED_APPS = [
     'ars',
     'ecom',
     'cms',
+    'drf_yasg',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -588,7 +588,9 @@ LOGGING = {
         },
     },
 }
-
+SWAGGER_SETTINGS = {
+   'USE_SESSION_AUTH': True
+}
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
 EMAIL_HOST = config('EMAIL_HOST')
