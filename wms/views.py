@@ -1172,6 +1172,11 @@ def pickup_entry_creation_with_cron():
 
     if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
         cron_logger.info("{} already running".format(cron_name))
+        running_cron = CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED,
+                                                 modified_at__lte=(datetime.now() - timedelta(minutes=30)))
+        if running_cron:
+            running_cron.update(status=CronRunLog.CRON_STATUS_CHOICES.ABORTED, modified_at=datetime.now())
+            cron_logger.info("{} aborted running".format(cron_name))
         return
 
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
