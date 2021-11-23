@@ -1,4 +1,4 @@
-import codecs
+Gimport codecs
 import csv
 import decimal
 import logging
@@ -813,7 +813,7 @@ def stock_update(request, data):
             try:
                 product = RetailerProduct.objects.only('id', 'sku').get(id=row.get('product_id'))
                 # Update Inventory
-                PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                 PosInventoryState.AVAILABLE, stock_qty,
                                                 request.user, product.sku, PosInventoryChange.STOCK_UPDATE,
                                                 row.get('reason_for_update'))
