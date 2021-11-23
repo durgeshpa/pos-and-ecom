@@ -2,6 +2,13 @@ import json
 import logging
 import re
 from datetime import date as datetime_date
+from operator import itemgetter
+
+from django.template import loader
+from django.template.loader import render_to_string
+from num2words import num2words
+from elasticsearch import Elasticsearch
+from decouple import config
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -1118,7 +1125,7 @@ class CartCentral(GenericAPIView):
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
-            checkout_data.pop('amount_payable', None)
+            #checkout_data.pop('amount_payable', None)
             cart_data.update(checkout_data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
@@ -2649,9 +2656,13 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
+                    if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                                   last().user_type == 'manager':
+                        return api_response('Only MANAGER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
+
                     # Update inventory
                     for cp in cart_products:
                         PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
@@ -2967,6 +2978,8 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
 
         if not self.request.data.get('address_id'):
             return api_response("Please select an address to place order")
@@ -2986,6 +2999,15 @@ class OrderCentral(APIView):
             payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
         except:
             return api_response("Invalid Payment Method")
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
 
         # Check day order count
         order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
@@ -4635,6 +4657,8 @@ class CartStockCheckView(APIView):
             Check stock qty cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         try:
             cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
                                                                      seller_shop=kwargs['shop'], cart_status='active')
@@ -4655,6 +4679,15 @@ class CartStockCheckView(APIView):
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
@@ -5189,8 +5222,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     order = Order.objects.filter(id=order_id).last()
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
-    template_name = 'admin/invoice/invoice_retailer.html'
-
+    template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
@@ -5223,14 +5255,15 @@ def pdf_generation_retailer(request, order_id, delay=True):
             product_pro_price_ptr = cart_product_map.selling_price
             product = cart_product_map.retailer_product
             product_pack_type = product.product_pack_type
+            default_unit="piece"
             if product_pack_type == 'loose':
-                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True).unit
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
-                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
-                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit,
                 "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
@@ -5273,7 +5306,11 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # CIN
         cin_number = getShopCINNumber(shop_name)
         # GSTIN
-        gstin_number = getShopCINNumber(shop_name)
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+
+
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -5281,13 +5318,19 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
-                "license_number": license_number, "seller_gstin_number": gstin_number,
-                "cin": cin_number}
-
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
+                "cin": cin_number,"payment_type":ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        # with open("bill.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        #
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
+
         try:
             # create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
@@ -6517,6 +6560,7 @@ class ShipmentView(GenericAPIView):
                         batch.save()
 
                 order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = self.request.user
                 order.save()
                 return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         else:

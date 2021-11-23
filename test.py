@@ -2,14 +2,20 @@ import django
 import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
-from wms.models import Bin
-from gram_to_brand.models import GRNOrderProductMapping
-from sp_to_gram.tasks import get_warehouse_stock
-from products.models import Product
+from wkhtmltopdf.views import PDFTemplateResponse
 
-product = Product.objects.filter(product_sku='DBEVBEVMDE00000012').last()
-print(product)
-print(product.id)
-# all_products = get_warehouse_stock(600,product)
-# for product1 in all_products:
-#     print(product1)
+template_name = 'abc.html'
+data = None
+
+request = None
+filename = "bill"
+# cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
+#               "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 90,
+#               "no-stop-slow-scripts": True, "quiet": True}
+cmd_option = {"margin-top": 10,"margin-left": 0,"margin-right": 0,"javascript-delay": 0, "footer-center": "[page]/[topage]",
+              "page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
+pdf_data = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
+with open("bill.pdf", "wb") as f:
+    f.write(pdf_data.rendered_content)
+

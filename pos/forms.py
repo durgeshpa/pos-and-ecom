@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 
 import codecs
@@ -8,6 +9,7 @@ import decimal
 from dal import autocomplete
 from django import forms
 import csv
+from tempus_dominus.widgets import DateTimePicker
 
 from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
     MeasurementUnit
@@ -156,6 +158,24 @@ class RetailerProductsCSVUploadForm(forms.Form):
                         raise ValidationError(
                             _(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
+            #Check for discounted product
+            if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price')=='':
+                raise ValidationError(_(f"Row {row_num} | 'Discounted Product' cannot be created for new product | Provide product Id"))
+
+            if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
+                product = RetailerProduct.objects.filter(id=row["product_id"]).last()
+                if product.sku_type == 4:
+                    raise ValidationError("This product is already discounted. Further discounted product"
+                                                      " cannot be created.")
+                elif 'discounted_stock' not in row.keys() or not row['discounted_stock']:
+                    raise ValidationError("Discounted stock is required to create discounted product")
+                elif decimal.Decimal(row['discounted_price']) <= 0:
+                    raise ValidationError("Discounted Price should be greater than 0")
+                elif decimal.Decimal(row['discounted_price']) >= decimal.Decimal(row['selling_price']):
+                    raise ValidationError("Discounted Price should be less than selling price")
+                elif int(row['discounted_stock']) < 0:
+                    raise ValidationError("Invalid discounted stock")
+
             if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \
                     ['yes', 'no']:
                 raise ValidationError("Available for Online Orders should be Yes OR No")
@@ -187,6 +207,18 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
+
+            # check for offer price
+            if 'offer_price' in row.keys() and row['offer_price']:
+                if decimal.Decimal(row['offer_price']) > decimal.Decimal(row['mrp']):
+                    raise ValidationError("Offer Price should be equal to OR less than MRP")
+                if not 'offer_start_date' in row.keys() or not row['offer_start_date']:
+                    raise ValidationError("Offer Start Date is missing")
+                if not 'offer_end_date' in row.keys() or not row['offer_end_date']:
+                    raise ValidationError("Offer End Date is missing")
+                if row['offer_start_date'] > row['offer_end_date']:
+                    raise ValidationError("Offer start date should be less than offer end date")
+
             # Check if product with this ean code and mrp already exists
             if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
                                               product_ean_code=row.get('product_ean_code'),
@@ -376,3 +408,25 @@ class RetailerProductsStockUpdateForm(forms.Form):
                 headers = next(reader, None)
                 self.read_file(headers, reader)
         return self.cleaned_data['file']
+
+
+class RetailerOrderedReportForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD HH:mm:ss',
+            }
+        ),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
+                                     pos_enabled=True, pos_shop__status=True),
+        widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
+    )

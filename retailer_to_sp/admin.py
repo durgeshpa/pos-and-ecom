@@ -1270,7 +1270,7 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
 class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     model = OrderedProductMapping
-    fields = ['product', 'ordered_qty','expiry_date', 'shipped_qty',
+    fields = ['product', 'ordered_qty', 'expiry_date', 'shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty', 'expiry_date', 'product', 'gf_code',
                        'cancellation_date']

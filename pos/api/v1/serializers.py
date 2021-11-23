@@ -2,6 +2,7 @@ from decimal import Decimal
 import datetime
 import calendar
 import re
+import math
 
 from django.db.models.functions import Cast
 from django.utils.translation import ugettext_lazy as _
@@ -80,7 +81,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
             'linked_product_id'], attrs['product_ean_code']
 
-        if ean and RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+        if ean and RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp,
+                                                  is_deleted=False).exists():
             raise serializers.ValidationError("Product with same ean and mrp already exists in catalog.")
 
         if sp > mrp:
@@ -203,7 +205,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+                                                  mrp=mrp, is_deleted=False).exclude(id=pid).exists():
             raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
@@ -326,7 +329,8 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
+                  'product_ean_code')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -531,6 +535,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        sub_total = math.ceil(sub_total)
         return round(sub_total, 2)
 
 
@@ -562,7 +567,10 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            if cart_pro.retailer_product.online_price:
+                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
+            else:
+                total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_discount(self, obj):
@@ -583,6 +591,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
             self.get_redeem_points_value(obj))
+        sub_total = math.ceil(sub_total)
         return round(sub_total, 2)
 
     class Meta:
@@ -623,7 +632,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
-        return round(ordered_product.invoice_amount_final, 2) if ordered_product else obj.order_amount
+        return round(math.ceil(ordered_product.invoice_amount_final), 2) if ordered_product else math.ceil(obj.order_amount)
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
