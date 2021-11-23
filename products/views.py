@@ -24,7 +24,7 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from admin_auto_filters.views import AutocompleteJsonView
-from retailer_to_sp.models import BulkOrder, Order
+from retailer_to_sp.models import bulkorder, Order
 from shops.models import Shop, ShopType
 from addresses.models import City, Address, Pincode
 from categories.models import Category
