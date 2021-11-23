@@ -12,6 +12,7 @@ from common.common_utils import barcode_gen
 from retailer_to_sp.models import PickerDashboard
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk, \
     QCDeskQCAreaAssignmentMapping, QCDeskQCAreaAssignmentMappingTransactionLog
+from wms.views import auto_qc_area_assignment_to_order
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -106,6 +107,10 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
             instance.token_id = picker_instance.order.order_no
             instance.qc_done = False
             instance.save()
+
+    # Trigger to auto assign QC Area
+    if not created and instance.qc_done:
+        auto_qc_area_assignment_to_order()
 
 
 @receiver(post_save, sender=ZonePickerUserAssignmentMapping)
