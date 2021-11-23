@@ -27,14 +27,14 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
         crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
                                     crate_type=Crate.DISPATCH).last()
     if crate.crates_shipments.filter(
-            ~Q(shipment_packaging__shipment=shipment),
-            ~Q(status__in=ShipmentPackagingMapping.DISPATCH_STATUS_CHOICES.DISPATCHED)).exists():
+            ~Q(shipment=shipment),
+            ~Q(status__in=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)).exists():
         return {"error" : "This crate is being used for some other shipment."}
     return {"data": crates_dict}
 
 
 def validate_shipment_dispatch_item(queryset, dispatch_item_id, shipment_id):
-    if not queryset.filter(id=dispatch_item_id, shipment_packaging__shipment_id=shipment_id).exists():
+    if not queryset.filter(id=dispatch_item_id, shipment_id=shipment_id).exists():
         return {"error": "Invalid item for this shipment"}
-    return {"data": queryset.filter(id=dispatch_item_id, shipment_packaging__shipment_id=shipment_id).last()}
+    return {"data": queryset.filter(id=dispatch_item_id, shipment_id=shipment_id).last()}
     

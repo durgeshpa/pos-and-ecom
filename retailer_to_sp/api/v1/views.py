@@ -6842,7 +6842,7 @@ class PackagingTypeList(generics.GenericAPIView):
 class DispatchItemsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.all()
+    queryset = ShipmentPackaging.objects.order_by('packaging_type')
     serializer_class = DispatchItemsSerializer
 
     @check_whc_manager_dispatch_executive
@@ -6869,8 +6869,8 @@ class DispatchItemsView(generics.GenericAPIView):
 class DispatchItemsUpdateView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackagingMapping.objects.all()
-    serializer_class = DispatchItemDetailsSerializer
+    queryset = ShipmentPackaging.objects.all()
+    serializer_class = DispatchItemsSerializer
 
     @check_whc_manager_dispatch_executive
     def put(self, request):
@@ -7033,6 +7033,6 @@ class DispatchPackageRejectionReasonList(generics.GenericAPIView):
         API to get shipment package rejection reason list
         '''
         fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in ShipmentPackagingMapping.REASON_FOR_REJECTION]
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.REASON_FOR_REJECTION]
         msg = ""
         return get_response(msg, data, True)
