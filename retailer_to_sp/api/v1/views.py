@@ -6851,7 +6851,7 @@ class DispatchItemsView(generics.GenericAPIView):
         API to get all the packages for a shipment
         '''
         if not request.GET.get('shipment_id'):
-            return get_response("'shipment_id' | This is mandatory")
+            return get_response("'shipment_id' | This is mandatory") 
         self.queryset = self.filter_packaging_items()
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(dispatch_items, many=True)
