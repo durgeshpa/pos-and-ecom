@@ -1,8 +1,10 @@
 from django.conf.urls import include, url
 
 from .views import (
-    ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete, BuyerShopAutocomplete,
-    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete, BillingAddressAutocomplete, shipment_status, create_franchise_po
+    ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete,
+    BuyerShopAutocomplete,
+    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete,
+    BillingAddressAutocomplete, shipment_status, create_franchise_po, ShipmentMergedBarcode
 )
 urlpatterns = [
     url(r'^api/', include('retailer_to_sp.api.urls')),
@@ -27,4 +29,5 @@ urlpatterns = [
     url(r'^bulk-billing-address-autocomplete/$',BillingAddressAutocomplete.as_view(),name='bulk-billing-address-autocomplete',),
     url(r'^shipment_status/$', shipment_status, name='shipment-status'),
     url(r'^create-franchise-po/(?P<pk>\d+)/$', create_franchise_po, name='create-franchise-po'),
+    url(r'^shipment-merged-barcode/(?P<pk>\d+)/$', ShipmentMergedBarcode.as_view(), name='shipment_barcodes', ),
     ]

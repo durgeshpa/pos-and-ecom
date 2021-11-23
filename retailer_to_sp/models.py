@@ -3147,24 +3147,24 @@ class ShipmentPackaging(BaseTimestampUserModel):
         (SACK, 'Sack'),
         (BOX, 'Box')
     )
+    REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
+    DISPATCH_STATUS_CHOICES = Choices(
+        ('PACKED', 'Packed'),
+        ('READY_TO_DISPATCH', 'Ready to dispatch'),
+        ('REJECTED', 'Rejected'),
+        ('DISPATCHED', 'Dispatched')
+    )
+    warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
     packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
-    warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField()
-    dispatch_ready_qty = models.PositiveIntegerField(default=0)
-
-
-class ShipmentPackagingMapping(BaseTimestampUserModel):
-    REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
-    DISPATCH_STATUS_CHOICES = Choices(('PACKED', 'Packed'),
-                              ('READY_TO_DISPATCH', 'Ready to dispatch'),
-                              ('DISPATCHED', 'Dispatched'))
-    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
-                                           on_delete=models.DO_NOTHING)
-    ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
-                                on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField(null=True)
     status = models.CharField(max_length=50, choices=DISPATCH_STATUS_CHOICES, default=DISPATCH_STATUS_CHOICES.PACKED)
     reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
 
+
+class ShipmentPackagingMapping(BaseTimestampUserModel):
+    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
+                                           on_delete=models.DO_NOTHING)
+    ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
+                                        on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()

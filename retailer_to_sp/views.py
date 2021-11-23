@@ -8,7 +8,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from products.models import *
 from num2words import num2words
-from barCodeGenerator import barcodeGen
+from barCodeGenerator import barcodeGen, merged_barcode_gen
 from django.core.files.base import ContentFile
 from django.forms import formset_factory, modelformset_factory, BaseFormSet
 from django.shortcuts import render, get_object_or_404, redirect
@@ -30,7 +30,7 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch)
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -61,6 +61,36 @@ from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumbe
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
+
+
+class ShipmentMergedBarcode(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        pass
+        shipment_id_list = {}
+        pk = self.kwargs.get('pk')
+        shipment = OrderedProduct.objects.filter(pk=pk).last()
+        for cnt, pack_type in enumerate([ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]):
+            shipment_packagings = shipment.shipment_packaging.filter(packaging_type=pack_type).all()
+            pack_cnt = shipment_packagings.count()
+            for packaging in shipment_packagings:
+                barcode_id = str("5" + str(packaging.id).zfill(9))
+                if packaging.packaging_type == ShipmentPackaging.CRATE:
+                    pck_type_r_id = str(packaging.crate.crate_id) if packaging.crate else "N/A"
+                else:
+                    pck_type_r_id = str(packaging.packaging_type)
+                customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
+                route = "N/A"
+                shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
+                temp_data = {"qty": 1,
+                             "data": {"Order": shipment.order.order_no,
+                                      "Package type/ ID": pck_type_r_id,
+                                      "customer city / pincode": customer_city_pincode,
+                                      "route": route,
+                                      "Shipment Count": shipment_count}}
+                shipment_id_list[barcode_id] = temp_data
+        return merged_barcode_gen(shipment_id_list)
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
