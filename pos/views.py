@@ -735,7 +735,7 @@ def RetailerProductStockDownload(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'product_ean_code', 'mrp', 'selling_price',
-         'current_inventory', 'discounted_inventory', 'updated_inventory', 'reason_for_update'])
+         'current_inventory', 'discounted_sku', 'discounted_inventory', 'discounted_price', 'updated_inventory', 'reason_for_update'])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -754,13 +754,16 @@ def RetailerProductStockDownload(request, *args):
                                                 inventory_state__inventory_state=PosInventoryState.AVAILABLE)
         inventory_data = {i.product_id: i.quantity for i in inventory}
         for product_id, product in product_dict.items():
-            discounted_stock = None
+            discounted_stock, discounted_sku, discounted_price = None, None, None
             if product['discounted_product']:
                 discounted_stock = inventory_data.get(product['discounted_product'], 0)
+                discounted_product = RetailerProduct.objects.filter(id=product['discounted_product']).last()
+                discounted_sku = discounted_product.sku
+                discounted_price = discounted_product.selling_price
             writer.writerow(
                 [product['id'], product['shop_id'], product['shop__shop_name'], product['sku'], product['name'],
                  product['product_ean_code'], product['mrp'], product['selling_price'],
-                 inventory_data.get(product_id, 0), discounted_stock, '', ''])
+                 inventory_data.get(product_id, 0), discounted_sku, discounted_stock, discounted_price, '', ''])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -811,12 +814,58 @@ def stock_update(request, data):
             stock_qty = row.get('updated_inventory')
 
             try:
-                product = RetailerProduct.objects.only('id', 'sku').get(id=row.get('product_id'))
+                product = RetailerProduct.objects.get(id=row.get('product_id'))
+                old_product = deepcopy(product)
                 # Update Inventory
                 PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                 PosInventoryState.AVAILABLE, stock_qty,
                                                 request.user, product.sku, PosInventoryChange.STOCK_UPDATE,
                                                 row.get('reason_for_update'))
+                # Create discounted products while updating Products
+                try:
+                    if row.get('discounted_price', None):
+                        discounted_price = decimal.Decimal(row['discounted_price'])
+                        discounted_stock = int(row['discounted_inventory'])
+                        product_status = 'active' if decimal.Decimal(discounted_stock) > 0 else 'deactivated'
+
+                        initial_state = PosInventoryState.AVAILABLE
+                        tr_type = PosInventoryChange.STOCK_UPDATE
+
+                        discounted_product = RetailerProduct.objects.filter(product_ref=product).last()
+                        if not discounted_product:
+
+                            initial_state = PosInventoryState.NEW
+                            tr_type = PosInventoryChange.STOCK_ADD
+
+                            discounted_product = RetailerProductCls.create_retailer_product(product.shop.id,
+                                                                                            product.name,
+                                                                                            product.mrp,
+                                                                                            discounted_price,
+                                                                                            product.linked_product_id,
+                                                                                            4,
+                                                                                            product.description,
+                                                                                            product.product_ean_code,
+                                                                                            request.user,
+                                                                                            'product',
+                                                                                            product.product_pack_type,
+                                                                                            product.measurement_category_id,
+                                                                                            None, product_status,
+                                                                                            None, None, None, product,
+                                                                                            False, None)
+                        else:
+                            RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
+                                                            request.user, 'product', discounted_product.sku)
+
+                        PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
+                                                        PosInventoryState.AVAILABLE, discounted_stock,
+                                                        request.user,
+                                                        discounted_product.sku, tr_type, None)
+
+                    # Change logs
+                    ProductChangeLogs.product_update(product, old_product, request.user, 'product',
+                                                     product.sku)
+                except Exception as e:
+                    info_logger.info(f"Exception|POS|add discounted product|product id {row.get('product_id')}, e {e}")
             except Exception as e:
                 info_logger.info(f"Exception|POS|stock_update|product id {row.get('product_id')}, e {e}")
 
