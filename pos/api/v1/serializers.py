@@ -187,8 +187,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     online_enabled = serializers.BooleanField(default = True)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
     ean_not_available = serializers.BooleanField(default=None)
+    product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
     reason_for_update = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    measurement_category = serializers.CharField(required=False, default=None)
+    measurement_category_id = serializers.IntegerField(required=False, default=None)
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -271,6 +274,17 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if 'stock_qty' in self.initial_data and self.initial_data['stock_qty'] is not None\
                 and 'reason_for_update' not in self.initial_data:
             raise serializers.ValidationError("reason for update is required for stock update")
+
+        if attrs.get('product_pack_type') == 'loose':
+            try:
+                measurement_category = MeasurementCategory.objects.get(category=attrs['measurement_category'].lower())
+                attrs['measurement_category_id'] = measurement_category.id
+                MeasurementUnit.objects.get(category=measurement_category, default=True)
+            except:
+                raise serializers.ValidationError("Please provide a valid measurement category for Loose Product")
+            attrs['purchase_pack_size'] = 1
+        else:
+            attrs['stock_qty'] = int(attrs.get('stock_qty'))
 
         return attrs
 
