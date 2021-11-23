@@ -1850,6 +1850,7 @@ def create_order_shipment(order_instance):
     info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
+        return
     shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
     shipment.save()
     products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
