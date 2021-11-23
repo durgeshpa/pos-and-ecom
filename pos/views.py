@@ -896,11 +896,11 @@ class RetailerOrderedReportView(APIView):
         #
         # can_order_amt = can_order_qs['amt'] if 'amt' in can_order_qs and can_order_qs['amt'] else 0
 
-        walkin_cash = pos_cash_order_amt - pos_cash_return_amt
-        walkin_online = pos_online_order_amt - pos_online_return_amt
-        ecomm_online = ecom_online_order_amt - ecom_online_return_amt
-        ecomm_cash = ecom_cash_order_amt - ecom_cash_return_amt
-        return walkin_cash, walkin_online, ecom_total_order_amt, ecomm_cash, ecomm_online
+        pos_cash_amt = pos_cash_order_amt - pos_cash_return_amt
+        pos_online_amt = pos_online_order_amt - pos_online_return_amt
+        ecomm_online_amt = ecom_online_order_amt - ecom_online_return_amt
+        ecomm_cash_amt = ecom_cash_order_amt - ecom_cash_return_amt
+        return pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt
 
     def get(self, *args, **kwargs):
 
@@ -943,11 +943,11 @@ class RetailerOrderedReportView(APIView):
         writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
                          'Total Online', 'Total PG'])
         for user in users_list:
-            walkin_cash, walkin_online, ecom_total_order_amt, ecomm_cash, ecomm_online,  = self.total_order_calculation(user['user__id'], start_date, end_date, shop)
+            pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt  = self.total_order_calculation(user['user__id'], start_date, end_date, shop)
             writer.writerow([str(str(user['user__phone_number']) + " - " + user['user__first_name'] + " " +
                                  user['user__last_name'] + " - " + str(user['user_type'])),
-                             walkin_cash, walkin_online, ecom_total_order_amt,  ecomm_cash, (walkin_cash+ecomm_cash),
-                             walkin_online, ecom_total_order_amt],)
+                             pos_cash_amt, pos_online_amt, ecom_total_order_amt,  ecomm_cash_amt, (pos_cash_amt+ecomm_cash_amt),
+                             pos_online_amt, ecom_total_order_amt],)
         return response
 
 
