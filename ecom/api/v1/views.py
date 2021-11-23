@@ -157,7 +157,7 @@ class CategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_to_return = []
         categories_with_products = get_categories_with_products(kwargs['shop'])
-        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        all_active_categories = Category.objects.filter(category_parent=None, status=True, b2c_status=True)
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
