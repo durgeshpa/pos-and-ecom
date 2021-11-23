@@ -30,7 +30,7 @@ from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, V
     PaymentType, PosReturnGRNOrder
 from pos.services import grn_product_search, grn_return_search
 from products.models import Product
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 from shops.models import Shop
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
@@ -1081,7 +1081,7 @@ class POProductInfoView(GenericAPIView):
 class POListView(ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    pagination_class = SmallOffsetPagination
+    pagination_class = OffsetPaginationDefault50
     serializer_class = POListSerializer
     shop = None
 
