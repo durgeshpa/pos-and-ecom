@@ -6560,6 +6560,7 @@ class ShipmentView(GenericAPIView):
                         batch.save()
 
                 order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = self.request.user
                 order.save()
                 return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         else:
