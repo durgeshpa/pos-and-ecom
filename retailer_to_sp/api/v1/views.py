@@ -80,6 +80,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProdu
                                    ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
                                    CreditNote)
 from retailer_to_sp.models import (ShipmentNotAttempt)
+from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
@@ -5228,15 +5229,24 @@ def pdf_generation_retailer(request, order_id, delay=True):
         if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-                media_url, file_name = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no
+                media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+                                                order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
                 if delay:
                     whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    # email task to send manager order invoice ^
                 else:
+                    if manager and manager.user.email: 
+                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
                     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
             except Exception as e:
                 logger.exception("Retailer Invoice send error order {}".format(order.order_no))
                 logger.exception(e)
-
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
@@ -5339,10 +5349,20 @@ def pdf_generation_retailer(request, order_id, delay=True):
             shop_name = order.seller_shop.shop_name
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:
                 whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send email  
             else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
@@ -5362,12 +5382,23 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
                 refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
                 media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+                shop_name = order.ordered_cart.seller_shop.shop.shop_name
                 if delay:
                     whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
                                                 file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    # send mail to manager for return
                 else:
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name)
+                    # send mail to manager for return
             except Exception as e:
                 logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
                                                                                              order_return.id))
@@ -5482,7 +5513,17 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             file_name = ordered_product.invoice_no
             if delay:
                 whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send order return mail to 
             else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
@@ -6560,7 +6601,6 @@ class ShipmentView(GenericAPIView):
                         batch.save()
 
                 order.order_status = Order.PICKUP_CREATED
-                order.ordered_by = self.request.user
                 order.save()
                 return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         else:
