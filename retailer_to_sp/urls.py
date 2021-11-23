@@ -2,8 +2,7 @@ from django.conf.urls import include, url
 
 from .views import (
     ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete,
-    BuyerShopAutocomplete,
-    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete,
+    BuyerShopAutocomplete, RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete,
     BillingAddressAutocomplete, shipment_status, create_franchise_po, ShipmentMergedBarcode
 )
 urlpatterns = [
