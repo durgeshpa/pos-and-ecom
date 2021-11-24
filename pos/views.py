@@ -1,17 +1,20 @@
 import codecs
 import csv
 import decimal
+import requests
 import logging
 import os
 import datetime
 from copy import deepcopy
 from decimal import Decimal
 
+from requests.models import Response
+
 from dal import autocomplete
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Sum
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, response, Http404, FileResponse, HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
 from django.contrib import messages
@@ -19,11 +22,13 @@ from django.contrib import messages
 from django.views import View
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
-    MeasurementCategory, RetailerOrderedReport, Payment
+    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm
 from pos.tasks import generate_pdf_data, update_es
@@ -1008,3 +1013,27 @@ class RetailerOrderedReportFormView(View):
             'admin/services/retailer-order-report.html',
             {'form': form}
         )
+
+class RetailerOrderProductInvoiceView(View):
+
+    def get(self, request, pk):
+        try:
+            order = get_object_or_404(RetailerOrderedProduct, pk=pk)
+            if order.invoice.invoice_pdf.url:
+                with requests.Session() as s:
+                    try:
+                        import io
+                        response = s.get(order.invoice.invoice_pdf.url)
+                        response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
+                        response['Content-Length'] = response['Content-Length']
+                        response['Content-Disposition'] = 'attachment; filename="%s"' % order.invoice.pdf_name
+                        return response
+                    except Exception as err:
+                        return HttpResponseBadRequest(err)
+            else:
+                return HttpResponseBadRequest("Invoice not generated")
+        except RetailerOrderedProduct.DoesNotExist:
+            raise Http404("Resource not found on server")
+        except Exception as err:
+            logging.exception("Invoice download failed due to %s" % err)
+            return HttpResponseBadRequest("Invoice download failed due to %s" % err)
