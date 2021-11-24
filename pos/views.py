@@ -822,7 +822,7 @@ def stock_update(request, data):
                 product = RetailerProduct.objects.get(id=row.get('product_id'))
                 old_product = deepcopy(product)
                 # Update Inventory
-                PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                 PosInventoryState.AVAILABLE, stock_qty,
                                                 request.user, product.sku, PosInventoryChange.STOCK_UPDATE,
                                                 row.get('reason_for_update'))
@@ -861,7 +861,7 @@ def stock_update(request, data):
                             RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
                                                             request.user, 'product', discounted_product.sku)
 
-                        PosInventoryCls.stock_inventory(discounted_product.id, initial_state,
+                        PosInventoryCls.app_stock_inventory(discounted_product.id, initial_state,
                                                         PosInventoryState.AVAILABLE, discounted_stock,
                                                         request.user,
                                                         discounted_product.sku, tr_type, None)
