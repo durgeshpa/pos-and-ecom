@@ -1126,7 +1126,7 @@ class CartCentral(GenericAPIView):
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
-            #checkout_data.pop('amount_payable', None)
+            checkout_data.pop('amount_payable', None)
             cart_data.update(checkout_data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
@@ -3004,7 +3004,7 @@ class OrderCentral(APIView):
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         if order_config.value is not None:
-            order_amount = cart.order_amount
+            order_amount = cart.order_amount_after_discount
             if order_amount < order_config.value:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
@@ -4694,11 +4694,10 @@ class CartStockCheckView(APIView):
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
-
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         if order_config.value is not None:
-            order_amount = cart.order_amount
+            order_amount = cart.order_amount_after_discount
             if order_amount < order_config.value:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
@@ -5253,7 +5252,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                         logger.exception("Email not present for Manager {}".format(str(manager)))
                     # email task to send manager order invoice ^
                 else:
-                    if manager and manager.user.email: 
+                    if manager and manager.user.email:
                         send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                     else:
                         logger.exception("Email not present for Manager {}".format(str(manager)))
@@ -5261,6 +5260,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             except Exception as e:
                 logger.exception("Retailer Invoice send error order {}".format(order.order_no))
                 logger.exception(e)
+
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
@@ -5372,7 +5372,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
-                # send email  
+                # send email
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
@@ -5532,7 +5532,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
-                # send order return mail to 
+                # send order return mail to
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
