@@ -3974,6 +3974,9 @@ class OrderedItemCentralDashBoard(APIView):
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
 
+        # Return for shop
+        returns = OrderReturn.objects.filter(order__seller_shop=shop)
+
         # order status filter
         order_status = self.request.GET.get('order_status')
         if order_status:
@@ -3986,37 +3989,46 @@ class OrderedItemCentralDashBoard(APIView):
         if filters == 1:  # today
             orders = orders.filter(created_at__date=today_date)
             products = products.filter(created_at__date=today_date)
+            returns = returns.filter(modified_at__date=today_date)
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             orders = orders.filter(created_at__date=yesterday)
             products = products.filter(created_at__date=yesterday)
+            returns = returns.filter(modified_at__date=yesterday)
         elif filters == 3:  # this week
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
-            products = products.filter(created_at__month=today_date.month)
+            products = products.filter(modified_at__month=today_date.month)
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             orders = orders.filter(created_at__month=last_month.month)
-            products = products.filter(created_at__month=last_month.month)
+            products = products.filter(modified_at__month=last_month.month)
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
             products = products.filter(created_at__year=today_date.year)
+            returns = returns.filter(modified_at__year=today_date.year)
 
         total_final_amount = 0
         for order in orders:
             order_amt = order.order_amount
-            returns = order.rt_return_order.all()
-            if returns:
-                for ret in returns:
-                    if ret.status == 'completed':
-                        order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
+            # returns = order.rt_return_order.all()
+            # if returns:
+            #     for ret in returns:
+            #         if ret.status == 'completed':
+            #             order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
             total_final_amount += order_amt
+
+        for rt in returns:
+            if rt.status == 'completed':
+                total_final_amount -= rt.refund_amount
 
         # counts of order for shop_id with total_final_amount & products
         order_count = orders.count()
