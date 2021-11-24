@@ -5285,6 +5285,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
+        # total = math.floor(total)
         total = round(total, 2)
 
         # Licence
