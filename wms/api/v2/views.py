@@ -1903,6 +1903,7 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
             )
         ). \
         exclude(token_id__isnull=True). \
+        exclude(order__rt_order_order_product__isnull=False).\
         order_by('zone', 'token_id', 'picking_status')
     serializer_class = ZonewisePickerSummarySerializers
 
