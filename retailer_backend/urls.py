@@ -20,8 +20,6 @@ from django.conf.urls import include, url
 from rest_framework.documentation import include_docs_urls
 from rest_framework_swagger.views import get_swagger_view
 from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
 from decouple import config, Csv
 from django.conf import settings
 from retailer_backend.cron import CronToDeleteOrderedProductReserved, DailyStock
@@ -31,20 +29,7 @@ from franchise.views import ProductList
 
 from django_ses.views import handle_bounce
 from django.views.decorators.csrf import csrf_exempt
-
-schema_view = get_schema_view(
-   openapi.Info(
-      title="GramFactory API",
-      default_version='v1',
-      description="Test description",
-      terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="contact@snippets.local"),
-      license=openapi.License(name="BSD License"),
-   ),
-   public=True,
-   permission_classes=(permissions.AllowAny,),
-)
-
+from retailer_backend.swagger_urls import schema_view
 
 urlpatterns = [
     url(r'^api-auth/', include('rest_framework.urls')),
@@ -75,10 +60,7 @@ urlpatterns = [
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
-
     url('^daily-stock/$', DailyStock.as_view(), name='daily_stock'),
-    # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
-    # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
     url(r'^analytics/', include('analytics.urls')),

@@ -589,7 +589,7 @@ LOGGING = {
     },
 }
 SWAGGER_SETTINGS = {
-   'USE_SESSION_AUTH': False
+   'USE_SESSION_AUTH': False,
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
