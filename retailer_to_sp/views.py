@@ -71,26 +71,23 @@ class ShipmentMergedBarcode(APIView):
         shipment_id_list = {}
         pk = self.kwargs.get('pk')
         shipment = OrderedProduct.objects.filter(pk=pk).last()
-        for pack_type in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
-            shipment_packagings = shipment.shipment_packaging.filter(packaging_type=pack_type).all()
-            pack_cnt = shipment_packagings.count()
-            for cnt, packaging in enumerate(shipment_packagings):
-                barcode_id = str("5" + str(packaging.id).zfill(11))
-                if packaging.packaging_type == ShipmentPackaging.CRATE:
-                    pck_type_r_id = str(packaging.crate.crate_id) if packaging.crate else "N/A"
-                else:
-                    pck_type_r_id = str(packaging.packaging_type)
-                customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-                route = "N/A"
-                shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-                temp_data = {"qty": 1,
-                             "data": {"Order ": shipment.order.order_no,
-                                      "Package type/ID ": pck_type_r_id,
-                                      "customer city/pincode ": customer_city_pincode,
-                                      "route ": route,
-                                      "Shipment Count ": shipment_count}}
-                shipment_id_list[barcode_id] = temp_data
-        return merged_barcode_gen(shipment_id_list)
+        shipment_packagings = shipment.shipment_packaging.all()
+        pack_cnt = shipment_packagings.count()
+        for cnt, packaging in enumerate(shipment_packagings):
+            barcode_id = str("50" + str(packaging.id).zfill(10))
+            if packaging.crate:
+                pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+            else:
+                pck_type_r_id = str(packaging.packaging_type)
+            customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
+            route = "N/A"
+            shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
+            temp_data = {"qty": 1,
+                         "data": {shipment_count: pck_type_r_id,
+                                  shipment.order.order_no: customer_city_pincode,
+                                  "route ": route}}
+            shipment_id_list[barcode_id] = temp_data
+        return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
