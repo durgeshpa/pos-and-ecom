@@ -4006,11 +4006,13 @@ class OrderedItemCentralDashBoard(APIView):
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
-            products = products.filter(modified_at__month=today_date.month)
+            products = products.filter(created_at__month=today_date.month)
+            returns = returns.filter(modified_at__month=today_date.month)
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             orders = orders.filter(created_at__month=last_month.month)
-            products = products.filter(modified_at__month=last_month.month)
+            products = products.filter(created_at__month=last_month.month)
+            returns = returns.filter(modified_at__month=last_month.month)
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
             products = products.filter(created_at__year=today_date.year)
