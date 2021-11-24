@@ -1895,6 +1895,10 @@ class Invoice(models.Model):
         return self.invoice_no
 
     @property
+    def pdf_name(self):
+        return 'Invoice_%s.pdf' % (self.invoice_no)
+    
+    @property
     def invoice_amount(self):
         try:
             inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(
