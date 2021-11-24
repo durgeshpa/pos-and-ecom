@@ -98,6 +98,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShopSerializer)
 from .serializers import (ShipmentNotAttemptSerializer
                           )
+import math
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -5296,7 +5297,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
         total_amount = round(ordered_product.invoice_amount_final, 2)
-        total_amount_int = round(total_amount)
+        total_amount_int = round(math.floor(total_amount))
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
@@ -5316,7 +5317,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
-        # total = math.floor(total)
+        total = math.floor(total)
+        total_amount = math.floor(total_amount)
         total = round(total, 2)
 
         # Licence

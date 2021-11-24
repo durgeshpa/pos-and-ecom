@@ -162,7 +162,7 @@ class CategoriesView(APIView):
             if c.id in categories_with_products:
                 categories_to_return.append(c)
             elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True):
+                for sub_category in c.cat_parent.filter(status=True, b2c_status=True):
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break
