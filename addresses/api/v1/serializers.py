@@ -15,6 +15,7 @@ class StateSerializer(serializers.ModelSerializer):
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
+        ref_name = "AddressCity"
         fields = '__all__'
 
 class AreaSerializer(serializers.ModelSerializer):

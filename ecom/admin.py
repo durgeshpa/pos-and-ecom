@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html
+from django.urls import reverse
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
@@ -9,6 +11,7 @@ from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMa
 from .models import Address, Tag, TagProductMapping
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
+from ecom.views import DownloadEcomOrderInvoiceView
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -78,7 +81,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'buyer_address', 'invoice_no', 'created_at')
+    list_display = ('order', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
 
     actions = ['download_order_reports']
 
@@ -120,6 +123,24 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order.order_no
+
+    def download_invoice(self, obj):
+        if obj.invoice.invoice_pdf:
+            return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.pk])))
+        else:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(EcomOrderProductAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^ecom-order-invoice/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadEcomOrderInvoiceView.as_view()),
+                       name="ecom_download_order_invoice"
+                   )
+               ] + urls
+        return urls
 
     def get_queryset(self, request):
         qs = super(EcomOrderProductAdmin, self).get_queryset(request)
