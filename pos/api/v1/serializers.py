@@ -549,7 +549,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        sub_total = math.ceil(sub_total)
+        sub_total = math.floor(sub_total)
         return round(sub_total, 2)
 
 
@@ -605,7 +605,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
             self.get_redeem_points_value(obj))
-        sub_total = math.ceil(sub_total)
+        sub_total = math.floor(sub_total)
         return round(sub_total, 2)
 
     class Meta:
@@ -646,7 +646,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
-        return round(math.ceil(ordered_product.invoice_amount_final), 2) if ordered_product else math.ceil(obj.order_amount)
+        return round(math.floor(ordered_product.invoice_amount_final), 2) if ordered_product else math.floor(obj.order_amount)
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
