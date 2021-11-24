@@ -376,6 +376,21 @@ class RetailerProductsStockUpdateForm(forms.Form):
                 raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
                                         f"Reason for update is required!"))
 
+            #validation for discounted product
+            if row.get('product_id') != '' and 'discounted_price' in row.keys() and not row.get('discounted_price') == '':
+                product = RetailerProduct.objects.filter(id=row["product_id"]).last()
+                if product.sku_type == 4:
+                    raise ValidationError("This product is already discounted. Further discounted product"
+                                                      " cannot be created.")
+                elif 'discounted_inventory' not in row.keys() or not row['discounted_inventory']:
+                    raise ValidationError("Discounted qty is required to create discounted product")
+                elif decimal.Decimal(row['discounted_price']) <= 0:
+                    raise ValidationError("Discounted Price should be greater than 0")
+                elif decimal.Decimal(row['discounted_price']) >= product.selling_price:
+                    raise ValidationError("Discounted Price should be less than selling price")
+                elif int(row['discounted_inventory']) < 0:
+                    raise ValidationError("Invalid discounted qty")
+
 
 
     def read_file(self, headers, reader):
