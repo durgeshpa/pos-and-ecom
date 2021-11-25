@@ -5509,7 +5509,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "total_amount": total_amount,
             "discount": discount,
             "reward_value": redeem_value,
-            'total': total,
+            'total': math.floor(total),
             "barcode": barcode,
             "return_item_listing": return_item_listing,
             "rupees": rupees,
