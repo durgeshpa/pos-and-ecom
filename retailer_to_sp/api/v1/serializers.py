@@ -1743,7 +1743,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
                 data['shipment_status'] = status
 
-                user = self.initial_data['user']
+                user = self.initial_data.pop('user')
                 if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
                         not shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
                     raise serializers.ValidationError("Logged in user is not allowed to perform QC for this shipment")
