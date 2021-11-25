@@ -3150,11 +3150,12 @@ class ShipmentPackaging(BaseTimestampUserModel):
         (BOX, 'Box')
     )
     REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
-    DISPATCH_STATUS_CHOICES = Choices(('PACKED', 'Packed'),
-                              ('READY_TO_DISPATCH', 'Ready to dispatch'),
-                              ('REJECTED', 'Rejected'),
-                              ('DISPATCHED', 'Dispatched'))
-
+    DISPATCH_STATUS_CHOICES = Choices(
+        ('PACKED', 'Packed'),
+        ('READY_TO_DISPATCH', 'Ready to dispatch'),
+        ('REJECTED', 'Rejected'),
+        ('DISPATCHED', 'Dispatched')
+    )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
     packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
@@ -3167,5 +3168,5 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
                                            on_delete=models.DO_NOTHING)
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
-                                on_delete=models.DO_NOTHING)
+                                        on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True)

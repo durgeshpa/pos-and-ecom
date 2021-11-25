@@ -23,8 +23,7 @@ def barcodeGen(strVal):
     return ret_str
 
 
-def makePdf(barcode_list):
-    template_name = 'admin/wms/barcode.html'
+def makePdf(barcode_list, template_name):
     data = {"barcode_list": barcode_list}
 
     request = None
@@ -38,10 +37,11 @@ def makePdf(barcode_list):
     response['Content-Disposition'] = 'attachment; filename="barcode.pdf"'
     return response
 
-def merged_barcode_gen(barcode_list):
+
+def merged_barcode_gen(barcode_list, template_name='admin/wms/barcode.html'):
     for key, value in barcode_list.items():
         barcode = barcodeGen(key)
         if value['qty']==0:
             value['qty']=1
         barcode_list[key] = {'code': barcode, 'qty': list(range(value['qty'])), "data": value['data']}
-    return makePdf(barcode_list)
+    return makePdf(barcode_list, template_name)

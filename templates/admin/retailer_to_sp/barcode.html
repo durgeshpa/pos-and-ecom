@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Barcode</title>
+</head>
+<body>
+{% for key,value in barcode_list.items %}
+    {% for item in value.qty %}
+        <div><img src="data:image/png;base64,{{value.code}}" height="100px"></div>
+        {% if value.data is not None%}
+            {% for key, value in  value.data.items %}
+                <div style="font-size:15px;">{{key}}:{{value}}</div>
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+</body>
+</html>

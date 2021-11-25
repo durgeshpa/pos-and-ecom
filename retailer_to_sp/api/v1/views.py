@@ -6605,21 +6605,20 @@ class ShipmentQCView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
     queryset = OrderedProduct.objects.\
-                annotate(
-                    status =F('shipment_status')).\
-                exclude(qc_area__isnull=True).\
-                select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                               'invoice', 'qc_area').\
-                prefetch_related('qc_area__qc_desk_areas'). \
-                only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name', 'order__buyer_shop__id',
-                     'order__buyer_shop__shop_name', 'order__shipping_address__pincode', 'order__shipping_address__pincode_link_id',
-                     'order__shipping_address__nick_name', 'order__shipping_address__address_line1',
-                     'order__shipping_address__address_contact_name', 'order__shipping_address__address_contact_number',
-                     'order__shipping_address__address_type', 'order__shipping_address__city_id',
-                     'order__shipping_address__city__city_name', 'order__shipping_address__state__state_name',
-                     'shipment_status', 'invoice__invoice_no', 'qc_area__id', 'qc_area__area_id', 'qc_area__area_type',
-                     'created_at').\
-                order_by('-id')
+        annotate(status=F('shipment_status')).\
+        filter(qc_area__isnull=False).\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'invoice', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
 
 
     def get(self, request):
