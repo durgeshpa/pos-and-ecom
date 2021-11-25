@@ -21,8 +21,8 @@ class PosShopAutocomplete(autocomplete.Select2QuerySetView):
         qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
                                  pos_enabled=True, pos_shop__status=True)
         if self.q:
-            qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
-        return qs
+            qs = qs.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
+        return qs.distinct()
 
 
 class ProductEanSearch(InputFilter):

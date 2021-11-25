@@ -28,7 +28,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
-    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct
+    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm
 from pos.tasks import generate_pdf_data, update_es
@@ -881,29 +881,41 @@ class RetailerOrderedReportView(APIView):
     def total_order_calculation(self, user, start_date, end_date, shop):
 
         pos_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, rt_payment_retailer_order__payment_type__type__in=
+            ['cash', 'Cash on delivery'], ordered_by__id=user, order_status__in=
+            [RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+             RetailerOrderedReport.FULLY_RETURNED]).aggregate(amt=Sum('rt_payment_retailer_order__amount'))
 
         pos_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('rt_payment_retailer_order__amount'))
 
         ecom_total_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user).aggregate(
-            amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user)\
+            .aggregate(amt=Sum('rt_payment_retailer_order__amount'))
 
         ecom_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.DELIVERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.DELIVERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).\
+            aggregate(amt=Sum('order_amount'))
 
         ecom_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status__in=
+            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.OUT_FOR_DELIVERY,
+             RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.DELIVERED,
+             RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('rt_payment_retailer_order__amount'))
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
@@ -912,28 +924,28 @@ class RetailerOrderedReportView(APIView):
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
         pos_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
-                                                              order__seller_shop__id=shop, order__created_at__gte=start_date,
-                                                              order__created_at__lte=end_date, processed_by__id=user,
+                                                              order__seller_shop__id=shop, order__created_at__date__gte=start_date,
+                                                              order__created_at__date__lte=end_date, processed_by__id=user,
                                                               refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
         pos_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
                                                                 order__seller_shop__id=shop,
-                                                                order__created_at__gte=start_date,
-                                                                order__created_at__lte=end_date, processed_by__id=user,
+                                                                order__created_at__date__gte=start_date,
+                                                                order__created_at__date__lte=end_date, processed_by__id=user,
                                                                 refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
-        ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
+        ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='ECOM',
                                                                order__seller_shop__id=shop,
-                                                               order__created_at__gte=start_date,
-                                                               order__created_at__lte=end_date, processed_by__id=user,
+                                                               order__created_at__date__gte=start_date,
+                                                               order__created_at__date__lte=end_date, processed_by__id=user,
                                                                refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
 
-        ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
+        ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='ECOM',
                                                                  order__seller_shop__id=shop,
-                                                                 order__created_at__gte=start_date,
-                                                                 order__created_at__lte=end_date, processed_by__id=user,
+                                                                 order__created_at__date__gte=start_date,
+                                                                 order__created_at__date__lte=end_date, processed_by__id=user,
                                                                  refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
@@ -950,11 +962,11 @@ class RetailerOrderedReportView(APIView):
         #
         # can_order_amt = can_order_qs['amt'] if 'amt' in can_order_qs and can_order_qs['amt'] else 0
 
-        walkin_cash = pos_cash_order_amt - pos_cash_return_amt
-        walkin_online = pos_online_order_amt - pos_online_return_amt
-        ecomm_online = ecom_online_order_amt - ecom_online_return_amt
-        ecomm_cash = ecom_cash_order_amt - ecom_cash_return_amt
-        return walkin_cash, walkin_online, ecom_total_order_amt, ecomm_cash, ecomm_online
+        pos_cash_amt = float(pos_cash_order_amt) - float(pos_cash_return_amt)
+        pos_online_amt = float(pos_online_order_amt) - float(pos_online_return_amt)
+        ecomm_online_amt = float(ecom_online_order_amt) - float(ecom_online_return_amt)
+        ecomm_cash_amt = float(ecom_cash_order_amt) - float(ecom_cash_return_amt)
+        return pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt
 
     def get(self, *args, **kwargs):
 
@@ -994,14 +1006,23 @@ class RetailerOrderedReportView(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="order-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
+        shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                        pos_enabled=True, pos_shop__status=True).last()
+        writer.writerow(['Shop Name:', shop_obj.shop_name])
+        writer.writerow(['Start Date:', start_date])
+        writer.writerow(['End Date:', end_date])
+        writer.writerow([])
+        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm Cash', 'Ecomm PG', 'Total Cash',
                          'Total Online', 'Total PG'])
+
         for user in users_list:
-            walkin_cash, walkin_online, ecom_total_order_amt, ecomm_cash, ecomm_online,  = self.total_order_calculation(user['user__id'], start_date, end_date, shop)
+            pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt = \
+                self.total_order_calculation(user['user__id'], start_date, end_date, shop)
             writer.writerow([str(str(user['user__phone_number']) + " - " + user['user__first_name'] + " " +
                                  user['user__last_name'] + " - " + str(user['user_type'])),
-                             walkin_cash, walkin_online, ecom_total_order_amt,  ecomm_cash, (walkin_cash+ecomm_cash),
-                             walkin_online, ecom_total_order_amt],)
+                             pos_cash_amt, pos_online_amt, ecomm_online_amt,  ecomm_cash_amt,
+                             (pos_cash_amt+ecomm_cash_amt),
+                             pos_online_amt, ecomm_online_amt],)
         return response
 
 
@@ -1037,3 +1058,29 @@ class RetailerOrderProductInvoiceView(View):
         except Exception as err:
             logging.exception("Invoice download failed due to %s" % err)
             return HttpResponseBadRequest("Invoice download failed due to %s" % err)
+
+
+class RetailerOrderReturnCreditNoteView(View):
+
+    def get(self, request, pk):
+        try:
+            order_return = get_object_or_404(RetailerOrderReturn, pk=pk)
+            if order_return.credit_note_order_return_mapping.last() \
+                and order_return.credit_note_order_return_mapping.last().credit_note_pdf:
+                with requests.Session() as s:
+                    try:
+                        import io
+                        response = s.get(order_return.credit_note_order_return_mapping.last().credit_note_pdf.url)
+                        response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
+                        response['Content-Length'] = response['Content-Length']
+                        response['Content-Disposition'] = 'attachment; filename="%s"' % order_return.credit_note_order_return_mapping.last().pdf_name
+                        return response
+                    except Exception as err:
+                        return HttpResponseBadRequest(err)
+            else:
+                return HttpResponseBadRequest("CreditNote not generated")
+        except RetailerOrderedProduct.DoesNotExist:
+            raise Http404("Resource not found on server")
+        except Exception as err:
+            logging.exception("CreditNote download failed due to %s" % err)
+            return HttpResponseBadRequest("CreditNote download failed due to %s" % err)

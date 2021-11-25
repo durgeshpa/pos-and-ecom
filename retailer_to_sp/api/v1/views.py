@@ -1903,7 +1903,8 @@ class CartCheckout(APIView):
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
-            return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
+            app_type=kwargs['app_type']
+            return api_response("Cart Checkout", self.serialize(cart, offers, app_type), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def get_ecom_cart_checkout(self, request, *args, **kwargs):
@@ -1999,12 +2000,13 @@ class CartCheckout(APIView):
             return {'error': "Please Provide A Valid Spot Discount Type"}
         return {'cart': cart}
 
-    def serialize(self, cart, offers=None):
+    def serialize(self, cart, offers=None, app_type=None):
         """
             Checkout serializer
             Payment Info plus Offers
         """
-        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id))
+        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id),
+                                        context={'app_type':app_type})
         response = serializer.data
         if offers:
             response['available_offers'] = offers['total_offers']
@@ -5392,7 +5394,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                                    credit_note_instance, delay=True):
 
     file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
-    template_name = 'admin/credit_note/credit_note_retailer.html'
+    #template_name = 'admin/credit_note/credit_note_retailer.html'
+    template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
     try:
         # Don't create pdf if already created
@@ -5402,7 +5405,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
                 media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
                 manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop.shop_name
+                shop_name = order.ordered_cart.seller_shop.shop_name
                 if delay:
                     whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
                                                 file_name)
@@ -5491,6 +5494,10 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
+        # GSTIN
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
 
         data = {
             "url": request.get_host(),
@@ -5513,13 +5520,24 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "pincode": pincode,
             "address_contact_number": address_contact_number,
             "license_number": license_number,
-            "cin": cin_number
+            "cin": cin_number,
+            "retailer_gstin_number": retailer_gstin_number
         }
 
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
+                      "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
+        # with open("bill.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        #
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
+
+
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
@@ -5530,6 +5548,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
             media_url = credit_note_instance.credit_note_pdf.url
             file_name = ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
                 whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url, file_name)
                 if manager and manager.user.email:

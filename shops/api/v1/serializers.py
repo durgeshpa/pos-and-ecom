@@ -385,6 +385,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
+        # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
@@ -412,6 +413,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
+        # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
@@ -446,6 +448,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
+        #previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
@@ -496,6 +499,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         # condition to check past day
         if self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
+            # previous_day_date = datetime.today()
             order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date).count()
 
         # condition to check past week
@@ -522,6 +526,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         # condition to check past day
         if self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
+            # previous_day_date = datetime.today()
             order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
             # for order in order_object:
             try:
@@ -574,6 +579,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
+        # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=False)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())

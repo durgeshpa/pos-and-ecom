@@ -429,14 +429,20 @@ class RetailerOrderedReportForm(forms.Form):
     start_date = forms.DateTimeField(
         widget=DateTimePicker(
             options={
-                'format': 'YYYY-MM-DD HH:mm:ss',
+                'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
             }
         ),
     )
     end_date = forms.DateTimeField(
         widget=DateTimePicker(
             options={
-                'format': 'YYYY-MM-DD HH:mm:ss',
+                'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
             }
         ),
     )
