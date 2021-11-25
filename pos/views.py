@@ -882,7 +882,7 @@ class RetailerOrderedReportView(APIView):
 
         pos_cash_order_qs = RetailerOrderedReport.objects.filter(
             ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
+            order_status__in=[RetailerOrderedReport.ORDERED] , ordered_by__id=user,
             rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
 
         pos_online_order_qs = RetailerOrderedReport.objects.filter(
@@ -911,11 +911,11 @@ class RetailerOrderedReportView(APIView):
         ecom_online_order_amt = ecom_online_order_qs['amt'] if 'amt' in ecom_online_order_qs and ecom_online_order_qs['amt'] else 0
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
-        pos_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
-                                                              order__seller_shop__id=shop, order__created_at__gte=start_date,
-                                                              order__created_at__lte=end_date, processed_by__id=user,
-                                                              refund_mode='cash').\
-            aggregate(amt=Sum('refund_amount'))
+        pos_cash_return_order_qs = RetailerOrderedReport.objects.filter(
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
+            order_status__in=[RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.FULLY_RETURNED] , ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+
         pos_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
                                                                 order__seller_shop__id=shop,
                                                                 order__created_at__gte=start_date,
