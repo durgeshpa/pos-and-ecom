@@ -1,4 +1,5 @@
 import codecs
+import io
 import csv
 import decimal
 import requests
@@ -1039,7 +1040,6 @@ class RetailerOrderProductInvoiceView(View):
             if order.invoice.invoice_pdf.url:
                 with requests.Session() as s:
                     try:
-                        import io
                         response = s.get(order.invoice.invoice_pdf.url)
                         response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
                         response['Content-Length'] = response['Content-Length']
@@ -1065,7 +1065,6 @@ class RetailerOrderReturnCreditNoteView(View):
                 and order_return.credit_note_order_return_mapping.last().credit_note_pdf:
                 with requests.Session() as s:
                     try:
-                        import io
                         response = s.get(order_return.credit_note_order_return_mapping.last().credit_note_pdf.url)
                         response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
                         response['Content-Length'] = response['Content-Length']
