@@ -28,7 +28,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
-    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct
+    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm
 from pos.tasks import generate_pdf_data, update_es
@@ -1048,3 +1048,29 @@ class RetailerOrderProductInvoiceView(View):
         except Exception as err:
             logging.exception("Invoice download failed due to %s" % err)
             return HttpResponseBadRequest("Invoice download failed due to %s" % err)
+
+
+class RetailerOrderReturnCreditNoteView(View):
+
+    def get(self, request, pk):
+        try:
+            order_return = get_object_or_404(RetailerOrderReturn, pk=pk)
+            if order_return.credit_note_order_return_mapping.last() \
+                and order_return.credit_note_order_return_mapping.last().credit_note_pdf:
+                with requests.Session() as s:
+                    try:
+                        import io
+                        response = s.get(order_return.credit_note_order_return_mapping.last().credit_note_pdf.url)
+                        response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
+                        response['Content-Length'] = response['Content-Length']
+                        response['Content-Disposition'] = 'attachment; filename="%s"' % order_return.credit_note_order_return_mapping.last().pdf_name
+                        return response
+                    except Exception as err:
+                        return HttpResponseBadRequest(err)
+            else:
+                return HttpResponseBadRequest("CreditNote not generated")
+        except RetailerOrderedProduct.DoesNotExist:
+            raise Http404("Resource not found on server")
+        except Exception as err:
+            logging.exception("CreditNote download failed due to %s" % err)
+            return HttpResponseBadRequest("CreditNote download failed due to %s" % err)

@@ -34,7 +34,8 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
+    RetailerOrderReturnCreditNoteView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -646,7 +647,7 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_order_return_as_csv']
     list_display = (
-    'order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+    'order_no', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
     'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
@@ -664,6 +665,25 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     @staticmethod
     def refunded_amount(obj):
         return obj.refund_amount
+
+    def download_credit_note(self, obj):
+        if obj.credit_note_order_return_mapping.last() \
+            and obj.credit_note_order_return_mapping.last().credit_note_pdf:
+            return format_html("<a href= '%s' >Download Credit Note</a>" % (reverse('admin:pos_download_order_return_credit_note', args=[obj.pk])))
+        else:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RetailerOrderReturnAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^retailer-order-return-credit-note/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(RetailerOrderReturnCreditNoteView.as_view()),
+                       name="pos_download_order_return_credit_note"
+                   )
+               ] + urls
+        return urls
 
     def has_delete_permission(self, request, obj=None):
         return False

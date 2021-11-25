@@ -2867,6 +2867,10 @@ class CreditNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def pdf_name(self):
+        return "CreditNote_%s.pdf" % (self.credit_note_id)
+
 
 class ReturnItems(models.Model):
     return_id = models.ForeignKey(OrderReturn, related_name='rt_return_list', on_delete=models.DO_NOTHING)
