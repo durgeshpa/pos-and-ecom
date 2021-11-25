@@ -39,7 +39,7 @@ from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
-    validate_id_and_warehouse
+    validate_id_and_warehouse, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive
 
@@ -6647,9 +6647,11 @@ class ShipmentQCView(generics.GenericAPIView):
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-        shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
+        # shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
+        shipment_data = validate_shipment(self.queryset, int(modified_data['id']))
         if 'error' in shipment_data:
             return get_response(shipment_data['error'])
+        modified_data['user'] = request.user
         serializer = self.serializer_class(instance=shipment_data['data'], data=modified_data)
         if serializer.is_valid():
             shipment = serializer.save(updated_by=request.user, data=modified_data)

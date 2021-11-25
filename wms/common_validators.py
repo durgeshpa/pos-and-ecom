@@ -370,6 +370,11 @@ def validate_data_days_date_request(request):
 
     return {"data": request}
 
+def validate_shipment(queryset, shipment_id):
+    shipment = queryset.filter(id=shipment_id).last()
+    if not shipment:
+        return {"error": "Invalid shipment id"}
+    return {"data": shipment}
 
 def validate_shipment_qc_desk(queryset, shipment_id, user):
     shipment = queryset.filter(id=shipment_id).last()

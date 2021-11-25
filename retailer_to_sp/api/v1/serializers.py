@@ -1705,13 +1705,16 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     created_date = serializers.SerializerMethodField()
     qc_area = QCAreaSerializer(read_only=True)
     qc_desk = serializers.SerializerMethodField(read_only=True)
-    status = serializers.CharField()
+    status = serializers.SerializerMethodField()
 
     def get_qc_desk(self, obj):
         return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    def get_status(self, obj):
+        return obj.get_shipment_status_display()
 
     class Meta:
         model = OrderedProduct
@@ -1739,7 +1742,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     or (shipment_status == OrderedProduct.READY_TO_SHIP and status != OrderedProduct.MOVED_TO_DISPATCH):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
                 data['shipment_status'] = status
-                if status == OrderedProduct.READY_TO_SHIP and\
+
+                user = self.initial_data['user']
+                if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
+                        not shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
+                    raise serializers.ValidationError("Logged in user is not allowed to perform QC for this shipment")
+                elif status == OrderedProduct.READY_TO_SHIP and\
                         shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
