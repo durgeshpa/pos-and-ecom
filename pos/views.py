@@ -1,17 +1,20 @@
 import codecs
 import csv
 import decimal
+import requests
 import logging
 import os
 import datetime
 from copy import deepcopy
 from decimal import Decimal
 
+from requests.models import Response
+
 from dal import autocomplete
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Sum
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, response, Http404, FileResponse, HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
 from django.contrib import messages
@@ -19,11 +22,13 @@ from django.contrib import messages
 from django.views import View
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
-    MeasurementCategory, RetailerOrderedReport, Payment
+    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm
 from pos.tasks import generate_pdf_data, update_es
@@ -735,7 +740,7 @@ def RetailerProductStockDownload(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'product_ean_code', 'mrp', 'selling_price',
-         'current_inventory', 'discounted_inventory', 'updated_inventory', 'reason_for_update'])
+         'current_inventory', 'discounted_sku', 'discounted_inventory', 'discounted_price', 'updated_inventory', 'reason_for_update'])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \
@@ -754,13 +759,16 @@ def RetailerProductStockDownload(request, *args):
                                                 inventory_state__inventory_state=PosInventoryState.AVAILABLE)
         inventory_data = {i.product_id: i.quantity for i in inventory}
         for product_id, product in product_dict.items():
-            discounted_stock = None
+            discounted_stock, discounted_sku, discounted_price = None, None, None
             if product['discounted_product']:
                 discounted_stock = inventory_data.get(product['discounted_product'], 0)
+                discounted_product = RetailerProduct.objects.filter(id=product['discounted_product']).last()
+                discounted_sku = discounted_product.sku
+                discounted_price = discounted_product.selling_price
             writer.writerow(
                 [product['id'], product['shop_id'], product['shop__shop_name'], product['sku'], product['name'],
                  product['product_ean_code'], product['mrp'], product['selling_price'],
-                 inventory_data.get(product_id, 0), discounted_stock, '', ''])
+                 inventory_data.get(product_id, 0), discounted_sku, discounted_stock, discounted_price, '', ''])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -811,12 +819,58 @@ def stock_update(request, data):
             stock_qty = row.get('updated_inventory')
 
             try:
-                product = RetailerProduct.objects.only('id', 'sku').get(id=row.get('product_id'))
+                product = RetailerProduct.objects.get(id=row.get('product_id'))
+                old_product = deepcopy(product)
                 # Update Inventory
-                PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.AVAILABLE,
                                                 PosInventoryState.AVAILABLE, stock_qty,
                                                 request.user, product.sku, PosInventoryChange.STOCK_UPDATE,
                                                 row.get('reason_for_update'))
+                # Create discounted products while updating Products
+                try:
+                    if row.get('discounted_price', None):
+                        discounted_price = decimal.Decimal(row['discounted_price'])
+                        discounted_stock = int(row['discounted_inventory'])
+                        product_status = 'active' if decimal.Decimal(discounted_stock) > 0 else 'deactivated'
+
+                        initial_state = PosInventoryState.AVAILABLE
+                        tr_type = PosInventoryChange.STOCK_UPDATE
+
+                        discounted_product = RetailerProduct.objects.filter(product_ref=product).last()
+                        if not discounted_product:
+
+                            initial_state = PosInventoryState.NEW
+                            tr_type = PosInventoryChange.STOCK_ADD
+
+                            discounted_product = RetailerProductCls.create_retailer_product(product.shop.id,
+                                                                                            product.name,
+                                                                                            product.mrp,
+                                                                                            discounted_price,
+                                                                                            product.linked_product_id,
+                                                                                            4,
+                                                                                            product.description,
+                                                                                            product.product_ean_code,
+                                                                                            request.user,
+                                                                                            'product',
+                                                                                            product.product_pack_type,
+                                                                                            product.measurement_category_id,
+                                                                                            None, product_status,
+                                                                                            None, None, None, product,
+                                                                                            False, None)
+                        else:
+                            RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
+                                                            request.user, 'product', discounted_product.sku)
+
+                        PosInventoryCls.app_stock_inventory(discounted_product.id, initial_state,
+                                                        PosInventoryState.AVAILABLE, discounted_stock,
+                                                        request.user,
+                                                        discounted_product.sku, tr_type, None)
+
+                    # Change logs
+                    ProductChangeLogs.product_update(product, old_product, request.user, 'product',
+                                                     product.sku)
+                except Exception as e:
+                    info_logger.info(f"Exception|POS|add discounted product|product id {row.get('product_id')}, e {e}")
             except Exception as e:
                 info_logger.info(f"Exception|POS|stock_update|product id {row.get('product_id')}, e {e}")
 
@@ -827,29 +881,40 @@ class RetailerOrderedReportView(APIView):
     def total_order_calculation(self, user, start_date, end_date, shop):
 
         pos_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, rt_payment_retailer_order__payment_type__type__in=
+            ['cash', 'Cash on delivery'], ordered_by__id=user, order_status__in=
+            [RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+             RetailerOrderedReport.FULLY_RETURNED]).aggregate(amt=Sum('order_amount'))
 
         pos_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('order_amount'))
 
         ecom_total_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user).aggregate(
-            amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user)\
+            .aggregate(amt=Sum('order_amount'))
 
         ecom_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.DELIVERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.DELIVERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).\
+            aggregate(amt=Sum('order_amount'))
 
         ecom_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status__in=
+            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.PARTIALLY_RETURNED,
+             RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('order_amount'))
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
@@ -858,28 +923,28 @@ class RetailerOrderedReportView(APIView):
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
         pos_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
-                                                              order__seller_shop__id=shop, order__created_at__gte=start_date,
-                                                              order__created_at__lte=end_date, processed_by__id=user,
+                                                              order__seller_shop__id=shop, order__created_at__date__gte=start_date,
+                                                              order__created_at__date__lte=end_date, processed_by__id=user,
                                                               refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
         pos_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
                                                                 order__seller_shop__id=shop,
-                                                                order__created_at__gte=start_date,
-                                                                order__created_at__lte=end_date, processed_by__id=user,
+                                                                order__created_at__date__gte=start_date,
+                                                                order__created_at__date__lte=end_date, processed_by__id=user,
                                                                 refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
         ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
                                                                order__seller_shop__id=shop,
-                                                               order__created_at__gte=start_date,
-                                                               order__created_at__lte=end_date, processed_by__id=user,
+                                                               order__created_at__date__gte=start_date,
+                                                               order__created_at__date__lte=end_date, processed_by__id=user,
                                                                refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
 
         ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
                                                                  order__seller_shop__id=shop,
-                                                                 order__created_at__gte=start_date,
-                                                                 order__created_at__lte=end_date, processed_by__id=user,
+                                                                 order__created_at__date__gte=start_date,
+                                                                 order__created_at__date__lte=end_date, processed_by__id=user,
                                                                  refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
@@ -959,3 +1024,27 @@ class RetailerOrderedReportFormView(View):
             'admin/services/retailer-order-report.html',
             {'form': form}
         )
+
+class RetailerOrderProductInvoiceView(View):
+
+    def get(self, request, pk):
+        try:
+            order = get_object_or_404(RetailerOrderedProduct, pk=pk)
+            if order.invoice.invoice_pdf.url:
+                with requests.Session() as s:
+                    try:
+                        import io
+                        response = s.get(order.invoice.invoice_pdf.url)
+                        response = FileResponse(io.BytesIO(response.content), content_type='application/pdf')
+                        response['Content-Length'] = response['Content-Length']
+                        response['Content-Disposition'] = 'attachment; filename="%s"' % order.invoice.pdf_name
+                        return response
+                    except Exception as err:
+                        return HttpResponseBadRequest(err)
+            else:
+                return HttpResponseBadRequest("Invoice not generated")
+        except RetailerOrderedProduct.DoesNotExist:
+            raise Http404("Resource not found on server")
+        except Exception as err:
+            logging.exception("Invoice download failed due to %s" % err)
+            return HttpResponseBadRequest("Invoice download failed due to %s" % err)

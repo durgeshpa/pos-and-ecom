@@ -34,7 +34,7 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -395,7 +395,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 50
-    list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
+    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
     list_filter = [('order__seller_shop__shop_type', RelatedOnlyDropdownFilter),
                    ('created_at', DateTimeRangeFilter)]
@@ -463,6 +463,13 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
                          order__seller_shop__pos_shop__status=True)
 
+    def download_invoice(self, obj):
+        if obj.invoice.invoice_pdf:
+            return format_html("<a href= '%s' >Download Invoice</a>" % (reverse('admin:pos_download_order_invoice', args=[obj.pk])))
+        #invoice_pdf_to_response(263980)
+        else:
+            return '-'
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(RetailerOrderProductAdmin, self).get_urls()
@@ -476,6 +483,11 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
                        r'^retailer-order-report-form/$',
                        self.admin_site.admin_view(RetailerOrderedReportFormView.as_view()),
                        name="retailer-order-report-form"
+                   ),
+                   url(
+                       r'^retailer-order-invoice/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(RetailerOrderProductInvoiceView.as_view()),
+                       name="pos_download_order_invoice"
                    )
                ] + urls
         return urls

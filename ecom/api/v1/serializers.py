@@ -91,6 +91,7 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city_name',
                   'state_name', 'default')
         read_only_fields = ['id', 'user']
+        ref_name = "ecomm_address"
 
     def validate(self, attrs):
         # Validate Pin Code
