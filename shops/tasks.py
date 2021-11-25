@@ -20,7 +20,9 @@ def cancel_beat_plan(*args, **kwargs):
     day_config = GlobalConfig.objects.filter(key='beat_order_days').last()
     if day_config and day_config.value:
         tday = datetime.today().date()
+        print(tday, "Today")
         lday = tday - timedelta(days=int(day_config.value))
+        print(lday, "Last day")
         cancelled_plannings = DayBeatPlanning.objects.filter(
             # Q(
             #     Q(beat_plan_date=tday) |
@@ -33,7 +35,7 @@ def cancel_beat_plan(*args, **kwargs):
             shop__rt_buyer_shop_cart__isnull=False,
             shop__rt_buyer_shop_cart__rt_order_cart_mapping__created_at__gte=lday
         )
-        print (cancelled_plannings)
+        print (cancelled_plannings, "objects of day beat plan")
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
