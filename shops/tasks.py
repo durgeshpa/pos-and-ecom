@@ -35,7 +35,7 @@ def cancel_beat_plan(*args, **kwargs):
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
-            ).update(dynamic_beat=False) # setting dynamic beat field to false
+            )
             cp_count = cancelled_plannings.update(is_active=False) # future daily beat plans disabled
             logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
         else:
