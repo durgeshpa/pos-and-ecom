@@ -934,14 +934,14 @@ class RetailerOrderedReportView(APIView):
                                                                 refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
-        ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
+        ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='ECOM',
                                                                order__seller_shop__id=shop,
                                                                order__created_at__date__gte=start_date,
                                                                order__created_at__date__lte=end_date, processed_by__id=user,
                                                                refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
 
-        ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
+        ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='ECOM',
                                                                  order__seller_shop__id=shop,
                                                                  order__created_at__date__gte=start_date,
                                                                  order__created_at__date__lte=end_date, processed_by__id=user,
