@@ -1,7 +1,9 @@
+import io
 import logging
 import datetime
 import json
 import urllib
+import requests
 from celery.task import task
 from celery import Task
 from django.core.mail import EmailMessage
@@ -231,26 +233,24 @@ def update_order_status_picker_reserve_qty(
 
 @task
 def send_invoice_pdf_email(email, shop_name, order_no, media_url, file_name, key):
-    try:
-        order_invoice = urllib.request.urlopen(media_url).read()
-    except Exception as err:
-        celery_logger.exception("Sending of invoice over email failed due to {}".format(err))
-        return
-    subject = {
-        'order' : "Order Invoice Shop :: {0} Order no ({1})".format(shop_name, order_no),
-        'return' : "Order Return Invoice Shop :: {0} Order no ({1})".format(shop_name, order_no)
-    }
-    try:
-        attachements = [{
-            'name': '{}'.format(file_name),
-            'value': order_invoice,
-            'type': 'application/pdf'
-        }]
-        sender = GlobalConfig.objects.filter(key='invoice_mail_sender').last()
-        if not sender:
-            celery_logger.exception("Please add a sender with key ::: invoice_mail_key :::")
-            return
-        subject = subject.get(key)
-        send_mail(sender, [email], subject, '', attachements)
-    except Exception as err:
-        celery_logger.exception("Sending of invoice over email failed due to {}".format(err))
+    with requests.Session() as s:
+        response = s.get(media_url)
+        order_invoice = response.content
+        subject = {
+            'order' : "Order Invoice {0} Order no ({1})".format(shop_name, order_no),
+            'return' : "Order Return Invoice Shop {0} Order no ({1})".format(shop_name, order_no)
+        }
+        try:
+            attachements = [{
+                'name': '{}'.format(file_name),
+                'value': order_invoice,
+                'type': 'application/pdf'
+            }]
+            sender = GlobalConfig.objects.filter(key='invoice_mail_sender').last()
+            if not sender:
+                celery_logger.exception("Please add a sender with key ::: invoice_mail_sender :::")
+                return
+            subject = subject.get(key)
+            send_mail(sender.value, [email], subject, '', attachements)
+        except Exception as err:
+            celery_logger.exception("Sending of invoice over email failed due to {}".format(err))
