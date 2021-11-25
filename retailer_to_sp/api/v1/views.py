@@ -1903,7 +1903,8 @@ class CartCheckout(APIView):
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
-            return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
+            app_type=kwargs['app_type']
+            return api_response("Cart Checkout", self.serialize(cart, offers, app_type), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def get_ecom_cart_checkout(self, request, *args, **kwargs):
@@ -1999,12 +2000,13 @@ class CartCheckout(APIView):
             return {'error': "Please Provide A Valid Spot Discount Type"}
         return {'cart': cart}
 
-    def serialize(self, cart, offers=None):
+    def serialize(self, cart, offers=None, app_type=None):
         """
             Checkout serializer
             Payment Info plus Offers
         """
-        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id))
+        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id),
+                                        context={'app_type':app_type})
         response = serializer.data
         if offers:
             response['available_offers'] = offers['total_offers']
