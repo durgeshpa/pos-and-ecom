@@ -22,10 +22,11 @@ def cancel_beat_plan(*args, **kwargs):
         tday = datetime.today().date()
         lday = tday - timedelta(days=int(day_config.value))
         cancelled_plannings = DayBeatPlanning.objects.filter(
-            Q(
-                Q(beat_plan_date__gt=tday) |
-                Q(next_plan_date__gt=tday)
-            ),
+            # Q(
+            #     Q(beat_plan_date=tday) |
+            #     Q(next_plan_date__gt=tday)
+            # ),
+            beat_plan_date=tday
             is_active=True,
             shop__shop_type__shop_type='r',
             shop__dynamic_beat=True,
