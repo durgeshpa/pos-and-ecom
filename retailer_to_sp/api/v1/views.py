@@ -2969,6 +2969,8 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
+            obj = Order.objects.get(id=order.id)
+            obj.order_amount = math.floor(obj.order_amount)
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -4329,7 +4331,7 @@ class OrderReturns(APIView):
             refund_points_value = total_refund_value - refund_amount
             refund_points = int(refund_points_value * redeem_factor)
 
-        order_return.refund_amount = refund_amount
+        order_return.refund_amount = math.floor(refund_amount)
         order_return.refund_points = refund_points
         order_return.discount_adjusted = discount_adjusted
         order_return.save()
