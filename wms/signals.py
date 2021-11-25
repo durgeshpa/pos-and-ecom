@@ -109,7 +109,7 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
             instance.save()
 
     # Trigger to auto assign QC Area
-    if not created and instance.qc_done:
+    if instance.qc_done:
         auto_qc_area_assignment_to_order()
 
 
