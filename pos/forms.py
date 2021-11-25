@@ -430,6 +430,9 @@ class RetailerOrderedReportForm(forms.Form):
         widget=DateTimePicker(
             options={
                 'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
             }
         ),
     )
@@ -437,6 +440,9 @@ class RetailerOrderedReportForm(forms.Form):
         widget=DateTimePicker(
             options={
                 'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
             }
         ),
     )
