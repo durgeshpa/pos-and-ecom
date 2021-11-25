@@ -158,16 +158,19 @@ class CategoriesView(APIView):
         categories_to_return = []
         categories_with_products = get_categories_with_products(kwargs['shop'])
         all_active_categories = Category.objects.filter(category_parent=None, status=True, b2c_status=True)
+        # print("==============================================================")
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
             elif c.cat_parent.filter(status=True).count() > 0:
                 for sub_category in c.cat_parent.filter(status=True, b2c_status=True):
+                    # print(sub_category)
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break
         serializer = self.serializer_class(categories_to_return, many=True)
         is_success = True if categories_to_return else False
+        # print("==============================================================")
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 
@@ -180,7 +183,8 @@ class SubCategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_with_products = get_categories_with_products(kwargs['shop'])
         category = Category.objects.get(pk=self.request.GET.get('category_id'))
-        sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
+        # print(category.__dict__)
+        sub_categories = category.cat_parent.filter(status=True, b2c_status=True, id__in=categories_with_products)
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
