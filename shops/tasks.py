@@ -26,7 +26,7 @@ def cancel_beat_plan(*args, **kwargs):
             #     Q(beat_plan_date=tday) |
             #     Q(next_plan_date__gt=tday)
             # ),
-            beat_plan_date=tday
+            beat_plan_date=tday,
             is_active=True,
             shop__shop_type__shop_type='r',
             shop__dynamic_beat=True,
