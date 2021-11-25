@@ -5392,7 +5392,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                                    credit_note_instance, delay=True):
 
     file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
-    template_name = 'admin/credit_note/credit_note_retailer.html'
+    #template_name = 'admin/credit_note/credit_note_retailer.html'
+    template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
     try:
         # Don't create pdf if already created
@@ -5491,6 +5492,10 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
+        # GSTIN
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
 
         data = {
             "url": request.get_host(),
@@ -5513,13 +5518,24 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "pincode": pincode,
             "address_contact_number": address_contact_number,
             "license_number": license_number,
-            "cin": cin_number
+            "cin": cin_number,
+            "retailer_gstin_number": retailer_gstin_number
         }
 
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
+                      "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
+        # with open("bill.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        #
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
+
+
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
