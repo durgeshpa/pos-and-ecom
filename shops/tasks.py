@@ -22,10 +22,11 @@ def cancel_beat_plan(*args, **kwargs):
         tday = datetime.today().date()
         lday = tday - timedelta(days=int(day_config.value))
         cancelled_plannings = DayBeatPlanning.objects.filter(
-            Q(
-                Q(beat_plan_date__gt=tday) |
-                Q(next_plan_date__gt=tday)
-            ),
+            # Q(
+            #     Q(beat_plan_date=tday) |
+            #     Q(next_plan_date__gt=tday)
+            # ),
+            beat_plan_date=tday
             is_active=True,
             shop__shop_type__shop_type='r',
             shop__dynamic_beat=True,
@@ -35,7 +36,7 @@ def cancel_beat_plan(*args, **kwargs):
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
-            ).update(dynamic_beat=False) # setting dynamic beat field to false
+            )
             cp_count = cancelled_plannings.update(is_active=False) # future daily beat plans disabled
             logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
         else:

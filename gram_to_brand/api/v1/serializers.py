@@ -17,6 +17,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParentProduct
         fields = ('id', 'parent_id', 'name',)
+        ref_name = "GramBrandParentProduct"
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -25,6 +26,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_name', 'parent_product')
+        ref_name = "GramBrandProduct"
 
 
 class GRNOrderNonZoneProductsCrudSerializers(serializers.ModelSerializer):

@@ -187,8 +187,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     online_enabled = serializers.BooleanField(default = True)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
     ean_not_available = serializers.BooleanField(default=None)
+    product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
     reason_for_update = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    measurement_category = serializers.CharField(required=False, default=None)
+    measurement_category_id = serializers.IntegerField(required=False, default=None)
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -272,6 +275,17 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 and 'reason_for_update' not in self.initial_data:
             raise serializers.ValidationError("reason for update is required for stock update")
 
+        if attrs.get('product_pack_type') == 'loose':
+            try:
+                measurement_category = MeasurementCategory.objects.get(category=attrs['measurement_category'].lower())
+                attrs['measurement_category_id'] = measurement_category.id
+                MeasurementUnit.objects.get(category=measurement_category, default=True)
+            except:
+                raise serializers.ValidationError("Please provide a valid measurement category for Loose Product")
+            attrs['purchase_pack_size'] = 1
+        else:
+            attrs['stock_qty'] = int(attrs.get('stock_qty'))
+
         return attrs
 
 
@@ -329,8 +343,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -535,7 +548,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        sub_total = math.ceil(sub_total)
+        sub_total = math.floor(sub_total)
         return round(sub_total, 2)
 
 
@@ -567,10 +580,10 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            if cart_pro.retailer_product.online_price:
-                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
-            else:
+            if self.context['app_type']=='2':
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            else:
+                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_discount(self, obj):
@@ -591,7 +604,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
             self.get_redeem_points_value(obj))
-        sub_total = math.ceil(sub_total)
+        sub_total = math.floor(sub_total)
         return round(sub_total, 2)
 
     class Meta:
@@ -632,7 +645,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
-        return round(math.ceil(ordered_product.invoice_amount_final), 2) if ordered_product else math.ceil(obj.order_amount)
+        return round(math.floor(ordered_product.invoice_amount_final), 2) if ordered_product else math.floor(obj.order_amount)
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
