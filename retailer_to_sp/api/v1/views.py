@@ -2973,6 +2973,7 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'pos', transaction_id)
             obj = Order.objects.get(id=order.id)
             obj.order_amount = math.floor(obj.order_amount)
+            obj.save()
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -5355,9 +5356,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("bill.pdf", "wb") as f:
+        # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        #
+        
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
         #     static_file.write(content)
@@ -5530,12 +5531,12 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
-        # with open("bill.pdf", "wb") as f:
+        # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        #
-        # content = render_to_string(template_name, data)
-        # with open("abc.html", 'w') as static_file:
-        #     static_file.write(content)
+        
+        # # content = render_to_string(template_name, data)
+        # # with open("abc.html", 'w') as static_file:
+        # #     static_file.write(content)
 
 
         try:
