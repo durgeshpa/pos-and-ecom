@@ -33,10 +33,12 @@ def cancel_beat_plan(*args, **kwargs):
             shop__rt_buyer_shop_cart__isnull=False,
             shop__rt_buyer_shop_cart__rt_order_cart_mapping__created_at__gte=lday
         )
+        print (cancelled_plannings)
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
             )
+            print (shops, "Shop")
             cp_count = cancelled_plannings.update(is_active=False) # future daily beat plans disabled
             logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
         else:
