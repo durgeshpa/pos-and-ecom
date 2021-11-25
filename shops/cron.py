@@ -39,7 +39,7 @@ def get_feedback_valid():
             feedback_lng = feedback.longitude
             shop_lat = feedback.day_beat_plan.shop.latitude
             shop_lng = feedback.day_beat_plan.shop.longitude
-            print(feedback_lat, feedback_lng, shop_lng, shop_lat)
+            print(feedback_lat, feedback_lng, shop_lat, shop_lng)
             if not feedback_lng or not feedback_lat or not shop_lat or not shop_lng:
                 continue
             else:
