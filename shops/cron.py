@@ -48,6 +48,9 @@ def get_feedback_valid():
                 if d > config_distance:
                     feedback.is_valid = False
                     feedback.save()
+                else:
+                    feedback.is_valid = True
+                    feedback.save()
                 print(feedback.is_valid)
     except Exception as error:
         logger.exception(error)
