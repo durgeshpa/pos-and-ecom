@@ -5400,7 +5400,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
                 media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
                 manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop.shop_name
+                shop_name = order.ordered_cart.seller_shop.shop_name
                 if delay:
                     whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
                                                 file_name)
@@ -5528,6 +5528,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
             media_url = credit_note_instance.credit_note_pdf.url
             file_name = ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
                 whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url, file_name)
                 if manager and manager.user.email:
