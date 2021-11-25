@@ -881,29 +881,40 @@ class RetailerOrderedReportView(APIView):
     def total_order_calculation(self, user, start_date, end_date, shop):
 
         pos_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status__in=[RetailerOrderedReport.ORDERED] , ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, rt_payment_retailer_order__payment_type__type__in=
+            ['cash', 'Cash on delivery'], ordered_by__id=user, order_status__in=
+            [RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+             RetailerOrderedReport.FULLY_RETURNED]).aggregate(amt=Sum('order_amount'))
 
         pos_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.ORDERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.ORDERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('order_amount'))
 
         ecom_total_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user).aggregate(
-            amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user)\
+            .aggregate(amt=Sum('order_amount'))
 
         ecom_cash_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.DELIVERED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+            order_status__in=[RetailerOrderedReport.DELIVERED, RetailerOrderedReport.PARTIALLY_RETURNED,
+                              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).\
+            aggregate(amt=Sum('order_amount'))
 
         ecom_online_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status=RetailerOrderedReport.PICKUP_CREATED, ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).aggregate(amt=Sum('order_amount'))
+            ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
+            created_at__date__lte=end_date, order_status__in=
+            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.PARTIALLY_RETURNED,
+             RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            aggregate(amt=Sum('order_amount'))
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
@@ -911,29 +922,29 @@ class RetailerOrderedReportView(APIView):
         ecom_online_order_amt = ecom_online_order_qs['amt'] if 'amt' in ecom_online_order_qs and ecom_online_order_qs['amt'] else 0
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
-        pos_cash_return_order_qs = RetailerOrderedReport.objects.filter(
-            ordered_cart__cart_type='BASIC', seller_shop__id=shop, created_at__gte=start_date, created_at__lte=end_date,
-            order_status__in=[RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.FULLY_RETURNED] , ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['cash', 'Cash on delivery']).aggregate(amt=Sum('order_amount'))
-
+        pos_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
+                                                              order__seller_shop__id=shop, order__created_at__date__gte=start_date,
+                                                              order__created_at__date__lte=end_date, processed_by__id=user,
+                                                              refund_mode='cash').\
+            aggregate(amt=Sum('refund_amount'))
         pos_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type='BASIC',
                                                                 order__seller_shop__id=shop,
-                                                                order__created_at__gte=start_date,
-                                                                order__created_at__lte=end_date, processed_by__id=user,
+                                                                order__created_at__date__gte=start_date,
+                                                                order__created_at__date__lte=end_date, processed_by__id=user,
                                                                 refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
         ecom_cash_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
                                                                order__seller_shop__id=shop,
-                                                               order__created_at__gte=start_date,
-                                                               order__created_at__lte=end_date, processed_by__id=user,
+                                                               order__created_at__date__gte=start_date,
+                                                               order__created_at__date__lte=end_date, processed_by__id=user,
                                                                refund_mode='cash').\
             aggregate(amt=Sum('refund_amount'))
 
         ecom_online_return_order_qs = OrderReturn.objects.filter(order__ordered_cart__cart_type__in='ECOM',
                                                                  order__seller_shop__id=shop,
-                                                                 order__created_at__gte=start_date,
-                                                                 order__created_at__lte=end_date, processed_by__id=user,
+                                                                 order__created_at__date__gte=start_date,
+                                                                 order__created_at__date__lte=end_date, processed_by__id=user,
                                                                  refund_mode__in=['online', 'credit']).\
             aggregate(amt=Sum('refund_amount'))
 
@@ -950,11 +961,11 @@ class RetailerOrderedReportView(APIView):
         #
         # can_order_amt = can_order_qs['amt'] if 'amt' in can_order_qs and can_order_qs['amt'] else 0
 
-        walkin_cash = pos_cash_order_amt - pos_cash_return_amt
-        walkin_online = pos_online_order_amt - pos_online_return_amt
-        ecomm_online = ecom_online_order_amt - ecom_online_return_amt
-        ecomm_cash = ecom_cash_order_amt - ecom_cash_return_amt
-        return walkin_cash, walkin_online, ecom_total_order_amt, ecomm_cash, ecomm_online
+        pos_cash_amt = pos_cash_order_amt - pos_cash_return_amt
+        pos_online_amt = pos_online_order_amt - pos_online_return_amt
+        ecomm_online_amt = ecom_online_order_amt - ecom_online_return_amt
+        ecomm_cash_amt = ecom_cash_order_amt - ecom_cash_return_amt
+        return pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt
 
     def get(self, *args, **kwargs):
 
