@@ -80,7 +80,7 @@ class ParentBrandSerializers(serializers.ModelSerializer):
 class VendorSerializers(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-
+        ref_name = "BrandVendor"
         fields = ('id', 'vendor_name', 'mobile')
         distinct = ('id',)
 
@@ -100,7 +100,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-
+        ref_name = "BrandProduct"
         fields = ('product_vendor_mapping',)
 
     def to_representation(self, instance):
