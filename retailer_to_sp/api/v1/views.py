@@ -6844,7 +6844,7 @@ class DispatchItemsView(generics.GenericAPIView):
     queryset = ShipmentPackaging.objects.order_by('packaging_type')
     serializer_class = DispatchItemsSerializer
 
-    @check_whc_manager_dispatch_executive
+    # @check_whc_manager_dispatch_executive
     def get(self, request):
         '''
         API to get all the packages for a shipment

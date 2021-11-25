@@ -1521,6 +1521,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
 
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
+            if shipped_qty == 0:
+                raise serializers.ValidationError("To be shipped quantity is zero, packaging is not required")
             total_product_qty = 0
             is_box_sack_used = False
             for package_obj in self.initial_data['packaging']:
@@ -1545,7 +1547,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         elif shipped_qty > 0:
             raise serializers.ValidationError("'packaging' | This is mandatory")
 
-        data['packaging'] = self.initial_data['packaging']
+        data['packaging'] = self.initial_data.get('packaging')
         data['damaged_qty'] = product_damaged_qty
         data['expired_qty'] = product_expired_qty
         data['missing_qty'] = product_missing_qty
@@ -1570,6 +1572,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
             process_shipments_instance = product_batch_instance.update(**validated_data)
+            product_batch_instance.last().save()
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -1582,6 +1585,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
         try:
             process_shipments_instance = super().update(instance, validated_data)
+            # process_shipments_instance.save()
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
