@@ -6621,9 +6621,8 @@ class ShipmentQCView(generics.GenericAPIView):
                      'created_at').\
                 order_by('-id')
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+
     def get(self, request):
-        """ GET API for Putaway """
         if not request.GET.get('status'):
             return get_response("'status' | This is mandatory")
 
