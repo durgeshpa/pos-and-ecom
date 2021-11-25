@@ -79,6 +79,23 @@ def check_qc_executive(view_func):
     return _wrapped_view_func
 
 
+
+def check_qc_dispatch_executive(view_func):
+    """
+        Decorator to validate QC Executive request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('wms.can_have_qc_executive_permission') \
+                or user.groups.filter(name='Dispatch Executive'):
+            return view_func(self, request, *args, **kwargs)
+        return get_response("Logged In user does not have required permission to perform this action.")
+
+    return _wrapped_view_func
+
+
 def check_whc_manager_coordinator_supervisor(view_func):
     """
         Decorator to validate request from warehouse manager / Coordinator / Supervisor

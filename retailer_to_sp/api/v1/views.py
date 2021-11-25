@@ -41,7 +41,7 @@ from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
     validate_id_and_warehouse
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
-    check_whc_manager_dispatch_executive
+    check_whc_manager_dispatch_executive, check_qc_dispatch_executive
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -6641,7 +6641,7 @@ class ShipmentQCView(generics.GenericAPIView):
         msg = "" if shipment_data else "no shipment found"
         return get_response(msg, serializer.data, True)
 
-    @check_qc_executive
+    @check_qc_dispatch_executive
     def put(self, request):
         """ PUT API for shipment update """
         modified_data = validate_data_format(self.request)
@@ -6908,9 +6908,7 @@ class DispatchDashboardView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = OrderedProduct.objects.filter(
-        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.MOVED_TO_DISPATCH,
-                             OrderedProduct.READY_TO_DISPATCH, OrderedProduct.OUT_FOR_DELIVERY,
-                             OrderedProduct.RESCHEDULED])
+        shipment_status__in=[OrderedProduct.READY_TO_SHIP, OrderedProduct.MOVED_TO_DISPATCH])
     serializer_class = DispatchDashboardSerializer
 
     @check_whc_manager_dispatch_executive
@@ -6921,8 +6919,7 @@ class DispatchDashboardView(generics.GenericAPIView):
 
         self.queryset = get_logged_user_wise_query_set_for_dispatch(self.request.user, self.queryset)
         self.queryset = self.filter_dispatch_summary_data()
-        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch":0, "ready_to_dispatch": 0,
-                                 "out_for_delivery": 0, "rescheduled": 0}
+        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch":0}
         for obj in self.queryset:
             if obj.shipment_status == OrderedProduct.READY_TO_SHIP:
                 dispatch_summary_data['total'] += 1
@@ -6930,15 +6927,15 @@ class DispatchDashboardView(generics.GenericAPIView):
             if obj.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 dispatch_summary_data['total'] += 1
                 dispatch_summary_data['moved_to_dispatch'] += 1
-            elif obj.shipment_status == OrderedProduct.READY_TO_DISPATCH:
-                dispatch_summary_data['total'] += 1
-                dispatch_summary_data['ready_to_dispatch'] += 1
-            elif obj.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-                dispatch_summary_data['total'] += 1
-                dispatch_summary_data['out_for_delivery'] += 1
-            elif obj.shipment_status == OrderedProduct.RESCHEDULED:
-                dispatch_summary_data['total'] += 1
-                dispatch_summary_data['rescheduled'] += 1
+            # elif obj.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            #     dispatch_summary_data['total'] += 1
+            #     dispatch_summary_data['ready_to_dispatch'] += 1
+            # elif obj.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+            #     dispatch_summary_data['total'] += 1
+            #     dispatch_summary_data['out_for_delivery'] += 1
+            # elif obj.shipment_status == OrderedProduct.RESCHEDULED:
+            #     dispatch_summary_data['total'] += 1
+            #     dispatch_summary_data['rescheduled'] += 1
         serializer = self.serializer_class(dispatch_summary_data)
         msg = "" if dispatch_summary_data else "no dispatch summary found"
         return get_response(msg, serializer.data, True)
