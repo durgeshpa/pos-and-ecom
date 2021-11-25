@@ -1158,6 +1158,8 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     is_zone_coordinator = serializers.SerializerMethodField()
     is_putaway_user = serializers.SerializerMethodField()
     is_picker = serializers.SerializerMethodField()
+    is_qc_executive = serializers.SerializerMethodField()
+    is_dispatch_executive = serializers.SerializerMethodField()
     user_warehouse = serializers.SerializerMethodField()
 
     def get_is_warehouse_manager(self, obj):
@@ -1190,6 +1192,17 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
             return True
         return False
 
+    def get_is_qc_executive(self, obj):
+        """Check if user is QC Executive"""
+        if obj.has_perm('wms.can_have_qc_executive_permission'):
+            return True
+        return False
+
+    def get_is_dispatch_executive(self, obj):
+        """Check if user is Dispatch Executive"""
+        if obj.groups.filter(name='Dispatch Executive').exists():
+            return True
+        return False
 
     def get_user_warehouse(self, obj):
         """Get user's associated warehouse"""
@@ -1198,7 +1211,8 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
-                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker')
+                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker', 'is_qc_executive',
+                  'is_dispatch_executive')
 
 
 class BinSerializer(serializers.ModelSerializer):
