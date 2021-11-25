@@ -911,7 +911,8 @@ class RetailerOrderedReportView(APIView):
         ecom_online_order_qs = RetailerOrderedReport.objects.filter(
             ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
             created_at__date__lte=end_date, order_status__in=
-            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.PARTIALLY_RETURNED,
+            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.OUT_FOR_DELIVERY,
+             RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.DELIVERED,
              RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
             rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
             aggregate(amt=Sum('rt_payment_retailer_order__amount'))
@@ -1005,10 +1006,13 @@ class RetailerOrderedReportView(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="order-report.csv"'
         writer = csv.writer(response)
+        shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                        pos_enabled=True, pos_shop__status=True).last()
+        writer.writerow(['Shop Name:', shop_obj.shop_name])
         writer.writerow(['Start Date:', start_date])
         writer.writerow(['End Date:', end_date])
         writer.writerow([])
-        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
+        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm Cash', 'Ecomm PG', 'Total Cash',
                          'Total Online', 'Total PG'])
 
         for user in users_list:
@@ -1016,9 +1020,9 @@ class RetailerOrderedReportView(APIView):
                 self.total_order_calculation(user['user__id'], start_date, end_date, shop)
             writer.writerow([str(str(user['user__phone_number']) + " - " + user['user__first_name'] + " " +
                                  user['user__last_name'] + " - " + str(user['user_type'])),
-                             pos_cash_amt, pos_online_amt, ecom_total_order_amt,  ecomm_cash_amt,
+                             pos_cash_amt, pos_online_amt, ecomm_online_amt,  ecomm_cash_amt,
                              (pos_cash_amt+ecomm_cash_amt),
-                             pos_online_amt, ecom_total_order_amt],)
+                             pos_online_amt, ecomm_online_amt],)
         return response
 
 
