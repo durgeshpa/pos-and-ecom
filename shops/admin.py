@@ -17,11 +17,12 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
 from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
-from addresses.forms import AddressForm, DispatchCenterCityMappingForm, DispatchCenterPincodeMappingForm
+from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
-                    DispatchCenterPincodeMappingInlineFormSet)
+                    DispatchCenterPincodeMappingInlineFormSet, DispatchCenterCityMappingForm,
+                    DispatchCenterPincodeMappingForm)
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete

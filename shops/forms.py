@@ -2,7 +2,7 @@ import datetime
 from datetime import datetime, timedelta
 from django import forms
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
-from addresses.models import Address, City
+from addresses.models import Address, City, DispatchCenterCityMapping, DispatchCenterPincodeMapping, Pincode
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -237,46 +237,6 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('Please add at least one billing address')
 
 
-class DispatchCenterCityMappingInlineFormSet(BaseInlineFormSet):
-
-    def clean(self):
-        super(DispatchCenterCityMappingInlineFormSet, self).clean()
-        flag = 0
-        address_form = []
-        for form in self.forms:
-            if form.cleaned_data and form.cleaned_data['city']:
-                # if form.cleaned_data['city'].city_center_mapping.last() is not None:
-                #     raise forms.ValidationError('City is already mapped with another dispatch center')
-                address_form.append(form.cleaned_data.get('DELETE'))
-                flag = 1
-
-        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
-            if address_form and all(address_form):
-                raise forms.ValidationError('You cant delete all cities of dispatch center')
-            elif flag == 0:
-                raise forms.ValidationError('Please add at least one city of dispatch center')
-
-
-class DispatchCenterPincodeMappingInlineFormSet(BaseInlineFormSet):
-
-    def clean(self):
-        super(DispatchCenterPincodeMappingInlineFormSet, self).clean()
-        flag = 0
-        address_form = []
-        for form in self.forms:
-            if form.cleaned_data and form.cleaned_data['pincode']:
-                # if form.cleaned_data['pincode'].pincode_center_mapping.last() is not None:
-                #     raise forms.ValidationError('Pincode is already mapped with another dispatch center')
-                address_form.append(form.cleaned_data.get('DELETE'))
-                flag = 1
-
-        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
-            if address_form and all(address_form):
-                raise forms.ValidationError('You cant delete all pincodes of dispatch center')
-            elif flag == 0:
-                raise forms.ValidationError('Please add at least one pincode of dispatch center')
-
-
 class ShopTimingForm(forms.ModelForm):
     SUN = 'SUN'
     MON = 'MON'
@@ -500,3 +460,73 @@ class BeatUserMappingCsvViewForm(forms.Form):
 
         # return list
         return form_data_list
+
+
+class DispatchCenterCityMappingForm(forms.ModelForm):
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-cities-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterCityMapping
+        fields = ('city', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DispatchCenterCityMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterCityMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['city']:
+                # if form.cleaned_data['city'].city_center_mapping.last() is not None:
+                #     raise forms.ValidationError('City is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all cities of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one city of dispatch center')
+
+
+class DispatchCenterPincodeMappingForm(forms.ModelForm):
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-pincodes-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterPincodeMapping
+        fields = ('pincode', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DispatchCenterPincodeMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterPincodeMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['pincode']:
+                # if form.cleaned_data['pincode'].pincode_center_mapping.last() is not None:
+                #     raise forms.ValidationError('Pincode is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all pincodes of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one pincode of dispatch center')

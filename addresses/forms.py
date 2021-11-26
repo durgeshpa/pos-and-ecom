@@ -43,36 +43,6 @@ class AddressForm(forms.ModelForm):
         self.fields['address_contact_number'].required = True
 
 
-class DispatchCenterCityMappingForm(forms.ModelForm):
-    city = forms.ModelChoiceField(
-        queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='dispatch-center-cities-autocomplete'),
-        required=True
-    )
-
-    class Meta:
-        model = DispatchCenterCityMapping
-        fields = ('city', )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class DispatchCenterPincodeMappingForm(forms.ModelForm):
-    pincode = forms.ModelChoiceField(
-        queryset=Pincode.objects.all(),
-        widget=autocomplete.ModelSelect2(url='dispatch-center-pincodes-autocomplete'),
-        required=True
-    )
-
-    class Meta:
-        model = DispatchCenterPincodeMapping
-        fields = ('pincode', )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
 class StateForm(forms.ModelForm):
     state_code = forms.CharField(max_length=2, min_length=1,
                                  required=True,
