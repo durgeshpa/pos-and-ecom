@@ -18,15 +18,15 @@ def run(*args):
                                            buyer_shop__shop_type__shop_type='f',
                                            buyer_shop__status=True, buyer_shop__approval_status=2,
                                            buyer_shop__pos_enabled=1).order_by('-id')
-        for cart_pro_map in ordered_cart:
+        for cart in ordered_cart:
             try:
-                products = cart_pro_map.rt_cart_list.all()
-                order = Order.objects.filter(ordered_cart=cart_pro_map).last()
+                order = Order.objects.filter(ordered_cart=cart).last()
                 if order:
+                    cart_products = cart.rt_cart_list.all()
                     pos_cart_pro_map = PosCart.objects.filter(gf_order_no=order.order_no).last()
-                    for product in products:
+                    for product in cart_products:
                         retailer_product = RetailerProduct.objects.filter(
-                            linked_product=product.cart_product, shop=cart_pro_map.buyer_shop, is_deleted=False,
+                            linked_product=product.cart_product, shop=cart.buyer_shop, is_deleted=False,
                             product_ref__isnull=True).last()
                         if pos_cart_pro_map and retailer_product:
                             mapping = PosCartProductMapping.objects.filter(cart=pos_cart_pro_map,
