@@ -1839,7 +1839,7 @@ class CartCheckout(APIView):
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs.get('app_type',None)), status.HTTP_200_OK, True)
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
@@ -3194,7 +3194,7 @@ class OrderCentral(APIView):
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
         if not cash_only:
-            if round(amount, 2) != cart.order_amount:
+            if round(math.floor(amount), 2) != math.floor(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
         elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
             return {'error': "Cash payment amount should be close to order amount. Please check."}
