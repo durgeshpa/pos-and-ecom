@@ -1,5 +1,7 @@
 from django import forms
-from .models import Address, City, State, Pincode
+
+from shops.models import Shop
+from .models import Address, City, State, Pincode, DispatchCenterCityMapping, DispatchCenterPincodeMapping
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -39,6 +41,36 @@ class AddressForm(forms.ModelForm):
         self.fields['nick_name'].required = True
         self.fields['address_contact_name'].required = True
         self.fields['address_contact_number'].required = True
+
+
+class DispatchCenterCityMappingForm(forms.ModelForm):
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-cities-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterCityMapping
+        fields = ('city', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DispatchCenterPincodeMappingForm(forms.ModelForm):
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-pincodes-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterPincodeMapping
+        fields = ('pincode', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class StateForm(forms.ModelForm):

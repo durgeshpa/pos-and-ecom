@@ -138,3 +138,35 @@ class InvoiceCityMapping(models.Model):
     class Meta:
         verbose_name = _("Invoice City Mapping")
         verbose_name_plural = _("Invoice City Mappings")
+
+
+class DispatchCenterCityMapping(models.Model):
+    """
+        City mapping with Dispatch Center
+        This class is created to map city with dispatch center.
+    """
+    city = models.ForeignKey(City, related_name='city_center_mapping', on_delete=models.CASCADE)
+    dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_cities', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.city) + " - " + str(self.dispatch_center)
+
+    class Meta:
+        verbose_name = _("Dispatch Center City Mapping")
+        verbose_name_plural = _("Dispatch Center City Mappings")
+
+
+class DispatchCenterPincodeMapping(models.Model):
+    """
+        Pincode mapping with Dispatch Center
+        This class is created to map pincode with dispatch center.
+    """
+    pincode = models.ForeignKey(Pincode, related_name='pincode_center_mapping', on_delete=models.CASCADE)
+    dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_pincodes', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.pincode) + " - " + str(self.dispatch_center)
+
+    class Meta:
+        verbose_name = _("Dispatch Center Pincode Mapping")
+        verbose_name_plural = _("Dispatch Center Pincode Mappings")

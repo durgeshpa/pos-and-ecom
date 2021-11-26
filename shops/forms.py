@@ -2,7 +2,7 @@ import datetime
 from datetime import datetime, timedelta
 from django import forms
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
-from addresses.models import Address
+from addresses.models import Address, City
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -148,7 +148,7 @@ class ShopForm(forms.ModelForm):
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
-            'pos_enabled', 'online_inventory_enabled', 'latitude', 'longitude')
+            'pos_enabled', 'online_inventory_enabled', 'latitude', 'longitude', 'cutoff_time')
 
     @classmethod
     def get_shop_type(cls, data):
@@ -159,6 +159,13 @@ class ShopForm(forms.ModelForm):
     def shop_type_retailer(cls, data):
         shop_type = cls.get_shop_type(data)
         if shop_type.shop_type not in ['r', 'f']:
+            return False
+        return True
+
+    @classmethod
+    def shop_type_dispatch_center(cls, data):
+        shop_type = cls.get_shop_type(data)
+        if shop_type.shop_type != 'dc':
             return False
         return True
 
@@ -185,6 +192,12 @@ class ShopForm(forms.ModelForm):
         if not self.shop_type_retailer(self) and not warehouse_code:
             raise ValidationError(_("This field is required"))
         return warehouse_code
+
+    def clean_cutoff_time(self):
+        cutoff_time = self.cleaned_data.get('cutoff_time', None)
+        if self.shop_type_dispatch_center(self) and not cutoff_time:
+            raise ValidationError(_("This field is required"))
+        return cutoff_time
 
 
 from django.forms.models import BaseInlineFormSet
@@ -222,6 +235,47 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('You cant delete all billing address')
             elif flag_bill == 0:
                 raise forms.ValidationError('Please add at least one billing address')
+
+
+class DispatchCenterCityMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterCityMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['city']:
+                # if form.cleaned_data['city'].city_center_mapping.last() is not None:
+                #     raise forms.ValidationError('City is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all cities of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one city of dispatch center')
+
+
+class DispatchCenterPincodeMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterPincodeMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['pincode']:
+                # if form.cleaned_data['pincode'].pincode_center_mapping.last() is not None:
+                #     raise forms.ValidationError('Pincode is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all pincodes of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one pincode of dispatch center')
+
 
 class ShopTimingForm(forms.ModelForm):
     SUN = 'SUN'
