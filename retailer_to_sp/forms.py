@@ -26,7 +26,8 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment, BulkOrder, OrderedProductBatch
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment, BulkOrder, OrderedProductBatch,
+    ShipmentNotAttempt
 )
 from products.models import Product
 from shops.models import Shop
@@ -986,6 +987,12 @@ class ShipmentReschedulingForm(forms.ModelForm):
             )
         }
 
+    def clean_rescheduling_date(self):
+        date = self.cleaned_data['rescheduling_date']
+        if date > (datetime.date.today() + datetime.timedelta(days=3)):
+            raise forms.ValidationError("The date must be within 3 days!")
+        return date
+
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
@@ -994,6 +1001,32 @@ class ShipmentReschedulingForm(forms.ModelForm):
         #             self.instance.shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
         #         self.fields['rescheduling_reason'].disabled = True
         #         self.fields['rescheduling_date'].disabled = True
+
+
+class ShipmentNotAttemptForm(forms.ModelForm):
+    shipment = forms.ModelChoiceField(
+        queryset=Shipment.objects.all(),
+        widget=forms.TextInput
+    )
+
+    class Meta:
+        model = ShipmentNotAttempt
+        fields = ('shipment', 'not_attempt_reason',)
+
+    class Media:
+        js = (
+            'https://cdn.jsdelivr.net/npm/flatpickr',
+            'admin/js/sweetalert.min.js',
+            'admin/js/ShipmentNotAttempt.js',
+        )
+        css = {
+            'all': (
+                'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(ShipmentNotAttemptForm, self).__init__(*args, **kwargs)
 
 
 class OrderedProductMappingRescheduleForm(forms.ModelForm):

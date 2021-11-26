@@ -9,10 +9,15 @@ from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
+from rangefilter.filter import DateRangeFilter
+from dal_admin_filters import AutocompleteFilter
+from rangefilter.filter import DateTimeRangeFilter
+
 from accounts.middlewares import get_current_user
 
 from marketing.filters import UserFilter, PosBuyerFilter
-from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
+from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from .common_functions import RetailerProductCls, PosInventoryCls
@@ -28,7 +33,8 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
-    download_posinventorychange_products, get_product_details
+    download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
+    update_retailer_product_stock
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -99,11 +105,14 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
+                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
+                    'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
-    readonly_fields = (
-    'shop', 'sku', 'product_ean_code', 'product_pack_type', 'description', 'name', 'created_at', 'sku_type', 'mrp', 'modified_at')
+              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
+              'online_enabled', 'online_price', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'product_ean_code', 'product_pack_type',
+                       'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
+                       'sku_type', 'mrp', 'modified_at', 'description')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -169,9 +178,10 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('order', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
-    search_fields = ('order__order_no', 'paid_by__phone_number')
+    search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
+    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -189,6 +199,11 @@ class PaymentAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def seller_shop(self, obj):
+        return obj.order.seller_shop
+
+    class Media:
+        pass
 
 class ShopCustomerMapAdmin(admin.ModelAdmin):
     list_display = ('shop', 'user')
@@ -372,9 +387,10 @@ class OrderedProductMappingInline(admin.TabularInline):
 class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
-    list_per_page = 10
+    list_per_page = 50
     list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
+    list_filter = [('created_at', DateTimeRangeFilter)]
 
     fieldsets = (
         (_('Shop Details'), {
@@ -497,15 +513,33 @@ class PosInventoryAdmin(admin.ModelAdmin):
                          product__shop__pos_shop__status=True)
 
 
+    def get_urls(self):
+        urls = super(PosInventoryAdmin, self).get_urls()
+        urls = [
+
+                   url(r'update_inventory',
+                       self.admin_site.admin_view(update_retailer_product_stock),
+                       name="update_inventory"),
+
+                   url(r'download_current_inventory',
+                       self.admin_site.admin_view(RetailerProductStockDownload),
+                       name="download_current_inventory"),
+
+               ] + urls
+        return urls
+
+    change_list_template = 'admin/pos/pos_inventory_change_list.html'
+
+
 @admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
     list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
-                    'changed_by', 'created_at')
+                    'initial_qty', 'final_qty', 'changed_by', 'created_at', 'remarks')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
-    list_filter = [ProductInvEanSearch]
+    list_filter = [ProductInvEanSearch, ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
 
     change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
@@ -544,6 +578,8 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                ] + urls
         return urls
 
+    class Media:
+        pass
 
 class RetailerReturnItemsAdmin(admin.TabularInline):
     model = RetailerReturnItems

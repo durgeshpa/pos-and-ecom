@@ -1570,9 +1570,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'qc_area' | This is mandatory")
         else:
             raise serializers.ValidationError("'id' | This is mandatory")
-
         data['picking_status'] = 'moved_to_qc'
-
         return data
 
     def update(self, instance, validated_data):

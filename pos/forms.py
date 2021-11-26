@@ -9,7 +9,7 @@ from dal import autocomplete
 from django import forms
 import csv
 
-from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory,\
+from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
     MeasurementUnit
 from products.models import Product
 from shops.models import Shop
@@ -27,7 +27,7 @@ class RetailerProductsForm(forms.ModelForm):
 
 class DiscountedRetailerProductsForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset = Shop.objects.filter(shop_type__shop_type__in=['f']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
         widget=autocomplete.ModelSelect2(
             url='retailer-product-autocomplete'
         )
@@ -50,9 +50,10 @@ class DiscountedRetailerProductsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.id:
             discounted_stock = PosInventory.objects.filter(product=self.instance,
-                                                                inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
+                                                           inventory_state__inventory_state=PosInventoryState.AVAILABLE).last().quantity
 
-            initial_arguments = {'discounted_stock': discounted_stock, 'discounted_selling_price': self.instance.selling_price}
+            initial_arguments = {'discounted_stock': discounted_stock,
+                                 'discounted_selling_price': self.instance.selling_price}
             kwargs.update(initial=initial_arguments)
             super().__init__(*args, **kwargs)
             self.fields['shop'].disabled = True
@@ -82,7 +83,7 @@ class RetailerProductsCSVDownloadForm(forms.Form):
     shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
-        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', )
     )
 
 
@@ -97,14 +98,14 @@ class RetailerProductsCSVUploadForm(forms.Form):
     )
     file = forms.FileField(label='Upload Products')
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
 
         try:
             self.shop_id = kwargs.pop('shop_id')
         except:
             self.shop_id = ''
-            
-        super().__init__(*args,**kwargs)
+
+        super().__init__(*args, **kwargs)
 
     def check_mandatory_data(self, row, key_string, row_num):
         """
@@ -129,13 +130,16 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
             self.check_mandatory_data(row, 'product_pack_type', row_num)
+            self.check_mandatory_data(row, 'available_for_online_orders', row_num)
+            self.check_mandatory_data(row, 'is_visible', row_num)
 
-            if(row["shop_id"] != self.shop_id):
-                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | Check the shop id, you might be uploading to wrong shop!"))
+            if row["shop_id"] != self.shop_id:
+                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
+                                        f"Check the shop id, you might be uploading to wrong shop!"))
 
-            if(row["product_id"] != ''):
+            if row["product_id"] != '':
                 if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
-                    raise ValidationError(_(f"Row {row_num} | {row['product_id']} | dosen't exist"))
+                    raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
 
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
                 raise ValidationError(_(f"Row {row_num} | 'Product MRP' can only be a numeric value."))
@@ -147,24 +151,68 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_(f"Row {row_num} | 'Selling Price' cannot be greater than 'Product Mrp'"))
 
             if 'linked_product_sku' in row.keys():
-                if row['linked_product_sku'] !='':
+                if row['linked_product_sku'] != '':
                     if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
-                        raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+                        raise ValidationError(
+                            _(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+
+            #Check for discounted product
+            if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price')=='':
+                raise ValidationError(_(f"Row {row_num} | 'Discounted Product' cannot be created for new product | Provide product Id"))
+
+            if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
+                product = RetailerProduct.objects.filter(id=row["product_id"]).last()
+                if product.sku_type == 4:
+                    raise ValidationError("This product is already discounted. Further discounted product"
+                                                      " cannot be created.")
+                elif 'discounted_stock' not in row.keys() or not row['discounted_stock']:
+                    raise ValidationError("Discounted stock is required to create discounted product")
+                elif decimal.Decimal(row['discounted_price']) <= 0:
+                    raise ValidationError("Discounted Price should be greater than 0")
+                elif decimal.Decimal(row['discounted_price']) >= decimal.Decimal(row['selling_price']):
+                    raise ValidationError("Discounted Price should be less than selling price")
+                elif int(row['discounted_stock']) < 0:
+                    raise ValidationError("Invalid discounted stock")
+
+            if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \
+                    ['yes', 'no']:
+                raise ValidationError("Available for Online Orders should be Yes OR No")
+            if 'available_for_online_orders' and str(row['available_for_online_orders']).lower() == 'yes':
+                row['online_enabled'] = True
+            else:
+                row['online_enabled'] = False
+
+            if 'is_visible' in row.keys() and str(row['is_visible']).lower() == 'yes':
+                row['is_deleted'] = False
+            else:
+                row['is_deleted'] = True
+
+            if 'online_order_price' in row.keys() and row['online_order_price'] and \
+                    decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
+                raise ValidationError("Online Order Price should be equal to OR less than MRP")
 
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
                 raise ValidationError(_(f"Row {row_num} | Invalid product_pack_type. Options are 'packet' or 'loose'"))
-            if row['product_pack_type'] == 'loose':
+            if row['product_pack_type'].lower() == 'loose':
                 self.check_mandatory_data(row, 'measurement_category', row_num)
                 try:
                     measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
-                    # MeasurementUnit.objects.filter(category=measure_cat).last()
+                    MeasurementUnit.objects.filter(category=measure_cat).last()
                 except:
                     raise ValidationError(_(f"Row {row_num} | Invalid measurement_category."))
                 row['purchase_pack_size'] = 1
 
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
+            # Check if product with this ean code and mrp already exists
+            if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
+                                              product_ean_code=row.get('product_ean_code'),
+                                              mrp=row.get('mrp')).exists():
+                raise ValidationError(_(f"Row {row_num} | "
+                                 f"product with ean code {row.get('product_ean_code')} "
+                                 f"and mrp {row.get('mrp')} already exists"))
+                continue
 
     def read_file(self, headers, reader):
         """
@@ -202,6 +250,7 @@ class RetailerProductMultiImageForm(forms.ModelForm):
     """
        Bulk Retailer Products Image Form
     """
+
     class Meta:
         model = RetailerProductImage
         fields = ('image',)
@@ -213,8 +262,8 @@ class PosInventoryChangeCSVDownloadForm(forms.Form):
     """
     sku = forms.ModelChoiceField(
         label='Select Product SKU',
-        queryset = RetailerProduct.objects.filter(~Q(sku_type=4)),
-        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete',)
+        queryset=RetailerProduct.objects.filter(~Q(sku_type=4)),
+        widget=autocomplete.ModelSelect2(url='inventory-product-autocomplete', )
     )
 
 
@@ -249,3 +298,99 @@ class MeasurementUnitFormSet(forms.models.BaseInlineFormSet):
     class Meta:
         model = MeasurementUnit
 
+
+class RetailerProductsStockUpdateForm(forms.Form):
+    """
+        Select shop for stock update
+    """
+    shop = forms.ModelChoiceField(
+        label='Select Shop',
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', ),
+    )
+    file = forms.FileField(label='Upload Product Stock')
+
+    def __init__(self, *args, **kwargs):
+
+        try:
+            self.shop_id = kwargs.pop('shop_id')
+        except:
+            self.shop_id = ''
+
+        super().__init__(*args, **kwargs)
+
+    def check_mandatory_data(self, row, key_string, row_num):
+        """
+            Check Mandatory Fields from uploaded CSV for creating or updating Retailer Products
+        """
+        if key_string not in row.keys():
+            raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
+
+        if key_string in row.keys():
+            if row[key_string] == '':
+                raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
+
+    def validate_data(self, uploaded_data_list):
+        """
+            Validation for create Products Catalogue
+        """
+        row_num = 1
+        for row in uploaded_data_list:
+            row_num += 1
+            self.check_mandatory_data(row, 'shop_id', row_num)
+            self.check_mandatory_data(row, 'product_id', row_num)
+            self.check_mandatory_data(row, 'current_inventory', row_num)
+            self.check_mandatory_data(row, 'updated_inventory', row_num)
+
+            if row["shop_id"] != self.shop_id:
+                raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
+                                        f"Check the shop id, you might be uploading to wrong shop!"))
+
+            if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
+                raise ValidationError(_(f"Row {row_num} | {row['product_id']} | doesn't exist"))
+
+            if row["current_inventory"] == '':
+                raise ValidationError(_(f"Row {row_num} | {row['current_inventory']} | "
+                                        f"Current Inventory is not valid!"))
+
+            if row["updated_inventory"] == '' or int(row["updated_inventory"]) < 0 :
+                raise ValidationError(_(f"Row {row_num} | {row['updated_inventory']} | "
+                                        f"Update Inventory is not valid!"))
+            if row["current_inventory"] != row["updated_inventory"] \
+                    and ('reason_for_update' not in row or row["reason_for_update"] == ''):
+
+                raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
+                                        f"Reason for update is required!"))
+
+
+
+    def read_file(self, headers, reader):
+        """
+            Reading & validating File Uploaded by user
+        """
+        uploaded_data_by_user_list = []
+        csv_dict = {}
+        count = 0
+        for id, row in enumerate(reader):
+            for ele in row:
+                csv_dict[headers[count]] = ele
+                count += 1
+            uploaded_data_by_user_list.append(csv_dict)
+            csv_dict = {}
+            count = 0
+        self.validate_data(uploaded_data_by_user_list)
+
+    def clean_file(self):
+        """
+            FileField validation Check if file ends with only .csv
+        """
+        if self.cleaned_data.get('file'):
+
+            if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+                raise forms.ValidationError("Please upload only CSV File")
+            else:
+                reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+
+                headers = next(reader, None)
+                self.read_file(headers, reader)
+        return self.cleaned_data['file']

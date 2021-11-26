@@ -25,9 +25,7 @@ from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
-                                  CommonBinInventoryFunctions as CBIF, updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
 
 # Logger
@@ -454,6 +452,12 @@ class PickupList(APIView):
                                 )).\
             order_by('-created_at')
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
+
+        validate_request = validate_pickup_request(request)
+        if "error" in validate_request:
+            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+                            status=status.HTTP_200_OK)
+
         self.queryset = self.filter_pickup_list_data()
 
         # picking_complete count
@@ -476,6 +480,7 @@ class PickupList(APIView):
         search_text = self.request.GET.get('search_text')
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
         data_days = self.request.GET.get('data_days')
@@ -509,7 +514,7 @@ class PickupList(APIView):
             if data_days:
                 end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 start_date = end_date - datetime.timedelta(days=int(data_days))
-                end_date = end_date +datetime.timedelta(days=1)
+                end_date = end_date + datetime.timedelta(days=1)
                 self.queryset = self.queryset.filter(
                     created_at__gte=start_date.date(), created_at__lt=end_date.date())
             else:

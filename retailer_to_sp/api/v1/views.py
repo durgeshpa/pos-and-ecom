@@ -1,125 +1,89 @@
+import json
 import logging
 import re
 from decimal import Decimal
 import json
-from urllib import request
-
-import requests
 from datetime import datetime, timedelta
 from datetime import date as datetime_date
+from django.http import HttpResponse
+from hashlib import sha512
 from operator import itemgetter
 
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.http import HttpResponse
-from num2words import num2words
-from elasticsearch import Elasticsearch
+import requests
 from decouple import config
-from hashlib import sha512
-
-from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value
+from django.db.models import F, Sum, Q
 from django.core.files.base import ContentFile
-from django.db import transaction, models
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-
+from django.shortcuts import render
+from elasticsearch import Elasticsearch
+from num2words import num2words
+from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, permissions, authentication
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-
 from barCodeGenerator import barcodeGen
 from shops.api.v1.serializers import ShopBasicSerializer
-from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
-    validate_id_and_warehouse, validate_shipment
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
+from wms.common_validators import validate_id, validate_data_format, validate_shipment
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive
 
-from wms.views import shipment_reschedule_inventory_change
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
+from .serializers import (ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer
+                          DispatchItemsSerializer, DispatchDashboardSerializer
                           )
-from products.models import ProductPrice, ProductOption, Product
-from sp_to_gram.models import OrderedProductReserved
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return, OrderedProductMapping, ShipmentPackaging,
-                                   ShipmentPackagingMapping)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
-    getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
-                                     Order as GramMappedOrder
-                                     )
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+from retailer_to_sp.models import (OrderedProductMapping, ShipmentPackaging,)
 from brand.models import Brand
-
 from categories import models as categorymodel
-from common.data_wrapper_view import DataWrapperViewSet
-from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-from coupon.serializers import CouponSerializer
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
-
-from ecom.utils import check_ecom_user_shop, check_ecom_user
+from coupon.serializers import CouponSerializer
 from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer
 from ecom.models import Address as EcomAddress, EcomOrderAddress
-
+from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
-
 from marketing.models import ReferralCode
-
-from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
-                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
-                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
-from pos.offers import BasicCartOffers
+from pos import error_code
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
+                                  update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
+                                  check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
 from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
+from pos.offers import BasicCartOffers
 from pos.tasks import update_es, order_loyalty_points_credit
-from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
-
-from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
+from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
                                    CreditNote)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
-
+from retailer_to_sp.models import (ShipmentNotAttempt)
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
@@ -127,8 +91,8 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.views import shipment_not_attempt_inventory_change
 from wms.views import shipment_reschedule_inventory_change
-
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
                           OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
                           GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
@@ -136,8 +100,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer)
-from retailer_backend.settings import AWS_MEDIA_URL
+                          ShopSerializer, ShipmentNotAttemptSerializer)
 
 from retailer_backend.settings import AWS_MEDIA_URL
 from ...common_validators import validate_shipment_dispatch_item
@@ -332,9 +295,10 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            filter_list = [{"term": {"is_discounted": False}}]
+            filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
@@ -360,14 +324,17 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
+            filter_list.append({"term": {"status": 'active'}})
+            filter_list.append({"term": {"online_enabled": True}})
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
         query_string = dict()
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
@@ -464,7 +431,7 @@ class SearchProducts(APIView):
 
     def process_rp(self, output_type, body, shop_id, app_type=None):
         """
-            Modify Es results for response based on output_type - Raw OR Processed
+        Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
@@ -626,8 +593,8 @@ class SearchProducts(APIView):
         p_list = []
         # No Shop Id OR Store Inactive
         if not parent_shop:
-            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
-                                            "visible", "mrp", "ean"]}
+            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
@@ -1393,6 +1360,8 @@ class CartCentral(GenericAPIView):
             else:
                 # Check if price needs to be updated and return selling price
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
+                # Check if mrp needs to be updated and return mrp
+                product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1460,7 +1429,6 @@ class CartCentral(GenericAPIView):
         parent_mapping = getShopMapping(shop_id)
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
-        # Check if product exists
         try:
             product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
@@ -1661,6 +1629,19 @@ class CartCentral(GenericAPIView):
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
+    def get_basic_cart_product_mrp(self, product, cart_no):
+        """
+            Check if retail product mrp needs to be changed on checkout
+            mrp_change - 1 (change for all), 0 don't change
+        """
+        # Check If MRP Change
+        mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+        product_mrp = None
+        if mrp_change == 1:
+            product_mrp = self.request.data.get('product_mrp')
+            RetailerProductCls.update_mrp(product.id, product_mrp, self.request.user, 'cart', cart_no)
+        return product_mrp if product_mrp else product.mrp
+
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
             Add To Cart
@@ -1847,6 +1828,7 @@ class CartCheckout(APIView):
         initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
+
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
@@ -2664,12 +2646,12 @@ class OrderCentral(APIView):
                 return api_response("Please Provide A Valid Status To Update Order")
             # CANCEL ORDER
             if order_status == Order.CANCELLED:
-                # Unprocessed orders can be cancelled
-                if order.order_status != Order.ORDERED:
-                    return api_response('This order cannot be cancelled!')
-
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
+                    # Unprocessed orders can be cancelled
+                    if order.order_status != Order.ORDERED:
+                        return api_response('This order cannot be cancelled!')
+
                     # cancel shipment pos order
                     ordered_product = OrderedProduct.objects.filter(order=order).last()
                     ordered_product.shipment_status = 'CANCELLED'
@@ -2681,6 +2663,9 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
+                    # delivered orders can not be cancelled
+                    if order.order_status == Order.DELIVERED:
+                        return api_response('This order cannot be cancelled!')
                     # Update inventory
                     for cp in cart_products:
                         PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
@@ -2973,6 +2958,8 @@ class OrderCentral(APIView):
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            elif 'api_response' in initial_validation:
+                return initial_validation['api_response']
             cart = initial_validation['cart']
             payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
@@ -3001,6 +2988,9 @@ class OrderCentral(APIView):
             address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
         except:
             return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
         try:
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
         except ObjectDoesNotExist:
@@ -3010,6 +3000,25 @@ class OrderCentral(APIView):
             payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
         except:
             return api_response("Invalid Payment Method")
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
+
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+        if order_config.value is not None:
+            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+            if order_count >= order_config.value:
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
 
         # check inventory
         cart_products = cart.rt_cart_list.all()
@@ -3022,6 +3031,12 @@ class OrderCentral(APIView):
 
         if not CartProductMapping.objects.filter(cart=cart).exists():
             return api_response("No items added to cart yet")
+
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -3138,6 +3153,13 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            # return {'error': 'Few items in your cart are not available.'}
+            return {'api_response': api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})}
+
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
@@ -3557,6 +3579,10 @@ class OrderCentral(APIView):
                     return False
         return True
 
+    # def product_deleled(self, cart_products):
+    #     if cart_products.filter(retailer_product__is_deleted=True).exists():
+    #         return False
+    #     return True
 
 # class CreateOrder(APIView):
 #     authentication_classes = (authentication.TokenAuthentication,)
@@ -4638,9 +4664,28 @@ class CartStockCheckView(APIView):
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
+        if not self.request.GET.get('address_id'):
+            return api_response("Please select an address to check stock")
+        try:
+            address = EcomAddress.objects.get(id=int(self.request.GET.get('address_id')), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
+
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
@@ -6227,9 +6272,51 @@ class RescheduleReason(generics.ListCreateAPIView):
         shipment_reschedule_inventory_change([shipment])
 
 
+class NotAttemptReason(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentNotAttemptSerializer
+
+    def list(self, request, *args, **kwargs):
+        data = [{'name': reason[0], 'display_name': reason[1]} for reason in ShipmentNotAttempt.NOT_ATTEMPT_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        if ShipmentNotAttempt.objects.filter(shipment=request.data.get('shipment'),
+                                             created_at__date=datetime.now().date()).exists():
+            msg = {'is_success': False, 'message': ['A shipment cannot be mark not attempt more than once in a day.'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
+            for item in products:
+                item.delivered_qty = item.returned_qty = item.returned_damage_qty = 0
+                item.save()
+            self.update_shipment(request.data.get('shipment'))
+            update_trip_status(request.data.get('trip'))
+            msg = {'is_success': True, 'message': ['Not Attempt successfully done.'], 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
+        return serializer.save(created_by=self.request.user, trip=shipment.trip)
+
+    def update_shipment(self, id):
+        shipment = OrderedProduct.objects.get(pk=id)
+        shipment.shipment_status = OrderedProduct.NOT_ATTEMPT
+        shipment.trip = None
+        shipment.save()
+        shipment_not_attempt_inventory_change([shipment])
+
+
 def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
-                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
         Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
@@ -6647,7 +6734,6 @@ class ShipmentQCView(generics.GenericAPIView):
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-        # shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
         shipment_data = validate_shipment(self.queryset, int(modified_data['id']))
         if 'error' in shipment_data:
             return get_response(shipment_data['error'])
