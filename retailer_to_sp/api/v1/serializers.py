@@ -1454,6 +1454,33 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
         return obj.get_reason_for_rejection_display()
 
 
+class CrateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Crate
+        fields = ('id', 'crate_id')
+
+
+class ProductPackagingSerializer(serializers.ModelSerializer):
+    crate = CrateSerializer()
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('packaging_type', 'crate', 'status')
+
+
+class ProductPackagingDetailsSerializer(serializers.ModelSerializer):
+
+    shipment_packaging = ProductPackagingSerializer(read_only=True)
+
+    class Meta:
+        model = ShipmentPackagingMapping
+        fields = ('quantity', 'shipment_packaging')
+
+
 class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
     product = ProductSerializer(read_only=True)
@@ -1462,6 +1489,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     product_type = serializers.SerializerMethodField()
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
+    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -1469,7 +1497,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging')
 
     def validate(self, data):
 
@@ -1845,12 +1873,6 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
         fields = ('id', 'pincode', 'city')
-
-
-class CrateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Crate
-        fields = ('id', 'crate_id')
 
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
