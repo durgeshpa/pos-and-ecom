@@ -1839,7 +1839,7 @@ class CartCheckout(APIView):
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs['app_type']), status.HTTP_200_OK, True)
+                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs.get('app_type',None)), status.HTTP_200_OK, True)
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
