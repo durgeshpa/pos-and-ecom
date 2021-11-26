@@ -41,9 +41,8 @@ def run(*args):
                                 po_grn_order_map.received_qty = product.no_of_pieces
                                 po_grn_order_map.save()
 
-
             except Exception as e:
-                # error_logger.error(e)
+                error_logger.error(e)
                 info_logger.error("Something went wrong:", str(e))
 
         info_logger.info("Script Complete to Change no of packs to no of pieces for old PO and GRN")
