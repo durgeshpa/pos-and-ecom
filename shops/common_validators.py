@@ -253,6 +253,57 @@ def get_validate_shop_address(addresses):
     return {'addresses': addresses_obj}
 
 
+def get_validate_dispatch_center_cities(cities):
+    """
+    validate city
+    """
+    cities_list = []
+    cities_obj = []
+    for city_data in cities:
+        if 'city' not in city_data:
+            raise ValidationError("city can't be empty")
+
+        city = get_validate_city_id(city_data['city'])
+        if 'error' in city:
+            return city
+        if city['data'] in cities_list:
+            return {'error': "pincodes can't be duplicate."}
+        cities_list.append(city['data'])
+
+        city_data['city'] = city['data']
+        cities_obj.append(city_data)
+
+    if cities_obj:
+        return {'data': cities_obj}
+    else:
+        return {'error': 'Please add at least one city of dispatch center'}
+
+
+def get_validate_dispatch_center_pincodes(pincodes):
+    """
+    validate pincodes
+    """
+    pincodes_list = []
+    pincodes_obj = []
+    for pincode_data in pincodes:
+        if 'pincode' not in pincode_data:
+            return {'error': "pincode can't be empty"}
+
+        pincode = get_validate_pin_code(pincode_data['pincode'])
+        if 'error' in pincode:
+            return pincode
+        if pincode['data'] in pincodes_list:
+            return {'error': "pincodes can't be duplicate."}
+        pincodes_list.append(pincode['data'])
+
+        pincode_data['pincode'] = pincode['data']
+        pincodes_obj.append(pincode_data)
+    if pincodes_obj:
+        return {'data': pincodes_obj}
+    else:
+        return {'error': 'Please add at least one pincode of dispatch center'}
+
+
 def get_validate_shop_invoice_pattern(shop_invoice_patterns):
     """ 
     validate address's state, city, pincode
