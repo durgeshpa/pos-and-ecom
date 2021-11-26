@@ -1,7 +1,5 @@
 from django import forms
-
-from shops.models import Shop
-from .models import Address, City, State, Pincode, DispatchCenterCityMapping, DispatchCenterPincodeMapping
+from .models import Address, City, State, Pincode
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
