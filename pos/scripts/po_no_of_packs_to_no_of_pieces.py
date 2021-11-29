@@ -50,7 +50,8 @@ def run(*args):
                                 if qty_change != 0:
                                     PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.AVAILABLE,
                                                                   PosInventoryState.AVAILABLE, qty_change, User.objects.get(id=9),
-                                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE)
+                                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE,
+                                                                  mapping.pack_size)
 
             except Exception as e:
                 error_logger.error(e)

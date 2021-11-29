@@ -286,15 +286,14 @@ class PosInventoryCls(object):
                                           final_qty=final_qty, remarks=remarks)
 
     @classmethod
-    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type, po_pack_size):
         """
             Manage GRN related product inventory
         """
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
-        prod_pack_size = RetailerProduct.objects.filter(id=pid).last().purchase_pack_size
-        inv_qty = pos_inv.quantity * prod_pack_size
+        inv_qty = pos_inv.quantity * po_pack_size
         pos_inv.quantity = qty + inv_qty
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
