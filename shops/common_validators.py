@@ -267,7 +267,7 @@ def get_validate_dispatch_center_cities(cities):
         if 'error' in city:
             return city
         if city['data'] in cities_list:
-            return {'error': "pincodes can't be duplicate."}
+            return {'error': "cities can't be duplicate."}
         cities_list.append(city['data'])
 
         city_data['city'] = city['data']
