@@ -1855,7 +1855,8 @@ def create_franchise_po(request, pk):
         products = order.ordered_cart.rt_cart_list.all()
         for mapp in products:
             p = mapp.cart_product
-            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
+            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop, is_deleted=False,
+                                                  product_ref__isnull=True).exists():
                 url = f"""<div><a style="color:blue;" href="%s" target="_blank">Download Unmapped Products List 
                                         </a></div>""" % (reverse('admin:franchise_po_fail_list', args=(pk,)))
                 error = mark_safe(
