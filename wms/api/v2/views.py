@@ -1414,12 +1414,11 @@ class UserDetailsPostLoginView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = PostLoginUserSerializers
     queryset = get_user_model().objects.all()
-
     def get(self, request):
         """ GET User Details post login """
         self.queryset = self.queryset.filter(id=request.user.id)
-        user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(user, many=True)
+        user = self.queryset.last()
+        serializer = self.serializer_class(user)
         msg = "" if user else "no user found"
         return get_response(msg, serializer.data, True)
 
