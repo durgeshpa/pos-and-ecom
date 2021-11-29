@@ -20,22 +20,27 @@ def cancel_beat_plan(*args, **kwargs):
     day_config = GlobalConfig.objects.filter(key='beat_order_days').last()
     if day_config and day_config.value:
         tday = datetime.today().date()
+        print(tday, "Today")
         lday = tday - timedelta(days=int(day_config.value))
+        print(lday, "Last day")
         cancelled_plannings = DayBeatPlanning.objects.filter(
-            Q(
-                Q(beat_plan_date__gt=tday) |
-                Q(next_plan_date__gt=tday)
-            ),
+            # Q(
+            #     Q(beat_plan_date=tday) |
+            #     Q(next_plan_date__gt=tday)
+            # ),
+            beat_plan_date=tday,
             is_active=True,
             shop__shop_type__shop_type='r',
             shop__dynamic_beat=True,
             shop__rt_buyer_shop_cart__isnull=False,
             shop__rt_buyer_shop_cart__rt_order_cart_mapping__created_at__gte=lday
         )
+        print (cancelled_plannings, "objects of day beat plan")
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
-            ).update(dynamic_beat=False) # setting dynamic beat field to false
+            )
+            print (shops, "Shop")
             cp_count = cancelled_plannings.update(is_active=False) # future daily beat plans disabled
             logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
         else:

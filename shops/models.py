@@ -36,9 +36,10 @@ RETAILER_TYPE_CHOICES = (
     ("fofo", "Franchise Franchise Operated")
 )
 
-MANAGER, CASHIER, DELIVERY_PERSON = 'manager', 'cashier', 'delivery_person'
+MANAGER, CASHIER, DELIVERY_PERSON, STORE_MANAGER = 'manager', 'cashier', 'delivery_person', 'store_manager'
 USER_TYPE_CHOICES = (
     (MANAGER, 'Manager'),
+    (STORE_MANAGER, 'Store Manager'),
     (CASHIER, 'Cashier'),
     (DELIVERY_PERSON, 'Delivery Person')
 )
@@ -103,6 +104,7 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
+    dynamic_beat = models.BooleanField(default=False)
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -644,7 +646,7 @@ class DayBeatPlanning(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_id', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
+    is_active = models.BooleanField(default=True)
 
 class ExecutiveFeedback(models.Model):
     """

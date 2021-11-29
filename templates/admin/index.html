@@ -87,6 +87,15 @@
                    <tr>
                         <th scope="row"><a href="/admin/wms/pickup/incorrect-product-bin-mapping-form/">WMS Incorrect Mapping Report</a></th>
                    </tr>
+
+                    {% endif %}
+                {% endif %}
+
+                {% if app.name == "Point Of Sale" %}
+                   {% if model.name == "Inventorys" %}
+                   <tr>
+                        <th scope="row"><a href="/admin/pos/retailerorderedproduct/retailer-order-report-form/">POS Order Report</a></th>
+                   </tr>
                     {% endif %}
                 {% endif %}
 

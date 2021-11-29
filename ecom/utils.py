@@ -1,12 +1,18 @@
+import datetime
+import csv
 from functools import wraps
+
+from django.db.models import Sum, F, FloatField
+from django.http import HttpResponse
 
 from rest_framework.response import Response
 from rest_framework import status
 
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-
+from retailer_to_sp.models import RoundAmount
 from .models import Address
+from pos.models import RetailerProduct
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
@@ -58,7 +64,7 @@ def nearby_shops(lat, lng, radius=10, limit=1):
                AS distance FROM shops_shop 
                left join shops_shoptype on shops_shoptype.id=shops_shop.shop_type_id
                where shops_shoptype.shop_type='f' and shops_shop.status=True and shops_shop.approval_status=2
-               and shops_shop.pos_enabled=True) as shop_loc
+               and shops_shop.pos_enabled=True and shops_shop.online_inventory_enabled=True) as shop_loc
                where distance < %2f ORDER BY distance LIMIT %d OFFSET 0""" % (float(lat), float(lng), float(lat),
                                                                               radius, limit)
 
@@ -92,6 +98,7 @@ def get_ecom_tax_details(product):
         if tax_details.filter(tax__tax_type='gst').last():
             gst_amount = tax_details.filter(tax__tax_type='gst').last().tax.tax_percentage
     return gst_amount
+
 
 def generate_ecom_order_csv_report(queryset):
     retailer_product_type = dict(((0, 'Free'),

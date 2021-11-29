@@ -122,7 +122,7 @@ class PosProductView(GenericAPIView):
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
-        if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id']):
+        if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id', 'reason_for_update']):
             pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
             if 'error' in pos_shop_user_obj:
                 return api_response(pos_shop_user_obj['error'])
@@ -130,12 +130,13 @@ class PosProductView(GenericAPIView):
         if serializer.is_valid():
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
-            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price = data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price', None)
+            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type= data['product_name'], data['product_ean_code'], data[
+                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
+            measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
             ean_not_available = data['ean_not_available']
-            remarks=data['reason_for_update']
+            remarks = data['reason_for_update']
 
             with transaction.atomic():
                 old_product = deepcopy(product)
@@ -154,6 +155,9 @@ class PosProductView(GenericAPIView):
                 product.description = description if description else product.description
                 product.online_enabled = online_enabled
                 product.online_price = online_price if online_price else product.online_price 
+
+                product.product_pack_type = product_pack_type
+                product.measurement_category_id = measurement_category_id
                 # Update images
                 if 'image_ids' in modified_data:
                     RetailerProductImage.objects.filter(product=product).exclude(
