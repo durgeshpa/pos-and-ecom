@@ -607,3 +607,9 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
+
+# WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+
+# WKHTMLTOPDF_CMD_OPTIONS = {
+#     'quiet': True,
+# }

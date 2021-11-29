@@ -1839,7 +1839,7 @@ class CartCheckout(APIView):
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs.get('app_type',None)), status.HTTP_200_OK, True)
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
@@ -2971,6 +2971,9 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
+            obj = Order.objects.get(id=order.id)
+            obj.order_amount = math.floor(obj.order_amount)
+            obj.save()
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -3191,7 +3194,7 @@ class OrderCentral(APIView):
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
         if not cash_only:
-            if round(amount, 2) != cart.order_amount:
+            if round(math.floor(amount), 2) != math.floor(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
         elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
             return {'error': "Cash payment amount should be close to order amount. Please check."}
@@ -4331,7 +4334,7 @@ class OrderReturns(APIView):
             refund_points_value = total_refund_value - refund_amount
             refund_points = int(refund_points_value * redeem_factor)
 
-        order_return.refund_amount = refund_amount
+        order_return.refund_amount = math.floor(refund_amount)
         order_return.refund_points = refund_points
         order_return.discount_adjusted = discount_adjusted
         order_return.save()
@@ -5353,9 +5356,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("bill.pdf", "wb") as f:
+        # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        #
+        
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
         #     static_file.write(content)
@@ -5506,7 +5509,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "total_amount": total_amount,
             "discount": discount,
             "reward_value": redeem_value,
-            'total': total,
+            'total': math.floor(total),
             "barcode": barcode,
             "return_item_listing": return_item_listing,
             "rupees": rupees,
@@ -5528,12 +5531,12 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
-        # with open("bill.pdf", "wb") as f:
+        # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        #
-        # content = render_to_string(template_name, data)
-        # with open("abc.html", 'w') as static_file:
-        #     static_file.write(content)
+        
+        # # content = render_to_string(template_name, data)
+        # # with open("abc.html", 'w') as static_file:
+        # #     static_file.write(content)
 
 
         try:
