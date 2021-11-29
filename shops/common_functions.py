@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 from django.db import transaction
 from products.common_validators import get_csv_file_data
-from addresses.models import Address, State, City, Pincode
+from addresses.models import Address, State, City, Pincode, DispatchCenterPincodeMapping, DispatchCenterCityMapping
 from products.models import CentralLog
 from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, \
     ShopPhoto, ShopUserMapping, Shop
@@ -194,6 +194,48 @@ class ShopCls(object):
                 if 'id' in address:
                     add_id = address.pop('id')
                 Address.objects.update_or_create(defaults=address, id=add_id)
+
+    @classmethod
+    def create_update_dispatch_center_cities(cls, shop, cities):
+        """
+            Delete existing Dispatch Center Cities if not in the request
+            Create / Update Dispatch Center Cities
+        """
+        if cities:
+            ids = []
+            for city_obj in cities:
+                if 'id' in city_obj:
+                    ids.append(city_obj['id'])
+
+            DispatchCenterCityMapping.objects.filter(dispatch_center=shop).exclude(id__in=ids).delete()
+
+            for city in cities:
+                city['dispatch_center'] = shop
+                add_id = None
+                if 'id' in city:
+                    add_id = city.pop('id')
+                DispatchCenterCityMapping.objects.update_or_create(defaults=city, id=add_id)
+
+    @classmethod
+    def create_update_dispatch_center_pincodes(cls, shop, pincodes):
+        """
+            Delete existing Dispatch Center Pincodes if not in the request
+            Create / Update Dispatch Center Pincodes
+        """
+        if pincodes:
+            ids = []
+            for pincode_obj in pincodes:
+                if 'id' in pincode_obj:
+                    ids.append(pincode_obj['id'])
+
+            DispatchCenterPincodeMapping.objects.filter(dispatch_center=shop).exclude(id__in=ids).delete()
+
+            for pincode in pincodes:
+                pincode['dispatch_center'] = shop
+                add_id = None
+                if 'id' in pincode:
+                    add_id = pincode.pop('id')
+                DispatchCenterPincodeMapping.objects.update_or_create(defaults=pincode, id=add_id)
 
     @classmethod
     def create_upadte_shop_photos(cls, shop, existing_photos, photos):
