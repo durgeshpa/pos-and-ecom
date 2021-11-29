@@ -3,19 +3,43 @@ import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
 from wkhtmltopdf.views import PDFTemplateResponse
+from shops.models import DayBeatPlanning,Shop
+from global_config.models import GlobalConfig
+from datetime import (datetime,
+                      timedelta)
 
-template_name = 'abc.html'
-data = None
+def cancel_beat_plan(*args, **kwargs):
+    print('Cron job to cancel daily beat planning due to order called.')
+    day_config = GlobalConfig.objects.filter(key='beat_order_days').last()
+    if day_config and day_config.value:
+        tday = datetime.today().date()
+        tday = tday - timedelta(days=1)
+        print(tday, "Today")
+        lday = tday - timedelta(days=int(day_config.value))
+        print(lday, "Last day")
+        shop = Shop.objects.filter(rt_buyer_shop_cart__rt_order_cart_mapping__created_at__gte=lday,pk=37780).last()
+        print(shop.dynamic_beat)
+        cancelled_plannings = DayBeatPlanning.objects.filter(
+            beat_plan_date=tday,
+            is_active=True,
+            shop__shop_type__shop_type='r',
+            shop__dynamic_beat=True,
+            shop__rt_buyer_shop_cart__isnull=False,
+            shop_id=37780
+        )
+        print (cancelled_plannings, "objects of day beat plan")
+        # if cancelled_plannings:
+        #     shops = Shop.objects.filter(
+        #         id__in=cancelled_plannings.values_list('shop', flat=True)
+        #     )
+        #     print (shops, "Shop")
+        #     cp_count = cancelled_plannings.update(is_active=False) # future daily beat plans disabled
+        #     logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
+        # else:
+        #     logger.info('task done shop 0, plannings 0')
+    else:
+        logger.critical('Configure days contraint for cancelling'
+                        'beat plan with KEY ::: beat_order_days :::'
+                        'Example == {beat_order_day: 3}')
 
-request = None
-filename = "bill"
-# cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
-#               "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 90,
-#               "no-stop-slow-scripts": True, "quiet": True}
-cmd_option = {"margin-top": 10,"margin-left": 0,"margin-right": 0,"javascript-delay": 0, "footer-center": "[page]/[topage]",
-              "page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
-pdf_data = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
-with open("bill.pdf", "wb") as f:
-    f.write(pdf_data.rendered_content)
-
+cancel_beat_plan()
