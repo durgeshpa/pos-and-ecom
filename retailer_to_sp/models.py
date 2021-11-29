@@ -1021,6 +1021,9 @@ class Order(models.Model):
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
+    dispatch_delivery = models.BooleanField(default=False)
+    dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_orders', null=True, blank=True,
+                                        on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
