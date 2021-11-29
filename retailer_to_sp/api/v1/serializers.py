@@ -80,7 +80,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
-                  'product_image')
+                  'product_image', 'product_mrp')
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
@@ -1681,7 +1681,7 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
-    order_no = serializers.SerializerMethodField
+    order_no = serializers.SerializerMethodField()
 
     def get_order_no(self, obj):
         return obj.order.order_no
