@@ -3133,6 +3133,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         shop = self.context.get('shop')
+
         if not 'vendor_id' in self.initial_data or not self.initial_data['vendor_id']:
             raise serializers.ValidationError(_('vendor_id is required'))
 
@@ -3149,8 +3150,8 @@ class PRNOrderSerializer(serializers.ModelSerializer):
             for rtn_product in self.initial_data['product_return']:
 
                 if 'product_id' not in rtn_product or 'return_qty' not in rtn_product or 'return_price' not in \
-                        rtn_product or not rtn_product['product_id'] or rtn_product['return_qty'] is None or \
-                        rtn_product['return_price'] is None:
+                        rtn_product or not rtn_product['product_id'] or not rtn_product['return_qty'] or \
+                        not rtn_product['return_price']:
                     raise serializers.ValidationError("'product_id', 'return_qty' and 'return_price' are mandatory for "
                                                       "every return product object.")
 

@@ -32,6 +32,7 @@ urlpatterns = [
     url(r'^get-grn-order-list/$', GetGrnOrderListView.as_view()),
     url(r'^return-grn-order/$', GrnReturnOrderView.as_view()),
     url(r'^return-order-without-grn/$', PRNOrderView.as_view()),
+
     url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 
     url(r'^incentive/$', IncentiveView.as_view()),
