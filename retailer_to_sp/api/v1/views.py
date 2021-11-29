@@ -6967,7 +6967,7 @@ class DownloadShipmentInvoice(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
-    def get(self, request):
+    def post(self, request):
         """
         :param request: request params
         :return: zip folder which contains the pdf files

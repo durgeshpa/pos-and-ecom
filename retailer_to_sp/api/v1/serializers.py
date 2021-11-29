@@ -1681,10 +1681,14 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
+    order_no = serializers.SerializerMethodField
+
+    def get_order_no(self, obj):
+        return obj.order.order_no
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
+        fields = ('id', 'order_no', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
                   'shop_owner_name', 'shop_owner_number', 'order_created_date',
                   'rt_order_product_order_product_mapping')
 
