@@ -3156,20 +3156,56 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
                 if rtn_product['return_qty'] <= 0:
                     raise serializers.ValidationError("return_qty must be greater than 0.")
+
                 if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop):
                     raise serializers.ValidationError(f"please select valid product {rtn_product['product_id']}")
+
 
                 if not RetailerProduct.objects.filter(id=int(rtn_product['product_id'],
                                                              selling_price=rtn_product['return_price']), shop=shop):
                     raise serializers.ValidationError(f"product not available with this return price "
                                                       f"{rtn_product['return_price']}")
+
                 product_in_inventory = PosInventory.objects.filter(product=self.initial_data['product_id'],
-                                                                   quantity=self.initial_data['return_qty'],
                                                                    product__shop=shop,
                                                                    inventory_state=PosInventoryState.AVAILABLE)
-
                 if not product_in_inventory:
-                    pass
+                    raise serializers.ValidationError(f"product not available in inventory")
+
+                if product_in_inventory.quantity < self.initial_data['return_qty']:
+                    raise serializers.ValidationError(f"your available quantity is {product_in_inventory.quantity} "
+                                                      f"you can't return {self.initial_data['return_qty']}")
+
+                instance_id = self.instance.id if self.instance else None
+                if 'status' in data and data['status'] == PosReturnGRNOrder.CANCELLED and instance_id:
+                    if PosReturnGRNOrder.objects.filter(id=instance_id, status=PosReturnGRNOrder.CANCELLED,
+                                                        grn_ordered_id__order__ordered_cart__retailer_shop=shop).exists():
+                        raise serializers.ValidationError("This Order is already cancelled")
 
         return data
 
+    @transaction.atomic
+    def create(self, validated_data):
+        """ return product """
+        products_return = validated_data.pop('product_return', None)
+        try:
+            grn_return_id = PosReturnGRNOrder.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if grn_return_id.status == PosReturnGRNOrder.RETURNED and products_return:
+            self.create_return_items(grn_return_id, products_return)
+        return PosReturnGRNOrder.objects.get(id=grn_return_id.id)
+
+    def create_return_items(self, grn_return_id, products_return):
+        for product_return in products_return:
+            pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
+                product_id=product_return['product_id'], defaults={})
+            pos_return_items_obj.return_qty = pos_return_items_obj.return_qty + product_return['return_qty']
+            pos_return_items_obj.save()
+            PosInventoryCls.grn_inventory(product_return['product_id'], PosInventoryState.AVAILABLE,
+                                          PosInventoryState.AVAILABLE, -(product_return['return_qty']),
+                                          grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
+                                          PosInventoryChange.RETURN)
+
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
