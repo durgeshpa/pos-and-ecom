@@ -1948,7 +1948,7 @@ class QCJobsDashboardCountsSerializer(serializers.Serializer):
     pending = serializers.SerializerMethodField()
     qc_pass = serializers.SerializerMethodField()
     # partial_qc_pass = serializers.SerializerMethodField()
-    # rejected = serializers.SerializerMethodField()
+    rejected = serializers.SerializerMethodField()
 
     def get_shipments(self, obj):
         return OrderedProduct.objects.filter(
@@ -1970,10 +1970,10 @@ class QCJobsDashboardCountsSerializer(serializers.Serializer):
     #         qc_area__id__in=list(obj), shipment_status=OrderedProduct.PARTIALLY_QC_PASSED,
     #         created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
     #
-    # def get_rejected(self, obj):
-    #     return OrderedProduct.objects.filter(
-    #         qc_area__id__in=list(obj), shipment_status=OrderedProduct.QC_REJECTED,
-    #         created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+    def get_rejected(self, obj):
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.QC_REJECTED,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
 
 class QCJobsDashboardSerializer(serializers.Serializer):

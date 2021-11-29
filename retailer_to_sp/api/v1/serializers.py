@@ -1822,7 +1822,6 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     or (shipment_status == OrderedProduct.QC_STARTED and status != OrderedProduct.READY_TO_SHIP) \
                     or (shipment_status == OrderedProduct.READY_TO_SHIP and status != OrderedProduct.MOVED_TO_DISPATCH):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
-                data['shipment_status'] = status
 
                 user = self.initial_data.pop('user')
                 if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
@@ -1835,6 +1834,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 elif status == OrderedProduct.MOVED_TO_DISPATCH and \
                 shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
                     raise serializers.ValidationError(' Some item/s still not ready for dispatch')
+
+                if status == OrderedProduct.READY_TO_SHIP and \
+                    not shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0).exists():
+                    status = OrderedProduct.QC_REJECTED
+                data['shipment_status'] = status
+
             else:
                 raise serializers.ValidationError("Only status update is allowed")
         else:

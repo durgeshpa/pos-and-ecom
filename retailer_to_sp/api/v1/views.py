@@ -6708,7 +6708,6 @@ class ShipmentQCView(generics.GenericAPIView):
         order_by('-id')
 
 
-
     def get(self, request):
         if not request.GET.get('status'):
             return get_response("'status' | This is mandatory")
