@@ -1205,6 +1205,38 @@ def pickup_entry_creation_with_cron():
     cron_log_entry.save()
 
 
+def assign_picker_user_to_pickup_created_orders():
+    cron_logger.info("Started assign_picker_user_to_pickup_created_orders.")
+    current_time = datetime.now() - timedelta(minutes=1)
+    start_time = datetime.now() - timedelta(days=3)
+    picker_dash_ins = PickerDashboard.objects.filter(
+        picking_status="picking_pending", order_closed=False,
+        created_at__lt=current_time, created_at__gt=start_time).order_by('created_at')
+    if picker_dash_ins.count() == 0:
+        cron_logger.info("No pickup pending to assign picker user.")
+        return
+    for picker_dash_obj in picker_dash_ins:
+        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+            user_enabled=True, zone=picker_dash_obj.zone, last_assigned_at=None).last()
+        if not zone_picker_assigned_user:
+            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                user_enabled=True, zone=picker_dash_obj.zone). \
+                order_by('-last_assigned_at').last()
+        if zone_picker_assigned_user:
+            picker_user = zone_picker_assigned_user.user
+            zone_picker_assigned_user.last_assigned_at = datetime.now()
+            zone_picker_assigned_user.save()
+            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+            picker_dash_obj.picking_status = PickerDashboard.PICKING_ASSIGNED
+            picker_dash_obj.picker_boy = picker_user
+            picker_dash_obj.save()
+            cron_logger.info(f"Picker user {picker_user} assigned to pickup entry {picker_dash_obj} "
+                             f"for order no {picker_dash_obj.order}")
+        else:
+            cron_logger.info(f"No picker found for zone {picker_dash_obj.zone}")
+    cron_logger.info("Completed assign_picker_user_to_pickup_created_orders.")
+
+
 class DownloadBinCSV(View):
     """
     This class is used to download the sample file for Bin CSV
