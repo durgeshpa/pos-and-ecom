@@ -96,7 +96,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
 
         from audit.views import BlockUnblockProduct
         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product, seller_shop)
-        if is_blocked_for_audit is False:
+        if is_blocked_for_audit is True:
             message = "Failed because of SKU {} is Blocked for Audit" \
                 .format(str(product.product_sku))
             error_dict[row[0]] = message
