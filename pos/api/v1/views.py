@@ -1382,7 +1382,7 @@ class GrnReturnOrderView(GenericAPIView):
                                               context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
-            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
+            return api_response('GRN returned updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
@@ -1400,6 +1400,28 @@ class PRNOrderView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
             return api_response('PRN created successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    @check_return_status
+    def put(self, request, *args, **kwargs):
+        """ Update Return Order """
+        info_logger.info("Return Order Product PUT api called.")
+        if 'id' not in request.data:
+            return api_response('please provide id to update return order product', False)
+
+        # validations for input id
+        try:
+            pos_return_order = PosReturnGRNOrder.objects.filter(vendor_id__retailer_shop=kwargs['shop'])
+            id_instance = pos_return_order.get(id=int(request.data['id']))
+        except:
+            return api_response('please provide a valid id')
+        serializer = PRNOrderSerializer(instance=id_instance, data=request.data,
+                                        context={'status': kwargs['status'], 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            return api_response('PRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 

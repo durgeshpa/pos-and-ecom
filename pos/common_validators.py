@@ -41,7 +41,7 @@ def get_validate_grn_order(grn_ordered_id, shop):
 def get_validate_vendor(vendor_id, shop):
     """ validate id that belong to a Vendor model if not through error """
     try:
-        vendor_obj = Vendor.objects.filter(id=vendor_id, retailer_shop=shop)
+        vendor_obj = Vendor.objects.get(id=vendor_id, retailer_shop=shop)
     except Exception as e:
         return {'error': "Vendor doesn't exist"}
     return {'vendor_id': vendor_obj}

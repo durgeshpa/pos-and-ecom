@@ -506,6 +506,8 @@ class PosReturnGRNOrder(models.Model):
     status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
     grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=True, blank=True,
                                        on_delete=models.DO_NOTHING)
+    vendor_id = models.ForeignKey(Vendor, related_name='vendor_return', null=True, blank=True,
+                                  on_delete=models.DO_NOTHING)
     last_modified_by = models.ForeignKey(User, related_name='grn_return_last_modified_user', null=True, blank=True,
                                          on_delete=models.CASCADE)
     debit_note_number = models.CharField(max_length=255, null=True, blank=True)
@@ -555,9 +557,11 @@ class PosReturnItems(models.Model):
         return None
 
     def save(self, *args, **kwargs):
-        if not self.id:
+        if not self.id and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             self.selling_price = po_product.price if po_product else 0
+        elif not self.id:
+            self.selling_price = self.product.selling_price
         super(PosReturnItems, self).save(*args, **kwargs)
 
