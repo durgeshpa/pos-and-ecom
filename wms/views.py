@@ -1161,21 +1161,25 @@ def pickup_entry_creation_with_cron():
                             tr_type, tr_id)
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
-                        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
-                        if not zone_picker_assigned_user:
+                        picker_user_assigned = False
+                        if order.seller_shop.cutoff_time is None or \
+                                order.seller_shop.cutoff_time < datetime.now().time():
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                                user_enabled=True, zone_id=zone_id). \
-                                order_by('-last_assigned_at').last()
-                        if zone_picker_assigned_user:
-                            picker_user = zone_picker_assigned_user.user
-                            zone_picker_assigned_user.last_assigned_at = datetime.now()
-                            zone_picker_assigned_user.save()
-                            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
-                            PickerDashboard.objects.create(
-                                order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
-                        else:
+                                user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
+                            if not zone_picker_assigned_user:
+                                zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                    user_enabled=True, zone_id=zone_id). \
+                                    order_by('-last_assigned_at').last()
+                            if zone_picker_assigned_user:
+                                picker_user = zone_picker_assigned_user.user
+                                zone_picker_assigned_user.last_assigned_at = datetime.now()
+                                zone_picker_assigned_user.save()
+                                # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                                PickerDashboard.objects.create(
+                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                picker_user_assigned = True
+                        if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
                             cron_logger.info('Picker user not found for zone {}'.format(zone_id))
                             # Create Entry in PickerDashboard with PICKING_PENDING status
