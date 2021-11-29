@@ -222,7 +222,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             # Check if product with this ean code and mrp already exists
             if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
                                               product_ean_code=row.get('product_ean_code'),
-                                              mrp=row.get('mrp')).exists():
+                                              mrp=row.get('mrp'), is_deleted=False).exists():
                 raise ValidationError(_(f"Row {row_num} | "
                                  f"product with ean code {row.get('product_ean_code')} "
                                  f"and mrp {row.get('mrp')} already exists"))
