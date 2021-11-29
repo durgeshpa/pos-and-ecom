@@ -18,7 +18,7 @@ from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, 
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty
-from pos.common_validators import get_validate_grn_order
+from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
@@ -3120,3 +3120,56 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
                   'order_status_display', 'payment')
+
+
+class PRNOrderSerializer(serializers.ModelSerializer):
+    product_return = serializers.SerializerMethodField()
+    last_modified_by = PosShopUserSerializer(read_only=True)
+
+    class Meta:
+        model = PosReturnGRNOrder
+        fields = ('id', 'pr_number', 'po_no', 'product_return', 'status', 'last_modified_by',
+                  'debit_note_number', 'debit_note', 'created_at', 'modified_at')
+
+    def validate(self, data):
+        shop = self.context.get('shop')
+        if not 'vendor_id' in self.initial_data or not self.initial_data['vendor_id']:
+            raise serializers.ValidationError(_('vendor_id is required'))
+
+        vendor_obj = get_validate_vendor(int(self.initial_data['vendor_id']), shop)
+        if 'error' in vendor_obj:
+            raise serializers.ValidationError(vendor_obj['error'])
+        data['vendor_id'] = vendor_obj['vendor_id']
+
+        if 'status' not in self.initial_data or self.initial_data['status'] != PosReturnGRNOrder.CANCELLED:
+            if 'product_return' not in self.initial_data or type(self.initial_data['product_return']) != list:
+                raise serializers.ValidationError("Provide return item details")
+
+            # Check return item details
+            for rtn_product in self.initial_data['product_return']:
+
+                if 'product_id' not in rtn_product or 'return_qty' not in rtn_product or 'return_price' not in \
+                        rtn_product or not rtn_product['product_id'] or rtn_product['return_qty'] is None or \
+                        rtn_product['return_price'] is None:
+                    raise serializers.ValidationError("'product_id', 'return_qty' and 'return_price' are mandatory for "
+                                                      "every return product object.")
+
+                if rtn_product['return_qty'] <= 0:
+                    raise serializers.ValidationError("return_qty must be greater than 0.")
+                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop):
+                    raise serializers.ValidationError(f"please select valid product {rtn_product['product_id']}")
+
+                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id'],
+                                                             selling_price=rtn_product['return_price']), shop=shop):
+                    raise serializers.ValidationError(f"product not available with this return price "
+                                                      f"{rtn_product['return_price']}")
+                product_in_inventory = PosInventory.objects.filter(product=self.initial_data['product_id'],
+                                                                   quantity=self.initial_data['return_qty'],
+                                                                   product__shop=shop,
+                                                                   inventory_state=PosInventoryState.AVAILABLE)
+
+                if not product_in_inventory:
+                    pass
+
+        return data
+

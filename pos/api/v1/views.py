@@ -45,7 +45,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer)
+                          GrnOrderGetListSerializer, PRNOrderSerializer)
 from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
@@ -1383,6 +1383,23 @@ class GrnReturnOrderView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
             return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+
+class PRNOrderView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    @check_return_status
+    def post(self, request, *args, **kwargs):
+        """ Create PRN for non GRN Order """
+        serializer = PRNOrderSerializer(data=request.data,
+                                        context={'status': kwargs['status'], 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            return api_response('PRN created successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 
