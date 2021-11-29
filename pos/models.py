@@ -14,7 +14,7 @@ from retailer_backend.validators import ProductNameValidator, NameValidator, Add
 from accounts.models import User
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
-                                   OrderedProductMapping)
+                                   OrderedProductMapping, Order)
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
 
 PAYMENT_MODE_POS = (
@@ -565,3 +565,8 @@ class PosReturnItems(models.Model):
             self.selling_price = self.product.selling_price
         super(PosReturnItems, self).save(*args, **kwargs)
 
+
+class RetailerOrderedReport(Order):
+    class Meta:
+        proxy = True
+        verbose_name = 'Order - Report'

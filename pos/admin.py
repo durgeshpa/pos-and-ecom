@@ -28,17 +28,18 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems)
+                     PosReturnItems, RetailerOrderedReport)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
+    RetailerOrderReturnCreditNoteView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import create_order_data_excel, create_order_return_excel
+from .utils import create_order_data_excel, create_order_return_excel, generate_prn_csv_report, generate_csv_payment_report
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
 
@@ -181,7 +182,10 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
-    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
+    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
+                   ('payment_type', RelatedOnlyDropdownFilter),
+                   ('created_at', DateRangeFilter)]
+    actions = ['download_payment_report']
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -202,8 +206,12 @@ class PaymentAdmin(admin.ModelAdmin):
     def seller_shop(self, obj):
         return obj.order.seller_shop
 
+    def download_payment_report(self, request, queryset):
+        return generate_csv_payment_report(queryset)
+
     class Media:
         pass
+
 
 class ShopCustomerMapAdmin(admin.ModelAdmin):
     list_display = ('shop', 'user')
@@ -388,9 +396,10 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 50
-    list_display = ('order', 'invoice_no', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
+    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
-    list_filter = [('created_at', DateTimeRangeFilter)]
+    list_filter = [('order__seller_shop__shop_type', RelatedOnlyDropdownFilter),
+                   ('created_at', DateTimeRangeFilter)]
 
     fieldsets = (
         (_('Shop Details'), {
@@ -454,6 +463,35 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
                          order__seller_shop__pos_shop__status=True)
+
+    def download_invoice(self, obj):
+        if obj.invoice.invoice_pdf:
+            return format_html("<a href= '%s' >Download Invoice</a>" % (reverse('admin:pos_download_order_invoice', args=[obj.pk])))
+        #invoice_pdf_to_response(263980)
+        else:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RetailerOrderProductAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^retailer-order-report/$',
+                       self.admin_site.admin_view(RetailerOrderedReportView.as_view()),
+                       name="retailer-order-report"
+                   ),
+                   url(
+                       r'^retailer-order-report-form/$',
+                       self.admin_site.admin_view(RetailerOrderedReportFormView.as_view()),
+                       name="retailer-order-report-form"
+                   ),
+                   url(
+                       r'^retailer-order-invoice/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(RetailerOrderProductInvoiceView.as_view()),
+                       name="pos_download_order_invoice"
+                   )
+               ] + urls
+        return urls
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -539,7 +577,8 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
-    list_filter = [ProductInvEanSearch, ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
+    list_filter = [ProductInvEanSearch,
+                   'transaction_type', ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
 
     change_list_template = 'admin/pos/posinventorychange_product_change_list.html'
 
@@ -608,7 +647,7 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_order_return_as_csv']
     list_display = (
-    'order_no', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+    'order_no', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
     'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
@@ -626,6 +665,25 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     @staticmethod
     def refunded_amount(obj):
         return obj.refund_amount
+
+    def download_credit_note(self, obj):
+        if obj.credit_note_order_return_mapping.last() \
+            and obj.credit_note_order_return_mapping.last().credit_note_pdf:
+            return format_html("<a href= '%s' >Download Credit Note</a>" % (reverse('admin:pos_download_order_return_credit_note', args=[obj.pk])))
+        else:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RetailerOrderReturnAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^retailer-order-return-credit-note/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(RetailerOrderReturnCreditNoteView.as_view()),
+                       name="pos_download_order_return_credit_note"
+                   )
+               ] + urls
+        return urls
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -768,6 +826,8 @@ class PosCartAdmin(admin.ModelAdmin):
     'created_at', 'modified_at')
     fields = list_display
     list_per_page = 10
+    list_filter = [('retailer_shop', RelatedOnlyDropdownFilter),
+                   ('created_at', DateRangeFilter)]
     inlines = [PosCartProductMappingAdmin]
     search_fields = ('po_no', 'retailer_shop__shop_name')
     actions = ['download_store_po']
@@ -847,6 +907,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     fields = list_display
     list_per_page = 10
     inlines = [PosGrnOrderProductMappingAdmin]
+    list_filter = [('order__ordered_cart__retailer_shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
     search_fields = ('order__ordered_cart__po_no', 'order__ordered_cart__retailer_shop__shop_name')
     actions = ['download_grns']
 
@@ -985,12 +1046,16 @@ class PosReturnGRNOrderAdmin(admin.ModelAdmin):
     fields = ('pr_number',  'status', )
     list_per_page = 10
     inlines = [PosReturnItemsAdmin]
+    actions = ['download_prn_report']
 
     def has_delete_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def download_prn_report(self, request, queryset):
+        return generate_prn_csv_report(queryset)
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
