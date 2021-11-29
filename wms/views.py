@@ -21,6 +21,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from accounts.models import User
+from addresses.models import DispatchCenterPincodeMapping
 from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from barCodeGenerator import barcodeGen
 # django imports
@@ -983,6 +984,25 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 #     cron_log_entry.save()
 
 
+def assign_dispatch_center_to_order_by_pincode(order_id):
+    try:
+        order_ins = Order.objects.get(id=order_id)
+        if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
+            dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_ins.pincode).last()
+            if dispatch_center_map:
+                order_ins.dispatch_center = dispatch_center_map.dispatch_center
+                order_ins.dispatch_delivery = True
+                order_ins.save()
+                info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+            else:
+                info_logger.info("No Dispatch center found mapped with pincode " + str(order_ins.pincode))
+        else:
+            info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
+    except Exception as ex:
+        info_logger.error("Unable to assign_dispatch_center_to_order, No order found for order Id: " + str(order_id) +
+                          ", Error msg: " + str(ex))
+
+
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
@@ -1169,6 +1189,7 @@ def pickup_entry_creation_with_cron():
                 info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
                                  str(order.order_status))
                 order.save()
+                assign_dispatch_center_to_order_by_pincode(order.pk)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
