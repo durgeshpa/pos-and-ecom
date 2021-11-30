@@ -120,7 +120,7 @@ class EcomCartProductMapping(CartProductMapping):
 class EcomOrderedProduct(Order):
     class Meta:
         proxy = True
-        verbose_name = 'Ecom-Order'
+        verbose_name = 'Order'
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
