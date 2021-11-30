@@ -310,7 +310,7 @@ def update_debit_note_pdf(returned_obj, filename, response):
         error_logger.exception(e)
 
 
-# @task
+@task
 def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
     instance = PosReturnGRNOrder.objects.get(id=pos_return_items_obj)
     try:

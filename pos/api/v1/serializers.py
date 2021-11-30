@@ -2816,7 +2816,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                           grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
                                           PosInventoryChange.RETURN)
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_return_items(self, grn_return_id, grn_products_return):
         self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
@@ -2861,7 +2861,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.save()
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_cancel_return(self, grn_return_id, instance_id,):
 
@@ -3160,14 +3160,19 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
     returned_product = serializers.SerializerMethodField()
     return_qty = serializers.SerializerMethodField()
+    total_return_qty = serializers.SerializerMethodField()
 
     class Meta:
         model = PosReturnItems
-        fields = ('pack_size', 'return_qty', 'returned_product')
+        fields = ('pack_size', 'return_qty', 'total_return_qty', 'returned_product')
 
     @staticmethod
     def get_return_qty(obj):
         return obj.qty_given
+
+    @staticmethod
+    def get_total_return_qty(obj):
+        return obj.return_qty
 
     @staticmethod
     def get_returned_product(obj):
@@ -3299,7 +3304,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                                           PosInventoryState.AVAILABLE, -(product_return['return_qty']),
                                           grn_return_id.last_modified_by, grn_return_id.id, PosInventoryChange.RETURN)
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -3359,7 +3364,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.save()
 
-        mail_to_vendor_on_order_return_creation(grn_return_id.id)
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
     def update_cancel_return(self, grn_return_id, instance_id,):
 
