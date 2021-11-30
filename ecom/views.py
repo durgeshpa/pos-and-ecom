@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 
 from shops.models import Shop
 from pos.models import RetailerProduct
-from ecom.proxy_models import EcomOrderedProduct
+from ecom.models import EcomOrderedProduct
 
 # Create your views here.
 class EcomShopAutoCompleteView(autocomplete.Select2QuerySetView):

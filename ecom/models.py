@@ -9,6 +9,8 @@ from retailer_to_sp.models import Order
 from pos.models import RetailerProduct
 from addresses.models import City, State, Pincode
 
+from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping, Order
+
 
 
 class Address(models.Model):
@@ -101,3 +103,27 @@ class TagProductMapping(models.Model):
 
     def __str__(self):
         return self.tag.name + '-' + self.product.name
+
+
+class EcomCart(Cart):
+    class Meta:
+        proxy = True
+        verbose_name = 'Cart'
+
+
+class EcomCartProductMapping(CartProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Cart Product Mapping'
+
+
+class EcomOrderedProduct(Order):
+    class Meta:
+        proxy = True
+        verbose_name = 'Ecom-Order'
+
+
+class EcomOrderedProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = 'Ordered Product Mapping'
