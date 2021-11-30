@@ -14,7 +14,7 @@ from accounts.models import UserWithName
 from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
-from retailer_to_sp.common_validators import validate_shipment_crates_list
+from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
@@ -1420,7 +1420,7 @@ class ProductPackagingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('packaging_type', 'crate', 'status')
+        fields = ('id', 'packaging_type', 'crate', 'status')
 
 
 class ProductPackagingDetailsSerializer(serializers.ModelSerializer):
@@ -1552,7 +1552,6 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if shipped_qty == 0:
                 raise serializers.ValidationError("To be shipped quantity is zero, packaging is not required")
             total_product_qty = 0
-            is_box_sack_used = False
             for package_obj in self.initial_data['packaging']:
                 if 'type' not in package_obj or not package_obj['type']:
                     raise serializers.ValidationError("'package type' | This is mandatory")
@@ -1563,15 +1562,16 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                                                                     mapping_instance.ordered_product)
                     if 'error' in validate_crates:
                         raise serializers.ValidationError(validate_crates['error'])
-                    for crate_obj in validate_crates['data']['crates']:
+                    for crate_obj in validate_crates['data']['packages']:
                         total_product_qty += crate_obj['quantity']
                 elif package_obj['type'] in [ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
-                    is_box_sack_used = True
-                    if 'count' not in package_obj or not package_obj['count'] :
-                        raise serializers.ValidationError(f"'packaging count' | count is required for packaging type"
-                                                          f" {package_obj['type']}")
-            if not is_box_sack_used and total_product_qty != int(shipped_qty):
-                raise serializers.ValidationError("Crates quantity should match total shipped quantity.")
+                    validated_packages = validate_shipment_package_list(package_obj)
+                    if 'error' in validated_packages:
+                        raise serializers.ValidationError(validated_packages['error'])
+                    for package in validated_packages['data']['packages']:
+                        total_product_qty += package['quantity']
+            if total_product_qty != int(shipped_qty):
+                raise serializers.ValidationError("Total quantity packaged should match total shipped quantity.")
         elif shipped_qty > 0:
             raise serializers.ValidationError("'packaging' | This is mandatory")
 
@@ -1587,9 +1587,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         return data
 
     def create_update_shipment_packaging(self, shipment, packaging_type, warehouse_id, crate, updated_by):
-        instance, created = ShipmentPackaging.objects.get_or_create(
-            shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
-            defaults={'created_by': updated_by, 'updated_by': updated_by})
+        if packaging_type == ShipmentPackaging.CRATE:
+            instance, created = ShipmentPackaging.objects.get_or_create(
+                shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
+                defaults={'created_by': updated_by, 'updated_by': updated_by})
+        else:
+            instance = ShipmentPackaging.objects.create(
+                shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
+                created_by=updated_by, updated_by=updated_by)
         return instance
 
     def create_shipment_packaging_mapping(self, shipment_packaging, ordered_product, quantity, updated_by):
@@ -1626,7 +1631,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         if packaging:
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
-                    for crate in package_obj['crates']:
+                    for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
                             crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
                             crate_type=Crate.DISPATCH).last()
@@ -1639,12 +1644,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                             validated_data['last_modified_by'])
 
                 elif package_obj['type'] in [ShipmentPackaging.BOX, ShipmentPackaging.SACK]:
-                    for _ in range(package_obj['count']):
+                    for package in package_obj['packages']:
                         shipment_packaging = self.create_update_shipment_packaging(
                             process_shipments_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], None, validated_data['last_modified_by'])
+
                         self.create_shipment_packaging_mapping(
-                            shipment_packaging, process_shipments_instance, None, validated_data['last_modified_by'])
+                            shipment_packaging, process_shipments_instance, int(package['quantity']),
+                            validated_data['last_modified_by'])
         return process_shipments_instance
 
     @staticmethod

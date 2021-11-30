@@ -1416,8 +1416,8 @@ class UserDetailsPostLoginView(generics.GenericAPIView):
     def get(self, request):
         """ GET User Details post login """
         self.queryset = self.queryset.filter(id=request.user.id)
-        user = self.queryset.last()
-        serializer = self.serializer_class(user)
+        user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(self.queryset, many=True)
         msg = "" if user else "no user found"
         return get_response(msg, serializer.data, True)
 
