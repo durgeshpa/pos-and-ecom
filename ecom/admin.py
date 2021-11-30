@@ -239,3 +239,5 @@ class TagAdmin(admin.ModelAdmin):
 
 
 admin.site.register(EcommerceOrderedProduct, EcomOrderProductAdmin)
+admin.site.register(EcommerceCart, EcomCartAdmin)
+
