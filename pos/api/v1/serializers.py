@@ -2490,6 +2490,22 @@ class RetailerProductSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'product_pack_type')
 
 
+class PosInventoryProductMappingSerializer(serializers.ModelSerializer):
+    product = RetailerProductSerializer(read_only=True)
+    # inventory_state = serializers.SerializerMethodField()
+    available_quantity = serializers.SerializerMethodField()
+
+    # def get_inventory_state(self, obj):
+    #     return PosInventoryState.objects.filter(inventory_state=obj.inventory_state).last().inventory_state
+
+    def get_available_quantity(self, obj):
+        return obj.quantity
+
+    class Meta:
+        model = PosInventory
+        fields = ('product', 'available_quantity',)
+
+
 class PosGRNOrderProductMappingSerializer(serializers.ModelSerializer):
     product = RetailerProductSerializer(read_only=True)
     received_qty = serializers.SerializerMethodField()
@@ -3142,56 +3158,40 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
-    product = serializers.SerializerMethodField()
+    returned_product = serializers.SerializerMethodField()
     return_qty = serializers.SerializerMethodField()
-    qty_unit = serializers.SerializerMethodField()
-    total_return_qty = serializers.SerializerMethodField()
-    other_return_qty = serializers.SerializerMethodField()
 
     class Meta:
         model = PosReturnItems
-        fields = ('id', 'product', 'return_qty', 'other_return_qty', 'total_return_qty', 'qty_unit', 'pack_size')
-
-    @staticmethod
-    def get_qty_unit(obj):
-        return obj.given_qty_unit
+        fields = ('pack_size', 'return_qty', 'returned_product')
 
     @staticmethod
     def get_return_qty(obj):
         return obj.qty_given
 
     @staticmethod
-    def get_product(obj):
+    def get_returned_product(obj):
         i_state_obj = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         product_in_inventory = PosInventory.objects.filter(product=obj.product.id,
                                                            product__shop=obj.product.shop,
                                                            inventory_state=i_state_obj)
-        return product_in_inventory
+        return PosInventoryProductMappingSerializer(product_in_inventory, many=True).data
 
-    @staticmethod
-    def get_total_return_qty(obj):
-        total_returned = PosReturnItems.objects.filter(
-            grn_return_id__vendor_id=obj.grn_return_id.vendor_id, product=obj.product,
-            is_active=True).aggregate(total=Sum('return_qty'))['total']
-        if total_returned:
-            return 0
 
-    @staticmethod
-    def get_other_return_qty(obj):
-        other_return = PosReturnItemsSerializer.get_total_return_qty(obj) - (obj.return_qty if obj.is_active else 0)
-
-        if other_return:
-            return 0
-        return 0
+class VendorInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vendor
+        fields = ('id', 'vendor_name', 'phone_number', 'email')
 
 
 class PRNOrderSerializer(serializers.ModelSerializer):
     product_return = serializers.SerializerMethodField()
     last_modified_by = PosShopUserSerializer(read_only=True)
+    vendor_id = VendorInfoSerializer(read_only=True)
 
     class Meta:
         model = PosReturnGRNOrder
-        fields = ('id', 'pr_number', 'product_return', 'status', 'last_modified_by',
+        fields = ('id', 'pr_number', 'status', 'vendor_id', 'product_return', 'last_modified_by',
                   'debit_note_number', 'debit_note', 'created_at', 'modified_at')
 
     def validate(self, data):
@@ -3318,6 +3318,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
         return grn_return_id
 
     def update_return_items(self, grn_return_id, grn_products_return):
+        self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
         for grn_product_return in grn_products_return:
             pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
                 grn_return_id=grn_return_id, product_id=grn_product_return['product_id'], defaults={})
@@ -3376,6 +3377,20 @@ class PRNOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.debit_note_number = None
             grn_return_id.save()
+
+    def manage_nonexisting_return_products(self, grn_return_id, grn_products_return):
+        post_return_item = PosReturnItems.objects.filter(grn_return_id=grn_return_id, is_active=True)
+        post_return_item_dict = post_return_item.values('product_id', 'return_qty')
+        products = [sub['product_id'] for sub in post_return_item_dict]
+        products_dict = {sub['product_id']: sub['return_qty'] for sub in post_return_item_dict}
+        grn_products = [sub['product_id'] for sub in grn_products_return]
+        for product in [item for item in products if item not in grn_products]:
+            PosInventoryCls.grn_inventory(product, PosInventoryState.AVAILABLE,
+                                          PosInventoryState.AVAILABLE, products_dict[product],
+                                          grn_return_id.last_modified_by,
+                                          grn_return_id.id, PosInventoryChange.RETURN)
+            # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
+            PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

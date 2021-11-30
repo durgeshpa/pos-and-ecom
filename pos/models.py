@@ -544,20 +544,25 @@ class PosReturnItems(models.Model):
     @property
     def qty_given(self):
         qty = self.return_qty
-        if self.product.product_pack_type == 'loose' and qty:
+        if self.product.product_pack_type == 'loose' and qty and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+        elif self.product.product_pack_type == 'loose' and qty and not self.grn_return_id.grn_ordered_id:
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty / self.pack_size)
         return qty
 
     @property
     def given_qty_unit(self):
-        if self.product.product_pack_type == 'loose':
+        if self.product.product_pack_type == 'loose' and self.grn_return_id.grn_ordered_id:
             return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
                                                         product=self.product).last().qty_conversion_unit.unit
+        elif self.product.product_pack_type == 'loose' and not self.grn_return_id.grn_ordered_id:
+            return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
     def save(self, *args, **kwargs):
