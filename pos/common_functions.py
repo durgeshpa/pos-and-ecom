@@ -286,14 +286,14 @@ class PosInventoryCls(object):
                                           final_qty=final_qty, remarks=remarks)
 
     @classmethod
-    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+    def grn_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type, po_pack_size):
         """
             Manage GRN related product inventory
         """
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
         pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=f_state_obj)
-        inv_qty = pos_inv.quantity
+        inv_qty = pos_inv.quantity * po_pack_size
         pos_inv.quantity = qty + inv_qty
         pos_inv.save()
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
@@ -990,7 +990,7 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                         category=retailer_product.measurement_category.category.lower())
                     mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
                                                                               default=True)
-                mapping.pack_size = 1
+                mapping.pack_size = retailer_product.purchase_pack_size
                 mapping.qty = product.no_of_pieces
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
