@@ -572,7 +572,7 @@ class PosInventoryAdmin(admin.ModelAdmin):
 @admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
-    list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
+    list_display = ('shop', 'product',"Download_PosInventory_Changes", 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
                     'initial_qty', 'final_qty', 'changed_by', 'created_at', 'remarks')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
@@ -602,6 +602,12 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def Download_PosInventory_Changes(self,obj=None):
+        if obj.product.sku_type !=4:
+            return format_html("<a href= '%s' >posinventorychange_products_downloads</a>" % (reverse('admin:posinventorychange_products_downloads', args=[obj.product.id])))
+
+        return '-'
+
     def get_urls(self):
         """" Download CSV of Pos Inventory change along with discounted product"""
         urls = super(PosInventoryChangeAdmin, self).get_urls()
@@ -613,6 +619,11 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                    url(r'posinventorychange_products_download',
                        self.admin_site.admin_view(download_posinventorychange_products),
                        name="posinventorychange_products_download"),
+
+                    url(
+                       r'^retailer-order-invoice/(?P<sku>\d+)/$',
+                       self.admin_site.admin_view(download_posinventorychange_products),
+                       name="posinventorychange_products_downloads"                   )
 
                ] + urls
         return urls
