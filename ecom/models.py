@@ -124,6 +124,7 @@ class EcomOrderedProduct(Order):
         proxy = True
         app_label = 'ecom'
         verbose_name = 'Ecom-Order'
+        permissions = [('can_add_order', 'Can Add Order')]
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
