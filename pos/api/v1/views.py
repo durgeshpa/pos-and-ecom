@@ -1397,6 +1397,33 @@ class PRNOrderView(GenericAPIView):
 
     @check_pos_shop
     @check_return_status
+    def get(self, request, *args, **kwargs):
+        """ GET Return Order List """
+        return_products = PosReturnGRNOrder.objects.filter(
+            vendor_id__retailer_shop=kwargs['shop'],
+            status=kwargs['status']).prefetch_related('grn_ordered_id', 'vendor_id', 'grn_order_return', ).\
+            select_related('last_modified_by', ).order_by('-modified_at')
+
+        if request.GET.get('id'):
+            """ Get Return Order for specific ID """
+            id_validation = validate_id(return_products, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            return_products = id_validation['data']
+
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            return_products = grn_return_search(return_products, search_text)
+
+        if return_products:
+            serializer = PRNOrderSerializer(return_products, many=True,
+                                                  context={'status': kwargs['status'], 'shop': kwargs['shop']})
+            return api_response('', serializer.data, status.HTTP_200_OK, True)
+        else:
+            return api_response("Return GRN Order not found")
+
+    @check_pos_shop
+    @check_return_status
     def post(self, request, *args, **kwargs):
         """ Create PRN for non GRN Order """
         serializer = PRNOrderSerializer(data=request.data,
@@ -1410,7 +1437,7 @@ class PRNOrderView(GenericAPIView):
     @check_pos_shop
     @check_return_status
     def put(self, request, *args, **kwargs):
-        """ Update Return Order """
+        """ Update PRN for non GRN Order """
         info_logger.info("Return Order Product PUT api called.")
         if 'id' not in request.data:
             return api_response('please provide id to update return order product', False)

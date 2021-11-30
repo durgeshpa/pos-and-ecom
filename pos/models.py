@@ -374,7 +374,11 @@ class PosGRNOrderProductMapping(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_order.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            else:
+                return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty / self.pack_size)
         return qty
@@ -561,8 +565,8 @@ class PosReturnItems(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             self.selling_price = po_product.price if po_product else 0
-        elif not self.id:
-            self.selling_price = self.product.selling_price
+        # elif not self.id:
+        #     self.selling_price = self.return_price
         super(PosReturnItems, self).save(*args, **kwargs)
 
 

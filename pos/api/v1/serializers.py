@@ -2691,8 +2691,8 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 if po_product.product.product_pack_type == 'loose':
                     if po_product.qty_conversion_unit:
                         rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
-                                                                          po_product.product,
-                                                                          rtn_product['return_qty'])
+                                                                              po_product.product,
+                                                                              rtn_product['return_qty'])
                     else:
                         rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
                                                                           rtn_product['return_qty'])
@@ -3141,13 +3141,57 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                   'order_status_display', 'payment')
 
 
+class PRNReturnItemsSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField()
+    return_qty = serializers.SerializerMethodField()
+    qty_unit = serializers.SerializerMethodField()
+    total_return_qty = serializers.SerializerMethodField()
+    other_return_qty = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PosReturnItems
+        fields = ('id', 'product', 'return_qty', 'other_return_qty', 'total_return_qty', 'qty_unit', 'pack_size')
+
+    @staticmethod
+    def get_qty_unit(obj):
+        return obj.given_qty_unit
+
+    @staticmethod
+    def get_return_qty(obj):
+        return obj.qty_given
+
+    @staticmethod
+    def get_product(obj):
+        i_state_obj = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        product_in_inventory = PosInventory.objects.filter(product=obj.product.id,
+                                                           product__shop=obj.product.shop,
+                                                           inventory_state=i_state_obj)
+        return product_in_inventory
+
+    @staticmethod
+    def get_total_return_qty(obj):
+        total_returned = PosReturnItems.objects.filter(
+            grn_return_id__vendor_id=obj.grn_return_id.vendor_id, product=obj.product,
+            is_active=True).aggregate(total=Sum('return_qty'))['total']
+        if total_returned:
+            return 0
+
+    @staticmethod
+    def get_other_return_qty(obj):
+        other_return = PosReturnItemsSerializer.get_total_return_qty(obj) - (obj.return_qty if obj.is_active else 0)
+
+        if other_return:
+            return 0
+        return 0
+
+
 class PRNOrderSerializer(serializers.ModelSerializer):
     product_return = serializers.SerializerMethodField()
     last_modified_by = PosShopUserSerializer(read_only=True)
 
     class Meta:
         model = PosReturnGRNOrder
-        fields = ('id', 'pr_number', 'po_no', 'product_return', 'status', 'last_modified_by',
+        fields = ('id', 'pr_number', 'product_return', 'status', 'last_modified_by',
                   'debit_note_number', 'debit_note', 'created_at', 'modified_at')
 
     def validate(self, data):
@@ -3167,7 +3211,6 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
             # Check return item details
             for rtn_product in self.initial_data['product_return']:
-
                 if 'product_id' not in rtn_product or 'return_qty' not in rtn_product or 'return_price' not in \
                         rtn_product or not rtn_product['product_id'] or not rtn_product['return_qty'] or \
                         not rtn_product['return_price']:
@@ -3180,10 +3223,21 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                 if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop):
                     raise serializers.ValidationError(f"please select valid product {rtn_product['product_id']}")
 
-                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']),
-                                                      selling_price=rtn_product['return_price'], shop=shop):
-                    raise serializers.ValidationError(f"product not available with this return price "
-                                                      f"{rtn_product['return_price']}")
+                product = RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop).last()
+                if product.mrp < rtn_product['return_price']:
+                    raise serializers.ValidationError(f"product return_price {rtn_product['return_price']} can not be "
+                                                      f"more then product mrp {product.mrp}")
+
+                if product.product_pack_type == 'loose':
+                    rtn_product['return_qty'], qty_unit = get_default_qty(
+                        MeasurementUnit.objects.get(category=product.measurement_category,
+                                                    default=True).unit,
+                        rtn_product['return_qty'])
+                    rtn_product['pack_size'] = 1
+                else:
+                    rtn_product['return_qty'] = int(rtn_product['return_qty'] * product.purchase_pack_size)
+                    rtn_product['pack_size'] = product.purchase_pack_size
+
                 i_state_obj = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
                 product_in_inventory = PosInventory.objects.filter(product=int(rtn_product['product_id']),
                                                                    product__shop=shop,
@@ -3193,7 +3247,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
                 if product_in_inventory.last().quantity < rtn_product['return_qty']:
                     raise serializers.ValidationError(f"your available quantity is {product_in_inventory.quantity} "
-                                                      f"you can't return {self.initial_data['return_qty']}")
+                                                      f"you can't return {rtn_product['return_qty']}")
 
                 instance_id = self.instance.id if self.instance else None
 
@@ -3205,6 +3259,18 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError("This Order is already cancelled")
 
         return data
+
+    def get_product_return(self, obj):
+        order_return_status = self.context.get('status')
+        shop = self.context.get('shop')
+        status = True
+        if order_return_status == 'CANCELLED':
+            status = False
+        po_products_data = PRNReturnItemsSerializer(
+            PosReturnItems.objects.filter(
+                grn_return_id=obj.id, grn_return_id__status=order_return_status, is_active=status,
+                grn_return_id__vendor_id__retailer_shop=shop), many=True).data
+        return po_products_data
 
     @transaction.atomic
     def create(self, validated_data):
@@ -3222,7 +3288,10 @@ class PRNOrderSerializer(serializers.ModelSerializer):
     def create_return_items(self, grn_return_id, products_return):
         for product_return in products_return:
             pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
-                grn_return_id=grn_return_id, product_id=product_return['product_id'], defaults={})
+                grn_return_id=grn_return_id, product_id=product_return['product_id'],
+                defaults={})
+            pos_return_items_obj.selling_price = products_return['return_price'], \
+            pos_return_items_obj.pack_size = products_return['pack_size']
             pos_return_items_obj.return_qty = pos_return_items_obj.return_qty + product_return['return_qty']
             pos_return_items_obj.save()
 
