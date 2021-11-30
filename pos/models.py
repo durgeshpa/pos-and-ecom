@@ -287,7 +287,8 @@ class PosCartProductMapping(models.Model):
                 return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
 
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(Decimal(qty) / Decimal(self.pack_size))
+            return int(qty)
+            # return int(Decimal(qty) / Decimal(self.pack_size))
         return int(qty)
 
     @property
