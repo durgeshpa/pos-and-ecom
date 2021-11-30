@@ -3246,7 +3246,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f"product not available in inventory")
 
                 if product_in_inventory.last().quantity < rtn_product['return_qty']:
-                    raise serializers.ValidationError(f"your available quantity is {product_in_inventory.quantity} "
+                    raise serializers.ValidationError(f"your available quantity is {product_in_inventory.last().quantity} "
                                                       f"you can't return {rtn_product['return_qty']}")
 
                 instance_id = self.instance.id if self.instance else None
@@ -3290,8 +3290,8 @@ class PRNOrderSerializer(serializers.ModelSerializer):
             pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
                 grn_return_id=grn_return_id, product_id=product_return['product_id'],
                 defaults={})
-            pos_return_items_obj.selling_price = products_return['return_price'], \
-            pos_return_items_obj.pack_size = products_return['pack_size']
+            pos_return_items_obj.selling_price = round(float(product_return['return_price']), 2)
+            pos_return_items_obj.pack_size = product_return['pack_size']
             pos_return_items_obj.return_qty = pos_return_items_obj.return_qty + product_return['return_qty']
             pos_return_items_obj.save()
 
@@ -3318,7 +3318,6 @@ class PRNOrderSerializer(serializers.ModelSerializer):
         return grn_return_id
 
     def update_return_items(self, grn_return_id, grn_products_return):
-        self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
         for grn_product_return in grn_products_return:
             pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
                 grn_return_id=grn_return_id, product_id=grn_product_return['product_id'], defaults={})
@@ -3377,20 +3376,6 @@ class PRNOrderSerializer(serializers.ModelSerializer):
             grn_return_id.debit_note = None
             grn_return_id.debit_note_number = None
             grn_return_id.save()
-
-    def manage_nonexisting_return_products(self, grn_return_id, grn_products_return):
-        post_return_item = PosReturnItems.objects.filter(grn_return_id=grn_return_id, is_active=True)
-        post_return_item_dict = post_return_item.values('product_id', 'return_qty')
-        products = [sub['product_id'] for sub in post_return_item_dict]
-        products_dict = {sub['product_id']: sub['return_qty'] for sub in post_return_item_dict}
-        grn_products = [sub['product_id'] for sub in grn_products_return]
-        for product in [item for item in products if item not in grn_products]:
-            PosInventoryCls.grn_inventory(product, PosInventoryState.AVAILABLE,
-                                          PosInventoryState.AVAILABLE, products_dict[product],
-                                          grn_return_id.last_modified_by,
-                                          grn_return_id.id, PosInventoryChange.RETURN)
-            # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
-            PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
