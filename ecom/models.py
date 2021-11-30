@@ -127,8 +127,3 @@ class EcomOrderedProduct(Order):
 class EcomOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
-
-#
-# class EcommerceOrderedProduct(Order):
-#     class Meta:
-#         proxy = True
