@@ -6612,6 +6612,7 @@ class ShipmentQCView(generics.GenericAPIView):
         prefetch_related('qc_area__qc_desk_areas').\
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
              'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
              'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
