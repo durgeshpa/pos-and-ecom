@@ -4,7 +4,7 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
-                    PRNOrderView)
+                    PRNwithoutGRNView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -31,7 +31,7 @@ urlpatterns = [
 
     url(r'^get-grn-order-list/$', GetGrnOrderListView.as_view()),
     url(r'^return-grn-order/$', GrnReturnOrderView.as_view()),
-    url(r'^return-order-without-grn/$', PRNOrderView.as_view()),
+    url(r'^return-order-without-grn/$', PRNwithoutGRNView.as_view()),
 
     url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 
