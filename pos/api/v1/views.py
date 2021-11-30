@@ -28,7 +28,7 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, PosReturnGRNOrder
-from pos.services import grn_product_search, grn_return_search
+from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
@@ -1413,7 +1413,7 @@ class PRNOrderView(GenericAPIView):
 
         search_text = self.request.GET.get('search_text')
         if search_text:
-            return_products = grn_return_search(return_products, search_text)
+            return_products = non_grn_return_search(return_products, search_text)
 
         if return_products:
             serializer = PRNOrderSerializer(return_products, many=True,
