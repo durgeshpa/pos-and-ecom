@@ -3241,8 +3241,8 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                 if product.product_pack_type == 'loose':
                     rtn_product['return_qty'], qty_unit = get_default_qty(
                         MeasurementUnit.objects.get(category=product.measurement_category,
-                                                    default=True).unit,
-                        rtn_product['return_qty'])
+                                                    default=True).unit, product, rtn_product['return_qty'])
+
                     rtn_product['pack_size'] = 1
                 else:
                     rtn_product['return_qty'] = int(rtn_product['return_qty'] * product.purchase_pack_size)
