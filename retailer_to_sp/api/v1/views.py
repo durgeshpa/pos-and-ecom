@@ -41,7 +41,7 @@ from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
     validate_id_and_warehouse, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
-    check_whc_manager_dispatch_executive, check_qc_dispatch_executive
+    check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -6872,7 +6872,7 @@ class DispatchItemsUpdateView(generics.GenericAPIView):
     queryset = ShipmentPackaging.objects.all()
     serializer_class = DispatchItemsSerializer
 
-    @check_whc_manager_dispatch_executive
+    @check_dispatch_executive
     def put(self, request):
 
         '''
