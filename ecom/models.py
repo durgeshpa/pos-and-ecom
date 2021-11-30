@@ -108,32 +108,27 @@ class TagProductMapping(models.Model):
 class EcomCart(Cart):
     class Meta:
         proxy = True
-        app_label = 'ecom'
-        verbose_name = 'Ecom-Cart'
+
 
 
 class EcomCartProductMapping(CartProductMapping):
     class Meta:
         proxy = True
-        app_label = 'ecom'
-        verbose_name = 'Ecom-Cart Product Mapping'
 
 
-# class EcomOrderedProduct(Order):
-#     class Meta:
-#         proxy = True
-#         app_label = 'ecom'
-#         verbose_name = 'Ecom-Order'
+
+class EcomOrderedProduct(Order):
+    class Meta:
+        proxy = True
+
 
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
-        app_label = 'ecom'
-        verbose_name = 'Ecom-Ordered Product Mapping'
 
-
-class EcommerceOrderedProduct(Order):
-    class Meta:
-        proxy = True
+#
+# class EcommerceOrderedProduct(Order):
+#     class Meta:
+#         proxy = True
