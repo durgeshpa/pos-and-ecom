@@ -657,12 +657,16 @@ def download_posinventorychange_products_form_view(request):
         {'form': form}
     )
 
-def download_posinventorychange_products(request, *args):
+def download_posinventorychange_products(request,sku=None, *args):
     """
     Download PosInventory Change Product for last 2 month
     """
-    try:
+    if sku:
+        prod_sku = sku
+    else:
         prod_sku = request.GET['prod_sku']
+
+    try:
         prod = RetailerProduct.objects.get(id = prod_sku)
         filename = "posinventory_products_sku_"+prod.sku+".csv"
         pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
