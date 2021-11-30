@@ -28,7 +28,7 @@ class EcomCartProductMappingAdmin(admin.TabularInline):
         return False
 
 
-@admin.register(EcommerceCart)
+
 class EcomCartAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
@@ -81,7 +81,6 @@ class OrderedProductMappingInline(admin.TabularInline):
 #     else:
 #         return '-'
 
-@admin.register(EcommerceOrderedProduct)
 class EcomOrderProductAdmin(admin.ModelAdmin):
     #inlines = (OrderedProductMappingInline,)
     search_fields = ('order_no',)
@@ -237,3 +236,6 @@ class TagAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
+
+
+admin.site.register(EcommerceOrderedProduct, EcomOrderProductAdmin)
