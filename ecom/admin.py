@@ -156,14 +156,14 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             Q(seller_shop__shop_owner=request.user)
         )
 
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # def has_change_permission(self, request, obj=None):
+    #     return False
+    #
+    # def has_add_permission(self, request):
+    #     return False
+    #
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
 
     def download_order_reports(self, request, queryset):
         return generate_ecom_order_csv_report(queryset)
