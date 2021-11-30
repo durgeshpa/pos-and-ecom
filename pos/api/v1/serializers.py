@@ -3230,12 +3230,12 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                 if rtn_product['return_qty'] <= 0:
                     raise serializers.ValidationError("return_qty must be greater than 0.")
 
-                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop):
+                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), is_deleted=False, shop=shop):
                     raise serializers.ValidationError(f"please select valid product {rtn_product['product_id']}")
 
-                product = RetailerProduct.objects.filter(id=int(rtn_product['product_id']), shop=shop).last()
+                product = RetailerProduct.objects.filter(id=int(rtn_product['product_id']), is_deleted=False, shop=shop).last()
                 if product.mrp < rtn_product['return_price']:
-                    raise serializers.ValidationError(f"product return_price {rtn_product['return_price']} can not be "
+                    raise serializers.ValidationError(f"product return price {rtn_product['return_price']} can not be "
                                                       f"more then product mrp {product.mrp}")
 
                 if product.product_pack_type == 'loose':
