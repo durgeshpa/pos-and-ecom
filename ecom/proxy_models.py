@@ -1,4 +1,4 @@
-from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping
+from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping, Order
 
 
 class EcomCart(Cart):
@@ -13,10 +13,10 @@ class EcomCartProductMapping(CartProductMapping):
         verbose_name = 'Cart Product Mapping'
 
 
-class EcomOrderedProduct(OrderedProduct):
+class EcomOrderedProduct(Order):
     class Meta:
         proxy = True
-        verbose_name = 'Order'
+        verbose_name = 'Ecom-Order'
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
