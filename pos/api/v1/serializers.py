@@ -3161,10 +3161,11 @@ class PRNReturnItemsSerializer(serializers.ModelSerializer):
     returned_product = serializers.SerializerMethodField()
     return_qty = serializers.SerializerMethodField()
     total_return_qty = serializers.SerializerMethodField()
+    return_price = serializers.SerializerMethodField()
 
     class Meta:
         model = PosReturnItems
-        fields = ('pack_size', 'return_qty', 'total_return_qty', 'returned_product')
+        fields = ('pack_size', 'return_qty', 'return_price', 'total_return_qty', 'returned_product')
 
     @staticmethod
     def get_return_qty(obj):
@@ -3173,6 +3174,10 @@ class PRNReturnItemsSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_total_return_qty(obj):
         return obj.return_qty
+
+    @staticmethod
+    def get_return_price(obj):
+        return obj.selling_price
 
     @staticmethod
     def get_returned_product(obj):
