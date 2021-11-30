@@ -1375,6 +1375,8 @@ class CartCentral(GenericAPIView):
             Add To Cart
             For cart type 'ECOM'
         """
+        if not kwargs['shop'].online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         with transaction.atomic():
             # basic validations for inputs
             shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
