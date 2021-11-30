@@ -110,8 +110,8 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
-              'online_enabled', 'online_price', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'product_ean_code', 'product_pack_type',
+              'online_enabled', 'online_price', 'created_at', 'modified_at','measurement_category','product_pack_type')
+    readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description')
 
