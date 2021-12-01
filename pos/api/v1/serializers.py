@@ -2710,8 +2710,9 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                                                               po_product.product,
                                                                               rtn_product['return_qty'])
                     else:
-                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
-                                                                          rtn_product['return_qty'])
+                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category,default=True).unit,
+                                                                              po_product.product,
+                                                                              rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
                     rtn_product['return_qty'] = int(rtn_product['return_qty'] * po_product.pack_size)
