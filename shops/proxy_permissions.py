@@ -62,6 +62,3 @@ models.signals.post_migrate.connect(create_proxy_permissions)
 # see `create_proxy_permissions` docstring to understand why we unregister
 # this signal handler.
 models.signals.post_migrate.disconnect(update_contenttypes)
-
-if __name__ == '__main__':
-    create_proxy_permissions()
