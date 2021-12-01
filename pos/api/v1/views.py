@@ -1386,7 +1386,7 @@ class GrnReturnOrderView(GenericAPIView):
                                               context={'status': kwargs['status'], 'shop': kwargs['shop']})
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
-            return api_response('GRN updated successfully!', None, status.HTTP_200_OK, True)
+            return api_response('GRN returned updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 

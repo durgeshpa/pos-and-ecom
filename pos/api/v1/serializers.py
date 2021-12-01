@@ -2568,7 +2568,7 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                         Decimal(total_returned) * default_unit.conversion / default_unit.conversion,
                         3)
             else:
-                return int(total_returned / obj.pack_size)
+                return int(total_returned)
         return 0
 
     @staticmethod
@@ -2585,10 +2585,10 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                              3)
                 else:
                     return round(
-                        Decimal(other_return) * default_unit.conversion /  default_unit.conversion,
+                        Decimal(other_return) * default_unit.conversion / default_unit.conversion,
                         3)
             else:
-                return int(other_return / obj.pack_size)
+                return int(other_return)
         return 0
 
 
@@ -2693,14 +2693,14 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 if po_product.product.product_pack_type == 'loose':
                     if po_product.qty_conversion_unit:
                         rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
-                                                                          po_product.product,
-                                                                          rtn_product['return_qty'])
+                                                                              po_product.product,
+                                                                              rtn_product['return_qty'])
                     else:
                         rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
                                                                           rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
-                    rtn_product['return_qty'] = int(rtn_product['return_qty'] * po_product.pack_size)
+                    rtn_product['return_qty'] = int(rtn_product['return_qty'])
                     rtn_product['pack_size'] = po_product.pack_size
 
                 if 'id' in self.initial_data and self.initial_data['id']:
@@ -2852,7 +2852,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
     def update_cancel_return(self, grn_return_id, instance_id,):
 
         post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
-        products = post_return_item.values('product_id', 'return_qty')
+        products = post_return_item.values('product_id', 'return_qty', 'pack_size')
         for grn_product_return in products:
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, grn_product_return['return_qty'],

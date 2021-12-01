@@ -545,7 +545,7 @@ class PosReturnItems(models.Model):
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(qty / self.pack_size)
+            return int(qty)
         return qty
 
     @property
