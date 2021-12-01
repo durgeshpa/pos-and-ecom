@@ -978,24 +978,20 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
         cart.save()
         product_ids = []
         for product in products:
-            retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop).last()
+            retailer_product = RetailerProduct.objects.filter(linked_product=product.cart_product, shop=buyer_shop,
+                                                              is_deleted=False, product_ref__isnull=True).last()
             product_ids += [retailer_product.id]
             mapping, _ = PosCartProductMapping.objects.get_or_create(cart=cart, product=retailer_product)
             if not mapping.is_grn_done:
                 mapping.price = product.get_cart_product_price(seller_shop.id, buyer_shop.id).get_per_piece_price(
-                    product.qty)
+                    product.no_of_pieces)
                 if retailer_product.product_pack_type == 'loose':
                     measurement_category = MeasurementCategory.objects.get(
                         category=retailer_product.measurement_category.category.lower())
                     mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
                                                                               default=True)
-                    mapping.pack_size = 1
-                    mapping.qty = product.qty
-                else:
-                    mapping.pack_size = retailer_product.purchase_pack_size
-                    mapping.qty = int(product.qty * retailer_product.purchase_pack_size)
-
-                # mapping.qty = product.qty
+                mapping.pack_size = 1
+                mapping.qty = product.no_of_pieces
                 mapping.save()
         PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(product_id__in=product_ids).delete()
     return created, cart.po_no

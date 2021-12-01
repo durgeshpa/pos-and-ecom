@@ -3,7 +3,8 @@ from django.conf.urls import url
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
-                    GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView)
+                    GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
+                    PRNwithoutGRNView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -30,6 +31,7 @@ urlpatterns = [
 
     url(r'^get-grn-order-list/$', GetGrnOrderListView.as_view()),
     url(r'^return-grn-order/$', GrnReturnOrderView.as_view()),
+    url(r'^return-order-without-grn/$', PRNwithoutGRNView.as_view()),
 
     url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
 

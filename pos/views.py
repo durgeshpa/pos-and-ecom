@@ -657,12 +657,16 @@ def download_posinventorychange_products_form_view(request):
         {'form': form}
     )
 
-def download_posinventorychange_products(request, *args):
+def download_posinventorychange_products(request,sku=None, *args):
     """
     Download PosInventory Change Product for last 2 month
     """
-    try:
+    if sku:
+        prod_sku = sku
+    else:
         prod_sku = request.GET['prod_sku']
+
+    try:
         prod = RetailerProduct.objects.get(id = prod_sku)
         filename = "posinventory_products_sku_"+prod.sku+".csv"
         pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
@@ -911,11 +915,11 @@ class RetailerOrderedReportView(APIView):
 
         ecom_online_order_qs = RetailerOrderedReport.objects.filter(
             ordered_cart__cart_type='ECOM', seller_shop__id=shop, created_at__date__gte=start_date,
-            created_at__date__lte=end_date, order_status__in=
-            [RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.OUT_FOR_DELIVERY,
-             RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.DELIVERED,
-             RetailerOrderedReport.FULLY_RETURNED], ordered_by__id=user,
-            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']).\
+            created_at__date__lte=end_date, ordered_by__id=user,
+            order_status__in=[RetailerOrderedReport.PICKUP_CREATED, RetailerOrderedReport.OUT_FOR_DELIVERY,
+                              RetailerOrderedReport.PARTIALLY_RETURNED, RetailerOrderedReport.DELIVERED,
+                              RetailerOrderedReport.FULLY_RETURNED],
+            rt_payment_retailer_order__payment_type__type__in=['PayU', 'credit', 'online']). \
             aggregate(amt=Sum('rt_payment_retailer_order__amount'))
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
@@ -1008,12 +1012,12 @@ class RetailerOrderedReportView(APIView):
         response['Content-Disposition'] = 'attachment; filename="order-report.csv"'
         writer = csv.writer(response)
         shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
-                                        pos_enabled=True, pos_shop__status=True).last()
+                                       pos_enabled=True, pos_shop__status=True).last()
         writer.writerow(['Shop Name:', shop_obj.shop_name])
         writer.writerow(['Start Date:', start_date])
         writer.writerow(['End Date:', end_date])
         writer.writerow([])
-        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm Cash', 'Ecomm PG', 'Total Cash',
+        writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
                          'Total Online', 'Total PG'])
 
         for user in users_list:

@@ -1,3 +1,4 @@
+from .models import PosGRNOrder, Vendor
 from shops.models import CASHIER, STORE_MANAGER, PosShopUserMapping
 from .models import PosGRNOrder
 
@@ -36,6 +37,15 @@ def get_validate_grn_order(grn_ordered_id, shop):
     except Exception as e:
         return {'error': "GRN Order doesn't exist"}
     return {'grn_ordered_id': grn_ordered_obj}
+
+
+def get_validate_vendor(vendor_id, shop):
+    """ validate id that belong to a Vendor model if not through error """
+    try:
+        vendor_obj = Vendor.objects.get(id=vendor_id, retailer_shop=shop)
+    except Exception as e:
+        return {'error': "Vendor doesn't exist"}
+    return {'vendor_id': vendor_obj}
 
 
 def validate_id(queryset, s_id):

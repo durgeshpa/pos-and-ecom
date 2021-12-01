@@ -1375,6 +1375,8 @@ class CartCentral(GenericAPIView):
             Add To Cart
             For cart type 'ECOM'
         """
+        if not kwargs['shop'].online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         with transaction.atomic():
             # basic validations for inputs
             shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
@@ -6528,14 +6530,14 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False)
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-id')
         if self.request.GET.get('is_delivery_person', False):
             pos_shop_users = pos_shop_users.filter(Q(user_type='delivery_person') | Q(is_delivery_person=True))
         search_text = self.request.GET.get('search_text')
         if search_text:
             pos_shop_users = pos_shop_users.filter(Q(user__phone_number__icontains=search_text) |
                                                    Q(user__first_name__icontains=search_text))
-        pos_shop_users = pos_shop_users.order_by('-status')
+        # pos_shop_users = pos_shop_users.order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
