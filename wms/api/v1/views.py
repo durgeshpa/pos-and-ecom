@@ -884,10 +884,12 @@ class PickupComplete(APIView):
                                                                                              tr_type,
                                                                                              pickup.pk,
                                                                                              reverse_quantity)
-                                # Entry in warehouse table
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                                    pickup_bin.warehouse, pickup_bin.pickup.sku, inventory_type, state_to_be_picked,
-                                    -1*reverse_quantity, tr_type, pickup.pk)
+                        # Entry in warehouse table
+                        reverse_pickup_qty = pickup.quantity - pickup.pickup_quantity
+                        if reverse_pickup_qty > 0:
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                pickup.warehouse, pickup.sku, inventory_type, state_to_be_picked,
+                                -1*reverse_pickup_qty, tr_type, pickup.pk)
 
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))
