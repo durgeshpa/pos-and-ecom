@@ -2487,7 +2487,7 @@ class RetailerProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'product_pack_type')
+        fields = ('id', 'name', 'product_pack_type', 'mrp')
 
 
 class PosInventoryProductMappingSerializer(serializers.ModelSerializer):
@@ -3341,10 +3341,12 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                 existing_return_qty = pos_return_items_obj.return_qty
                 current_return_qty = grn_product_return['return_qty']
                 pos_return_items_obj.return_qty = current_return_qty
+                pos_return_items_obj.selling_price = round(float(grn_product_return['return_price']), 2)
                 pos_return_items_obj.save()
             else:
                 pos_return_items_obj.is_active = True
                 pos_return_items_obj.return_qty = grn_product_return['return_qty']
+                pos_return_items_obj.selling_price = round(float(grn_product_return['return_price']), 2)
                 pos_return_items_obj.save()
 
             if created:
