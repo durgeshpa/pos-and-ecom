@@ -1871,3 +1871,9 @@ class DispatchDashboardSerializer(serializers.Serializer):
     ready_to_dispatch = serializers.IntegerField()
     out_for_delivery = serializers.IntegerField()
     rescheduled = serializers.IntegerField()
+
+
+class UserSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number',)
