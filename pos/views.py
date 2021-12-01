@@ -691,6 +691,40 @@ def download_posinventorychange_products(request,sku=None, *args):
         ])
     return response
 
+def get_pos_posinventorychange(prod_sku=None):
+    try:
+        prod = RetailerProduct.objects.get(id = prod_sku)
+        pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
+        discount_prod = DiscountedRetailerProduct.objects.filter(product_ref = prod)
+        if len(discount_prod) > 0:
+            discount_pros_inventory = PosInventoryChange.objects.filter(product = discount_prod[0]).order_by('-modified_at')
+            pos_inventory = pos_inventory.union(discount_pros_inventory).order_by('-modified_at')
+    except Exception:
+        today = datetime.date.today()
+        two_month_back = today - relativedelta(months=2)
+        pos_inventory = PosInventoryChange.objects.filter(modified_at__gte = two_month_back).order_by('-modified_at')
+    initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+
+    return pos_inventory
+
+
+def posinventorychange_data_excel(request,queryset):
+
+
+    filename = "posinventorychange_data_excel.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+            ['Product Name', 'Product SKU', 'Quantity', 'Transaction Type', 'Transaction Id', 'Initial State', 'Final State', 'Changed By', 'Created at', 'Modfied at',
+            ])
+    for obj in queryset:
+        pos_inventory = get_pos_posinventorychange(obj.product.id)
+        for prod in pos_inventory:
+            writer.writerow([prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
+            prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+            ])
+    return response
 
 
 def get_product_details(product):
