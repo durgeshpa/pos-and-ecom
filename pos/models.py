@@ -287,7 +287,8 @@ class PosCartProductMapping(models.Model):
                 return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
 
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(Decimal(qty) / Decimal(self.pack_size))
+            return int(qty)
+            # return int(Decimal(qty) / Decimal(self.pack_size))
         return int(qty)
 
     @property
@@ -364,7 +365,7 @@ class PosGRNOrderProductMapping(models.Model):
     @property
     def received_packs(self):
         if self.product.product_pack_type == 'packet':
-            return int(self.received_qty / self.pack_size)
+            return int(self.pack_size)
         return None
 
     @property
@@ -380,7 +381,7 @@ class PosGRNOrderProductMapping(models.Model):
                 return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
 
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(qty / self.pack_size)
+            return int(qty)
         return qty
 
     @property
@@ -553,7 +554,7 @@ class PosReturnItems(models.Model):
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
-            return Decimal(qty / self.pack_size)
+            return int(qty)
         return qty
 
     @property
