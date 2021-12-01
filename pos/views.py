@@ -130,11 +130,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 row['offer_end_date'] = None
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
-            online_enabled, online_price, is_visible = row.get('product_name'), row.get('product_ean_code'), \
+            online_enabled, online_price, is_visible,product_pack_type = row.get('product_name'), row.get('product_ean_code'), \
                                                        row.get('mrp'), row.get('selling_price'), row.get('offer_price', None), \
                                                        row.get('offer_start_date', None), row.get('offer_end_date', None), None, \
                                                        row.get('description'), row.get('quantity'), row['online_enabled'], \
-                                                       row['online_price'], row['is_deleted']
+                                                       row['online_price'], row['is_deleted'] , row.get('product_pack_type',None)
 
             if row.get('product_id') == '':
                 # we need to create this product
@@ -237,6 +237,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
                     if row['offer_end_date']:
                         product.offer_end_date = row['offer_end_date']
+
+                    if product_pack_type:
+                        product.product_pack_type = product_pack_type.lower()
+
+                    product.measurement_category_id = measure_cat_id
 
                     product.save()
 
