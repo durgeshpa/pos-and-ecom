@@ -105,25 +105,25 @@ class TagProductMapping(models.Model):
         return self.tag.name + '-' + self.product.name
 
 
-class EcomCart(Cart):
-    class Meta:
-        proxy = True
-
-
-
-class EcomCartProductMapping(CartProductMapping):
-    class Meta:
-        proxy = True
-
-
-
-class EcomOrderedProduct(Order):
+class EcommerceCart(Cart):
     class Meta:
         proxy = True
 
 
 
 
-class EcomOrderedProductMapping(OrderedProductMapping):
+class EcommerceCartProductMapping(CartProductMapping):
+    class Meta:
+        proxy = True
+
+
+
+class EcommerceOrderedProduct(Order):
+    class Meta:
+        proxy = True
+
+
+
+class EcommerceOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
