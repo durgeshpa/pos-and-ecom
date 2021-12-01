@@ -703,7 +703,6 @@ def get_pos_posinventorychange(prod_sku=None):
         today = datetime.date.today()
         two_month_back = today - relativedelta(months=2)
         pos_inventory = PosInventoryChange.objects.filter(modified_at__gte = two_month_back).order_by('-modified_at')
-    initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
 
     return pos_inventory
 
