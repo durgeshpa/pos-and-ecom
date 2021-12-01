@@ -1858,7 +1858,7 @@ class POProductSerializer(serializers.ModelSerializer):
             attrs['pack_size'] = 1
         else:
             attrs['pack_size'] = product.purchase_pack_size
-            attrs['qty'] = int(attrs['qty'] * product.purchase_pack_size)
+            attrs['qty'] = int(attrs['qty'])
         attrs['qty_unit'] = qty_unit
         return attrs
 
@@ -1975,9 +1975,8 @@ class POProductGetSerializer(serializers.ModelSerializer):
                     return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
                 else:
                     return round(Decimal(already_grn) * default_unit.conversion / default_unit.conversion, 3)
-
             else:
-                return int(already_grn / obj.pack_size)
+                return int(already_grn)
         return 0
 
     @staticmethod
@@ -2144,7 +2143,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                                         product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
+                # product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
                 product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
@@ -2171,7 +2170,8 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                 product['received_qty'] = round(Decimal(product['received_qty']), 3)
                 if product['received_qty'] > 0:
                     PosGRNOrderProductMapping.objects.create(grn_order=grn_order, product_id=product['product_id'],
-                                                             received_qty=product['received_qty'], pack_size=product['pack_size'])
+                                                             received_qty=product['received_qty'],
+                                                             pack_size=product['pack_size'])
                     PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.NEW,
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
                                                   grn_order.grn_id, PosInventoryChange.GRN_ADD,
@@ -2238,7 +2238,7 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
                                                                         product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
+                # product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
                 product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
@@ -2320,7 +2320,7 @@ class GrnListSerializer(serializers.ModelSerializer):
 class GrnOrderProductGetSerializer(serializers.ModelSerializer):
     other_grned_qty = serializers.SerializerMethodField()
     curr_grn_received_qty = serializers.SerializerMethodField()
-    qty = serializers.SerializerMethodField()
+    # qty = serializers.SerializerMethodField()
     qty_unit = serializers.SerializerMethodField()
     previous_grn_returned_qty = serializers.SerializerMethodField()
     product_pack_type = serializers.SerializerMethodField()
@@ -2341,7 +2341,7 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return round(Decimal(grn_product.received_qty) * default_unit.conversion / default_unit.conversion, 3)
             else:
-                return int(grn_product.received_qty / obj.pack_size)
+                return int(grn_product.received_qty)
         return 0
 
     @staticmethod
@@ -2360,12 +2360,12 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return Decimal(previous_return_qty) * default_unit.conversion / default_unit.conversion
             else:
-                return int(previous_return_qty / obj.pack_size)
+                return int(previous_return_qty)
         return 0
 
-    @staticmethod
-    def get_qty(obj):
-        return obj.qty_given
+    # @staticmethod
+    # def get_qty(obj):
+    #     return obj.qty_given
 
     @staticmethod
     def get_qty_unit(obj):
@@ -2384,7 +2384,7 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return Decimal(already_grn) * default_unit.conversion / default_unit.conversion
             else:
-                return int(already_grn / obj.pack_size)
+                return int(already_grn)
         return 0
 
     class Meta:
