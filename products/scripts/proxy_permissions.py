@@ -1,9 +1,13 @@
 import sys
+import os
+import django
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.management import update_contenttypes
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", 'retailer_backend.settings')
+django.setup()
 
 
 def create_proxy_permissions(app, created_models, verbosity, **kwargs):
@@ -62,3 +66,6 @@ models.signals.post_migrate.connect(create_proxy_permissions)
 # see `create_proxy_permissions` docstring to understand why we unregister
 # this signal handler.
 models.signals.post_migrate.disconnect(update_contenttypes)
+
+if __name__ == '__main__':
+    create_proxy_permissions()
