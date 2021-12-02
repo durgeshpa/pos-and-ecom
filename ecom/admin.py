@@ -8,14 +8,14 @@ from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from retailer_to_sp.models import Order
 
-from .models import Address, Tag, TagProductMapping, EcommerceCart, EcommerceCartProductMapping, EcommerceOrderedProductMapping, EcommerceOrderedProduct
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
-    model = EcommerceCartProductMapping
+    model = EcomCartProductMapping
     fields = ('cart', 'retailer_product', 'qty', 'product_type', 'selling_price')
 
     def has_delete_permission(self, request, obj=None):
@@ -56,7 +56,7 @@ class EcomCartAdmin(admin.ModelAdmin):
 
 
 class OrderedProductMappingInline(admin.TabularInline):
-    model = EcommerceOrderedProductMapping
+    model = EcomOrderedProductMapping
     fields = ('retailer_product', 'qty', 'product_type', 'selling_price')
     readonly_fields = ('qty',)
 
@@ -238,6 +238,6 @@ class TagAdmin(admin.ModelAdmin):
         return True
 
 
-admin.site.register(EcommerceOrderedProduct, EcomOrderProductAdmin)
-admin.site.register(EcommerceCart, EcomCartAdmin)
+admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
+admin.site.register(EcomCart, EcomCartAdmin)
 

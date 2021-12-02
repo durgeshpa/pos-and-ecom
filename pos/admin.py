@@ -35,7 +35,7 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
     update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
-    RetailerOrderReturnCreditNoteView
+    RetailerOrderReturnCreditNoteView,posinventorychange_data_excel
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -576,6 +576,7 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                     'initial_qty', 'final_qty', 'changed_by', 'created_at', 'remarks')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
+    actions = ["posinventorychange_data_excel_action"]
     list_per_page = 50
     list_filter = [ProductInvEanSearch,
                    'transaction_type', ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
@@ -627,6 +628,12 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
 
                ] + urls
         return urls
+    def posinventorychange_data_excel_action(self, request, queryset):
+
+        return posinventorychange_data_excel(request, queryset)
+
+    posinventorychange_data_excel_action.short_description = "Download CSV of selected posinventorychange"
+
 
     class Media:
         pass
@@ -818,7 +825,7 @@ class VendorAdmin(admin.ModelAdmin):
 
 class PosCartProductMappingAdmin(admin.TabularInline):
     model = PosCartProductMapping
-    fields = ('product', 'qty', 'price', 'is_grn_done')
+    fields = ('product', 'qty', 'pack_size', 'price', 'is_grn_done')
 
     def has_delete_permission(self, request, obj=None):
         return False

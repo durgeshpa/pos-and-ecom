@@ -109,25 +109,29 @@ class EcomCart(Cart):
     class Meta:
         proxy = True
         app_label = 'ecom'
-        verbose_name = 'Cart'
+        verbose_name = 'Ecommerce - Cart'
+
 
 
 class EcomCartProductMapping(CartProductMapping):
     class Meta:
         proxy = True
         app_label = 'ecom'
-        verbose_name = 'Cart Product Mapping'
+        verbose_name = 'Ecommerce - Cart Product Mapping'
 
 
-class EcomOrderedProduct(Order):
+
+class EcomOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
         app_label = 'ecom'
-        verbose_name = 'Order'
+        verbose_name = 'Ecommerce - Ordered Product'
+
+
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
         app_label = 'ecom'
-        verbose_name = 'Ordered Product Mapping'
+        verbose_name = 'Ecommerce - Ordered Product Mapping'

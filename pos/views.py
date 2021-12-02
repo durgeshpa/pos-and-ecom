@@ -130,11 +130,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 row['offer_end_date'] = None
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
-            online_enabled, online_price, is_visible = row.get('product_name'), row.get('product_ean_code'), \
+            online_enabled, online_price, is_visible,product_pack_type = row.get('product_name'), row.get('product_ean_code'), \
                                                        row.get('mrp'), row.get('selling_price'), row.get('offer_price', None), \
                                                        row.get('offer_start_date', None), row.get('offer_end_date', None), None, \
                                                        row.get('description'), row.get('quantity'), row['online_enabled'], \
-                                                       row['online_price'], row['is_deleted']
+                                                       row['online_price'], row['is_deleted'] , row.get('product_pack_type',None)
 
             if row.get('product_id') == '':
                 # we need to create this product
@@ -237,6 +237,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
                     if row['offer_end_date']:
                         product.offer_end_date = row['offer_end_date']
+
+                    if product_pack_type:
+                        product.product_pack_type = product_pack_type.lower()
+
+                    product.measurement_category_id = measure_cat_id
 
                     product.save()
 
@@ -691,6 +696,39 @@ def download_posinventorychange_products(request,sku=None, *args):
         ])
     return response
 
+def get_pos_posinventorychange(prod_sku=None):
+    try:
+        prod = RetailerProduct.objects.get(id = prod_sku)
+        pos_inventory = PosInventoryChange.objects.filter(product = prod).order_by('-modified_at')
+        discount_prod = DiscountedRetailerProduct.objects.filter(product_ref = prod)
+        if len(discount_prod) > 0:
+            discount_pros_inventory = PosInventoryChange.objects.filter(product = discount_prod[0]).order_by('-modified_at')
+            pos_inventory = pos_inventory.union(discount_pros_inventory).order_by('-modified_at')
+    except Exception:
+        today = datetime.date.today()
+        two_month_back = today - relativedelta(months=2)
+        pos_inventory = PosInventoryChange.objects.filter(modified_at__gte = two_month_back).order_by('-modified_at')
+
+    return pos_inventory
+
+
+def posinventorychange_data_excel(request,queryset):
+
+
+    filename = "posinventorychange_data_excel.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+            ['shop_id', 'shop_name', 'Product Name', 'Product SKU', 'Quantity', 'Transaction Type', 'Transaction Id', 'Initial State',
+             'Final State', 'Changed By', 'Created at', 'Modfied at'])
+    for obj in queryset:
+        pos_inventory = get_pos_posinventorychange(obj.product.id)
+        for prod in pos_inventory:
+            writer.writerow([prod.product.shop.id, prod.product.shop.shop_name, prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
+            prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+            ])
+    return response
 
 
 def get_product_details(product):
@@ -1019,6 +1057,7 @@ class RetailerOrderedReportView(APIView):
         writer.writerow([])
         writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
                          'Total Online', 'Total PG'])
+
         for user in users_list:
             pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt = \
                 self.total_order_calculation(user['user__id'], start_date, end_date, shop)

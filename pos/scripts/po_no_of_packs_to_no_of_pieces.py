@@ -47,11 +47,12 @@ def run(*args):
                                 qty_change = round(Decimal(product.no_of_pieces), 3) - po_grn_order_map.received_qty
                                 po_grn_order_map.received_qty = product.no_of_pieces
                                 po_grn_order_map.save()
-                                if qty_change != 0:
-                                    PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.AVAILABLE,
-                                                                  PosInventoryState.AVAILABLE, qty_change, User.objects.get(id=9),
-                                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE)
 
+                                if qty_change != 0:
+                                    PosInventoryCls.grn_inventory(product.cart_product, PosInventoryState.AVAILABLE,
+                                                                  PosInventoryState.AVAILABLE, qty_change, User.objects.get(id=9),
+                                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE,
+                                                                  mapping.pack_size)
             except Exception as e:
                 error_logger.error(e)
                 info_logger.error("Something went wrong:", str(e))
