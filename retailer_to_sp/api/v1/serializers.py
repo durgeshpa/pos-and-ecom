@@ -1839,9 +1839,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
                 elif status == OrderedProduct.MOVED_TO_DISPATCH and \
-                shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
+                    shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
                     raise serializers.ValidationError(' Some item/s still not ready for dispatch')
-
+                elif status == OrderedProduct.MOVED_TO_DISPATCH and \
+                    not shipment.shipment_packaging.filter(
+                        status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).exists():
+                    raise serializers.ValidationError('There is no package to be dispatched in this shipment')
                 if status == OrderedProduct.READY_TO_SHIP and \
                     not shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0).exists():
                     status = OrderedProduct.QC_REJECTED
@@ -1873,10 +1876,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
         if shipment_instance.shipment_status == OrderedProduct.QC_STARTED:
             send_update_to_qcdesk(shipment_instance)
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
-        elif shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+        elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
-            info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
-                             f"{shipment_instance.order.order_no}")
+            info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
+                             f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
