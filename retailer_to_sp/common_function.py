@@ -144,3 +144,5 @@ def getGSTINNumber(shop_name):
 #     if shop_id == 600:
 #         return get_config('gfdn_license_no', None)
 #     return get_config('addistro_license_no', None)
+
+
