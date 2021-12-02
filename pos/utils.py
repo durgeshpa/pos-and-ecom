@@ -218,9 +218,9 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO',
+            'PR NO.', 'STATUS', 'PO NO', 'STORE NAME',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
-            'PRODUCT SELLING PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
+            'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
             'GIVEN QTY', 'GIVEN QTY UNIT', 'CREATED AT'
         ]
     )
@@ -232,12 +232,13 @@ def generate_prn_csv_report(queryset):
                     p_return.pr_number,
                     p_return.status,
                     p_return.po_no,
+                    p_return.grn_ordered_id.order.ordered_cart.retailer_shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
                     return_item.product.sku,
                     return_item.product.product_pack_type,
                     return_item.product.mrp,
-                    return_item.product.selling_price,
+                    return_item.selling_price,
                     return_item.return_qty,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
                     return_item.qty_given,

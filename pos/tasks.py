@@ -271,16 +271,21 @@ def genrate_debit_note_pdf(returned_obj, debit_note_number):
         products_list.append(product_dict)
     amt = [num2words(i) for i in str(total_amount).split('.')]
     amt_in_words = amt[0]
-
-    billing_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
-        shop_name_address_mapping.filter(address_type='billing').last()
-    shipping_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
-        shop_name_address_mapping.filter(address_type='billing').last()
+    if returned_obj.grn_ordered_id:
+        billing_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+            shop_name_address_mapping.filter(address_type='billing').last()
+        shipping_address_instance = returned_obj.grn_ordered_id.order.ordered_cart.retailer_shop. \
+            shop_name_address_mapping.filter(address_type='billing').last()
+    else:
+        billing_address_instance = returned_obj.vendor_id.retailer_shop.\
+            shop_name_address_mapping.filter(address_type='billing').last()
+        shipping_address_instance = returned_obj.vendor_id.retailer_shop. \
+            shop_name_address_mapping.filter(address_type='billing').last()
 
     data = {
-        "grn_id": returned_obj.grn_ordered_id.grn_id,
-        "invoice_number": returned_obj.grn_ordered_id.invoice_no,
-        "cart_instance": returned_obj.grn_ordered_id.order.ordered_cart,
+        "grn_id": returned_obj.grn_ordered_id.grn_id if returned_obj.grn_ordered_id else None,
+        "invoice_number": returned_obj.grn_ordered_id.invoice_no if returned_obj.grn_ordered_id else None,
+        "cart_instance": returned_obj.grn_ordered_id.order.ordered_cart if returned_obj.grn_ordered_id else None,
         "purchase_return_instance": returned_obj,
         "billing": billing_address_instance,
         "shipping": shipping_address_instance,
@@ -309,21 +314,30 @@ def update_debit_note_pdf(returned_obj, filename, response):
 def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
     instance = PosReturnGRNOrder.objects.get(id=pos_return_items_obj)
     try:
-        recipient_list = [instance.grn_ordered_id.order.ordered_cart.vendor.email]
-        vendor_name = instance.grn_ordered_id.order.ordered_cart.vendor.vendor_name
+        if instance.grn_ordered_id:
+            recipient_list = [instance.grn_ordered_id.order.ordered_cart.vendor.email]
+            vendor_name = instance.grn_ordered_id.order.ordered_cart.vendor.vendor_name
+            shop_name = instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name
+            phone_number = instance.grn_ordered_id.order.ordered_cart.vendor.phone_number
+        else:
+            recipient_list = [instance.vendor_id.email]
+            vendor_name = instance.vendor_id.vendor_name
+            shop_name = instance.vendor_id.retailer_shop.shop_name
+            phone_number = instance.vendor_id.phone_number
         template_name = 'admin/return_order/debit_note.html'
-        subject = "Purchase Return {} | {}".format(instance.pr_number,
-                                                   instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+        subject = "Purchase Return {} | {}".format(instance.pr_number, shop_name)
         body = 'Dear {}, \n \n Find attached PR from {}, PepperTap POS. \n \n Note: Take Prior appointment before ' \
                'return and bring PR copy along with Original Invoice. \n \n Thanks, \n {}'.format(
-            vendor_name, instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name,
-            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+            vendor_name, shop_name, shop_name)
 
         if instance.debit_note_number:
             debit_note_number = instance.debit_note_number
         else:
-            debit_note_number = generate_debit_note_number(instance,
-                                                           instance.grn_ordered_id.order.ordered_cart.retailer_shop.pk)
+            if instance.grn_ordered_id:
+                debit_note_number = generate_debit_note_number(instance,
+                                                               instance.grn_ordered_id.order.ordered_cart.retailer_shop.pk)
+            else:
+                debit_note_number = generate_debit_note_number(instance, instance.vendor_id.retailer_shop.pk)
             instance.debit_note_number = debit_note_number
         random_num = random.randint(10000, 99999)
         filename = 'PR_PDF_{}_{}_{}_{}.pdf'.format(debit_note_number, datetime.datetime.today().date(), vendor_name,
@@ -348,12 +362,9 @@ def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
         # send sms
         body = 'Dear {}, \n \n PR number {} has been generated from {}, PepperTap POS and sent to you over mail.' \
                '\n \n Note: Take Prior appointment before return and bring PR copy along with Original Invoice.' \
-               '\n \n Thanks, \n {}'.format(vendor_name, instance.pr_number,
-                                            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name,
-                                            instance.grn_ordered_id.order.ordered_cart.retailer_shop.shop_name)
+               '\n \n Thanks, \n {}'.format(vendor_name, instance.pr_number, shop_name, shop_name)
 
-        message = SendSms(phone=instance.grn_ordered_id.order.ordered_cart.vendor.phone_number,
-                          body=body)
+        message = SendSms(phone=phone_number, body=body)
         message.send()
 
     except Exception as e:
