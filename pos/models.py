@@ -262,7 +262,7 @@ class PosCartProductMapping(models.Model):
     pack_size = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
-    is_bulk = models.BooleanField(default=False)
+    # is_bulk = models.BooleanField(default=False)
     qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
                                             null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -562,7 +562,7 @@ class PosReturnItems(models.Model):
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             if po_product.qty_conversion_unit:
                 return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
-            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion.conversion, 3)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
 
         elif self.product.product_pack_type == 'loose' and qty and not self.grn_return_id.grn_ordered_id:
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
