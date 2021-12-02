@@ -41,7 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
-from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter
+from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter, Warehouse
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -2455,9 +2455,8 @@ class ShipmentPackagingAdmin(admin.ModelAdmin):
     # list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
                        'created_at', 'created_by', 'updated_at', 'updated_by')
-    search_fields = ('shipment', 'crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
-                     'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
-    list_filter = [CrateFilter, ('created_at', DateTimeRangeFilter)]
+    search_fields = ('shipment__invoice_number', 'shipment__order__order_no', 'shipment__invoice__invoice_no', )
+    list_filter = [Warehouse, CrateFilter, 'packaging_type', 'status', ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
     actions = ['download_csv']
 
