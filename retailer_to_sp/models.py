@@ -1491,6 +1491,9 @@ class OrderedProduct(models.Model):  # Shipment
     READY_TO_DISPATCH = 'READY_TO_DISPATCH'
     OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
     MOVED_TO_DISPATCH = 'MOVED_TO_DISPATCH'
+    FULLY_DELIVERED_AND_VERIFIED = 'FULLY_DELIVERED_AND_VERIFIED'
+    PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
+    FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -3206,7 +3209,8 @@ class ShipmentPackaging(BaseTimestampUserModel):
         ('PACKED', 'Packed'),
         ('READY_TO_DISPATCH', 'Ready to dispatch'),
         ('REJECTED', 'Rejected'),
-        ('DISPATCHED', 'Dispatched')
+        ('DISPATCHED', 'Dispatched'),
+        ('DELIVERED', 'Delivered')
     )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)

@@ -6648,14 +6648,18 @@ class ProcessShipmentView(generics.GenericAPIView):
         """ GET API for Process Shipment """
         info_logger.info("Process Shipment GET api called.")
 
-        if not request.GET.get('id'):
-            return get_response('please provide id to get shipment product detail', False)
+        if request.GET.get('id'):
+            """ Get Process Shipment for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            process_shipments_data = id_validation['data']
 
-        """ Get Process Shipment for specific ID """
-        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        process_shipments_data = id_validation['data']
+        else:
+            """ Get Process Shipment for specific Shipment and batch Id """
+            if not request.GET.get('shipment_id') or not request.GET.get('batch_id'):
+                return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
+            process_shipments_data = self.filter_shipment_data()
 
         serializer = self.serializer_class(process_shipments_data, many=True)
         msg = "" if process_shipments_data else "no shipment product found"
@@ -6686,7 +6690,21 @@ class ProcessShipmentView(generics.GenericAPIView):
             return get_response('process_shipment updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-        
+    def filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        shipment_id = self.request.GET.get('shipment_id')
+        batch_id = self.request.GET.get('batch_id')
+
+        '''Filters using shipment_id & batch_id'''
+        if shipment_id:
+            self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
+
+        return self.queryset.distinct('id')
+
+
 class ShipmentQCView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)

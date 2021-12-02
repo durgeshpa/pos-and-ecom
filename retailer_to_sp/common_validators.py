@@ -31,7 +31,8 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
                                     crate_type=Crate.DISPATCH).last()
         if crate.crates_shipments.filter(
             ~Q(shipment=shipment),
-            ~Q(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)).exists():
+            ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED,
+                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED])).exists():
             return {"error" : "This crate is being used for some other shipment."}
         crate_already_used.append(crate_obj['crate_id'])
     return {"data": crates_dict}

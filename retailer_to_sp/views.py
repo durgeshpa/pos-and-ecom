@@ -652,6 +652,7 @@ def trip_planning_change(request, pk):
                         else:
                             trip_instance.rt_invoice_trip.all().update(
                                 shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                            update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if trip_status == Trip.READY:
@@ -661,16 +662,17 @@ def trip_planning_change(request, pk):
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
                         trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
-
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if current_trip_status == Trip.RETURN_VERIFIED:
@@ -698,7 +700,7 @@ def trip_planning_change(request, pk):
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
                             selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
                                                       trip=trip_instance)
-
+                            update_packages_on_shipment_status_change(selected_shipments)
                         # updating order status for shipments with respect to trip status
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
@@ -1941,3 +1943,20 @@ def create_order_shipment(order_instance):
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
 
 
+def update_shipment_package_status(shipment_instance):
+    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
+    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
+    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
+                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+
+
+def update_packages_on_shipment_status_change(shipments):
+    for instance in shipments:
+        update_shipment_package_status(instance)
