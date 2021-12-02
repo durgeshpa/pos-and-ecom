@@ -122,7 +122,7 @@ class EcomCartProductMapping(CartProductMapping):
 
 
 
-class EcomOrderedProduct(Order):
+class EcomOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
         app_label = 'ecom'
