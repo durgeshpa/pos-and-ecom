@@ -30,7 +30,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentNotAttempt)
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentNotAttempt,
+                                   ShipmentPackaging)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
