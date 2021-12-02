@@ -2462,8 +2462,13 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'),
-                                                                          output_field=FloatField()))['total_price']
+        tp = obj.order.ordered_cart.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     @staticmethod
@@ -2653,8 +2658,13 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'),
-                                                                          output_field=FloatField()))['total_price']
+        tp = obj.order.ordered_cart.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     def get_products(self, obj):
