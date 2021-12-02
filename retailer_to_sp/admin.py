@@ -41,7 +41,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
-from wms.admin import ZoneFilter, QCAreaAutocomplete
+from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter, Warehouse
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -50,7 +50,8 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
+                     ShipmentPackaging, ShipmentPackagingMapping)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2447,6 +2448,53 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
                              self.picked_pieces_count(obj)])
         return response
 
+
+class ShipmentPackagingAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('warehouse', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
+                       'created_at', 'created_by', 'updated_at', 'updated_by')
+    search_fields = ('shipment__invoice_number', 'shipment__order__order_no', 'shipment__invoice__invoice_no', )
+    list_filter = [Warehouse, CrateFilter, 'packaging_type', 'status', ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ShipmentPackagingMappingAdmin(admin.ModelAdmin):
+    list_display = ('shipment_packaging', 'ordered_product', 'quantity',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('shipment_packaging', 'ordered_product', 'quantity',
+                       'created_at', 'created_by', 'updated_at', 'updated_by')
+    list_filter = [('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2463,3 +2511,5 @@ admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
 admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)
+admin.site.register(ShipmentPackaging, ShipmentPackagingAdmin)
+admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
