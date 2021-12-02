@@ -1941,7 +1941,7 @@ class QCDeskHelperDashboardSerializer(serializers.ModelSerializer):
     def get_qc_areas(self, obj):
         data_set = QCDeskQCAreaAssignmentMapping.objects.filter(
             qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False, qc_done=False)\
-            .order_by('last_assigned_at')
+            .order_by('last_assigned_at')[:3]
         return QCDeskQCAreaAssignmentMappingListingSerializer(data_set, read_only=True, many=True).data
 
 
