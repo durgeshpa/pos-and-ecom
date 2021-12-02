@@ -1,3 +1,4 @@
+from os import read
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
@@ -12,6 +13,7 @@ from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMa
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
+from ecom.models import EcomTrip
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -233,6 +235,26 @@ class TagAdmin(admin.ModelAdmin):
         return True
 
 
+@admin.register(EcomTrip)
+class EcommerceTripAdmin(admin.ModelAdmin):
+    list_display = ('order_no', 'delivery_person','trip_start_at', 'trip_end_at')
+
+    def order_no(self, obj):
+        return obj.shipment.order.order_no
+
+    def delivery_person(self, obj):
+        return "%s | %s" %  (obj.shipment.order.delivery_person.first_name,
+                             obj.shipment.order.delivery_person.phone_number)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
 admin.site.register(EcomCart, EcomCartAdmin)
-

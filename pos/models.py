@@ -599,3 +599,21 @@ class RetailerOrderedReport(Order):
     class Meta:
         proxy = True
         verbose_name = 'Order - Report'
+
+
+class PosTrip(models.Model):
+    ORDER_TRIP_TYPE = (
+        ('ECOM', 'Ecom'),
+    )
+    shipment = models.ForeignKey(OrderedProduct,
+                                 related_name='pos_trips',
+                                 on_delete=models.CASCADE)
+    trip_type = models.CharField(choices=ORDER_TRIP_TYPE,
+                                 max_length=10)
+    trip_start_at = models.DateTimeField(null=True,
+                                         blank=True)
+    trip_end_at = models.DateTimeField(null=True,
+                                       blank=True)
+
+    def __str__(self):
+        return str(self.id) + ' | ' + self.trip_type
