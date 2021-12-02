@@ -35,7 +35,7 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
     update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
-    RetailerOrderReturnCreditNoteView
+    RetailerOrderReturnCreditNoteView,posinventorychange_data_excel
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -110,8 +110,8 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
-              'online_enabled', 'online_price', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'product_ean_code', 'product_pack_type',
+              'online_enabled', 'online_price', 'created_at', 'modified_at','measurement_category','product_pack_type')
+    readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description')
 
@@ -572,10 +572,11 @@ class PosInventoryAdmin(admin.ModelAdmin):
 @admin.register(InventoryChangePos)
 class PosInventoryChangeAdmin(admin.ModelAdmin):
     forms = PosInventoryChangeCSVDownloadForm
-    list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
+    list_display = ('shop', 'product',"Download_PosInventory_Changes", 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
                     'initial_qty', 'final_qty', 'changed_by', 'created_at', 'remarks')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
+    actions = ["posinventorychange_data_excel_action"]
     list_per_page = 50
     list_filter = [ProductInvEanSearch,
                    'transaction_type', ('product__shop', RelatedOnlyDropdownFilter), ('created_at', DateRangeFilter)]
@@ -602,6 +603,12 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def Download_PosInventory_Changes(self,obj=None):
+        if obj.product.sku_type !=4:
+            return format_html("<a href= '%s' >posinventorychange_products_downloads</a>" % (reverse('admin:posinventorychange_products_downloads', args=[obj.product.id])))
+
+        return '-'
+
     def get_urls(self):
         """" Download CSV of Pos Inventory change along with discounted product"""
         urls = super(PosInventoryChangeAdmin, self).get_urls()
@@ -614,8 +621,19 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                        self.admin_site.admin_view(download_posinventorychange_products),
                        name="posinventorychange_products_download"),
 
+                    url(
+                       r'^retailer-order-invoice/(?P<sku>\d+)/$',
+                       self.admin_site.admin_view(download_posinventorychange_products),
+                       name="posinventorychange_products_downloads"                   )
+
                ] + urls
         return urls
+    def posinventorychange_data_excel_action(self, request, queryset):
+
+        return posinventorychange_data_excel(request, queryset)
+
+    posinventorychange_data_excel_action.short_description = "Download CSV of selected posinventorychange"
+
 
     class Media:
         pass
@@ -807,7 +825,7 @@ class VendorAdmin(admin.ModelAdmin):
 
 class PosCartProductMappingAdmin(admin.TabularInline):
     model = PosCartProductMapping
-    fields = ('product', 'qty', 'price', 'is_grn_done')
+    fields = ('product', 'qty', 'pack_size', 'price', 'is_grn_done', 'is_bulk')
 
     def has_delete_permission(self, request, obj=None):
         return False

@@ -6,7 +6,7 @@ import math
 
 from django.db.models.functions import Cast
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField, Count
+from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField, Count, Case, When
 from django.db import transaction, models
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
@@ -1858,13 +1858,13 @@ class POProductSerializer(serializers.ModelSerializer):
             attrs['pack_size'] = 1
         else:
             attrs['pack_size'] = product.purchase_pack_size
-            attrs['qty'] = int(attrs['qty'] * product.purchase_pack_size)
+            attrs['qty'] = int(attrs['qty'])
         attrs['qty_unit'] = qty_unit
         return attrs
 
     class Meta:
         model = PosCartProductMapping
-        fields = ('product_id', 'price', 'qty', 'qty_unit', 'pack_size')
+        fields = ('product_id', 'price', 'qty', 'qty_unit', 'pack_size', 'is_bulk')
 
 
 class POSerializer(serializers.ModelSerializer):
@@ -1975,9 +1975,8 @@ class POProductGetSerializer(serializers.ModelSerializer):
                     return Decimal(already_grn) * default_unit.conversion / obj.qty_conversion_unit.conversion
                 else:
                     return round(Decimal(already_grn) * default_unit.conversion / default_unit.conversion, 3)
-
             else:
-                return int(already_grn / obj.pack_size)
+                return int(already_grn)
         return 0
 
     @staticmethod
@@ -2002,7 +2001,7 @@ class POProductGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosCartProductMapping
         fields = ('product_id', 'product_name', 'product_pack_type', 'mrp', 'price', 'qty', 'qty_unit', 'grned_qty', 'po_price_history',
-                  'is_grn_done', 'units', 'pack_size')
+                  'is_grn_done', 'units', 'pack_size', 'is_bulk')
 
 
 class POGetSerializer(serializers.ModelSerializer):
@@ -2013,7 +2012,13 @@ class POGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        tp = obj.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     def get_po_products(self, obj):
@@ -2059,14 +2064,32 @@ class POListSerializer(serializers.ModelSerializer):
     total_price = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     total_qty = serializers.SerializerMethodField()
+    total_pieces = serializers.SerializerMethodField()
 
     @staticmethod
     def get_total_qty(obj):
         return obj.po_products.aggregate(Sum('qty')).get('qty__sum')
 
     @staticmethod
+    def get_total_pieces(obj):
+        tp = obj.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('qty'))),
+                    default=(F('qty') * F('pack_size')),
+                    output_field=FloatField()
+                )))['total_price']
+        return round(tp, 2) if tp else tp
+
+    @staticmethod
     def get_total_price(obj):
-        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        tp = obj.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     @staticmethod
@@ -2080,7 +2103,7 @@ class POListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date', 'total_qty')
+        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date', 'total_qty', 'total_pieces')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
@@ -2144,7 +2167,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                                         product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
+                # product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
                 product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
@@ -2163,6 +2186,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             user, shop, products = self.context.get('user'), self.context.get('shop'), validated_data['products']
             po = PosCart.objects.get(id=validated_data['po_id'])
+
             grn_order = PosGRNOrder.objects.create(order=po.pos_po_order, added_by=user, last_modified_by=user,
                                                    invoice_no=validated_data['invoice_no'],
                                                    invoice_amount=validated_data['invoice_amount'],
@@ -2171,10 +2195,16 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                 product['received_qty'] = round(Decimal(product['received_qty']), 3)
                 if product['received_qty'] > 0:
                     PosGRNOrderProductMapping.objects.create(grn_order=grn_order, product_id=product['product_id'],
-                                                             received_qty=product['received_qty'], pack_size=product['pack_size'])
+                                                             received_qty=product['received_qty'],
+                                                             pack_size=product['pack_size'])
+
+                    # if PosCartProductMapping.objects.filter(
+                    #         cart=po, product_id=product['product_id'], is_bulk=True).exists():
+                    #     product['pack_size'] = 1
                     PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.NEW,
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
-                                                  grn_order.grn_id, PosInventoryChange.GRN_ADD)
+                                                  grn_order.grn_id, PosInventoryChange.GRN_ADD,
+                                                  product['pack_size'])
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
             total_grn_qty = total_grn_qty if total_grn_qty else 0
@@ -2237,7 +2267,7 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
                                                                         product_obj, product['received_qty'])
                 product['pack_size'] = 1
             else:
-                product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
+                # product['received_qty'] = int(product['received_qty'] * po_product.pack_size)
                 product['pack_size'] = po_product.pack_size
             # already_grned_qty = grn_products[product['product_id']] if product['product_id'] in grn_products else 0
             # if int(product['received_qty']) + already_grned_qty > po_product.qty:
@@ -2268,10 +2298,14 @@ class PosGrnOrderUpdateSerializer(serializers.ModelSerializer):
                 mapping.received_qty = round(Decimal(product['received_qty']), 3)
                 mapping.pack_size = product['pack_size']
                 mapping.save()
+                # if PosCartProductMapping.objects.filter(
+                #         cart=grn_order.order.ordered_cart, product_id=product['product_id'], is_bulk=True).exists():
+                #     product['pack_size'] = 1
                 if qty_change != 0:
                     PosInventoryCls.grn_inventory(product['product_id'], PosInventoryState.AVAILABLE,
                                                   PosInventoryState.AVAILABLE, qty_change, user,
-                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE)
+                                                  grn_order.grn_id, PosInventoryChange.GRN_UPDATE,
+                                                  product['pack_size'])
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(
                 grn_order__order=grn_order.order.ordered_cart.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
@@ -2305,8 +2339,10 @@ class GrnListSerializer(serializers.ModelSerializer):
         if po_products:
             total_price = 0
             for po_pr in po_products:
-                if po_pr.product.id in grn_products:
+                if po_pr.product.id in grn_products and po_pr.is_bulk:
                     total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                elif po_pr.product.id in grn_products:
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
@@ -2318,7 +2354,7 @@ class GrnListSerializer(serializers.ModelSerializer):
 class GrnOrderProductGetSerializer(serializers.ModelSerializer):
     other_grned_qty = serializers.SerializerMethodField()
     curr_grn_received_qty = serializers.SerializerMethodField()
-    qty = serializers.SerializerMethodField()
+    # qty = serializers.SerializerMethodField()
     qty_unit = serializers.SerializerMethodField()
     previous_grn_returned_qty = serializers.SerializerMethodField()
     product_pack_type = serializers.SerializerMethodField()
@@ -2339,7 +2375,7 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return round(Decimal(grn_product.received_qty) * default_unit.conversion / default_unit.conversion, 3)
             else:
-                return int(grn_product.received_qty / obj.pack_size)
+                return int(grn_product.received_qty)
         return 0
 
     @staticmethod
@@ -2358,12 +2394,12 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return Decimal(previous_return_qty) * default_unit.conversion / default_unit.conversion
             else:
-                return int(previous_return_qty / obj.pack_size)
+                return int(previous_return_qty)
         return 0
 
-    @staticmethod
-    def get_qty(obj):
-        return obj.qty_given
+    # @staticmethod
+    # def get_qty(obj):
+    #     return obj.qty_given
 
     @staticmethod
     def get_qty_unit(obj):
@@ -2382,13 +2418,13 @@ class GrnOrderProductGetSerializer(serializers.ModelSerializer):
                 else:
                     return Decimal(already_grn) * default_unit.conversion / default_unit.conversion
             else:
-                return int(already_grn / obj.pack_size)
+                return int(already_grn)
         return 0
 
     class Meta:
         model = PosCartProductMapping
         fields = ('product_id', 'product_name', 'price', 'qty', 'qty_unit', 'other_grned_qty', 'curr_grn_received_qty',
-                  'pack_size', 'previous_grn_returned_qty', 'product_pack_type')
+                  'pack_size', 'previous_grn_returned_qty', 'product_pack_type', 'is_bulk')
 
 
 class GrnInvoiceSerializer(serializers.ModelSerializer):
@@ -2411,21 +2447,28 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
 
         grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
-            grn_order=obj).values('product_id', 'received_qty')}
+            grn_order=obj).values('product_id', 'received_qty',)}
 
         total_price = None
         if po_products:
             total_price = 0
             for po_pr in po_products:
-                if po_pr.product.id in grn_products:
+                if po_pr.product.id in grn_products and po_pr.is_bulk:
                     total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                elif po_pr.product.id in grn_products:
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
-                                                                          output_field=FloatField()))['total_price']
+        tp = obj.order.ordered_cart.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     @staticmethod
@@ -2566,7 +2609,7 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                         Decimal(total_returned) * default_unit.conversion / default_unit.conversion,
                         3)
             else:
-                return int(total_returned / obj.pack_size)
+                return int(total_returned)
         return 0
 
     @staticmethod
@@ -2583,10 +2626,10 @@ class PosReturnItemsSerializer(serializers.ModelSerializer):
                              3)
                 else:
                     return round(
-                        Decimal(other_return) * default_unit.conversion /  default_unit.conversion,
+                        Decimal(other_return) * default_unit.conversion / default_unit.conversion,
                         3)
             else:
-                return int(other_return / obj.pack_size)
+                return int(other_return)
         return 0
 
 
@@ -2606,15 +2649,22 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
         if po_products:
             total_price = 0
             for po_pr in po_products:
-                if po_pr.product.id in grn_products:
+                if po_pr.product.id in grn_products and po_pr.is_bulk:
                     total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                elif po_pr.product.id in grn_products:
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
-                                                                          output_field=FloatField()))['total_price']
+        tp = obj.order.ordered_cart.po_products.aggregate(
+            total_price=Sum(
+                Case(
+                    When(is_bulk=True, then=(F('price') * F('qty'))),
+                    default=(F('price') * F('pack_size') * F('qty')),
+                    output_field=FloatField()
+                )))['total_price']
         return round(tp, 2) if tp else tp
 
     def get_products(self, obj):
@@ -2691,14 +2741,14 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 if po_product.product.product_pack_type == 'loose':
                     if po_product.qty_conversion_unit:
                         rtn_product['return_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit,
-                                                                          po_product.product,
-                                                                          rtn_product['return_qty'])
+                                                                              po_product.product,
+                                                                              rtn_product['return_qty'])
                     else:
                         rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
                                                                           rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
-                    rtn_product['return_qty'] = int(rtn_product['return_qty'] * po_product.pack_size)
+                    rtn_product['return_qty'] = int(rtn_product['return_qty'])
                     rtn_product['pack_size'] = po_product.pack_size
 
                 if 'id' in self.initial_data and self.initial_data['id']:
@@ -2798,7 +2848,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, -(grn_product_return['return_qty']),
                                           grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
-                                          PosInventoryChange.RETURN)
+                                          PosInventoryChange.RETURN, grn_product_return['pack_size'])
 
         mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
 
@@ -2826,7 +2876,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                               PosInventoryState.AVAILABLE, -current_return_qty,
                                               grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
-                                              PosInventoryChange.RETURN)
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
 
             elif current_return_qty == existing_return_qty:
                 pass
@@ -2835,12 +2885,12 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                               PosInventoryState.AVAILABLE, (existing_return_qty-current_return_qty),
                                               grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
-                                              PosInventoryChange.RETURN)
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
             else:
                 PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                               PosInventoryState.AVAILABLE, -(current_return_qty-existing_return_qty),
                                               grn_return_id.last_modified_by, grn_return_id.grn_ordered_id.grn_id,
-                                              PosInventoryChange.RETURN)
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
         if grn_return_id.debit_note is not None:
             grn_return_id.debit_note = None
             grn_return_id.save()
@@ -2850,12 +2900,13 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
     def update_cancel_return(self, grn_return_id, instance_id,):
 
         post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
-        products = post_return_item.values('product_id', 'return_qty')
+        products = post_return_item.values('product_id', 'return_qty', 'pack_size')
         for grn_product_return in products:
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, grn_product_return['return_qty'],
                                           grn_return_id.last_modified_by,
-                                          grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN)
+                                          grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN,
+                                          grn_product_return['pack_size'])
             PosReturnItems.objects.filter(grn_return_id=grn_return_id,
                                           product=grn_product_return['product_id']).update(is_active=False)
 
@@ -2871,10 +2922,13 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
         products_dict = {sub['product_id']: sub['return_qty'] for sub in post_return_item_dict}
         grn_products = [sub['product_id'] for sub in grn_products_return]
         for product in [item for item in products if item not in grn_products]:
+            po_product = PosCartProductMapping.objects.filter(cart=grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                              product_id=product).select_related('product').last()
             PosInventoryCls.grn_inventory(product, PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, products_dict[product],
                                           grn_return_id.last_modified_by,
-                                          grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN)
+                                          grn_return_id.grn_ordered_id.grn_id, PosInventoryChange.RETURN,
+                                          po_product.pack_size)
             # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
             PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
 
