@@ -1931,7 +1931,8 @@ class POSerializer(serializers.ModelSerializer):
                                                                                product_id=product['product_id'])
                 mapping.qty, mapping.price = product['qty'], product['price']
                 mapping.qty_conversion_unit_id = product['qty_unit']
-                mapping.pack_size = product['pack_size']
+                if created:
+                    mapping.pack_size = product['pack_size']
                 mapping.save()
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
@@ -2012,7 +2013,8 @@ class POGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_total_price(obj):
-        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'),
+                                                       output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 
     def get_po_products(self, obj):
@@ -2058,14 +2060,20 @@ class POListSerializer(serializers.ModelSerializer):
     total_price = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     total_qty = serializers.SerializerMethodField()
+    total_pieces = serializers.SerializerMethodField()
 
     @staticmethod
     def get_total_qty(obj):
         return obj.po_products.aggregate(Sum('qty')).get('qty__sum')
 
     @staticmethod
+    def get_total_pieces(obj):
+        return obj.po_products.aggregate(total_pieces=Sum(F('qty') * F('pack_size'),
+                                         output_field=FloatField()))['total_pieces']
+
+    @staticmethod
     def get_total_price(obj):
-        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('qty'), output_field=FloatField()))['total_price']
+        tp = obj.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'), output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 
     @staticmethod
@@ -2079,7 +2087,7 @@ class POListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosCart
-        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date', 'total_qty')
+        fields = ('id', 'po_no', 'vendor_name', 'grn_id', 'total_price', 'status', 'date', 'total_qty', 'total_pieces')
 
 
 class PosGrnProductSerializer(serializers.ModelSerializer):
@@ -2308,7 +2316,7 @@ class GrnListSerializer(serializers.ModelSerializer):
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
@@ -2413,20 +2421,20 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
         po_products = PosCartProductMapping.objects.filter(cart=obj.order.ordered_cart)
 
         grn_products = {int(i['product_id']): i['received_qty'] for i in PosGRNOrderProductMapping.objects.filter(
-            grn_order=obj).values('product_id', 'received_qty')}
+            grn_order=obj).values('product_id', 'received_qty',)}
 
         total_price = None
         if po_products:
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
+        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'),
                                                                           output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 
@@ -2609,13 +2617,13 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
             total_price = 0
             for po_pr in po_products:
                 if po_pr.product.id in grn_products:
-                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
 
     @staticmethod
     def get_po_total_price(obj):
-        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('qty'),
+        tp = obj.order.ordered_cart.po_products.aggregate(total_price=Sum(F('price') * F('pack_size') * F('qty'),
                                                                           output_field=FloatField()))['total_price']
         return round(tp, 2) if tp else tp
 

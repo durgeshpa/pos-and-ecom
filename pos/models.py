@@ -262,6 +262,7 @@ class PosCartProductMapping(models.Model):
     pack_size = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
+    is_bulk = models.BooleanField(default=False)
     qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
                                             null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -302,8 +303,11 @@ class PosCartProductMapping(models.Model):
 
         return None
 
+    def total_pieces(self):
+        return round(self.qty * self.pack_size, 2)
+
     def total_price(self):
-        return round(self.price * self.qty, 2)
+        return round(self.price * self.qty * self.pack_size, 2)
 
     def product_name(self):
         return self.product.name

@@ -329,7 +329,7 @@ class RetailerRuleSetProductMappingAdmin(admin.ModelAdmin):
 
 class RetailerCartProductMappingAdmin(admin.TabularInline):
     model = RetailerCartProductMapping
-    fields = ('cart', 'retailer_product', 'qty', 'product_type', 'selling_price')
+    fields = ('cart', 'retailer_product', 'qty', 'product_type', 'selling_price', 'is_bulk')
 
     def has_delete_permission(self, request, obj=None):
         return False
