@@ -383,7 +383,10 @@ class PosGRNOrderProductMapping(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_order.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            else:
+                return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
@@ -391,8 +394,12 @@ class PosGRNOrderProductMapping(models.Model):
     @property
     def given_qty_unit(self):
         if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+            if PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
 
@@ -551,7 +558,9 @@ class PosReturnItems(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
@@ -559,8 +568,13 @@ class PosReturnItems(models.Model):
     @property
     def given_qty_unit(self):
         if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+            if PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
+
         return None
 
     def save(self, *args, **kwargs):
