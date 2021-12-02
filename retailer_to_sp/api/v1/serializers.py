@@ -1824,10 +1824,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
         if shipment_instance.shipment_status == OrderedProduct.QC_STARTED:
             send_update_to_qcdesk(shipment_instance)
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
-        elif shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+        elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
-            info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
-                             f"{shipment_instance.order.order_no}")
+            info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
+                             f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
