@@ -75,17 +75,12 @@ class OrderedProductMappingInline(admin.TabularInline):
     class Media:
         pass
 
-# def invoice_no(obj):
-#     if obj.shipment_objects.all()[0].invoice:
-#         return obj.shipment_objects.all()[0].invoice
-#     else:
-#         return '-'
 
 class EcomOrderProductAdmin(admin.ModelAdmin):
-    #inlines = (OrderedProductMappingInline,)
-    search_fields = ('order_no',)
+    inlines = (OrderedProductMappingInline,)
+    search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order_no', 'buyer_address',  'created_at')
+    list_display = ('order', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
 
     actions = ['download_order_reports']
 
@@ -94,45 +89,45 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order_no', 'order_status', 'buyer', 'buyer_address')}),
+            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
     )
 
     def seller_shop(self, obj):
-        return obj.seller_shop
+        return obj.order.seller_shop
 
     def buyer(self, obj):
-        return obj.buyer
+        return obj.order.buyer
 
     def buyer_address(self, obj):
-        return str(obj.ecom_address_order.address) + ' ' + str(obj.ecom_address_order.city) + ' ' + str(
-            obj.ecom_address_order.state)
+        return str(obj.order.ecom_address_order.address) + ' ' + str(obj.order.ecom_address_order.city) + ' ' + str(
+            obj.order.ecom_address_order.state)
 
     def sub_total(self, obj):
-        return obj.ordered_cart.subtotal
+        return obj.order.ordered_cart.subtotal
 
     def offer_discount(self, obj):
-        return obj.ordered_cart.offer_discount
+        return obj.order.ordered_cart.offer_discount
 
     def reward_discount(self, obj):
-        return obj.ordered_cart.redeem_points_value
+        return obj.order.ordered_cart.redeem_points_value
 
     def order_amount(self, obj):
-        return obj.order_amount
+        return obj.order.order_amount
 
     def order_status(self, obj):
-        return obj.order_status
+        return obj.order.order_status
 
     def order_no(self, obj):
-        return obj.order_no
+        return obj.order.order_no
 
-    # def download_invoice(self, obj):
-    #     if obj.shipment_objects.all()[0].invoice.invoice_pdf:
-    #         return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.pk])))
-    #     else:
-    #         return '-'
+    def download_invoice(self, obj):
+        if obj.invoice.invoice_pdf:
+            return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.pk])))
+        else:
+            return '-'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -148,22 +143,22 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(EcomOrderProductAdmin, self).get_queryset(request)
-        qs = qs.filter(ordered_cart__cart_type='ECOM')
+        qs = qs.filter(order__ordered_cart__cart_type='ECOM')
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(seller_shop__related_users=request.user) |
-            Q(seller_shop__shop_owner=request.user)
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
         )
 
-    # def has_change_permission(self, request, obj=None):
-    #     return False
-    #
-    # def has_add_permission(self, request):
-    #     return False
-    #
-    # def has_delete_permission(self, request, obj=None):
-    #     return False
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def download_order_reports(self, request, queryset):
         return generate_ecom_order_csv_report(queryset)
