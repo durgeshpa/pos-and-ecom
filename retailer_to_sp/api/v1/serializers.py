@@ -1790,9 +1790,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
                 elif status == OrderedProduct.MOVED_TO_DISPATCH and \
-                shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
+                    shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
                     raise serializers.ValidationError(' Some item/s still not ready for dispatch')
-
+                elif status == OrderedProduct.MOVED_TO_DISPATCH and \
+                    not shipment.shipment_packaging.filter(
+                        status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).exists():
+                    raise serializers.ValidationError('There is no package to be dispatched in this shipment')
                 if status == OrderedProduct.READY_TO_SHIP and \
                     not shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0).exists():
                     status = OrderedProduct.QC_REJECTED
