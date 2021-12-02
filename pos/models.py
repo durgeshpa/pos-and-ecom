@@ -273,8 +273,8 @@ class PosCartProductMapping(models.Model):
 
     @property
     def ordered_packs(self):
-        if self.product.product_pack_type == 'packet':
-            return int(self.qty / self.pack_size)
+        if self.product.product_pack_type == 'packet' and not self.is_bulk:
+            return int(self.pack_size)
         return None
 
     @property
@@ -304,9 +304,13 @@ class PosCartProductMapping(models.Model):
         return None
 
     def total_pieces(self):
+        if self.is_bulk:
+            return int(self.qty)
         return round(self.qty * self.pack_size, 2)
 
     def total_price(self):
+        if self.is_bulk:
+            return round(self.price * self.qty, 2)
         return round(self.price * self.qty * self.pack_size, 2)
 
     def product_name(self):
