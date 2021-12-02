@@ -2453,7 +2453,9 @@ class GrnOrderGetSerializer(serializers.ModelSerializer):
         if po_products:
             total_price = 0
             for po_pr in po_products:
-                if po_pr.product.id in grn_products:
+                if po_pr.product.id in grn_products and po_pr.is_bulk:
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                elif po_pr.product.id in grn_products:
                     total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
@@ -2642,7 +2644,9 @@ class GrnOrderGetListSerializer(serializers.ModelSerializer):
         if po_products:
             total_price = 0
             for po_pr in po_products:
-                if po_pr.product.id in grn_products:
+                if po_pr.product.id in grn_products and po_pr.is_bulk:
+                    total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price)
+                elif po_pr.product.id in grn_products:
                     total_price += float(grn_products[po_pr.product.id]) * float(po_pr.price) * float(po_pr.pack_size)
             total_price = round(total_price, 2)
         return total_price
