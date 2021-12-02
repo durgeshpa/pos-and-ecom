@@ -991,7 +991,7 @@ def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
                         category=retailer_product.measurement_category.category.lower())
                     mapping.qty_conversion_unit = MeasurementUnit.objects.get(category=measurement_category,
                                                                               default=True)
-                mapping.pack_size = 1
+                mapping.pack_size = retailer_product.purchase_pack_size
                 mapping.qty = product.no_of_pieces
                 mapping.is_bulk = True
                 mapping.save()

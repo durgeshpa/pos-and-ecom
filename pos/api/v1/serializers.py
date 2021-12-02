@@ -1931,8 +1931,7 @@ class POSerializer(serializers.ModelSerializer):
                                                                                product_id=product['product_id'])
                 mapping.qty, mapping.price = product['qty'], product['price']
                 mapping.qty_conversion_unit_id = product['qty_unit']
-                if created:
-                    mapping.pack_size = product['pack_size']
+                mapping.pack_size = product['pack_size']
                 mapping.save()
                 updated_pid += [product['product_id']]
             PosCartProductMapping.objects.filter(cart=cart, is_grn_done=False).exclude(
