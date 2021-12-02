@@ -825,7 +825,7 @@ class VendorAdmin(admin.ModelAdmin):
 
 class PosCartProductMappingAdmin(admin.TabularInline):
     model = PosCartProductMapping
-    fields = ('product', 'qty', 'pack_size', 'price', 'is_grn_done')
+    fields = ('product', 'qty', 'pack_size', 'price', 'is_grn_done', 'is_bulk')
 
     def has_delete_permission(self, request, obj=None):
         return False
