@@ -6,9 +6,9 @@ from django.urls import reverse
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
+from retailer_to_sp.models import Order
 
-from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
-from .models import Address, Tag, TagProductMapping
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
@@ -28,7 +28,7 @@ class EcomCartProductMappingAdmin(admin.TabularInline):
         return False
 
 
-@admin.register(EcomCart)
+
 class EcomCartAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
@@ -76,7 +76,6 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
-@admin.register(EcomOrderedProduct)
 class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
@@ -232,3 +231,8 @@ class TagAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
+
+
+admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
+admin.site.register(EcomCart, EcomCartAdmin)
+
