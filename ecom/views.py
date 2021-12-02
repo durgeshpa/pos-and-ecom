@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 
 from shops.models import Shop
 from pos.models import RetailerProduct
-from ecom.models import EcommerceOrderedProduct
+from ecom.models import EcomOrderedProduct
 
 # Create your views here.
 class EcomShopAutoCompleteView(autocomplete.Select2QuerySetView):
@@ -44,7 +44,7 @@ class DownloadEcomOrderInvoiceView(View):
 
     def get(self, request, pk):
         try:
-           order = get_object_or_404(EcommerceOrderedProduct, pk=pk)
+           order = get_object_or_404(EcomOrderedProduct, pk=pk)
            if order.invoice.invoice_pdf.url:
                 with requests.Session() as s:
                     try:
