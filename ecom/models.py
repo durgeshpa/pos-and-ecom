@@ -6,8 +6,9 @@ from django.utils.text import slugify
 from retailer_backend.validators import (AddressNameValidator, MobileNumberValidator, PinCodeValidator)
 from accounts.models import User
 from retailer_to_sp.models import Order
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, PosTrip
 from addresses.models import City, State, Pincode
+from ecom.managers import EcomTripModelManager
 
 from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping, Order
 
@@ -112,22 +113,20 @@ class EcomCart(Cart):
         verbose_name = 'Ecommerce - Cart'
 
 
-
 class EcomCartProductMapping(CartProductMapping):
+    
     class Meta:
         proxy = True
         app_label = 'ecom'
         verbose_name = 'Ecommerce - Cart Product Mapping'
 
 
-
 class EcomOrderedProduct(OrderedProduct):
+    
     class Meta:
         proxy = True
         app_label = 'ecom'
         verbose_name = 'Ecommerce - Ordered Product'
-
-
 
 
 class EcomOrderedProductMapping(OrderedProductMapping):
@@ -135,3 +134,10 @@ class EcomOrderedProductMapping(OrderedProductMapping):
         proxy = True
         app_label = 'ecom'
         verbose_name = 'Ecommerce - Ordered Product Mapping'
+
+
+class EcomTrip(PosTrip):
+    objects = EcomTripModelManager()
+
+    class Meta:
+        proxy = True
