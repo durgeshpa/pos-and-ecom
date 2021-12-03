@@ -1,13 +1,17 @@
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html
+from django.urls import reverse
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
+from retailer_to_sp.models import Order
 
-from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
-from .models import Address, Tag, TagProductMapping
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
+from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
+from ecom.views import DownloadEcomOrderInvoiceView
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -24,7 +28,7 @@ class EcomCartProductMappingAdmin(admin.TabularInline):
         return False
 
 
-@admin.register(EcomCart)
+
 class EcomCartAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
@@ -72,12 +76,13 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
-@admin.register(EcomOrderedProduct)
 class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'buyer_address', 'invoice_no', 'created_at')
+    list_display = ('order', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+
+    actions = ['download_order_reports']
 
     fieldsets = (
         (_('Shop Details'), {
@@ -97,7 +102,8 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         return obj.order.buyer
 
     def buyer_address(self, obj):
-        return str(obj.order.ecom_address_order.address)+' '+str(obj.order.ecom_address_order.city)+' '+str(obj.order.ecom_address_order.state)
+        return str(obj.order.ecom_address_order.address) + ' ' + str(obj.order.ecom_address_order.city) + ' ' + str(
+            obj.order.ecom_address_order.state)
 
     def sub_total(self, obj):
         return obj.order.ordered_cart.subtotal
@@ -117,6 +123,24 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     def order_no(self, obj):
         return obj.order.order_no
 
+    def download_invoice(self, obj):
+        if obj.invoice.invoice_pdf:
+            return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.pk])))
+        else:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(EcomOrderProductAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^ecom-order-invoice/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadEcomOrderInvoiceView.as_view()),
+                       name="ecom_download_order_invoice"
+                   )
+               ] + urls
+        return urls
+
     def get_queryset(self, request):
         qs = super(EcomOrderProductAdmin, self).get_queryset(request)
         qs = qs.filter(order__ordered_cart__cart_type='ECOM')
@@ -135,6 +159,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def download_order_reports(self, request, queryset):
+        return generate_ecom_order_csv_report(queryset)
 
     class Media:
         pass
@@ -161,6 +188,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(TagProductMapping)
 class TagProductMappingAdmin(admin.ModelAdmin):
     form = TagProductForm
@@ -178,12 +206,13 @@ class TagProductMappingAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
-    
-    def get_fields (self, request, obj=None, **kwargs):
+
+    def get_fields(self, request, obj=None, **kwargs):
         fields = super().get_fields(request, obj, **kwargs)
         fields.remove('product')
         fields.append('product')
         return fields
+
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
@@ -202,3 +231,8 @@ class TagAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
+
+
+admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
+admin.site.register(EcomCart, EcomCartAdmin)
+

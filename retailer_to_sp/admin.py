@@ -52,7 +52,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentNotAttempt, ShipmentPackaging, ShipmentPackagingMapping)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -1270,7 +1270,7 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
 class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     model = OrderedProductMapping
-    fields = ['product', 'ordered_qty','expiry_date', 'shipped_qty',
+    fields = ['product', 'ordered_qty', 'expiry_date', 'shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty', 'expiry_date', 'product', 'gf_code',
                        'cancellation_date']

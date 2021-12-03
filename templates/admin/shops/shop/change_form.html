@@ -32,24 +32,13 @@
                 shop_type = $("#id_shop_type").children("option:selected").text();
                 if (shop_type == 'Franchise - foco' || shop_type == 'Franchise - fofo'){
                     $('.field-pos_enabled').removeClass('hidden');
-                    $('.field-latitude').removeClass('hidden');
-                    $('.field-longitude').removeClass('hidden');
-                    $('.field-shop_location').addClass('hidden');
-                }
-                else if(shop_type == 'Retailer - gm'){
-                    $('.field-pos_enabled').addClass('hidden');
-                    $('.field-latitude').removeClass('hidden');
-                    $('.field-longitude').removeClass('hidden');
-                    $('.field-shop_location').removeClass('hidden');
                 }
                 else {
                     $('.field-pos_enabled').addClass('hidden');
-                    $('.field-latitude').addClass('hidden');
-                    $('.field-longitude').addClass('hidden');
+                    {#$('.field-latitude').addClass('hidden');#}
+                    {#$('.field-longitude').addClass('hidden');#}
                     $('#id_pos_enabled').prop("checked", false);
-                    $('#id_latitude').val(0);
-                    $('#id_longitude').val(0);
-                    $('.field-shop_location').addClass('hidden');
+                    {#$('.field-shop_location').addClass('hidden');#}
                 }
             }
 

@@ -1516,8 +1516,7 @@ class OrderedProduct(models.Model):  # Shipment
         (RESCHEDULED, 'Rescheduled'),
         (DELIVERED, 'Delivered'),
         (QC_STARTED, 'QC Started'),
-        (NOT_ATTEMPT, 'Not Attempt'),
-        (DELIVERED, 'Delivered')
+        (NOT_ATTEMPT, 'Not Attempt')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -1819,6 +1818,10 @@ class OrderedProduct(models.Model):  # Shipment
     def picklist_id(self):
         return self.picking_data()[2]
 
+    @property
+    def order_no(self):
+        return self.order.order_no
+
     def damaged_amount(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(cn_amt=Sum(F('effective_price') * F('damaged_qty'))).get('cn_amt')
@@ -1911,6 +1914,10 @@ class Invoice(models.Model):
     def __str__(self):
         return self.invoice_no
 
+    @property
+    def pdf_name(self):
+        return 'Invoice_%s.pdf' % (self.invoice_no)
+    
     @property
     def invoice_amount(self):
         try:
@@ -2880,6 +2887,10 @@ class CreditNote(models.Model):
     credit_note_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def pdf_name(self):
+        return "CreditNote_%s.pdf" % (self.credit_note_id)
 
 
 class ReturnItems(models.Model):

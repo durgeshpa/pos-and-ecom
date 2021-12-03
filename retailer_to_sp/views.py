@@ -30,8 +30,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentNotAttempt,
-                                   ShipmentPackaging)
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
+                                   ShipmentNotAttempt)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -54,7 +54,6 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-
 from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
@@ -751,7 +750,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status='MOVED_TO_DISPATCH') |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=Dispatch.RESCHEDULED) |
                 Q(shipment_status=Dispatch.NOT_ATTEMPT) |
                 Q(trip=trip_id), order__seller_shop=seller_shop
@@ -1673,7 +1672,8 @@ class OrderCancellation(object):
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
-            elif (self.last_shipment_status in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
+            elif (self.last_shipment_status in
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
@@ -1884,7 +1884,8 @@ def create_franchise_po(request, pk):
         products = order.ordered_cart.rt_cart_list.all()
         for mapp in products:
             p = mapp.cart_product
-            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
+            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop, is_deleted=False,
+                                                  product_ref__isnull=True).exists():
                 url = f"""<div><a style="color:blue;" href="%s" target="_blank">Download Unmapped Products List 
                                         </a></div>""" % (reverse('admin:franchise_po_fail_list', args=(pk,)))
                 error = mark_safe(
