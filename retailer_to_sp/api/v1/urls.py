@@ -13,7 +13,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
-                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, DispatchTripsCrudView
                     )
 
 router = routers.DefaultRouter()
@@ -100,6 +100,7 @@ urlpatterns = [
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
     url('delivery-boys-list/', DeliverBoysList.as_view(), name='delivery_boys_list'),
+    url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
 ]
 
 urlpatterns += router.urls

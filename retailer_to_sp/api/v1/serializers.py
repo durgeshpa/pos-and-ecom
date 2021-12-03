@@ -18,7 +18,8 @@ from retailer_to_sp.common_validators import validate_shipment_crates_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentPackagingMapping)
+                                   ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
+                                   DispatchTripShipmentPackages)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -1877,3 +1878,133 @@ class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
+
+
+class DispatchTripSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    source_shop = ShopSerializer(read_only=True)
+    destination_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+
+    class Meta:
+        model = DispatchTrip
+        fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
+                  'trip_status',)
+
+
+class DispatchTripShipmentPackagesSerializers(serializers.ModelSerializer):
+    shipment_packaging = DispatchItemsSerializer(read_only=True)
+
+    class Meta:
+        model = DispatchTripShipmentPackages
+        fields = ('id', 'shipment_packaging', 'package_status',)
+
+
+class DispatchTripShipmentMappingSerializer(serializers.ModelSerializer):
+    trip_id = DispatchTripSerializers(read_only=True)
+    shipment = OrderedProductSerializer(read_only=True)
+    trip_shipment_mapped_packages = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
+
+    class Meta:
+        model = DispatchTripShipmentMapping
+        fields = ('id', 'trip_id', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages',)
+
+
+class DispatchTripCrudSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    source_shop = ShopSerializer(read_only=True)
+    destination_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+    shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = DispatchTrip
+        fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
+                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
+                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+                  'shipments_details', 'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+            data['vehicle_no'] = self.initial_data['vehicle_no']
+        else:
+            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
+
+        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
+            try:
+                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
+                data['seller_shop'] = seller_shop
+            except:
+                raise serializers.ValidationError("Invalid seller_shop")
+        else:
+            raise serializers.ValidationError("'seller_shop' | This is mandatory")
+
+        if 'source_shop' in self.initial_data and self.initial_data['source_shop']:
+            try:
+                source_shop = Shop.objects.get(id=self.initial_data['source_shop'],
+                                               shop_type__shop_type__in=['sp', 'dc'])
+                data['source_shop'] = source_shop
+            except:
+                raise serializers.ValidationError("Invalid source_shop")
+        else:
+            raise serializers.ValidationError("'source_shop' | This is mandatory")
+
+        if 'destination_shop' in self.initial_data and self.initial_data['destination_shop']:
+            try:
+                destination_shop = Shop.objects.get(id=self.initial_data['destination_shop'],
+                                                    shop_type__shop_type__in=['sp', 'dc'])
+                data['destination_shop'] = destination_shop
+            except:
+                raise serializers.ValidationError("Invalid destination_shop")
+        else:
+            raise serializers.ValidationError("'destination_shop' | This is mandatory")
+
+        if self.initial_data['source_shop'] == self.initial_data['destination_shop']:
+            raise serializers.ValidationError("Invalid source & destination | Source & Destination can't be same.")
+
+        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+            try:
+                delivery_boy = User.objects.get(id=self.initial_data['delivery_boy'], shop_employee__shop=seller_shop)
+            except:
+                raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
+            if delivery_boy.groups.filter(name='Delivery Boy').exists():
+                data['delivery_boy'] = delivery_boy
+            else:
+                raise serializers.ValidationError("Delivery Boy does not have required permission.")
+        else:
+            raise serializers.ValidationError("'delivery_boy' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not DispatchTrip.objects.filter(
+                    id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
+                    destination_shop=destination_shop).exists():
+                raise serializers.ValidationError("Seller, Source & Destination shops updation are not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new DispatchTrip"""
+        shipments_details = validated_data.pop("shipments_details", None)
+        try:
+            dispatch_trip_instance = DispatchTrip.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return dispatch_trip_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update DispatchTrip"""
+        shipments_details = validated_data.pop("shipments_details", None)
+        try:
+            dispatch_trip_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return dispatch_trip_instance

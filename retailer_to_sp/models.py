@@ -3191,13 +3191,13 @@ class DispatchTrip(BaseTimestampUserModel):
                                     on_delete=models.DO_NOTHING)
     destination_shop = models.ForeignKey(Shop, related_name='dispatch_trip_destination_shop', null=True,
                                          on_delete=models.DO_NOTHING)
-    dispatch_no = models.CharField(max_length=50, unique=True)
+    dispatch_no = models.CharField(max_length=50, null=True, unique=True)
     delivery_boy = models.ForeignKey(
         UserWithName, related_name='dispatch_trip_delivered_by_user', null=True,
         on_delete=models.DO_NOTHING, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
-    trip_status = models.CharField(max_length=100, choices=DISPATCH_TRIP_STATUS)
+    trip_status = models.CharField(max_length=100, default=NEW, choices=DISPATCH_TRIP_STATUS)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
