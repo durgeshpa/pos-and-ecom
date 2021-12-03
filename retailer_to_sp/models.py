@@ -3240,9 +3240,9 @@ class DispatchTrip(BaseTimestampUserModel):
 
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
-        shop = self.seller_shop_id
+        shop = self.source_shop_id
         shop_id_date = "%s/%s" % (shop, date)
-        last_dispatch_no = Trip.objects.filter(
+        last_dispatch_no = DispatchTrip.objects.filter(
             dispatch_no__contains=shop_id_date)
         if last_dispatch_no.exists():
             dispatch_attempt = int(
