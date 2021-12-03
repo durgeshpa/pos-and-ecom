@@ -1,145 +1,108 @@
+
 import logging
 import re
-from decimal import Decimal
 import json
-from urllib import request
 
-import requests
-from datetime import datetime, timedelta
 from datetime import date as datetime_date
+from django.http import HttpResponse
+from datetime import datetime, timedelta
+from decimal import Decimal
+from hashlib import sha512
 from operator import itemgetter
 
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.http import HttpResponse
-from num2words import num2words
-from elasticsearch import Elasticsearch
+import requests
 from decouple import config
-from hashlib import sha512
-
-from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value
+from django.db.models import F, Sum, Q
 from django.core.files.base import ContentFile
-from django.db import transaction, models
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-
+from django.shortcuts import render
+from elasticsearch import Elasticsearch
+from num2words import num2words
+from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, permissions, authentication
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-
 from barCodeGenerator import barcodeGen
 from shops.api.v1.serializers import ShopBasicSerializer
-from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
-    validate_id_and_warehouse, validate_shipment
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
+from wms.common_validators import validate_id, validate_data_format, validate_shipment
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 
-from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
                           GramMappedCartSerializer, GramMappedOrderSerializer,
                           OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer
+                          DispatchItemsSerializer, DispatchDashboardSerializer, ShipmentNotAttemptSerializer
                           )
-from products.models import ProductPrice, ProductOption, Product
-from sp_to_gram.models import OrderedProductReserved
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
+
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, Return, OrderedProductMapping, ShipmentPackaging,
-                                   ShipmentPackagingMapping)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
-    getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
-                                     Order as GramMappedOrder
-                                     )
+                                   OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging)
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from brand.models import Brand
-
 from categories import models as categorymodel
-from common.data_wrapper_view import DataWrapperViewSet
-from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
-from coupon.serializers import CouponSerializer
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
-
-from ecom.utils import check_ecom_user_shop, check_ecom_user
+from coupon.serializers import CouponSerializer
 from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer
 from ecom.models import Address as EcomAddress, EcomOrderAddress
-
+from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
-
 from marketing.models import ReferralCode
-
-from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
-                                  update_customer_pos_cart, PosInventoryCls, RewardCls, filter_pos_shop,
-                                  serializer_error, check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
-from pos.offers import BasicCartOffers
+from pos import error_code
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
                                     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer,
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
+                                  update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
+                                  check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
 from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
+from pos.offers import BasicCartOffers
 from pos.tasks import update_es, order_loyalty_points_credit
-from pos import error_code
 from products.models import ProductPrice, ProductOption, Product
-
-from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
+from retailer_backend.settings import AWS_MEDIA_URL
+from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
-from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare, Feedback,
-                                   OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, OrderReturn, ReturnItems,
-                                   CreditNote)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
-
+from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from retailer_to_sp.models import (ShipmentNotAttempt)
+from retailer_to_sp.tasks import send_invoice_pdf_email
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
-from wms.views import shipment_reschedule_inventory_change
-
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
-                          OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
-                          GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
-                          OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
-                          OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer)
-from retailer_backend.settings import AWS_MEDIA_URL
-
-from retailer_backend.settings import AWS_MEDIA_URL
+from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from ...common_validators import validate_shipment_dispatch_item
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
@@ -332,9 +295,10 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
-            filter_list = [{"term": {"is_discounted": False}}]
+            filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
@@ -360,14 +324,17 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
-        filter_list = []
+        filter_list = [{"term": {"is_deleted": False}}]
+
         if app_type == '3':
-            filter_list = [{"term": {"status": 'active'}}, {"term": {"online_enabled": True}}]
+            filter_list.append({"term": {"status": 'active'}})
+            filter_list.append({"term": {"online_enabled": True}})
             shop = Shop.objects.filter(id=shop_id).last()
             if shop and shop.online_inventory_enabled:
                 filter_list.append({"range": {"stock_qty": {"gt": 0}}})
         body = dict()
         query_string = dict()
+
         if int(self.request.GET.get('include_discounted', '1')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
@@ -464,7 +431,7 @@ class SearchProducts(APIView):
 
     def process_rp(self, output_type, body, shop_id, app_type=None):
         """
-            Modify Es results for response based on output_type - Raw OR Processed
+        Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
@@ -626,8 +593,8 @@ class SearchProducts(APIView):
         p_list = []
         # No Shop Id OR Store Inactive
         if not parent_shop:
-            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
-                                            "visible", "mrp", "ean"]}
+            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
@@ -1393,6 +1360,8 @@ class CartCentral(GenericAPIView):
             else:
                 # Check if price needs to be updated and return selling price
                 selling_price = self.get_basic_cart_product_price(product, cart.cart_no)
+                # Check if mrp needs to be updated and return mrp
+                product_mrp = self.get_basic_cart_product_mrp(product, cart.cart_no)
                 # Add quantity to cart
                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
                                                                            product_type=1)
@@ -1411,6 +1380,8 @@ class CartCentral(GenericAPIView):
             Add To Cart
             For cart type 'ECOM'
         """
+        if not kwargs['shop'].online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         with transaction.atomic():
             # basic validations for inputs
             shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
@@ -1460,7 +1431,6 @@ class CartCentral(GenericAPIView):
         parent_mapping = getShopMapping(shop_id)
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
-        # Check if product exists
         try:
             product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
@@ -1661,6 +1631,19 @@ class CartCentral(GenericAPIView):
             selling_price = product.offer_price
         return selling_price if selling_price else product.selling_price
 
+    def get_basic_cart_product_mrp(self, product, cart_no):
+        """
+            Check if retail product mrp needs to be changed on checkout
+            mrp_change - 1 (change for all), 0 don't change
+        """
+        # Check If MRP Change
+        mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+        product_mrp = None
+        if mrp_change == 1:
+            product_mrp = self.request.data.get('product_mrp')
+            RetailerProductCls.update_mrp(product.id, product_mrp, self.request.user, 'cart', cart_no)
+        return product_mrp if product_mrp else product.mrp
+
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
             Add To Cart
@@ -1847,6 +1830,7 @@ class CartCheckout(APIView):
         initial_validation = self.post_basic_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
+
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
@@ -1862,7 +1846,7 @@ class CartCheckout(APIView):
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs.get('app_type',None)), status.HTTP_200_OK, True)
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
@@ -1926,7 +1910,8 @@ class CartCheckout(APIView):
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, int(redeem_points))
-            return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
+            app_type=kwargs['app_type']
+            return api_response("Cart Checkout", self.serialize(cart, offers, app_type), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def get_ecom_cart_checkout(self, request, *args, **kwargs):
@@ -2022,12 +2007,13 @@ class CartCheckout(APIView):
             return {'error': "Please Provide A Valid Spot Discount Type"}
         return {'cart': cart}
 
-    def serialize(self, cart, offers=None):
+    def serialize(self, cart, offers=None, app_type=None):
         """
             Checkout serializer
             Payment Info plus Offers
         """
-        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id))
+        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id),
+                                        context={'app_type':app_type})
         response = serializer.data
         if offers:
             response['available_offers'] = offers['total_offers']
@@ -2664,12 +2650,12 @@ class OrderCentral(APIView):
                 return api_response("Please Provide A Valid Status To Update Order")
             # CANCEL ORDER
             if order_status == Order.CANCELLED:
-                # Unprocessed orders can be cancelled
-                if order.order_status != Order.ORDERED:
-                    return api_response('This order cannot be cancelled!')
-
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
+                    # Unprocessed orders can be cancelled
+                    if order.order_status != Order.ORDERED:
+                        return api_response('This order cannot be cancelled!')
+
                     # cancel shipment pos order
                     ordered_product = OrderedProduct.objects.filter(order=order).last()
                     ordered_product.shipment_status = 'CANCELLED'
@@ -2681,6 +2667,13 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
+                    if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                                   last().user_type == 'manager':
+                        return api_response('Only MANAGER can Cancel the order!')
+                    # delivered orders can not be cancelled
+                    if order.order_status == Order.DELIVERED:
+                        return api_response('This order cannot be cancelled!')
+
                     # Update inventory
                     for cp in cart_products:
                         PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.ORDERED,
@@ -2973,6 +2966,8 @@ class OrderCentral(APIView):
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+            elif 'api_response' in initial_validation:
+                return initial_validation['api_response']
             cart = initial_validation['cart']
             payments = initial_validation['payments']
             transaction_id = self.request.data.get('transaction_id', None)
@@ -2983,6 +2978,9 @@ class OrderCentral(APIView):
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
+            obj = Order.objects.get(id=order.id)
+            obj.order_amount = math.floor(obj.order_amount)
+            obj.save()
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -2994,6 +2992,8 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
 
         if not self.request.data.get('address_id'):
             return api_response("Please select an address to place order")
@@ -3001,6 +3001,9 @@ class OrderCentral(APIView):
             address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
         except:
             return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
         try:
             cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
         except ObjectDoesNotExist:
@@ -3010,6 +3013,25 @@ class OrderCentral(APIView):
             payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
         except:
             return api_response("Invalid Payment Method")
+
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
+
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+        if order_config.value is not None:
+            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+            if order_count >= order_config.value:
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
 
         # check inventory
         cart_products = cart.rt_cart_list.all()
@@ -3022,6 +3044,12 @@ class OrderCentral(APIView):
 
         if not CartProductMapping.objects.filter(cart=cart).exists():
             return api_response("No items added to cart yet")
+
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         with transaction.atomic():
             # Update Cart To Ordered
@@ -3138,6 +3166,13 @@ class OrderCentral(APIView):
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            # return {'error': 'Few items in your cart are not available.'}
+            return {'api_response': api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})}
+
         # check for discounted product availability
         if not self.discounted_product_in_stock(cart_products):
             return {'error': 'Some of the products are not in stock'}
@@ -3166,7 +3201,7 @@ class OrderCentral(APIView):
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
         if not cash_only:
-            if round(amount, 2) != cart.order_amount:
+            if round(math.floor(amount), 2) != math.floor(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
         elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
             return {'error': "Cash payment amount should be close to order amount. Please check."}
@@ -3557,6 +3592,10 @@ class OrderCentral(APIView):
                     return False
         return True
 
+    # def product_deleled(self, cart_products):
+    #     if cart_products.filter(retailer_product__is_deleted=True).exists():
+    #         return False
+    #     return True
 
 # class CreateOrder(APIView):
 #     authentication_classes = (authentication.TokenAuthentication,)
@@ -3948,6 +3987,9 @@ class OrderedItemCentralDashBoard(APIView):
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
 
+        # Return for shop
+        returns = OrderReturn.objects.filter(order__seller_shop=shop)
+
         # order status filter
         order_status = self.request.GET.get('order_status')
         if order_status:
@@ -3960,37 +4002,48 @@ class OrderedItemCentralDashBoard(APIView):
         if filters == 1:  # today
             orders = orders.filter(created_at__date=today_date)
             products = products.filter(created_at__date=today_date)
+            returns = returns.filter(modified_at__date=today_date)
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             orders = orders.filter(created_at__date=yesterday)
             products = products.filter(created_at__date=yesterday)
+            returns = returns.filter(modified_at__date=yesterday)
         elif filters == 3:  # this week
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
             products = products.filter(created_at__month=today_date.month)
+            returns = returns.filter(modified_at__month=today_date.month)
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             orders = orders.filter(created_at__month=last_month.month)
             products = products.filter(created_at__month=last_month.month)
+            returns = returns.filter(modified_at__month=last_month.month)
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
             products = products.filter(created_at__year=today_date.year)
+            returns = returns.filter(modified_at__year=today_date.year)
 
         total_final_amount = 0
         for order in orders:
             order_amt = order.order_amount
-            returns = order.rt_return_order.all()
-            if returns:
-                for ret in returns:
-                    if ret.status == 'completed':
-                        order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
+            # returns = order.rt_return_order.all()
+            # if returns:
+            #     for ret in returns:
+            #         if ret.status == 'completed':
+            #             order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
             total_final_amount += order_amt
+
+        for rt in returns:
+            if rt.status == 'completed':
+                total_final_amount -= rt.refund_amount
 
         # counts of order for shop_id with total_final_amount & products
         order_count = orders.count()
@@ -4288,7 +4341,7 @@ class OrderReturns(APIView):
             refund_points_value = total_refund_value - refund_amount
             refund_points = int(refund_points_value * redeem_factor)
 
-        order_return.refund_amount = refund_amount
+        order_return.refund_amount = math.floor(refund_amount)
         order_return.refund_points = refund_points
         order_return.discount_adjusted = discount_adjusted
         order_return.save()
@@ -4632,15 +4685,36 @@ class CartStockCheckView(APIView):
             Check stock qty cart
         """
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         try:
             cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
                                                                      seller_shop=kwargs['shop'], cart_status='active')
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
+        if not self.request.GET.get('address_id'):
+            return api_response("Please select an address to check stock")
+        try:
+            address = EcomAddress.objects.get(id=int(self.request.GET.get('address_id')), user=self.request.user)
+        except:
+            return api_response("Invalid Address Id")
+
+        if address.pincode != shop.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address")
+
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
+        # Minimum Order Value
+        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        if order_config.value is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config.value:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    None, status.HTTP_200_OK, False)
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
@@ -5175,17 +5249,26 @@ def pdf_generation_retailer(request, order_id, delay=True):
     order = Order.objects.filter(id=order_id).last()
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
-    template_name = 'admin/invoice/invoice_retailer.html'
-
+    template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-                media_url, file_name = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no
+                media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+                                                order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
                 if delay:
                     whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    # email task to send manager order invoice ^
                 else:
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
                     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
             except Exception as e:
                 logger.exception("Retailer Invoice send error order {}".format(order.order_no))
@@ -5209,14 +5292,15 @@ def pdf_generation_retailer(request, order_id, delay=True):
             product_pro_price_ptr = cart_product_map.selling_price
             product = cart_product_map.retailer_product
             product_pack_type = product.product_pack_type
+            default_unit="piece"
             if product_pack_type == 'loose':
-                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True).unit
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
-                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit.unit,
-                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit.unit,
-                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit.unit,
+                "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit,
+                "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit,
+                "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit,
                 "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
@@ -5225,7 +5309,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
         total_amount = round(ordered_product.invoice_amount_final, 2)
-        total_amount_int = round(total_amount)
+        total_amount_int = round(math.floor(total_amount))
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
@@ -5245,6 +5329,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
+        total = math.floor(total)
+        total_amount = math.floor(total_amount)
         total = round(total, 2)
 
         # Licence
@@ -5259,7 +5345,11 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # CIN
         cin_number = getShopCINNumber(shop_name)
         # GSTIN
-        gstin_number = getShopCINNumber(shop_name)
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+
+
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -5267,13 +5357,19 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
-                "license_number": license_number, "seller_gstin_number": gstin_number,
-                "cin": cin_number}
-
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+                "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
+                "cin": cin_number,"payment_type":ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
+
         try:
             # create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
@@ -5282,10 +5378,20 @@ def pdf_generation_retailer(request, order_id, delay=True):
             shop_name = order.seller_shop.shop_name
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:
                 whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send email
             else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
@@ -5296,7 +5402,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                                    credit_note_instance, delay=True):
 
     file_prefix = PREFIX_CREDIT_NOTE_FILE_NAME
-    template_name = 'admin/credit_note/credit_note_retailer.html'
+    #template_name = 'admin/credit_note/credit_note_retailer.html'
+    template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
     try:
         # Don't create pdf if already created
@@ -5305,12 +5412,23 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
                 refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
                 media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+                shop_name = order.ordered_cart.seller_shop.shop_name
                 if delay:
                     whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
                                                 file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    # send mail to manager for return
                 else:
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name)
+                    # send mail to manager for return
             except Exception as e:
                 logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
                                                                                              order_return.id))
@@ -5384,6 +5502,10 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
+        # GSTIN
+        retailer_gstin_number=""
+        if order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
 
         data = {
             "url": request.get_host(),
@@ -5394,7 +5516,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "total_amount": total_amount,
             "discount": discount,
             "reward_value": redeem_value,
-            'total': total,
+            'total': math.floor(total),
             "barcode": barcode,
             "return_item_listing": return_item_listing,
             "rupees": rupees,
@@ -5406,13 +5528,24 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             "pincode": pincode,
             "address_contact_number": address_contact_number,
             "license_number": license_number,
-            "cin": cin_number
+            "cin": cin_number,
+            "retailer_gstin_number": retailer_gstin_number
         }
 
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
+                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
+                      "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
+        # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        
+        # # content = render_to_string(template_name, data)
+        # # with open("abc.html", 'w') as static_file:
+        # #     static_file.write(content)
+
+
         try:
             # create_invoice_data(ordered_product)
             credit_note_instance.credit_note_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
@@ -5423,9 +5556,21 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
             media_url = credit_note_instance.credit_note_pdf.url
             file_name = ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
                 whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send order return mail to
             else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
@@ -6227,9 +6372,51 @@ class RescheduleReason(generics.ListCreateAPIView):
         shipment_reschedule_inventory_change([shipment])
 
 
+class NotAttemptReason(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentNotAttemptSerializer
+
+    def list(self, request, *args, **kwargs):
+        data = [{'name': reason[0], 'display_name': reason[1]} for reason in ShipmentNotAttempt.NOT_ATTEMPT_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        if ShipmentNotAttempt.objects.filter(shipment=request.data.get('shipment'),
+                                             created_at__date=datetime.now().date()).exists():
+            msg = {'is_success': False, 'message': ['A shipment cannot be mark not attempt more than once in a day.'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
+            for item in products:
+                item.delivered_qty = item.returned_qty = item.returned_damage_qty = 0
+                item.save()
+            self.update_shipment(request.data.get('shipment'))
+            update_trip_status(request.data.get('trip'))
+            msg = {'is_success': True, 'message': ['Not Attempt successfully done.'], 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
+        return serializer.save(created_by=self.request.user, trip=shipment.trip)
+
+    def update_shipment(self, id):
+        shipment = OrderedProduct.objects.get(pk=id)
+        shipment.shipment_status = OrderedProduct.NOT_ATTEMPT
+        shipment.trip = None
+        shipment.save()
+        shipment_not_attempt_inventory_change([shipment])
+
+
 def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
-                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+                            'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
         Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())

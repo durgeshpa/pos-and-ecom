@@ -1,7 +1,8 @@
 from django.conf.urls import include, url
 
 from pos import views
-from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, InventoryRetailerProductAutocomplete
+from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
+    InventoryRetailerProductAutocomplete
 from pos.filters import PosShopAutocomplete
 
 urlpatterns = [

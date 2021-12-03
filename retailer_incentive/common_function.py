@@ -80,7 +80,7 @@ def get_total_sales(shop_id, start_date, end_date):
                                                                   'PARTIALLY_DELIVERED_AND_CLOSED',
                                                                   'FULLY_DELIVERED_AND_CLOSED'])
     for shipped_item in shipment_products:
-        total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
+        total_sales += float(shipped_item.basic_rate)*float(shipped_item.delivered_qty)
     return floor(total_sales)
 
 

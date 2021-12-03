@@ -44,6 +44,7 @@ class Category(BaseTimestampUserStatusModel):
     category_sku_part = models.CharField(max_length=3, unique=True, validators=[CapitalAlphabets],
                                          help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file', null=True, blank=True)
+    b2c_status = models.BooleanField(default=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='category_updated_by',

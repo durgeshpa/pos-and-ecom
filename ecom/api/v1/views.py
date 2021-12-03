@@ -6,6 +6,7 @@ from rest_framework import status
 
 from categories.models import Category
 from marketing.models import RewardPoint
+from shops.models import Shop
 from pos.common_functions import serializer_error, api_response
 from pos.models import RetailerProduct
 from retailer_backend.utils import SmallOffsetPagination
@@ -17,7 +18,8 @@ from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, chec
                         get_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer)
+                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer,
+                          ShopInfoSerializer)
 
 
 class AccountView(APIView):
@@ -60,15 +62,19 @@ class ShopView(APIView):
         """
         if not int(self.request.GET.get('from_location', '0')):
             # Get shop from latest order
-            order = Order.objects.filter(buyer=self.request.user, ordered_cart__cart_type__in=['BASIC', 'ECOM']).last()
+            order = Order.objects.filter(buyer=self.request.user,
+                                         ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                         seller_shop__online_inventory_enabled=True).order_by('id').last()
             if order:
                 return self.serialize(order.seller_shop)
 
             # check mapped pos shop
-            shop_map = ShopCustomerMap.objects.filter(user=self.request.user).last()
+            shop_map = ShopCustomerMap.objects.filter(user=self.request.user,
+                                                      shop__online_inventory_enabled=True).last()
             if shop_map:
                 return self.serialize(shop_map.shop)
 
+            return api_response('No shop found!')
         return self.shop_from_location()
 
     def shop_from_location(self):
@@ -151,17 +157,20 @@ class CategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_to_return = []
         categories_with_products = get_categories_with_products(kwargs['shop'])
-        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        all_active_categories = Category.objects.filter(category_parent=None, status=True, b2c_status=True)
+        # print("==============================================================")
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
             elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True):
+                for sub_category in c.cat_parent.filter(status=True, b2c_status=True):
+                    # print(sub_category)
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break
         serializer = self.serializer_class(categories_to_return, many=True)
         is_success = True if categories_to_return else False
+        # print("==============================================================")
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 
@@ -174,7 +183,8 @@ class SubCategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_with_products = get_categories_with_products(kwargs['shop'])
         category = Category.objects.get(pk=self.request.GET.get('category_id'))
-        sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
+        # print(category.__dict__)
+        sub_categories = category.cat_parent.filter(status=True, b2c_status=True, id__in=categories_with_products)
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
@@ -190,7 +200,7 @@ class TagView(APIView):
     @check_ecom_user
     def get(self, *args, **kwargs):
         tags = Tag.objects.all()
-        serializer = TagSerializer(tags, many = True)
+        serializer = TagSerializer(tags, many=True)
         is_success = True
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
@@ -210,10 +220,35 @@ class TagProductView(APIView):
         except:
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop)
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
             serializer = TagProductSerializer(tag, context={'product': products})
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+
+
+class UserShopView(APIView):
+    """
+    Get the list of shop user is mapped to
+    """
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    def get(self, request, format=None):
+        user = request.user
+        # shop_customer_mapping = ShopCustomerMap.objects.filter(user=user)
+        # shop = Shop.objects.filter(registered_shop__in=shop_customer_mapping)
+        is_success, data, message = False, [], "No shop found"
+        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                      seller_shop__online_inventory_enabled=True)
+        shop = []
+        for order in orders:
+            if order.seller_shop not in shop:
+                shop.append(order.seller_shop)
+        data = ShopInfoSerializer(shop, many=True).data
+        if data:
+            is_success, message = True, "Shop Found"
+        return api_response(message, data, status.HTTP_200_OK, is_success)
+
