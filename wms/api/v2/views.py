@@ -2517,7 +2517,7 @@ class QCJobsDashboardView(generics.GenericAPIView):
 
     def get_serializer_context(self):
         context = super(QCJobsDashboardView, self).get_serializer_context()
-        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date()), "%Y-%m-%d")
+        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date().isoformat()), "%Y-%m-%d")
         start_date = end_date - timedelta(days=int(self.request.GET.get('data_days', 0)))
         context.update({"start_date": start_date.date(), "end_date": end_date.date()})
         return context
@@ -2528,27 +2528,9 @@ class QCJobsDashboardView(generics.GenericAPIView):
         info_logger.info("QC Jobs Dashboard GET api called.")
         """ GET QC Jobs Dashboard List """
         self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
-        self.queryset = self.filter_qc_jobs_data()
         serializer = self.serializer_class(self.queryset, context=self.get_serializer_context(), many=True)
         msg = "" if self.queryset else "no qc job found"
         return get_response(msg, serializer.data, True)
-
-    def filter_qc_jobs_data(self):
-        selected_date = self.request.GET.get('date')
-        data_days = self.request.GET.get('data_days')
-
-        if selected_date:
-            if data_days:
-                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
-                start_date = end_date - timedelta(days=int(data_days))
-                end_date = end_date + timedelta(days=1)
-                self.queryset = self.queryset.filter(
-                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
-            else:
-                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
-
-        return self.queryset
 
 
 class PendingQCJobsView(generics.GenericAPIView):
