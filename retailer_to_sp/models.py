@@ -3260,21 +3260,6 @@ class DispatchTrip(BaseTimestampUserModel):
         return self.shipments_details.count()
 
     @property
-    def total_delivered_shipments(self):
-        delivered_status_list = ['PARTIALLY_DELIVERED_AND_COMPLETED','FULLY_DELIVERED_AND_COMPLETED',
-                                 'PARTIALLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_VERIFIED',
-                                 'PARTIALLY_DELIVERED_AND_CLOSED', 'FULLY_DELIVERED_AND_CLOSED']
-        return self.shipments_details.filter(shipment__shipment_status__in=delivered_status_list).count()
-
-
-    @property
-    def total_returned_shipments(self):
-        returned_status_list = ['FULLY_RETURNED_AND_COMPLETED', 'FULLY_RETURNED_AND_VERIFIED',
-                                'FULLY_RETURNED_AND_CLOSED']
-        return self.shipments_details.filter(shipment__shipment_status__in=returned_status_list).count()
-
-
-    @property
     def total_pending_shipments(self):
         return self.shipments_details.filter(shipment__shipment_status='OUT_FOR_DELIVERY').count()
 
