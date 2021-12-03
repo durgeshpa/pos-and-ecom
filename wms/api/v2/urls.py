@@ -7,7 +7,10 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     GroupedByGRNPutawaysView, PutawayItemsCrudView, AssignPutawayUserByGRNAndZoneView, PutawayUsersListView, \
     ZoneFilterView, PutawayStatusListView, UserDetailsPostLoginView, PerformPutawayView, PutawayRemarkView, \
     POSummaryView, PutawaySummaryView, ZoneWiseSummaryView, PutawayTypeListView, BinInventoryDataView, BinFilterView, \
-    PickupEntryCreationView, UpdateQCAreaView
+    PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerUserReAssignmentView, \
+    OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView, \
+    PutawayTypeIDSearchView, QCAreaCrudView, QCAreaTypeListView, QCExecutivesView, QCDeskQCAreaAssignmentMappingView, \
+    QCDeskHelperDashboardView, QCJobsDashboardView, PendingQCJobsView, PickingTypeListView, QCDeskFilterView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -17,6 +20,7 @@ urlpatterns = [
     url('zone-supervisors/', ZoneSupervisorsView.as_view(), name='zone-supervisors'),
     url('zone-coordinators/', ZoneCoordinatorsView.as_view(), name='zone-coordinators'),
     url('zone-putaway-users/', ZonePutawaysView.as_view(), name='zone-putaway-users/'),
+    url('zone-picker-users/', ZonePickersView.as_view(), name='zone-picker-users/'),
     url('download/whc-assortment-sample/', WarehouseAssortmentSampleCSV.as_view(), name='download-whc-asrtmnt-sample'),
     url('upload/whc-assortments/', WarehouseAssortmentUploadView.as_view(), name='upload-whc-assortments'),
     url('export-csv-whc-assortments/', WarehouseAssortmentExportAsCSVView.as_view(), name='export-csv-whc-assortments'),
@@ -33,6 +37,7 @@ urlpatterns = [
     url('grouped-putaways/', GroupedByGRNPutawaysView.as_view(), name='grouped-putaways'),
     url('putaway-items/', PutawayItemsCrudView.as_view(), name='putaway-items'),
     url('putaway-users-under-zone/', PutawayUsersListView.as_view(), name='putaway-users-under-zone'),
+    url('picker-users-under-zone/', PickerUsersListView.as_view(), name='picker-users-under-zone'),
     url('zone-list/', ZoneFilterView.as_view(), name='zone-list'),
     url('putaway-status-list/', PutawayStatusListView.as_view(), name='putaway-status-list'),
     url('user-details/', UserDetailsPostLoginView.as_view(), name='user-details'),
@@ -43,7 +48,22 @@ urlpatterns = [
     url('temp/', PickupEntryCreationView.as_view(), name='temp'),
     url('move-to-qc/', UpdateQCAreaView.as_view(), name='move-to-qc'),
     url('po-summary/', POSummaryView.as_view(), name='po-summary'),
-    url('putaway-summary/', PutawaySummaryView.as_view(), name='putaway-summary'),
     url('zone-wise-summary/', ZoneWiseSummaryView.as_view(), name='zone-wise-summary'),
+    url('putaway-summary/', PutawaySummaryView.as_view(), name='putaway-summary'),
     url('putaway-type-list/', PutawayTypeListView.as_view(), name='putaway-type-list'),
+    url('^picker-user-reassignment/$', PickerUserReAssignmentView.as_view(), name='picker-user-reassignment'),
+    url('order-status-summary/', OrderStatusSummaryView.as_view(), name='order-status-summary'),
+    url('picker-status-summary/', PickerDashboardStatusSummaryView.as_view(), name='picker-status-summary'),
+    url('zone-wise-picker-summary/', ZoneWisePickerSummaryView.as_view(), name='zone-wise-picker-summary'),
+    url('putaway-type-search/', PutawayTypeIDSearchView.as_view(), name='putaway-type-search'),
+    url('qc-executive/', QCExecutivesView.as_view(), name='qc-executive'),
+    url('qc-desk/', QCDeskCrudView.as_view(), name='qc-desk'),
+    url('qc-area-types/', QCAreaTypeListView.as_view(), name='qc-area-types'),
+    url('qc-area/', QCAreaCrudView.as_view(), name='qc-area'),
+    url('qc-desk-to-area-mapping/', QCDeskQCAreaAssignmentMappingView.as_view(), name='qc-desk-to-area-mapping'),
+    url('qc-desk-helper-dashboard/', QCDeskHelperDashboardView.as_view(), name='qc-desk-helper-dashboard'),
+    url('qc-jobs-dashboard/', QCJobsDashboardView.as_view(), name='qc-jobs-dashboard'),
+    url('pending-qc-jobs/', PendingQCJobsView.as_view(), name='pending-qc-jobs'),
+    url('picking-type-list/', PickingTypeListView.as_view(), name='picking-type-list'),
+    url('qc-desk-list/', QCDeskFilterView.as_view(), name='qc-desk-list'),
 ]

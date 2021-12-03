@@ -6,6 +6,7 @@ import csv
 import codecs
 import datetime
 
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -498,4 +499,3 @@ def send_sms_on_trip_start(trip_instance):
             except Exception as e:
                 info_logger.info("Exception|send_sms_on_trip_start| e {} ".format(e))
                 info_logger.error(e)
-

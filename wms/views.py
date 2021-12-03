@@ -52,7 +52,8 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, \
+    QCDeskQCAreaAssignmentMapping
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -63,7 +64,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
-    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm
+    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm, BulkCrateForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -213,6 +214,34 @@ def bins_upload(request):
         'admin/wms/bulk-bin-updation.html',
         {'form': form}
     )
+
+
+def bulk_crate_creation(request):
+    if request.method == 'POST':
+        info_logger.info("POST request while bulk create for Crate generation.")
+        form = BulkCrateForm(request.POST)
+        if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                warehouse = form.cleaned_data['warehouse']
+                zone = form.cleaned_data['zone']
+                crate_type = form.cleaned_data['crate_type']
+                quantity = form.cleaned_data['quantity']
+                with transaction.atomic():
+                    for qty_render in range(0, quantity):
+                        Crate.objects.create(warehouse=warehouse, zone=zone, crate_type=crate_type,
+                                             created_by=request.user, updated_by=request.user)
+                        info_logger.info("Crate created for warehouse" + str(warehouse) + ", zone" + str(zone) +
+                                         ", crate_type" + str(crate_type) + ", Count no" + str(qty_render + 1))
+                return redirect('/admin/wms/crate/')
+
+            except Exception as e:
+                error_logger.error(e)
+        else:
+            return render(request, 'admin/wms/bulk-crate-creation.html', {'form': form})
+    else:
+        form = BulkCrateForm()
+    return render(request, 'admin/wms/bulk-crate-creation.html', {'form': form})
 
 
 def put_away(request):
@@ -2784,6 +2813,18 @@ class QCAreaBarcodeGenerator(APIView):
         return merged_barcode_gen(qcarea_data)
 
 
+class CrateBarcodeGenerator(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        crate = Crate.objects.filter(pk=self.kwargs.get('id')).last()
+        crate_barcode_txt = crate.crate_barcode_txt
+        if crate and crate.crate_barcode_txt is None:
+            crate_barcode_txt = '4' + str(crate.id).zfill(11)
+        crate_data = {crate_barcode_txt: {"qty": 1, "data": {"Crate": crate.crate_id}}}
+        return merged_barcode_gen(crate_data)
+
+
 class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
@@ -2795,7 +2836,8 @@ class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_employee__shop_id=warehouse)
 
         if self.q:
-            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
         return qs
 
 
@@ -2822,8 +2864,9 @@ class PickerUserAutcomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_employee__shop_id=warehouse)
 
         if self.q:
-            qs = qs.filter(Q(first_name__icontains=self.q) | Q(last_name__icontains=self.q))
-        return qs
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) |
+                           Q(last_name__icontains=self.q))
+        return qs.distinct()
 
 
 class PickerUsersCompleteAutcomplete(autocomplete.Select2QuerySetView):
@@ -2991,3 +3034,51 @@ class IncorrectProductBinMappingFormView(View):
             'admin/services/incorrect-product-bin-mapping.html',
             {'form': form}
         )
+
+
+def auto_qc_area_assignment_to_order(order_no=None):
+    info_logger.info("Inside auto_qc_area_assignment_to_order, Request order no: " + str(order_no))
+    if order_no:
+        orders = Order.objects.filter(
+            order_no=order_no, picker_order__isnull=False, picker_order__qc_area__isnull=True,
+            picker_order__picking_status=PickerDashboard.PICKING_COMPLETE).distinct()
+    else:
+        current_time = datetime.now() - timedelta(minutes=1)
+        start_time = datetime.now() - timedelta(days=5)
+        orders = Order.objects.filter(picker_order__isnull=False, picker_order__qc_area__isnull=True,
+                                      picker_order__picking_status=PickerDashboard.PICKING_COMPLETE,
+                                      created_at__gt=start_time, created_at__lt=current_time).distinct()
+    info_logger.info("Total orders to be process, Count: " + str(orders.count()))
+    for order in orders:
+        with transaction.atomic():
+            info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
+            least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
+                qc_desk__warehouse_id=order.seller_shop, qc_desk__desk_enabled=True, area_enabled=True,
+                qc_area__area_type='OA', qc_done=True).filter(
+                Q(qc_area__area_pickings__isnull=True) |
+                Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False)).\
+                distinct('qc_desk', 'last_assigned_at__date').order_by('-last_assigned_at__date')
+            if not least_used_desk:
+                info_logger.info("No QC Area is in state to map with order no: " + str(order.order_no))
+                continue
+            if least_used_desk.first().last_assigned_at is None:
+                qc_desk = least_used_desk.first().qc_desk
+            else:
+                qc_desk = least_used_desk.last().qc_desk
+            area_mapping = QCDeskQCAreaAssignmentMapping.objects.filter(
+                qc_desk=qc_desk, qc_desk__desk_enabled=True, area_enabled=True,
+                qc_area__area_type='OA', qc_done=True).filter(
+                Q(qc_area__area_pickings__isnull=True) |
+                Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False))
+            if area_mapping:
+                desk_area_obj = area_mapping.filter(last_assigned_at__isnull=True).first()
+                if not desk_area_obj:
+                    desk_area_obj = area_mapping.order_by('last_assigned_at').first()
+            info_logger.info(desk_area_obj.qc_area)
+            desk_area_obj.last_assigned_at = datetime.now()
+            desk_area_obj.token_id = order.order_no
+            desk_area_obj.qc_done = False
+            desk_area_obj.save()
+            order.picker_order.update(qc_area=desk_area_obj.qc_area)
+            order.save()
+            info_logger.info("QC Area " + str(desk_area_obj.qc_area) + " assigned for order no: " + str(order.order_no))

@@ -18,16 +18,19 @@ from rest_framework import serializers
 
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
-from products.models import Product, ParentProduct, ProductImage, ParentProductImage
-from shops.models import Shop
-from retailer_to_sp.models import PickerDashboard, Order
+from products.models import Product, ParentProduct, ProductImage, ParentProductImage, Repackaging
+from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
+from shops.models import Shop, ShopUserMapping
+
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
-    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update, \
+    QCDeskCommonFunction
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping,  QCArea
-from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping
+from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
+    get_validate_qc_areas
 
 User = get_user_model()
 lock = Lock()
@@ -1154,6 +1157,9 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     is_zone_supervisor = serializers.SerializerMethodField()
     is_zone_coordinator = serializers.SerializerMethodField()
     is_putaway_user = serializers.SerializerMethodField()
+    is_picker = serializers.SerializerMethodField()
+    is_qc_executive = serializers.SerializerMethodField()
+    is_dispatch_executive = serializers.SerializerMethodField()
     user_warehouse = serializers.SerializerMethodField()
 
     def get_is_warehouse_manager(self, obj):
@@ -1180,6 +1186,24 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
             return True
         return False
 
+    def get_is_picker(self, obj):
+        """Check if user is Picker"""
+        if obj.groups.filter(name='Picker Boy').exists():
+            return True
+        return False
+
+    def get_is_qc_executive(self, obj):
+        """Check if user is QC Executive"""
+        if obj.has_perm('wms.can_have_qc_executive_permission'):
+            return True
+        return False
+
+    def get_is_dispatch_executive(self, obj):
+        """Check if user is Dispatch Executive"""
+        if obj.groups.filter(name='Dispatch Executive').exists():
+            return True
+        return False
+
     def get_user_warehouse(self, obj):
         """Get user's associated warehouse"""
         return WarehouseSerializer(obj.shop_employee.last().shop).data if obj.shop_employee.exists() else None
@@ -1187,7 +1211,8 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
-                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse')
+                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker', 'is_qc_executive',
+                  'is_dispatch_executive')
 
 
 class BinSerializer(serializers.ModelSerializer):
@@ -1412,58 +1437,22 @@ class PicklistSerializer(serializers.ModelSerializer):
     picking_completed_time = serializers.SerializerMethodField('get_completed_time')
     order_no = serializers.SerializerMethodField()
     qc_area = serializers.SerializerMethodField()
+    zone = ZoneSerializer(read_only=True)
+    picker_boy = UserSerializers(read_only=True)
+
 
     def picker_status_dt(self, obj):
         return str(obj.picking_status).lower()
 
     def get_order_create_date(self, obj):
-        return obj.order.created_at.strftime("%d-%m-%Y")
+        if obj.order:
+            return obj.order.created_at.strftime("%d-%m-%Y")
+        elif obj.repackaging:
+            return obj.repackaging.created_at.strftime("%d-%m-%Y")
 
     def m_delivery_location(self, obj):
-        return obj.order.shipping_address.city.city_name
-
-    def get_assigned_time(self, obj):
-        try:
-            return obj.picker_assigned_date.strftime('%b %d, %H:%M')
-        except:
-            return None
-
-    def get_completed_time(self, obj):
-        return obj.completed_at.strftime('%b %d, %H:%M') if obj.completed_at else None
-
-    def get_order_no(self, obj):
-        return obj.order.order_no
-
-    def get_qc_area(self, obj):
-        qc_area = obj.qc_area.area_id if obj.qc_area else None
-        if not qc_area:
-            qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area.area_id \
-                if obj.order.picker_order.filter(qc_area__isnull=False).exists() else None
-        return qc_area
-
-    class Meta:
-        model = PickerDashboard
-        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
-                  'picking_completed_time', 'moved_to_qc_at', 'qc_area')
-
-
-class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
-
-    picker_status = serializers.SerializerMethodField('picker_status_dt')
-    order_create_date = serializers.SerializerMethodField()
-    delivery_location = serializers.SerializerMethodField('m_delivery_location')
-    picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
-    picking_completed_time = serializers.SerializerMethodField('get_completed_time')
-    order_no = serializers.SerializerMethodField()
-    qc_area = serializers.SerializerMethodField()
-
-    def picker_status_dt(self, obj):
-        return str(obj.picking_status).lower()
-
-    def get_order_create_date(self, obj):
-        return obj.repackaging.created_at.strftime("%d-%m-%Y")
-
-    def m_delivery_location(self, obj):
+        if obj.order:
+            return obj.order.shipping_address.city.city_name
         return ''
 
     def get_assigned_time(self, obj):
@@ -1476,19 +1465,72 @@ class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
         return obj.completed_at.strftime('%b %d, %H:%M') if obj.completed_at else None
 
     def get_order_no(self, obj):
-        return obj.repackaging.repackaging_no
+        if obj.order:
+            return obj.order.order_no
+        elif obj.repackaging:
+            return obj.repackaging.repackaging_no
+        return '-'
+
 
     def get_qc_area(self, obj):
         qc_area = obj.qc_area.area_id if obj.qc_area else None
         if not qc_area:
-            qc_area = obj.repackaging.picker_repacks.filter(qc_area__isnull=False).last().qc_area.area_id \
-                if obj.repackaging.picker_repacks.filter(qc_area__isnull=False).exists() else None
+            if obj.order:
+                qc_area = obj.order.picker_order.filter(qc_area__isnull=False).last().qc_area.area_id \
+                    if obj.order.picker_order.filter(qc_area__isnull=False).exists() else None
+            elif obj.repackaging:
+                qc_area = obj.repackaging.picker_repacks.filter(qc_area__isnull=False).last().qc_area.area_id \
+                    if obj.repackaging.picker_repacks.filter(qc_area__isnull=False).exists() else None
         return qc_area
 
     class Meta:
         model = PickerDashboard
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
-                  'picking_completed_time', 'moved_to_qc_at', 'qc_area')
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy')
+
+#
+# class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
+#
+#     picker_status = serializers.SerializerMethodField('picker_status_dt')
+#     order_create_date = serializers.SerializerMethodField()
+#     delivery_location = serializers.SerializerMethodField('m_delivery_location')
+#     picking_assigned_time = serializers.SerializerMethodField('get_assigned_time')
+#     picking_completed_time = serializers.SerializerMethodField('get_completed_time')
+#     order_no = serializers.SerializerMethodField()
+#     qc_area = serializers.SerializerMethodField()
+#
+#     def picker_status_dt(self, obj):
+#         return str(obj.picking_status).lower()
+#
+#     def get_order_create_date(self, obj):
+#         return obj.repackaging.created_at.strftime("%d-%m-%Y")
+#
+#     def m_delivery_location(self, obj):
+#         return ''
+#
+#     def get_assigned_time(self, obj):
+#         try:
+#             return obj.picker_assigned_date.strftime('%b %d, %H:%M')
+#         except:
+#             return None
+#
+#     def get_completed_time(self, obj):
+#         return obj.completed_at.strftime('%b %d, %H:%M') if obj.completed_at else None
+#
+#     def get_order_no(self, obj):
+#         return obj.repackaging.repackaging_no
+#
+#     def get_qc_area(self, obj):
+#         qc_area = obj.qc_area.area_id if obj.qc_area else None
+#         if not qc_area:
+#             qc_area = obj.repackaging.picker_repacks.filter(qc_area__isnull=False).last().qc_area.area_id \
+#                 if obj.repackaging.picker_repacks.filter(qc_area__isnull=False).exists() else None
+#         return qc_area
+#
+#     class Meta:
+#         model = PickerDashboard
+#         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
+#                   'picking_completed_time', 'moved_to_qc_at', 'qc_area')
 
 
 class AllocateQCAreaSerializer(serializers.ModelSerializer):
@@ -1513,52 +1555,23 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
 
             data['picking_entry'] = picker_dashboard_instance
 
+            if picker_dashboard_instance.qc_area is None:
+                raise serializers.ValidationError("Invalid QC Area | Not allotted yet for this order.")
+
             if 'qc_area' in self.initial_data and self.initial_data['qc_area']:
                 qc_area = QCArea.objects.filter(area_id=self.initial_data['qc_area'],
                                                 warehouse_id=self.initial_data['warehouse']).last()
-                if not qc_area:
-                    raise serializers.ValidationError('Invalid QC Area')
+                if picker_dashboard_instance.qc_area != qc_area:
+                    raise serializers.ValidationError(f"Invalid QC Area | Allotted QC Area for this order is "
+                                                      f"{picker_dashboard_instance.qc_area.area_id}")
 
-                qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False,
-                                                                 order=picker_dashboard_instance.order)\
-                                                         .exclude(id=picker_dashboard_instance.id).last()
-                if qc_area_alloted and qc_area_alloted.qc_area.area_id != self.initial_data['qc_area']:
-                    raise serializers.ValidationError(f"Invalid QC Area| QcArea allotted for this order is"
-                                                      f" {qc_area_alloted.qc_area}")
-                elif not qc_area_alloted and self.initial_data['qc_area'] and PickerDashboard.objects.filter(
-                        qc_area__warehouse__id=self.initial_data['warehouse'],
-                        qc_area__area_id=self.initial_data['qc_area'],
-                        order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
-                        order__rt_order_order_product__isnull=True). \
-                        exclude(order=picker_dashboard_instance.order).exists():
-                    raise serializers.ValidationError(f"Invalid QC Area| QcArea {self.initial_data['qc_area']} "
-                                                      f"allotted for another order.")
-                elif PickerDashboard.objects.filter(order=picker_dashboard_instance.order,
-                                                    order__rt_order_order_product__isnull=False).exists():
-                    raise serializers.ValidationError(f"QcArea updation not allowed for order "
-                                                      f"{picker_dashboard_instance.order}.")
                 data['qc_area'] = qc_area
             else:
                 raise serializers.ValidationError("'qc_area' | This is mandatory")
         else:
             raise serializers.ValidationError("'id' | This is mandatory")
+        data['picking_status'] = 'moved_to_qc'
         return data
-
-    def check_for_qc_area(self, instance, validated_data):
-        qc_area_alloted = PickerDashboard.objects.filter(qc_area__isnull=False, order=instance.order) \
-                                                 .exclude(id=instance.id).last()
-        if qc_area_alloted and qc_area_alloted.qc_area != validated_data['qc_area']:
-            return {"error": f"Invalid QC Area| QcArea allotted for this order is {qc_area_alloted.qc_area}"}
-        elif not qc_area_alloted and validated_data['qc_area'] and PickerDashboard.objects.filter(
-                qc_area=validated_data['qc_area'],
-                order__order_status__in=[Order.MOVED_TO_QC, Order.PARTIAL_MOVED_TO_QC],
-                order__rt_order_order_product__isnull=True). \
-                exclude(order=instance.order).exists():
-            return {"error": f"Invalid QC Area| QcArea {validated_data['qc_area']} allotted for another order."}
-        elif PickerDashboard.objects.filter(order=instance.order,
-                                            order__rt_order_order_product__isnull=False).exists():
-            return {"error": f"QcArea updation not allowed for order {instance.order}."}
-        return {'data': instance}
 
     def update(self, instance, validated_data):
         """
@@ -1568,10 +1581,6 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
         """
         lock.acquire()
         try:
-            is_validated = self.check_for_qc_area(instance, validated_data)
-            if 'error' in is_validated:
-                return is_validated['error']
-            validated_data['picking_status'] = 'moved_to_qc'
             with transaction.atomic():
                 picker_dashboard_instance = super().update(instance, validated_data)
                 post_picking_order_update(instance)
@@ -1582,3 +1591,405 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
         finally:
             lock.release()
 
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', )
+
+
+class RepackagingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Repackaging
+        fields = ('id', 'repackaging_no', 'source_picking_status', 'created_at',)
+
+
+class ShipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_number', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
+                  'no_of_packets_check', 'no_of_sacks_check', )
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+    order = OrderSerializer(read_only=True)
+    repackaging = RepackagingSerializer(read_only=True)
+    shipment = ShipmentSerializer(read_only=True)
+    picker_boy = UserSerializers(read_only=True)
+    qc_area = QCAreaSerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+    class Meta:
+        model = PickerDashboard
+        fields = ('id', 'order', 'repackaging', 'shipment', 'picking_status', 'picklist_id', 'picker_boy',
+                  'pick_list_pdf', 'picker_assigned_date', 'zone', 'qc_area', 'is_valid', 'refreshed_at', 'created_at',
+                  'modified_at', 'completed_at', 'moved_to_qc_at', )
+
+    def validate(self, data):
+        """Validates the PickerDashboard requests"""
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if 'picker_boy' in self.initial_data and self.initial_data['picker_boy']:
+                try:
+                    picker_dashboard_obj = PickerDashboard.objects.get(id=self.initial_data['id'])
+                    existing_picker_boy = picker_dashboard_obj.picker_boy
+                except Exception as e:
+                    raise serializers.ValidationError("Invalid Putaway")
+                try:
+                    picker_boy = User.objects.get(id=self.initial_data['picker_boy'], groups__name='Picker Boy')
+                except Exception:
+                    raise serializers.ValidationError("Invalid picker boy | user not found / not a picker boy.")
+                if picker_boy == existing_picker_boy:
+                    raise serializers.ValidationError(f'Picker Boy {picker_boy} is already assigned.')
+                elif picker_dashboard_obj.zone is None:
+                    raise serializers.ValidationError(f'Zone not mapped to the selected entry.')
+                elif picker_boy not in picker_dashboard_obj.zone.picker_users.all():
+                    raise serializers.ValidationError(f'Invalid picker_boy | {picker_boy} is not mapped to the zone.')
+                data['picker_boy'] = picker_boy
+            else:
+                raise serializers.ValidationError(f"Invalid Picker boy | 'picker_boy' can't be empty.")
+        else:
+            raise serializers.ValidationError("PickerDashboard creation is not allowed.")
+
+        if sorted(list(self.initial_data.keys())) != ['id', 'picker_boy']:
+            raise serializers.ValidationError("Only Picker boy update is allowed")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            picker_dashboard_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return picker_dashboard_instance
+
+
+class PickerSummarySerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
+
+
+class ZonewisePickerSummarySerializers(serializers.Serializer):
+    status_count = PickerSummarySerializer(read_only=True)
+    zone = ZoneSerializer(read_only=True)
+
+
+class OrderStatusSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    pending = serializers.IntegerField()
+    completed = serializers.IntegerField()
+    moved_to_qc = serializers.IntegerField()
+
+
+class AlternateDeskSerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'desk_number', 'name', 'warehouse')
+
+
+class QCDeskCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    qc_executive = UserSerializers(read_only=True)
+    alternate_desk = AlternateDeskSerializer(read_only=True)
+    qc_areas = QCAreaSerializer(read_only=True, many=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'desk_number', 'name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled',
+                  'alternate_desk', 'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'name' in self.initial_data and self.initial_data['name']:
+            data['name'] = self.initial_data['name']
+        else:
+            raise serializers.ValidationError("'name' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'qc_executive' in self.initial_data and self.initial_data['qc_executive']:
+            try:
+                qc_executive = User.objects.get(id=self.initial_data['qc_executive'])
+            except:
+                raise serializers.ValidationError("Invalid qc_executive | user does not exist.")
+            if not qc_executive.has_perm('wms.can_have_qc_executive_permission'):
+                raise serializers.ValidationError("Invalid qc_executive | Does not have required permission.")
+            data['qc_executive'] = qc_executive
+        else:
+            raise serializers.ValidationError("'qc_executive' | This is mandatory")
+
+        if 'qc_areas' in self.initial_data and self.initial_data['qc_areas']:
+            if len(self.initial_data['qc_areas']) > get_config('MAX_QC_AREA_PER_QC_DESK'):
+                raise serializers.ValidationError(
+                    "Maximum " + str(get_config('MAX_QC_AREA_PER_QC_DESK')) + " qc areas are allowed.")
+            qc_areas = get_validate_qc_areas(
+                self.initial_data['qc_areas'], self.initial_data['warehouse'])
+            if 'error' in qc_areas:
+                raise serializers.ValidationError((qc_areas["error"]))
+            data['qc_areas'] = qc_areas['qc_areas']
+        else:
+            raise serializers.ValidationError("'qc_areas' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not QCDesk.objects.filter(id=self.initial_data['id'], warehouse=warehouse).exists():
+                raise serializers.ValidationError("Warehouse updation is not allowed.")
+
+            if 'desk_enabled' in self.initial_data and self.initial_data['desk_enabled'] is False:
+                if 'alternate_desk' in self.initial_data and self.initial_data['alternate_desk']:
+                    if self.initial_data['alternate_desk'] == self.initial_data['id']:
+                        raise serializers.ValidationError("Invalid 'alternate_desk' | same as current qc desk.")
+                    try:
+                        alternate_desk = QCDesk.objects.get(id=self.initial_data['alternate_desk'])
+                    except:
+                        raise serializers.ValidationError("Invalid 'alternate_desk' | QC Desk not exist.")
+                    data['alternate_desk'] = alternate_desk
+                    data['desk_enabled'] = False
+                else:
+                    raise serializers.ValidationError("'alternate_desk' | This is mandatory if desk is not enabled")
+            else:
+                data['alternate_desk'] = None
+                data['desk_enabled'] = True
+
+            if self.initial_data['warehouse'] and self.initial_data['qc_executive']:
+                if QCDesk.objects.filter(
+                        warehouse=self.initial_data['warehouse'], qc_executive__id=self.initial_data['qc_executive']).\
+                        exclude(id=self.initial_data['id']).exists():
+                    raise serializers.ValidationError(
+                        "QCDesk already exist for selected 'warehouse' and 'qc_executive'")
+
+            if QCArea.objects.filter(qc_desk_areas__isnull=False, qc_desk_areas__desk_enabled=True).\
+                    filter(id__in=[x['id'] for x in self.initial_data['qc_areas']]).\
+                    exclude(qc_desk_areas__id=self.initial_data['id']).exists():
+                raise serializers.ValidationError("Invalid 'qc_areas' | QC Area already mapped with another QC Desk.")
+        else:
+            data['alternate_desk'] = None
+            data['desk_enabled'] = True
+            if QCArea.objects.filter(qc_desk_areas__isnull=False, qc_desk_areas__desk_enabled=True).\
+                    filter(id__in=[x['id'] for x in self.initial_data['qc_areas']]).exists():
+                raise serializers.ValidationError("Invalid 'qc_areas' | QC Area already mapped with another QC Desk.")
+
+            if self.initial_data['warehouse'] and self.initial_data['qc_executive']:
+                if QCDesk.objects.filter(warehouse=self.initial_data['warehouse'],
+                                         qc_executive__id=self.initial_data['qc_executive']).exists():
+                    raise serializers.ValidationError(
+                        "QCDesk already exist for selected 'warehouse' and 'qc_executive'")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new QCDesk with QC Areas"""
+        qc_areas = validated_data.pop('qc_areas', None)
+
+        try:
+            qc_desk_instance = QCDesk.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        QCDeskCommonFunction.update_qc_areas(qc_desk_instance, qc_areas)
+        return qc_desk_instance
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update QCDesk"""
+        qc_areas = validated_data.pop('qc_areas', None)
+
+        try:
+            qc_desk_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        QCDeskCommonFunction.update_qc_areas(qc_desk_instance, qc_areas)
+        return qc_desk_instance
+
+
+class QCAreaCrudSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = QCArea
+        fields = ('id', 'warehouse', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode', 'is_active',
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'area_type' in self.initial_data and self.initial_data['area_type']:
+            if self.initial_data['area_type'] not in QCArea.QC_AREA_TYPE_CHOICES:
+                return serializers.ValidationError("'area_type' | Invalid choice.")
+            data['area_type'] = self.initial_data['area_type']
+        else:
+            raise serializers.ValidationError("'area_type' | This is mandatory")
+
+        if 'warehouse' in self.initial_data and self.initial_data['warehouse']:
+            try:
+                warehouse = Shop.objects.get(id=self.initial_data['warehouse'], shop_type__shop_type='sp')
+                data['warehouse'] = warehouse
+            except:
+                raise serializers.ValidationError("Invalid warehouse")
+        else:
+            raise serializers.ValidationError("'warehouse' | This is mandatory")
+
+        if 'is_active' in self.initial_data and self.initial_data['is_active']:
+            if self.initial_data['is_active'] not in [True, False]:
+                return serializers.ValidationError("'is_active' | Invalid choice.")
+            data['is_active'] = self.initial_data['is_active']
+        else:
+            data['is_active'] = True
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            qc_area_instance = QCArea.objects.filter(id=self.initial_data['id']).last()
+            if qc_area_instance.warehouse != warehouse:
+                raise serializers.ValidationError("Warehouse updation is not allowed.")
+
+            if qc_area_instance.area_type != self.initial_data['area_type']:
+                raise serializers.ValidationError("Area type updation is not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new QCArea with QC Areas"""
+        try:
+            qc_area_instance = QCArea.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return qc_area_instance
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update QCArea"""
+        try:
+            qc_area_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return qc_area_instance
+
+
+class QCDeskListSerializers(serializers.ModelSerializer):
+    warehouse = WarehouseSerializer(read_only=True)
+
+    class Meta:
+        model = QCDesk
+        fields = ('id', 'warehouse', 'desk_number', 'name', 'desk_enabled')
+
+
+class QCAreaListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = QCArea
+        fields = ('id', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode', 'is_active')
+
+
+class QCDeskQCAreaAssignmentMappingSerializers(serializers.ModelSerializer):
+    qc_desk = QCDeskListSerializers(read_only=True)
+    qc_area = QCAreaListSerializers(read_only=True)
+    alternate_area = QCAreaListSerializers(read_only=True)
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('id', 'qc_desk', 'qc_area', 'token_id', 'qc_done', 'area_enabled', 'alternate_area',
+                  'last_assigned_at', 'created_at', 'updated_at')
+
+
+class QCDeskQCAreaAssignmentMappingListingSerializer(serializers.ModelSerializer):
+    qc_area = QCAreaListSerializers(read_only=True)
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('qc_area', 'token_id', 'last_assigned_at')
+
+
+class QCDeskHelperDashboardSerializer(serializers.ModelSerializer):
+    qc_desk = serializers.SerializerMethodField()
+    qc_areas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QCDeskQCAreaAssignmentMapping
+        fields = ('qc_desk', 'qc_areas')
+
+    def get_qc_desk(self, obj):
+        return QCDeskListSerializers(QCDesk.objects.get(id=obj['qc_desk']), read_only=True).data
+
+    def get_qc_areas(self, obj):
+        data_set = QCDeskQCAreaAssignmentMapping.objects.filter(
+            qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False, qc_done=False)\
+            .order_by('last_assigned_at')[:3]
+        return QCDeskQCAreaAssignmentMappingListingSerializer(data_set, read_only=True, many=True).data
+
+
+class QCJobsDashboardCountsSerializer(serializers.Serializer):
+    shipments = serializers.SerializerMethodField()
+    pending = serializers.SerializerMethodField()
+    qc_pass = serializers.SerializerMethodField()
+    # partial_qc_pass = serializers.SerializerMethodField()
+    rejected = serializers.SerializerMethodField()
+
+    def get_shipments(self, obj):
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), created_at__date__gte=self.context['start_date'],
+            created_at__date__lte=self.context['end_date']).count()
+
+    def get_pending(self, obj):
+        return QCDeskQCAreaAssignmentMapping.objects.filter(
+            qc_area__id__in=list(obj), qc_done=False, token_id__isnull=False,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+
+    def get_qc_pass(self, obj):
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.READY_TO_SHIP,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+
+    # def get_partial_qc_pass(self, obj):
+    #     return OrderedProduct.objects.filter(
+    #         qc_area__id__in=list(obj), shipment_status=OrderedProduct.PARTIALLY_QC_PASSED,
+    #         created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+    #
+    def get_rejected(self, obj):
+        return OrderedProduct.objects.filter(
+            qc_area__id__in=list(obj), shipment_status=OrderedProduct.QC_REJECTED,
+            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+
+
+class QCJobsDashboardSerializer(serializers.Serializer):
+    qc_desk = serializers.SerializerMethodField()
+    counts = serializers.SerializerMethodField()
+
+    def get_qc_desk(self, obj):
+        return QCDeskListSerializers(obj, read_only=True).data
+
+    def get_counts(self, obj):
+        qc_areas = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk=obj, area_enabled=True).\
+            values_list('qc_area', flat=True)
+        return QCJobsDashboardCountsSerializer(qc_areas, context=self.context, read_only=True).data
+
+
+class QCDeskSerializer(QCDeskCrudSerializers):
+    class Meta:
+        model=QCDesk
+        fields = ('id', 'desk_number', 'name', 'qc_executive')

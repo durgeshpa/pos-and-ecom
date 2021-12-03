@@ -21,7 +21,6 @@ from django.core.validators import MinValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
-from retailer_backend import common_function
 from retailer_backend import common_function as CommonFunction
 from .bulk_order_clean import bulk_order_validation
 from .common_function import reserved_args_json_data
@@ -32,13 +31,14 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 
 from addresses.models import Address
 
-from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType,  InventoryState, Bin, Zone, QCArea
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, InventoryState, Bin, Zone, QCArea, \
+    BaseTimestampUserModel, Crate
+from wms.common_functions import common_on_return_and_partial, \
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
-from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
@@ -1484,11 +1484,24 @@ class OrderedProduct(models.Model):  # Shipment
     RESCHEDULED = "RESCHEDULED"
     NOT_ATTEMPT = "NOT_ATTEMPT"
     DELIVERED = "DELIVERED"
+    PARTIALLY_QC_PASSED = "PARTIALLY_QC_PASSED"
+    QC_REJECTED = "QC_REJECTED"
+    QC_STARTED = "QC_STARTED"
+    SHIPMENT_CREATED = 'SHIPMENT_CREATED'
+    READY_TO_DISPATCH = 'READY_TO_DISPATCH'
+    OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
+    MOVED_TO_DISPATCH = 'MOVED_TO_DISPATCH'
+    FULLY_DELIVERED_AND_VERIFIED = 'FULLY_DELIVERED_AND_VERIFIED'
+    PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
+    FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
     SHIPMENT_STATUS = (
-        ('SHIPMENT_CREATED', 'QC Pending'),
+        (SHIPMENT_CREATED, 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
-        ('READY_TO_DISPATCH', 'Ready to Dispatch'),
-        ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
+        (QC_REJECTED, 'QC Rejected'),
+        (MOVED_TO_DISPATCH, 'Moved to dispatch'),
+        (READY_TO_DISPATCH, 'Ready to Dispatch'),
+        (OUT_FOR_DELIVERY, 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
         ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
         ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),
@@ -1501,8 +1514,9 @@ class OrderedProduct(models.Model):  # Shipment
         ('CANCELLED', 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
-        (NOT_ATTEMPT, 'Not Attempt'),
-        (DELIVERED, 'Delivered')
+        (DELIVERED, 'Delivered'),
+        (QC_STARTED, 'QC Started'),
+        (NOT_ATTEMPT, 'Not Attempt')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -1582,6 +1596,8 @@ class OrderedProduct(models.Model):  # Shipment
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="No. Of Sacks Collected")
     is_customer_notified = models.BooleanField(default=False)
+    qc_area = models.ForeignKey(QCArea, related_name='qc_area_shipment', null=True, blank=True,
+                                on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
@@ -1812,25 +1828,25 @@ class OrderedProduct(models.Model):  # Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.order.ordered_cart.cart_type == 'AUTO':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         if self.order.ordered_cart.cart_type == 'BASIC':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
         elif self.order.ordered_cart.cart_type == 'ECOM':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -1838,14 +1854,14 @@ class OrderedProduct(models.Model):  # Shipment
                 # populate_data_on_qc_pass(self.order)
 
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
                 # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
-            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -1910,18 +1926,18 @@ class Invoice(models.Model):
 
 
 class PickerDashboard(models.Model):
-    PICKING_ASSIGNED = 'picking_assigned'
-
+    PICKING_PENDING, PICKING_ASSIGNED = 'picking_pending', 'picking_assigned'
+    PICKING_IN_PROGRESS, PICKING_COMPLETE = 'picking_in_progress', 'picking_complete'
+    PICKING_CANCELLED, MOVED_TO_QC = 'picking_cancelled', 'moved_to_qc'
     PICKING_STATUS = (
-        ('picking_pending', 'Picking Pending'),
+        (PICKING_PENDING, 'Picking Pending'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
-        ('picking_in_progress', 'Picking In Progress'),
-        ('picking_complete', 'Picking Complete'),
-        ('picking_cancelled', 'Picking Cancelled'),
-        ('moved_to_qc', 'Moved To QC Area'),
-
+        (PICKING_IN_PROGRESS, 'Picking In Progress'),
+        (PICKING_COMPLETE, 'Picking Complete'),
+        (PICKING_CANCELLED, 'Picking Cancelled'),
+        (MOVED_TO_QC, 'Moved To QC Area'),
     )
-
+    PICKING_TYPE_CHOICE = Choices((1, 'ORDER', 'order'), (2, 'REPACKAGING', 'repackaging'))
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
     repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(
@@ -2002,6 +2018,7 @@ class OrderedProductMapping(models.Model):
     cancellation_date = models.DateTimeField(null=True, blank=True)
     picked_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
                                         validators=[MinValueValidator(0)])
+    is_qc_done = models.BooleanField(default=False)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -3185,3 +3202,34 @@ class PickerPerformanceData(PickerDashboard):
         proxy = True
         verbose_name = 'Picker Performance Dashboard'
         verbose_name_plural = 'Picker Performance Dashboard'
+
+
+class ShipmentPackaging(BaseTimestampUserModel):
+    CRATE, SACK, BOX = 'CRATE', 'SACK', 'BOX'
+    PACKAGING_TYPE_CHOICES = Choices(
+        (CRATE, 'Crate'),
+        (SACK, 'Sack'),
+        (BOX, 'Box')
+    )
+    REASON_FOR_REJECTION = Choices((1, 'Package not found'), (2, 'Faulty package'), (10, 'Other'))
+    DISPATCH_STATUS_CHOICES = Choices(
+        ('PACKED', 'Packed'),
+        ('READY_TO_DISPATCH', 'Ready to dispatch'),
+        ('REJECTED', 'Rejected'),
+        ('DISPATCHED', 'Dispatched'),
+        ('DELIVERED', 'Delivered')
+    )
+    warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
+    shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
+    packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
+    crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
+    status = models.CharField(max_length=50, choices=DISPATCH_STATUS_CHOICES, default=DISPATCH_STATUS_CHOICES.PACKED)
+    reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
+
+
+class ShipmentPackagingMapping(BaseTimestampUserModel):
+    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='packaging_details',
+                                           on_delete=models.DO_NOTHING)
+    ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
+                                        on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField(null=True)

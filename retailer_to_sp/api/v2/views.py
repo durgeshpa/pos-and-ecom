@@ -1,13 +1,18 @@
-from rest_framework import generics
-from .serializers import (CustomerCareSerializer, OrderNumberSerializer)
+import logging
 
 from rest_framework import permissions, authentication
-from rest_framework.permissions import IsAuthenticated, AllowAny
-
-from retailer_to_sp.models import (Order, CustomerCare)
+from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
+
+from retailer_to_sp.models import (Order, CustomerCare)
+from .serializers import (CustomerCareSerializer, OrderNumberSerializer)
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class CustomerCareApi(APIView):
     permission_classes = (AllowAny,)
@@ -41,6 +46,7 @@ class CustomerCareApi(APIView):
             msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
             return Response( msg, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CustomerOrdersList(APIView):
 
