@@ -356,9 +356,9 @@ class BeatPlanningAdminForm(forms.ModelForm):
         """
         super(BeatPlanningAdminForm, self).__init__(*args, **kwargs)
         # get manager object
-        shop_mapping_object = (ShopUserMapping.objects.filter(
-            employee=self.current_user.shop_employee.instance,
-            employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
+        # shop_mapping_object = (ShopUserMapping.objects.filter(
+        #     employee=self.current_user.shop_employee.instance,
+        #     employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
         # condition to check the current user is super user  or manager
         if self.current_user.shop_employee.instance.is_superuser:
             self.fields['executive'] = forms.ModelChoiceField(
@@ -366,7 +366,9 @@ class BeatPlanningAdminForm(forms.ModelForm):
                 widget=autocomplete.ModelSelect2(url='admin:user-autocomplete',))
         else:
             self.fields['executive'] = forms.ModelChoiceField(queryset=ShopUserMapping.objects.filter(
-                manager=shop_mapping_object, status=True).distinct('employee_id'), widget=autocomplete.ModelSelect2())
+                manager__in=ShopUserMapping.objects.filter(employee=self.current_user, status=True),
+                status=True).order_by(
+                'employee').distinct('employee'), widget=autocomplete.ModelSelect2())
 
 
 class BeatUserMappingCsvViewForm(forms.Form):
