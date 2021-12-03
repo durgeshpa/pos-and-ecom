@@ -81,11 +81,13 @@ class ShipmentMergedBarcode(APIView):
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
             route = "N/A"
+            dispatch_center = str(shipment.order.dispatch_center.pk) if \
+                shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
             temp_data = {"qty": 1,
                          "data": {shipment_count: pck_type_r_id,
                                   shipment.order.order_no: customer_city_pincode,
-                                  "route ": route}}
+                                  dispatch_center: route}}
             shipment_id_list[barcode_id] = temp_data
         return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
