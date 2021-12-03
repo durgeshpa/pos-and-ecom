@@ -1893,6 +1893,10 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
         model = Pincode
         fields = ('id', 'pincode', 'city')
 
+class ShipmentSerializerForDispatch(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_no', 'order_no')
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
@@ -1911,7 +1915,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
-    shipment_id = serializers.IntegerField(read_only=True)
+    shipment = ShipmentSerializerForDispatch()
 
     @staticmethod
     def get_status(obj):
@@ -1924,7 +1928,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment_id', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
 
 
     def validate(self, data):

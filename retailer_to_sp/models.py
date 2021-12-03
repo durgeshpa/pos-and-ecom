@@ -1818,6 +1818,10 @@ class OrderedProduct(models.Model):  # Shipment
     def picklist_id(self):
         return self.picking_data()[2]
 
+    @property
+    def order_no(self):
+        return self.order.order_no
+
     def damaged_amount(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(cn_amt=Sum(F('effective_price') * F('damaged_qty'))).get('cn_amt')
