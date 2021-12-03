@@ -54,9 +54,9 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date
-from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 
+from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel
+from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
@@ -1719,6 +1719,7 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
             cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
+        release_qc_area_on_order_cancel(instance.order_no)
 
 
 @receiver(post_save, sender=Order)

@@ -22,7 +22,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate)
+                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate, QCDeskQCAreaAssignmentMapping)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -1046,6 +1046,14 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                 transaction_id=transaction_id).last(),
             release_time=datetime.datetime.now(), release_type=release_type,
             ordered_quantity=transaction_quantity)
+
+
+def release_qc_area_on_order_cancel(order_no):
+    instance = QCDeskQCAreaAssignmentMapping.objects.filter(
+        token_id=order_no, qc_desk__desk_enabled=True, area_enabled=True, qc_done=False).last()
+    if instance:
+        instance.qc_done = True
+        instance.save()
 
 
 def cancel_order(instance):
