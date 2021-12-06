@@ -2052,3 +2052,12 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
                   'trip_packaging_details', 'created_by', 'updated_by',)
+
+
+class TripSummarySerializer(serializers.Serializer):
+    total_invoices = serializers.IntegerField()
+    total_crates = serializers.IntegerField()
+    total_packets = serializers.IntegerField()
+    total_sack = serializers.IntegerField()
+    total_trip = serializers.IntegerField()
+    trip_weight = serializers.IntegerField()

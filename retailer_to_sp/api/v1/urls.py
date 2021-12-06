@@ -14,7 +14,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
                     DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, DispatchTripsCrudView,
-                    ShipmentPackagingView
+                    ShipmentPackagingView, TripSummaryView
                     )
 
 router = routers.DefaultRouter()
@@ -103,6 +103,7 @@ urlpatterns = [
     url('delivery-boys-list/', DeliverBoysList.as_view(), name='delivery_boys_list'),
     url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
+    url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
 ]
 
 urlpatterns += router.urls

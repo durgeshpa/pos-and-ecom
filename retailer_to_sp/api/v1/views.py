@@ -20,7 +20,7 @@ from hashlib import sha512
 from django.shortcuts import render
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value
+from django.db.models import F, Sum, Q, Case, When, Value, Count
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.contrib.auth import get_user_model
@@ -40,7 +40,7 @@ from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
-    validate_id_and_warehouse
+    validate_id_and_warehouse, validate_data_days_date_request
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, check_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive
 
@@ -56,7 +56,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
                           DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer,
-                          UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer
+                          UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer,
+                          TripSummarySerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -7255,3 +7256,79 @@ class ShipmentPackagingView(generics.GenericAPIView):
         serializer = self.serializer_class(self.queryset.filter(shipment=shipment), many=True)
         msg = "" if packaging_data else "no packaging found"
         return get_response(msg, serializer.data, True)
+
+
+class TripSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTrip.objects. \
+        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
+                       'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
+                       'destination_shop__shop_owner', 'destination_shop__shop_type',
+                       'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
+        prefetch_related('shipments_details'). \
+        order_by('-id')
+    serializer_class = TripSummarySerializer
+
+    # @check_whc_manager_coordinator_supervisor_trip
+    def get(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Trip Summary List """
+        validated_data = validate_data_days_date_request(self.request)
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
+        # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
+        self.queryset = self.filter_trip_summary_data()
+        resp_data = self.queryset.aggregate(no_of_trips=Sum('id'), no_of_crates=Sum('no_of_crates'),
+                                            no_of_packets=Sum('no_of_packets'), no_of_sacks=Sum('no_of_sacks'),
+                                            no_of_invoices=Count('shipments_details__shipment'))
+        trip_weight = 0
+        for ss in self.queryset.all():
+            for obj in ss.shipments_details.all():
+                trip_weight += obj.shipment.shipment_weight
+        trip_summary_data = {
+            'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
+            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
+            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
+            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
+            'total_trip': resp_data['no_of_trips'] if resp_data['no_of_trips'] else 0,
+            'trip_weight': trip_weight
+        }
+        serializer = self.serializer_class(trip_summary_data)
+        msg = "" if trip_summary_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_trip_summary_data(self):
+        seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
+        destination_shop = self.request.GET.get('destination_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using seller_shop, source_shop, destination_shop, delivery_boy, created_at'''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+
+        if destination_shop:
+            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
+
+        return self.queryset
