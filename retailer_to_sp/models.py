@@ -3406,4 +3406,4 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
 
 
-
+INVOICE_AVAILABILITY_CHOICES = Choices((0, 'ALL', 'All'), (1, 'ADDED', 'Added'), (2, 'NOT_ADDED', 'Not Added'))

@@ -2155,3 +2155,15 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
                   'trip_packaging_details', 'created_by', 'updated_by',)
+
+
+class DispatchInvoiceSerializer(serializers.ModelSerializer):
+    order = OrderSerializerForShipment(read_only=True)
+    trip = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        return DispatchTripSerializers(obj.trip_shipments.last().trip).data
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_date')
