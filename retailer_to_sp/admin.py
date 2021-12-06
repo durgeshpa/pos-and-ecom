@@ -1513,7 +1513,7 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
@@ -2556,6 +2556,7 @@ class ShipmentPackagingMappingAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)

@@ -4,6 +4,10 @@ import re
 import json
 
 from datetime import date as datetime_date
+from operator import itemgetter
+
+from django.contrib.auth.models import Group
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -47,8 +51,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchDashboardSerializer, ShipmentNotAttemptSerializer
-                          )
+                          DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer,
+                          UserSerializers, ShipmentNotAttemptSerializer)
 
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
@@ -6815,6 +6819,7 @@ class ShipmentQCView(generics.GenericAPIView):
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
              'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
              'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
@@ -7235,3 +7240,39 @@ class DispatchPackageRejectionReasonList(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in ShipmentPackaging.REASON_FOR_REJECTION]
         msg = ""
         return get_response(msg, data, True)
+
+
+class DeliverBoysList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def user_search(self, queryset, search_string):
+        """
+        This method is used to search using user name & phone number based on criteria that matches
+        @param queryset:
+        @param search_string:
+        @return: queryset
+        """
+        sts_list = search_string.split(' ')
+        for search_text in sts_list:
+            queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                                       | Q(last_name__icontains=search_text))
+        return queryset
+
+    def get(self, request):
+        info_logger.info("Delivery Boys api called.")
+        """ GET Delivery Boys List """
+        group = Group.objects.get(name='Delivery Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        warehouse = self.request.GET.get('warehouse')
+        if warehouse:
+            self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.user_search(self.queryset, search_text)
+        delivery_boys = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(delivery_boys, many=True)
+        msg = "" if delivery_boys else "no delivery boy found"
+        return get_response(msg, serializer.data, True)

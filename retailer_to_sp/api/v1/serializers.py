@@ -1780,11 +1780,12 @@ class AddressSerializer(serializers.ModelSerializer):
 class OrderSerializerForShipment(serializers.ModelSerializer):
     seller_shop = ShopSerializer()
     buyer_shop = ShopSerializer()
+    dispatch_center = ShopSerializer()
     shipping_address = AddressSerializer()
 
     class Meta:
         model=Order
-        fields = ('order_no', 'seller_shop', 'buyer_shop', 'shipping_address')
+        fields = ('order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'dispatch_center', 'shipping_address')
 
 
 class ShipmentQCSerializer(serializers.ModelSerializer):
@@ -1973,6 +1974,9 @@ class DispatchDashboardSerializer(serializers.Serializer):
     total = serializers.IntegerField()
     qc_done = serializers.IntegerField()
     moved_to_dispatch = serializers.IntegerField()
-    # ready_to_dispatch = serializers.IntegerField()
-    # out_for_delivery = serializers.IntegerField()
-    # rescheduled = serializers.IntegerField()
+
+
+class UserSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number',)

@@ -1021,6 +1021,9 @@ class Order(models.Model):
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
+    dispatch_delivery = models.BooleanField(default=False)
+    dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_orders', null=True, blank=True,
+                                        on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -3237,3 +3240,170 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                         on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True)
+
+
+class DispatchTrip(BaseTimestampUserModel):
+    NEW, STARTED, UNLOADING, COMPLETED, CANCELLED = 'NEW', 'STARTED', 'UNLOADING', 'COMPLETED', 'CANCELLED'
+
+    DISPATCH_TRIP_STATUS = (
+        (NEW, 'New'),
+        (STARTED, 'Started'),
+        (UNLOADING, 'Unloading'),
+        (COMPLETED, 'Completed'),
+        (CANCELLED, 'Cancelled'),
+    )
+    seller_shop = models.ForeignKey(Shop, related_name='dispatch_trip_seller_shop', null=True,
+                                    on_delete=models.DO_NOTHING)
+    source_shop = models.ForeignKey(Shop, related_name='dispatch_trip_source_shop', null=True,
+                                    on_delete=models.DO_NOTHING)
+    destination_shop = models.ForeignKey(Shop, related_name='dispatch_trip_destination_shop', null=True,
+                                         on_delete=models.DO_NOTHING)
+    dispatch_no = models.CharField(max_length=50, unique=True)
+    delivery_boy = models.ForeignKey(
+        UserWithName, related_name='dispatch_trip_delivered_by_user', null=True,
+        on_delete=models.DO_NOTHING, verbose_name='Delivery Boy'
+    )
+    vehicle_no = models.CharField(max_length=50)
+    trip_status = models.CharField(max_length=100, choices=DISPATCH_TRIP_STATUS)
+    starts_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Opening Trip(Kms)")
+    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Closing Trip(Kms)")
+    no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
+    no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
+    no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                     verbose_name="Total crates collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                      verbose_name="Total packets collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                    verbose_name="Total sacks collected")
+
+    def __str__(self):
+        del_boy = "--"
+        if self.delivery_boy:
+            del_boy = self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        return "{} -> {}".format(
+            self.dispatch_no,
+            del_boy
+        )
+
+    @property
+    def current_trip_status(self):
+        trip_status = self.trip_status
+        if trip_status:
+            return str(self.get_trip_status_display())
+        return str("-------")
+
+    @property
+    def no_of_shipments(self):
+        return self.shipments_details.all().count()
+
+    @property
+    def trip_id(self):
+        return self.id
+
+    def create_dispatch_no(self):
+        date = datetime.date.today().strftime('%d%m%y')
+        shop = self.source_shop_id
+        shop_id_date = "%s/%s" % (shop, date)
+        last_dispatch_no = DispatchTrip.objects.filter(
+            dispatch_no__contains=shop_id_date)
+        if last_dispatch_no.exists():
+            dispatch_attempt = int(
+                last_dispatch_no.last().dispatch_no.split('/')[-1])
+            dispatch_attempt += 1
+        else:
+            dispatch_attempt = 1
+        final_dispatch_no = "%s/%s/%s" % (
+            'DIS', shop_id_date,
+            dispatch_attempt)
+        self.dispatch_no = final_dispatch_no
+
+    @property
+    def total_trip_shipments(self):
+        return self.shipments_details.count()
+
+    @property
+    def total_pending_shipments(self):
+        return self.shipments_details.filter(shipment__shipment_status='OUT_FOR_DELIVERY').count()
+
+    # @property
+    def trip_weight(self):
+        queryset = self.shipments_details.all()
+        weight = sum([item.shipment.shipment_weight for item in queryset])  # Definitely takes more memory.
+        if weight != 0:
+            weight /= 1000
+        weight = round(weight, 2)
+        return str(weight) + " Kg"
+
+    __trip_status = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__trip_status = self.trip_status
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.create_dispatch_no()
+        if self.trip_status != self.__trip_status and self.trip_status == self.STARTED:
+            # self.trip_amount = self.total_trip_amount()
+            self.starts_at = datetime.datetime.now()
+        elif self.trip_status == self.COMPLETED:
+            self.completed_at = datetime.datetime.now()
+        super().save(*args, **kwargs)
+
+    def dispathces(self):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (
+            self.pk, self.dispatch_no))
+
+
+class DispatchTripShipmentMapping(BaseTimestampUserModel):
+    LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'
+    SHIPMENT_STATUS = (
+        (LOADING_FOR_DC, 'Loading For Dispatch'),
+        (LOADED_FOR_DC, 'Loaded For Dispatch'),
+        (UNLOADING_AT_DC, 'Unloading At Dispatch'),
+        (UNLOADED_AT_DC, 'Unloaded At Dispatch'),
+    )
+
+    OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'
+    PARTIALLY_DAMAGED, PARTIALLY_MISSING = 'PARTIALLY_DAMAGED', 'PARTIALLY_MISSING'
+    FULLY_DAMAGED, FULLY_MISSING = 'FULLY_DAMAGED', 'FULLY_MISSING'
+    SHIPMENT_HEALTH = (
+        (OKAY, 'Okay'),
+        (PARTIALLY_MISSING_DAMAGED, 'Partially Missing & Damaged'),
+        (PARTIALLY_DAMAGED, 'Partially Damaged'),
+        (PARTIALLY_MISSING, 'Partially Missing'),
+        (FULLY_DAMAGED, 'Fully Damaged'),
+        (FULLY_MISSING, 'Fully Missing'),
+    )
+    trip_id = models.ForeignKey(DispatchTrip, related_name='shipments_details', on_delete=models.DO_NOTHING)
+    shipment = models.ForeignKey(OrderedProduct, related_name='trip_shipment', on_delete=models.DO_NOTHING)
+    shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+    shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
+
+
+class DispatchTripShipmentPackages(BaseTimestampUserModel):
+    LOADED, UNLOADED = 'LOADED', 'UNLOADED'
+    DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
+    MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
+    PACKAGE_STATUS = (
+        (LOADED, 'Loaded'),
+        (UNLOADED, 'Unloaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+    )
+    trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
+                                      on_delete=models.DO_NOTHING)
+    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='trip_packaging_details',
+                                           on_delete=models.DO_NOTHING)
+    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+
+
+
