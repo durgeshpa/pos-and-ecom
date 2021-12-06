@@ -13,6 +13,7 @@ class DeviceSerializer(serializers.ModelSerializer):
         model = Device
         fields = ('dev_id','reg_id','name','is_active', 'user')
         extra_kwargs = {'user':{'required':False}}
+        ref_name="NotificationDivice"
         
     # def get_serializer_context(self):
     #     return {"user": self.kwargs['user']}

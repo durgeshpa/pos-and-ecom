@@ -13,8 +13,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
-                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, DispatchTripsCrudView,
-                    ShipmentPackagingView, TripSummaryView
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason,
+                    DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView
                     )
 
 router = routers.DefaultRouter()
@@ -80,6 +80,7 @@ urlpatterns = [
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
     url('^retailer-list/$', RetailerList.as_view(), name='retailer-list'),
     url('^reschedule-reason/$', RescheduleReason.as_view(), name='reschedule-reason'),
+    url('^not-attempt-reason/$', NotAttemptReason.as_view(), name='not-attempt-reason'),
     url('^return-reason/$', ReturnReason.as_view(), name='return-reason'),
     url('^discounted_credit_note/(?P<pk>\d+)/note/$',
         DownloadCreditNoteDiscounted.as_view(),
@@ -104,6 +105,7 @@ urlpatterns = [
     url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
+    url('trip-invoices/', DispatchCenterShipmentView.as_view()),
 ]
 
 urlpatterns += router.urls

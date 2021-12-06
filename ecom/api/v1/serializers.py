@@ -10,7 +10,7 @@ from categories.models import Category
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, Payment, PaymentType
 from global_config.views import get_config
 
 from ecom.models import Address, EcomOrderAddress, Tag
@@ -91,6 +91,7 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city_name',
                   'state_name', 'default')
         read_only_fields = ['id', 'user']
+        ref_name = "ecomm_address"
 
     def validate(self, attrs):
         # Validate Pin Code
@@ -148,10 +149,27 @@ class EcomOrderAddressSerializer(serializers.ModelSerializer):
         fields = ('address', 'contact_name', 'contact_number', 'pincode', 'city', 'state')
 
 
+class PaymentTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentType
+        fields = ('id', 'type', 'enabled')
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    payment_type = PaymentTypeSerializer()
+
+    class Meta:
+        model = Payment
+        fields = ('payment_type', 'transaction_id', 'amount')
+
+
 class EcomOrderListSerializer(serializers.ModelSerializer):
     total_items = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     order_status = serializers.SerializerMethodField()
+    seller_shop = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField('payment_data')
+    delivery_persons = serializers.SerializerMethodField()
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
@@ -166,10 +184,25 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     def get_created_at(obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
+    def get_seller_shop(self, obj):
+        return obj.seller_shop.shop_name
+
+    def payment_data(self, obj):
+        if not obj.rt_payment_retailer_order.exists():
+            return None
+        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+
+    def get_delivery_persons(self, obj):
+        if obj.order_status == "out_for_delivery":
+            delivery_person = User.objects.filter(id=obj.delivery_person_id)[:1:]
+            return {"name": delivery_person[0].first_name,
+                    "phone_number": delivery_person[0].phone_number
+                    }
+
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time')
+                  'ecom_estimated_delivery_time', 'seller_shop', 'payment', 'delivery_persons')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -295,7 +328,23 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.selling_price
 
     def get_image(self, obj):
-        return obj.retailer_product_image.last().image.url if obj.retailer_product_image.last() else None
+        retailer_object = obj.retailer_product_image.last()
+        image = None
+        if retailer_object is None:
+            linked_product = obj.linked_product
+            if linked_product:
+                linked_product_image = linked_product.product_pro_image.all()
+                if linked_product_image:
+                    image = linked_product_image[0].image.url
+                else:
+                    parent_product = obj.linked_product.parent_product
+                    if parent_product:
+                        parent_product_image = parent_product.parent_product_pro_image.all()
+                        if parent_product_image:
+                            image = parent_product_image[0].image.url
+        else:
+            image = retailer_object.image.url
+        return image
 
     class Meta:
         model = RetailerProduct
@@ -399,3 +448,14 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         attrs['products'] = products_info
         return attrs
+
+
+class ShopInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name',)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['address'] = instance.shipping_address
+        return data

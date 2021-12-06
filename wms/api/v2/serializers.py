@@ -1158,6 +1158,8 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     is_zone_coordinator = serializers.SerializerMethodField()
     is_putaway_user = serializers.SerializerMethodField()
     is_picker = serializers.SerializerMethodField()
+    is_qc_executive = serializers.SerializerMethodField()
+    is_dispatch_executive = serializers.SerializerMethodField()
     user_warehouse = serializers.SerializerMethodField()
 
     def get_is_warehouse_manager(self, obj):
@@ -1190,6 +1192,17 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
             return True
         return False
 
+    def get_is_qc_executive(self, obj):
+        """Check if user is QC Executive"""
+        if obj.has_perm('wms.can_have_qc_executive_permission'):
+            return True
+        return False
+
+    def get_is_dispatch_executive(self, obj):
+        """Check if user is Dispatch Executive"""
+        if obj.groups.filter(name='Dispatch Executive').exists():
+            return True
+        return False
 
     def get_user_warehouse(self, obj):
         """Get user's associated warehouse"""
@@ -1198,7 +1211,8 @@ class PostLoginUserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'is_warehouse_manager', 'is_zone_supervisor',
-                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker')
+                  'is_zone_coordinator', 'is_putaway_user', 'user_warehouse', 'is_picker', 'is_qc_executive',
+                  'is_dispatch_executive')
 
 
 class BinSerializer(serializers.ModelSerializer):
@@ -1556,9 +1570,7 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'qc_area' | This is mandatory")
         else:
             raise serializers.ValidationError("'id' | This is mandatory")
-
         data['picking_status'] = 'moved_to_qc'
-
         return data
 
     def update(self, instance, validated_data):
@@ -1927,7 +1939,7 @@ class QCDeskHelperDashboardSerializer(serializers.ModelSerializer):
     def get_qc_areas(self, obj):
         data_set = QCDeskQCAreaAssignmentMapping.objects.filter(
             qc_desk=obj['qc_desk'], area_enabled=True, token_id__isnull=False, qc_done=False)\
-            .order_by('last_assigned_at')
+            .order_by('last_assigned_at')[:3]
         return QCDeskQCAreaAssignmentMappingListingSerializer(data_set, read_only=True, many=True).data
 
 
@@ -1935,7 +1947,7 @@ class QCJobsDashboardCountsSerializer(serializers.Serializer):
     shipments = serializers.SerializerMethodField()
     pending = serializers.SerializerMethodField()
     qc_pass = serializers.SerializerMethodField()
-    partial_qc_pass = serializers.SerializerMethodField()
+    # partial_qc_pass = serializers.SerializerMethodField()
     rejected = serializers.SerializerMethodField()
 
     def get_shipments(self, obj):
@@ -1953,11 +1965,11 @@ class QCJobsDashboardCountsSerializer(serializers.Serializer):
             qc_area__id__in=list(obj), shipment_status=OrderedProduct.READY_TO_SHIP,
             created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
 
-    def get_partial_qc_pass(self, obj):
-        return OrderedProduct.objects.filter(
-            qc_area__id__in=list(obj), shipment_status=OrderedProduct.PARTIALLY_QC_PASSED,
-            created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
-
+    # def get_partial_qc_pass(self, obj):
+    #     return OrderedProduct.objects.filter(
+    #         qc_area__id__in=list(obj), shipment_status=OrderedProduct.PARTIALLY_QC_PASSED,
+    #         created_at__date__gte=self.context['start_date'], created_at__date__lte=self.context['end_date']).count()
+    #
     def get_rejected(self, obj):
         return OrderedProduct.objects.filter(
             qc_area__id__in=list(obj), shipment_status=OrderedProduct.QC_REJECTED,

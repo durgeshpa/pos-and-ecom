@@ -61,15 +61,41 @@ def update_es(products, shop_id):
         if product.mrp and product.selling_price:
             margin = round(((product.mrp - product.selling_price) / product.mrp) * 100, 2)
         product_img = product.retailer_product_image.all()
-        product_images = [
-            {
-                "image_id": p_i.id,
-                "image_name": p_i.image_name,
-                "image_alt": p_i.image_alt_text,
-                "image_url": p_i.image.url
-            }
-            for p_i in product_img
-        ]
+        product_images =[]
+        if product_img:
+            product_images = [
+                {
+                    "image_id": p_i.id,
+                    "image_name": p_i.image_name,
+                    "image_alt": p_i.image_alt_text,
+                    "image_url": p_i.image.url
+                }
+                for p_i in product_img
+            ]
+        else:
+            if product.linked_product is not None:
+                product_img = product.linked_product.product_pro_image.all()
+                if product_img:
+                    product_images = [
+                        {
+                            "image_id": p_i.id,
+                            "image_name": p_i.image_name,
+                            "image_alt": '',
+                            "image_url": p_i.image.url
+                        }
+                        for p_i in product_img
+                    ]
+                else:
+                    product_img = product.linked_product.parent_product.parent_product_pro_image.all()
+                    product_images = [
+                        {
+                            "image_id": p_i.id,
+                            "image_name": p_i.image_name,
+                            "image_alt": '',
+                            "image_url": p_i.image.url
+                        }
+                        for p_i in product_img
+                    ]
         # get brand and category from linked GramFactory product
         brand = ''
         category = ''
@@ -139,8 +165,11 @@ def update_es(products, shop_id):
             'coupons': coupons,
             'online_enabled': product.online_enabled,
             'online_price': product.online_price if product.online_price else product.selling_price,
-            'purchase_pack_size': product.purchase_pack_size
+            'purchase_pack_size': product.purchase_pack_size,
+            'is_deleted': product.is_deleted,
+
         }
+        #es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 

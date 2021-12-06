@@ -90,7 +90,6 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
-    'rest_framework_swagger',
     'categories',
     'adminsortable',
     'mptt',
@@ -146,6 +145,7 @@ INSTALLED_APPS = [
     'ars',
     'ecom',
     'cms',
+    'drf_yasg',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -393,8 +393,8 @@ CRONJOBS = [
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
-    ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
     ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
+    ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
@@ -422,6 +422,8 @@ CRONJOBS = [
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
+    ('0 6 * * *', 'shops.cron.get_feedback_valid'),
+    ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -588,7 +590,9 @@ LOGGING = {
         },
     },
 }
-
+SWAGGER_SETTINGS = {
+   'USE_SESSION_AUTH': False,
+}
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
 EMAIL_HOST = config('EMAIL_HOST')
@@ -604,3 +608,9 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
+
+# WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+
+# WKHTMLTOPDF_CMD_OPTIONS = {
+#     'quiet': True,
+# }

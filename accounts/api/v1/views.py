@@ -6,7 +6,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import authentication, permissions, generics
 from rest_framework.response import Response
 from .serializers import (GroupSerializer, UserSerializer, UserDocumentSerializer, 
-    AppVersionSerializer, DeliveryAppVersionSerializer)
+    AppVersionSerializer, DeliveryAppVersionSerializer, ECommerceAppVersionSerializer, PosAppVersionSerializer,
+                          WarehouseAppVersionSerializer)
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -157,3 +158,51 @@ class GroupsListView(generics.ListAPIView):
         serializer = self.serializer_class(shop, many=True)
         msg = "" if shop else "no group found"
         return get_response(msg, serializer.data, True)
+
+
+class CheckEcommerceAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = AppVersion.objects.get(app_version=version, app_type='ecommerce')
+        except ObjectDoesNotExist:
+            msg["message"] = ['Ecommerce App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = ECommerceAppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
+
+
+class CheckPosAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = AppVersion.objects.get(app_version=version, app_type='pos')
+        except ObjectDoesNotExist:
+            msg["message"] = ['Pos App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = PosAppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
+
+
+class CheckWarehouseAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = AppVersion.objects.get(app_version=version, app_type='warehouse')
+        except ObjectDoesNotExist:
+            msg["message"] = ['Warehouse App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = WarehouseAppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})

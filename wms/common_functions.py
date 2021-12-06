@@ -22,7 +22,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate)
+                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate, QCDeskQCAreaAssignmentMapping)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -438,6 +438,12 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
             ware_house_weight = weight + ware_house_inventory_obj.weight
             ware_house_inventory_obj.weight = ware_house_weight
+            if ware_house_quantity < 0 and inventory_state.inventory_state != 'reserved':
+                info_logger.info("create_warehouse_inventory| Negative Inventory |"
+                                 " Warehouse-{}, SKU-{}, Inventory Type-{}, Inventory State-{}, Quantity-{}"
+                                 .format(warehouse.id, sku.product_sku, inventory_type.inventory_type,
+                                         inventory_state.inventory_state, ware_house_quantity))
+                ware_house_quantity = 0
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
@@ -1040,6 +1046,14 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                 transaction_id=transaction_id).last(),
             release_time=datetime.datetime.now(), release_type=release_type,
             ordered_quantity=transaction_quantity)
+
+
+def release_qc_area_on_order_cancel(order_no):
+    instance = QCDeskQCAreaAssignmentMapping.objects.filter(
+        token_id=order_no, qc_desk__desk_enabled=True, area_enabled=True, qc_done=False).last()
+    if instance:
+        instance.qc_done = True
+        instance.save()
 
 
 def cancel_order(instance):
@@ -1649,6 +1663,8 @@ def get_expiry_date(batch_id):
     """
     if len(batch_id) == 23:
         expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
+    elif len(batch_id) == 24:
+        expiry_date = batch_id[18:20] + '/' + batch_id[20:22] + '/' + '20' + batch_id[22:24]
     else:
         expiry_date = '30/' + batch_id[17:19] + '/20' + batch_id[19:21]
     return expiry_date
@@ -2595,6 +2611,8 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
         queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
+    else:
+        queryset = queryset.none()
     return queryset
 
 
@@ -2624,4 +2642,6 @@ def get_logged_user_wise_query_set_for_dispatch(user, queryset):
     if user.has_perm('wms.can_have_zone_warehouse_permission')\
             or user.groups.filter(name='Dispatch Executive'):
         queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    else:
+        queryset = queryset.none()
     return queryset

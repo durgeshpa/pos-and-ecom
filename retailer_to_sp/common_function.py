@@ -146,7 +146,6 @@ def getGSTINNumber(shop_name):
 #         return get_config('gfdn_license_no', None)
 #     return get_config('addistro_license_no', None)
 
-
 def dispatch_trip_search(queryset, search_text):
     '''
     search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
