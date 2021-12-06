@@ -152,9 +152,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
-        )
+            Q(order__seller_shop__pos_shop__user=request.user) |
+            Q(order__seller_shop__pos_shop__user_type__in=['manager', 'cashier', 'store_manager',])
+        ).distinct()
 
     def has_change_permission(self, request, obj=None):
         return False
