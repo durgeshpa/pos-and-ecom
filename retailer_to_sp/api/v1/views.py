@@ -55,7 +55,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
                           DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer,
                           UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer,
-                          DispatchInvoiceSerializer, TripSummarySerializer
+                          DispatchInvoiceSerializer, TripSummarySerializer, ShipmentNotAttemptSerializer
                           )
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
