@@ -1,6 +1,7 @@
 import datetime
 import csv
 from functools import wraps
+from decimal import Decimal
 
 from django.db.models import Sum, F, FloatField
 from django.http import HttpResponse
@@ -10,7 +11,7 @@ from rest_framework import status
 
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-from retailer_to_sp.models import RoundAmount
+from retailer_to_sp.models import RoundAmount, OrderedProduct
 from .models import Address
 from pos.models import RetailerProduct
 
@@ -101,6 +102,7 @@ def get_ecom_tax_details(product):
 
 
 def generate_ecom_order_csv_report(queryset):
+    #queryset = OrderedProduct.objects.filter(order__in=queryset)
     retailer_product_type = dict(((0, 'Free'),
                                   (1, 'Purchased')))
     filename = 'ECOM_order_report_{}.csv'.format(datetime.datetime.now().strftime('%m/%d/%Y--%H-%M-%S'))
@@ -116,10 +118,10 @@ def generate_ecom_order_csv_report(queryset):
         'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount',
         'Subtotal', 'Order Amount', 'Payment Mode',
         'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
-        'Tax Slab(GST)'
+        'Tax Slab(GST)', 'Discount' ,'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,'Redeemed Points'
     ])
     orders = queryset \
-        .prefetch_related('order', 'invoice', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
+        .prefetch_related('order', 'invoice', 'pos_trips' ,'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
                           'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer', 'rt_order_product_order_product_mapping',
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
@@ -140,6 +142,7 @@ def generate_ecom_order_csv_report(queryset):
                 'order__ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
                 'order__buyer__id', 'order__buyer__first_name', 'order__buyer__phone_number',
                 'rt_order_product_order_product_mapping__shipped_qty',
+                'rt_order_product_order_product_mapping__delivered_qty',
                 'rt_order_product_order_product_mapping__product_type',
                 'rt_order_product_order_product_mapping__selling_price',
                 'rt_order_product_order_product_mapping__retailer_product__id',
@@ -155,13 +158,12 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order__order_amount', 'order__rt_payment_retailer_order__payment_type__type',
-                'order__ordered_cart__offers').iterator()
+                'order__ordered_cart__offers','pos_trips__trip_start_at', 'pos_trips__trip_end_at','order__ordered_cart__redeem_points', 'created_at').iterator()
     for order in orders:
         retailer_product_id = order.get('rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.get(id=retailer_product_id)
         tax_detail = get_ecom_tax_details(retailer_product)
         product_type = order.get('rt_order_product_order_product_mapping__product_type')
-        print(product_type)
         cart_offers = order['order__ordered_cart__offers']
         offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
         category = order[
@@ -179,6 +181,8 @@ def generate_ecom_order_csv_report(queryset):
         if not brand:
             brand = sub_brand
             sub_brand = None
+        discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
+                                                                                      order.get('rt_order_product_order_product_mapping__selling_price'))
         csv_writer.writerow([
             order.get('order__order_no'),
             order.get('invoice__invoice_no'),
@@ -214,7 +218,16 @@ def generate_ecom_order_csv_report(queryset):
             order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),
             brand,
             sub_brand,
-            tax_detail
+            tax_detail,
+            discount,
+            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')),
+            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price')),
+            order.get('pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('pos_trips__trip_start_at') else '',
+            order.get('pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('pos_trips__trip_end_at') else '',
+            order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
+            order.get('order__ordered_cart__redeem_points'),
         ])
 
     return response

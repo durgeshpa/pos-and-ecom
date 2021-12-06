@@ -63,7 +63,8 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
-from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
+from pos.models import (RetailerProduct, Payment as PosPayment,
+                        PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
 from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
@@ -1380,7 +1381,6 @@ class CartCentral(GenericAPIView):
         with transaction.atomic():
             # basic validations for inputs
             shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
-
             # Update or create cart for user for shop
             cart = self.post_update_ecom_cart(shop)
             # Check if product has to be removed
@@ -2634,8 +2634,9 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Check if order exists
             try:
-                order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
-                                          ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'],
+                                                              seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type__in=['BASIC', 'ECOM'])
             except ObjectDoesNotExist:
                 return api_response('Order Not Found!')
             # check input status validity
@@ -2712,12 +2713,20 @@ class OrderCentral(APIView):
                     return api_response("Please select a delivery person")
                 order.order_status = Order.OUT_FOR_DELIVERY
                 order.delivery_person = delivery_person
+                ###### trip me save created
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = OrderedProduct.READY_TO_SHIP
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
                 shipment.save()
+                if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                      shipment=shipment)
+                pos_trip.trip_start_at = datetime.now()
+                pos_trip.save()
                 # Inventory move from ordered to picked
                 ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
                 for product_map in ordered_products:
@@ -2744,6 +2753,13 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
+                if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                      shipment=shipment)
+                pos_trip.trip_end_at = datetime.now()
+                pos_trip.save()
 
             return api_response("Order updated successfully!", None, status.HTTP_200_OK, True)
 
