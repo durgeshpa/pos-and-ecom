@@ -34,8 +34,10 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
-    RetailerOrderReturnCreditNoteView,posinventorychange_data_excel
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, \
+    RetailerOrderProductInvoiceView, \
+    RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
+    RetailerPurchaseReportFormView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -109,11 +111,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
+              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','measurement_category','product_pack_type')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
-                       'sku_type', 'mrp', 'modified_at', 'description')
+                       'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -170,6 +172,17 @@ class RetailerProductAdmin(admin.ModelAdmin):
                    url(r'^retailer_product_multiple_images_upload/$',
                        self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
                        name='retailer_product_multiple_images_upload'),
+
+                   url(
+                       r'^retailer-purchase-value-report/$',
+                       self.admin_site.admin_view(RetailerPurchaseReportView.as_view()),
+                       name="retailer-purchase-value-report"
+                   ),
+                   url(
+                      r'^retailer-purchase-value-form/$',
+                      self.admin_site.admin_view(RetailerPurchaseReportFormView.as_view()),
+                      name="retailer-purchase-value-form"
+                   ),
 
                ] + urls
         return urls
