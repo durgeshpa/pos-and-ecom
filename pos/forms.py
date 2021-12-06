@@ -26,6 +26,16 @@ class RetailerProductsForm(forms.ModelForm):
         required=False
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['measurement_category'].required = False
+
+    def clean(self):
+        data = self.cleaned_data
+        if data["product_pack_type"] == 'loose' and not data["measurement_category"]:
+            raise ValidationError(_('Measurement Category is required'))
+        return data
+
 
 class DiscountedRetailerProductsForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
