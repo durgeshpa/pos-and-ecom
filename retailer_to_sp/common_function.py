@@ -2,6 +2,7 @@ import datetime
 import json
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 
 from shops.models import ParentRetailerMapping
 from global_config.views import get_config
@@ -145,4 +146,11 @@ def getGSTINNumber(shop_name):
 #         return get_config('gfdn_license_no', None)
 #     return get_config('addistro_license_no', None)
 
-
+def dispatch_trip_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(seller_shop__shop_name__icontains=search_text) | Q(
+        source_shop__shop_name__icontains=search_text) | Q(destination_shop__shop_name__icontains=search_text) | Q(
+        dispatch_no__icontains=search_text) | Q(delivery_boy__first_name__icontains=search_text))
+    return queryset
