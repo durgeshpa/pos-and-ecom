@@ -40,6 +40,14 @@ User = get_user_model()
 info_logger = logging.getLogger('file-info')
 
 
+class ChoicesSerializer(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'description': self._choices[obj]}
+
+
 class PickerDashboardSerializer(serializers.ModelSerializer):
    class Meta:
       model = PickerDashboard
@@ -2008,3 +2016,39 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return dispatch_trip_instance
+
+
+class DispatchShipmentSerializers(serializers.ModelSerializer):
+    shop_owner = serializers.SerializerMethodField()
+    order_created_date = serializers.SerializerMethodField()
+    shipment_status = ChoicesSerializer(choices=OrderedProduct.SHIPMENT_STATUS, required=True)
+
+    @staticmethod
+    def get_shop_owner(obj):
+        return UserSerializers(obj.order.buyer_shop.shop_owner, read_only=True).data
+
+    @staticmethod
+    def get_order_created_date(obj):
+        return obj.order.created_at.strftime("%d/%b/%Y")
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_no', 'shipment_status', 'shipment_address', 'shop_owner',
+                  'order_created_date', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
+                  'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified')
+
+
+class DispatchItemsSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    trip_packaging_details = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
+    status = ChoicesSerializer(choices=ShipmentPackaging.DISPATCH_STATUS_CHOICES, required=True)
+    crate = CrateSerializer(read_only=True)
+    packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
+    shipment = DispatchShipmentSerializers(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
+                  'trip_packaging_details', 'created_by', 'updated_by',)

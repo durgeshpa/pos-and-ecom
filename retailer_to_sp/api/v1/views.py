@@ -56,7 +56,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
                           DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer,
-                          UserSerializers, DispatchTripCrudSerializers
+                          UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer
                           )
 from products.models import ProductPrice, ProductOption, Product
 from sp_to_gram.models import OrderedProductReserved
@@ -7176,9 +7176,9 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             for z_id in request.data.get('dispatch_trip_id'):
                 dispatch_trip_id = self.queryset.get(id=int(z_id))
                 try:
-                    putaway_mappings = DispatchTripShipmentMapping.objects.filter(trip_id=dispatch_trip_id)
-                    if putaway_mappings:
-                        putaway_mappings.delete()
+                    trip_mappings = DispatchTripShipmentMapping.objects.filter(trip_id=dispatch_trip_id)
+                    if trip_mappings:
+                        trip_mappings.delete()
                     dispatch_trip_id.delete()
                 except:
                     return get_response(f'can not delete dispatch trip | {dispatch_trip_id.id} | getting used', False)
@@ -7226,3 +7226,32 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(trip_status=trip_status)
 
         return self.queryset.distinct('id')
+
+
+class ShipmentPackagingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects. \
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
+                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
+                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
+        prefetch_related('packaging_details', 'trip_packaging_details'). \
+        order_by('-id')
+    serializer_class = DispatchItemsSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Packaging """
+        info_logger.info("Shipment Packaging GET api called.")
+        if not request.GET.get('packaging_id'):
+            return get_response("'packaging_id' | This is mandatory.")
+        """ Get Shipment Packaging for specific ID """
+        id_validation = validate_id(self.queryset, int(request.GET.get('packaging_id')))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+        shipment = packaging_data.last().shipment
+
+        serializer = self.serializer_class(self.queryset.filter(shipment=shipment), many=True)
+        msg = "" if packaging_data else "no packaging found"
+        return get_response(msg, serializer.data, True)
