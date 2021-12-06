@@ -969,7 +969,12 @@ class Order(models.Model):
         (CUSTOMER_CANCEL, 'Cancelled by customer'),
         (CUSTOMER_UNAVAILABLE, 'Customer not available'),
         (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
-        (SHORT, 'Item short')
+        (SHORT, 'Item short'),
+        ('1','Customer not responding'),
+        ('2','Stock NA'),
+        ('3','Out of Range'),
+        ('4','Retailer Order'),
+        ('5','Others')
     )
 
     # Todo Remove

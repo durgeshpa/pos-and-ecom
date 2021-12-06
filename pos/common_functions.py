@@ -71,7 +71,7 @@ class RetailerProductCls(object):
                                 product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
                                 product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
                                 product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
-                                is_visible=False):
+                                is_visible=False, initial_purchase_value=None):
         """
             General Response For API
         """
@@ -84,7 +84,8 @@ class RetailerProductCls(object):
                                                  product_ref=product_ref, product_pack_type=pack_type,
                                                  measurement_category_id=measure_cat_id,
                                                  online_enabled=online_enabled, online_price=online_price,
-                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible)
+                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                                 initial_purchase_value=initial_purchase_value)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -473,6 +474,10 @@ class RewardCls(object):
                 redeem_points = 0
         else:
             redeem_points = 0
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        if max_redeem_points and max_redeem_points.value:
+            if redeem_points > max_redeem_points.value:
+                redeem_points = max_redeem_points.value
         cart.redeem_points = redeem_points
         cart.redeem_factor = value_factor
         cart.save()
@@ -484,6 +489,10 @@ class RewardCls(object):
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
         data['max_applicable_points'] = min(data['available_points'],
                                             int(cart.order_amount_after_discount * data['value_factor']))
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        if max_redeem_points and max_redeem_points.value:
+            if data['max_applicable_points'] > max_redeem_points.value:
+                data['max_applicable_points'] = max_redeem_points.value
         data['cart_redeem_points'] = points
         return data
 

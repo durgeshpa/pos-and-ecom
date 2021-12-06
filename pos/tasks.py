@@ -16,7 +16,8 @@ from django.core.mail import EmailMessage
 from global_config.models import GlobalConfig
 from global_config.views import get_config
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit
+from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit, \
+    PosCartProductMapping
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
@@ -134,6 +135,13 @@ def update_es(products, shop_id):
         if product.product_pack_type == 'loose':
             units = list(MeasurementUnit.objects.filter(category=product.measurement_category).values_list('unit', flat=True))
 
+        if PosCartProductMapping.objects.filter(product=product, is_grn_done=True,
+                                                cart__retailer_shop=product.shop).exists():
+            initial_purchase_value = PosCartProductMapping.objects.filter(
+                product=product, is_grn_done=True).last().price
+        else:
+            initial_purchase_value = product.initial_purchase_value \
+                if product.initial_purchase_value else 0
         params = {
             'id': product.id,
             'name': product.name,
@@ -167,6 +175,7 @@ def update_es(products, shop_id):
             'online_price': product.online_price if product.online_price else product.selling_price,
             'purchase_pack_size': product.purchase_pack_size,
             'is_deleted': product.is_deleted,
+            'initial_purchase_value': initial_purchase_value
 
         }
         #es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])

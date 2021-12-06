@@ -343,7 +343,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock', 'product_ean_code')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -639,9 +639,14 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
+    order_cancel_reson = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
+
+    def get_order_cancel_reson(self,obj):
+        if obj.order_status == "CANCELLED":
+            return obj.get_cancellation_reason_display()
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
@@ -665,7 +670,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
+        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
                   'delivery_persons')
 
 
@@ -3020,6 +3025,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     delivery_person = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
+    order_cancel_reson = serializers.SerializerMethodField()
 
     @staticmethod
     def get_order_update(obj):
@@ -3029,6 +3035,11 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
+
+
+    def get_order_cancel_reson(self,obj):
+        if obj.order_status == "CANCELLED":
+            return obj.get_cancellation_reason_display()
 
     @staticmethod
     def get_invoice_amount_total(obj):
@@ -3210,7 +3221,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display', 'payment')
+                  'order_status_display','order_cancel_reson', 'payment')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):

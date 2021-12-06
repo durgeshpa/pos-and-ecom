@@ -134,6 +134,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'product_pack_type', row_num)
             self.check_mandatory_data(row, 'available_for_online_orders', row_num)
             self.check_mandatory_data(row, 'is_visible', row_num)
+            self.check_mandatory_data(row, 'initial_purchase_value', row_num)
 
             if row["shop_id"] != self.shop_id:
                 raise ValidationError(_(f"Row {row_num} | {row['shop_id']} | "
@@ -192,6 +193,10 @@ class RetailerProductsCSVUploadForm(forms.Form):
             if 'online_order_price' in row.keys() and row['online_order_price'] and \
                     decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError("Online Order Price should be equal to OR less than MRP")
+
+            if 'initial_purchase_value' in row.keys() and row['initial_purchase_value'] and \
+                    decimal.Decimal(row['initial_purchase_value']) > decimal.Decimal(row['selling_price']):
+                raise ValidationError("Initial Purchase Value should be equal to OR less than Selling Price")
 
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
@@ -446,6 +451,14 @@ class RetailerOrderedReportForm(forms.Form):
             }
         ),
     )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
+                                     pos_enabled=True, pos_shop__status=True),
+        widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
+    )
+
+
+class RetailerPurchaseReportForm(forms.Form):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
                                      pos_enabled=True, pos_shop__status=True),

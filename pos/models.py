@@ -72,6 +72,7 @@ class RetailerProduct(models.Model):
                                          default='packet')
     measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
     purchase_pack_size = models.PositiveIntegerField(default=1)
+    initial_purchase_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
