@@ -57,10 +57,6 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer,
                           DispatchInvoiceSerializer, TripSummarySerializer
                           )
-from categories import models as categorymodel
-from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList
-                                  )
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
