@@ -2662,9 +2662,17 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
-                    if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
-                                   last().user_type == 'manager':
-                        return api_response('Only MANAGER can Cancel the order!')
+                    user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                                   last().user_type
+                    flag = False
+                    if user_type == 'manager':
+                        flag = True
+                    elif user_type  == 'store_manager':
+                        flag = True
+                    elif user_type == 'cashier':
+                        flag = True
+                    if not flag:
+                        return api_response('Only MANAGER ,STORE MANAGER and CASHIER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
@@ -2676,6 +2684,8 @@ class OrderCentral(APIView):
                                                         order.order_no, PosInventoryChange.CANCELLED)
 
                 # update order status
+                order.cancellation_reason = request.data.get('cancellation_reason')
+                # print(order)
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()

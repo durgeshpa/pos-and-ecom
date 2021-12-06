@@ -170,11 +170,17 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     seller_shop = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
+    order_cancel_reson = serializers.SerializerMethodField()
+
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
             return 'Processing'
         return obj.get_order_status_display()
+
+    def get_order_cancel_reson(self,obj):
+        if obj.order_status == "CANCELLED":
+            return obj.get_cancellation_reason_display()
 
     @staticmethod
     def get_total_items(obj):
@@ -201,7 +207,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'total_items', 'order_no', 'created_at',
+        fields = ('id', 'order_status','order_cancel_reson', 'order_amount', 'total_items', 'order_no', 'created_at',
                   'ecom_estimated_delivery_time', 'seller_shop', 'payment', 'delivery_persons')
 
 

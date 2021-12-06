@@ -89,7 +89,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
+            'fields': ('order', 'order_no', 'invoice_no', 'order_status','order_cancellation_reason', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -119,6 +119,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def order_status(self, obj):
         return obj.order.order_status
+
+    def order_cancellation_reason(self,obj):
+        return obj.order.get_cancellation_reason_display()
 
     def order_no(self, obj):
         return obj.order.order_no
