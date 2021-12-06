@@ -1,16 +1,14 @@
-import json
 import logging
 
 from django.utils import timezone
-from model_utils import Choices
 
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload, In, QCArea, Crate, PickupCrate
+    PickupBinInventory, In, QCArea, Crate, PickupCrate
 from products.models import Product
-from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
-    PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer, OrderBinsSerializer
+from .serializers import BinSerializer, PutAwaySerializer, PickupBinInventorySerializer, RepackagingSerializer, \
+    BinInventorySerializer, OrderBinsSerializer
 from wms.views import PickupInventoryManagement, update_putaway, auto_qc_area_assignment_to_order
 from rest_framework.response import Response
 from rest_framework import status
@@ -25,12 +23,10 @@ from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
-                                  CommonBinInventoryFunctions as CBIF, updating_tables_on_putaway,
+                                  updating_tables_on_putaway,
                                   CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
 
-# Logger
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -454,6 +450,12 @@ class PickupList(APIView):
                                 )).\
             order_by('-created_at')
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
+
+        validate_request = validate_pickup_request(request)
+        if "error" in validate_request:
+            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+                            status=status.HTTP_200_OK)
+
         self.queryset = self.filter_pickup_list_data()
 
         # picking_complete count
@@ -476,6 +478,7 @@ class PickupList(APIView):
         search_text = self.request.GET.get('search_text')
         picker_boy = self.request.GET.get('picker_boy')
         selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         zone = self.request.GET.get('zone')
         picking_status = self.request.GET.get('picking_status')
         data_days = self.request.GET.get('data_days')
@@ -504,6 +507,7 @@ class PickupList(APIView):
 
         if picking_status:
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
+
 
         if selected_date:
             if data_days:

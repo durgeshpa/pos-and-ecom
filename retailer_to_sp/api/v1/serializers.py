@@ -14,11 +14,11 @@ from accounts.models import UserWithName
 from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
-from retailer_to_sp.common_validators import validate_shipment_crates_list
+from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentPackagingMapping)
+                                   ShipmentPackagingMapping, ShipmentNotAttempt)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -80,7 +80,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
-                  'product_image')
+                  'product_image', 'product_mrp')
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
@@ -136,6 +136,14 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+    order_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
+
+    def get_order_status(self, obj):
+        return obj.order.get_order_status_display()
 
     def get_shop_owner_number(self, obj):
         shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
@@ -152,7 +160,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         #fields = '__all__'
-        fields = ('id','invoice_no','shipment_status','invoice_amount',
+        fields = ('id','invoice_no','shipment_status','invoice_amount', 'order_status',
             'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
             'order_created_date', 'rt_order_product_order_product_mapping')
         #depth = 1
@@ -341,9 +349,10 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
     margin = serializers.SerializerMethodField('margin_dt')
+    qty = serializers.SerializerMethodField('qty_dt')
 
     def m_cart_product(self, obj):
-        self.context['qty'] = obj.qty
+        self.context['qty'] = abs(obj.qty)
         serializer = ProductsSearchSerializer(obj.cart_product, context=self.context)
         return serializer.data
 
@@ -419,6 +428,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                 margin = (((float(product_mrp) - obj.item_effective_prices) / float(product_mrp)) * 100)
             return round(margin, 2)
         return False
+
+    def qty_dt(self, obj):
+        return abs(obj.qty)
 
     class Meta:
         model = CartProductMapping
@@ -525,6 +537,10 @@ class NoteSerializer(serializers.ModelSerializer):
 class OrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
     #rt_order_product_note = NoteSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
 
     def invoice_link_id(self, obj):
         current_url = self.context.get("current_url", None)
@@ -770,6 +786,13 @@ class OrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     #rt_order_order_product = ListOrderedProductSerializer(many=True)
     rt_order_order_product = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -786,7 +809,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
-        fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
+        fields = ('id','ordered_cart','order_no','total_final_amount','order_status', 'shipment_status','shipping_address',
                   'created_at','modified_at','rt_order_order_product')
 
 # Order List Related Serializer End
@@ -929,6 +952,13 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     rt_order_order_product = ListOrderedProductSerializer(many=True)
+    shipment_status = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def to_representation(self, instance):
         representation = super(GramMappedOrderSerializer, self).to_representation(instance)
@@ -938,7 +968,7 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = GramMappedOrder
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
-                  'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
+                  'total_tax_amount','total_final_amount','order_status', 'shipment_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
 
 
@@ -1338,16 +1368,27 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     shop_name = serializers.SerializerMethodField('shop_name_dt')
     shop_id = serializers.SerializerMethodField('shop_id_dt')
     trip_details = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+    order_status_detail = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        shipment_status_obj = OrderedProduct.objects.filter(order__id=obj.id)
+        if shipment_status_obj:
+            return shipment_status_obj.last().get_shipment_status_display()
+        return ""
 
     def get_order_status(self, obj):
         if obj.order_status in [Order.ORDERED, Order.PICKUP_CREATED, Order.PICKING_ASSIGNED, Order.PICKING_COMPLETE,
-                     Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
+                                Order.FULL_SHIPMENT_CREATED, Order.PARTIAL_SHIPMENT_CREATED, Order.READY_TO_DISPATCH]:
             return 'New'
         elif obj.order_status in [Order.DISPATCHED]:
             return 'In Transit'
         elif obj.order_status in [Order.PARTIAL_DELIVERED, Order.DELIVERED, Order.CLOSED, Order.COMPLETED]:
             return 'Completed'
         return obj.order_status
+
+    def get_order_status_detail(self, obj):
+        return obj.get_order_status_display()
 
     def get_trip_details(self, obj):
         qs = Trip.objects.filter(rt_invoice_trip__order_id=obj.id)
@@ -1376,14 +1417,22 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Order
-        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
+        fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id',
-                  'trip_details')
+                  'trip_details', 'order_status_detail')
+
 
 class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentRescheduling
         fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+
+class ShipmentNotAttemptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentNotAttempt
+        fields = ('shipment', 'not_attempt_reason',)
+
 
 class ShipmentReturnSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1405,6 +1454,33 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
         return obj.get_reason_for_rejection_display()
 
 
+class CrateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Crate
+        fields = ('id', 'crate_id')
+
+
+class ProductPackagingSerializer(serializers.ModelSerializer):
+    crate = CrateSerializer()
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'packaging_type', 'crate', 'status')
+
+
+class ProductPackagingDetailsSerializer(serializers.ModelSerializer):
+
+    shipment_packaging = ProductPackagingSerializer(read_only=True)
+
+    class Meta:
+        model = ShipmentPackagingMapping
+        fields = ('quantity', 'shipment_packaging')
+
+
 class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
     product = ProductSerializer(read_only=True)
@@ -1413,6 +1489,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     product_type = serializers.SerializerMethodField()
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
+    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -1420,7 +1497,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging')
 
     def validate(self, data):
 
@@ -1521,8 +1598,9 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
 
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
+            if shipped_qty == 0:
+                raise serializers.ValidationError("To be shipped quantity is zero, packaging is not required")
             total_product_qty = 0
-            is_box_sack_used = False
             for package_obj in self.initial_data['packaging']:
                 if 'type' not in package_obj or not package_obj['type']:
                     raise serializers.ValidationError("'package type' | This is mandatory")
@@ -1533,19 +1611,20 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                                                                     mapping_instance.ordered_product)
                     if 'error' in validate_crates:
                         raise serializers.ValidationError(validate_crates['error'])
-                    for crate_obj in validate_crates['data']['crates']:
+                    for crate_obj in validate_crates['data']['packages']:
                         total_product_qty += crate_obj['quantity']
                 elif package_obj['type'] in [ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
-                    is_box_sack_used = True
-                    if 'count' not in package_obj or not package_obj['count'] :
-                        raise serializers.ValidationError(f"'packaging count' | count is required for packaging type"
-                                                          f" {package_obj['type']}")
-            if not is_box_sack_used and total_product_qty != int(shipped_qty):
-                raise serializers.ValidationError("Crates quantity should match total shipped quantity.")
+                    validated_packages = validate_shipment_package_list(package_obj)
+                    if 'error' in validated_packages:
+                        raise serializers.ValidationError(validated_packages['error'])
+                    for package in validated_packages['data']['packages']:
+                        total_product_qty += package['quantity']
+            if total_product_qty != int(shipped_qty):
+                raise serializers.ValidationError("Total quantity packaged should match total shipped quantity.")
         elif shipped_qty > 0:
             raise serializers.ValidationError("'packaging' | This is mandatory")
 
-        data['packaging'] = self.initial_data['packaging']
+        data['packaging'] = self.initial_data.get('packaging')
         data['damaged_qty'] = product_damaged_qty
         data['expired_qty'] = product_expired_qty
         data['missing_qty'] = product_missing_qty
@@ -1557,9 +1636,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         return data
 
     def create_update_shipment_packaging(self, shipment, packaging_type, warehouse_id, crate, updated_by):
-        instance, created = ShipmentPackaging.objects.get_or_create(
-            shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
-            defaults={'created_by': updated_by, 'updated_by': updated_by})
+        if packaging_type == ShipmentPackaging.CRATE:
+            instance, created = ShipmentPackaging.objects.get_or_create(
+                shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
+                defaults={'created_by': updated_by, 'updated_by': updated_by})
+        else:
+            instance = ShipmentPackaging.objects.create(
+                shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
+                created_by=updated_by, updated_by=updated_by)
         return instance
 
     def create_shipment_packaging_mapping(self, shipment_packaging, ordered_product, quantity, updated_by):
@@ -1570,6 +1654,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
             process_shipments_instance = product_batch_instance.update(**validated_data)
+            product_batch_instance.last().save()
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -1582,6 +1667,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
         try:
             process_shipments_instance = super().update(instance, validated_data)
+            # process_shipments_instance.save()
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -1594,7 +1680,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         if packaging:
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
-                    for crate in package_obj['crates']:
+                    for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
                             crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
                             crate_type=Crate.DISPATCH).last()
@@ -1607,12 +1693,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                             validated_data['last_modified_by'])
 
                 elif package_obj['type'] in [ShipmentPackaging.BOX, ShipmentPackaging.SACK]:
-                    for _ in range(package_obj['count']):
+                    for package in package_obj['packages']:
                         shipment_packaging = self.create_update_shipment_packaging(
                             process_shipments_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], None, validated_data['last_modified_by'])
+
                         self.create_shipment_packaging_mapping(
-                            shipment_packaging, process_shipments_instance, None, validated_data['last_modified_by'])
+                            shipment_packaging, process_shipments_instance, int(package['quantity']),
+                            validated_data['last_modified_by'])
         return process_shipments_instance
 
     @staticmethod
@@ -1649,10 +1737,14 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
+    order_no = serializers.SerializerMethodField()
+
+    def get_order_no(self, obj):
+        return obj.order.order_no
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
+        fields = ('id', 'order_no', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
                   'shop_owner_name', 'shop_owner_number', 'order_created_date',
                   'rt_order_product_order_product_mapping')
 
@@ -1702,13 +1794,16 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     created_date = serializers.SerializerMethodField()
     qc_area = QCAreaSerializer(read_only=True)
     qc_desk = serializers.SerializerMethodField(read_only=True)
-    status = serializers.CharField()
+    status = serializers.SerializerMethodField()
 
     def get_qc_desk(self, obj):
         return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    def get_status(self, obj):
+        return obj.get_shipment_status_display()
 
     class Meta:
         model = OrderedProduct
@@ -1735,14 +1830,27 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     or (shipment_status == OrderedProduct.QC_STARTED and status != OrderedProduct.READY_TO_SHIP) \
                     or (shipment_status == OrderedProduct.READY_TO_SHIP and status != OrderedProduct.MOVED_TO_DISPATCH):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
-                data['shipment_status'] = status
-                if status == OrderedProduct.READY_TO_SHIP and\
+
+                user = self.initial_data.pop('user')
+                if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
+                        not shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
+                    raise serializers.ValidationError("Logged in user is not allowed to perform QC for this shipment")
+                elif status == OrderedProduct.READY_TO_SHIP and\
                         shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).exists():
                     product_qc_pending = shipment.rt_order_product_order_product_mapping.filter(is_qc_done=False).first()
                     raise serializers.ValidationError(f'QC is not yet completed for {product_qc_pending.product}')
                 elif status == OrderedProduct.MOVED_TO_DISPATCH and \
-                shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
+                    shipment.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
                     raise serializers.ValidationError(' Some item/s still not ready for dispatch')
+                elif status == OrderedProduct.MOVED_TO_DISPATCH and \
+                    not shipment.shipment_packaging.filter(
+                        status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).exists():
+                    raise serializers.ValidationError('There is no package to be dispatched in this shipment')
+                if status == OrderedProduct.READY_TO_SHIP and \
+                    not shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0).exists():
+                    status = OrderedProduct.QC_REJECTED
+                data['shipment_status'] = status
+
             else:
                 raise serializers.ValidationError("Only status update is allowed")
         else:
@@ -1769,10 +1877,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
         if shipment_instance.shipment_status == OrderedProduct.QC_STARTED:
             send_update_to_qcdesk(shipment_instance)
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
-        elif shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+        elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
-            info_logger.info(f"post_shipment_status_change|Picking Crates released|OrderNo "
-                             f"{shipment_instance.order.order_no}")
+            info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
+                             f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
@@ -1786,12 +1894,10 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
         model = Pincode
         fields = ('id', 'pincode', 'city')
 
-
-class CrateSerializer(serializers.ModelSerializer):
+class ShipmentSerializerForDispatch(serializers.ModelSerializer):
     class Meta:
-        model = Crate
-        fields = ('id', 'crate_id')
-
+        model = OrderedProduct
+        fields = ('id', 'invoice_no', 'order_no')
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
@@ -1810,7 +1916,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
-    shipment_id = serializers.IntegerField(read_only=True)
+    shipment = ShipmentSerializerForDispatch()
 
     @staticmethod
     def get_status(obj):
@@ -1823,7 +1929,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment_id', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
 
 
     def validate(self, data):
@@ -1868,9 +1974,6 @@ class DispatchDashboardSerializer(serializers.Serializer):
     total = serializers.IntegerField()
     qc_done = serializers.IntegerField()
     moved_to_dispatch = serializers.IntegerField()
-    ready_to_dispatch = serializers.IntegerField()
-    out_for_delivery = serializers.IntegerField()
-    rescheduled = serializers.IntegerField()
 
 
 class UserSerializers(serializers.ModelSerializer):

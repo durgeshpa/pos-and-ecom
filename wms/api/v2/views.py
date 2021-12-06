@@ -19,7 +19,8 @@ from rest_framework.response import Response
 from gram_to_brand.common_validators import validate_assortment_against_warehouse_and_product
 from gram_to_brand.models import GRNOrder
 from products.models import Product
-from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
+
+from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
@@ -915,7 +916,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             """ GET Putaway List """
             self.queryset = self.search_filter_putaway_data()
             putaway_total_count = self.queryset.count()
-            putaway_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            putaway_data = CustomOffsetPaginationDefault25().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(putaway_data, many=True)
         msg = f"total count {putaway_total_count}" if putaway_data else "no putaway found"
@@ -1107,13 +1108,13 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
         zone = self.request.GET.get('zone')
         putaway_user = self.request.GET.get('putaway_user')
         putaway_type = self.request.GET.get('putaway_type')
-        status = self.request.GET.get('status')
+        putaway_status = self.request.GET.get('status')
         created_at = self.request.GET.get('created_at')
         data_days = self.request.GET.get('data_days')
 
         '''Filters using token_id, zone, putaway_user, putaway_type'''
         if token_id:
-            self.queryset = self.queryset.filter(token_id=token_id)
+            self.queryset = self.queryset.filter(token_id__icontains=token_id)
 
         if zone:
             self.queryset = self.queryset.filter(zone=zone)
@@ -1122,10 +1123,10 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_user=putaway_user)
 
         if putaway_type:
-            self.queryset = self.queryset.filter(putaway_type=putaway_type)
+            self.queryset = self.queryset.filter(putaway_type__iexact=putaway_type)
 
-        if status:
-            self.queryset = self.queryset.filter(putaway_status=status)
+        if putaway_status:
+            self.queryset = self.queryset.filter(putaway_status__iexact=putaway_status)
 
         if created_at:
             if data_days:
@@ -1413,12 +1414,11 @@ class UserDetailsPostLoginView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = PostLoginUserSerializers
     queryset = get_user_model().objects.all()
-
     def get(self, request):
         """ GET User Details post login """
         self.queryset = self.queryset.filter(id=request.user.id)
         user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(user, many=True)
+        serializer = self.serializer_class(self.queryset, many=True)
         msg = "" if user else "no user found"
         return get_response(msg, serializer.data, True)
 
@@ -2455,7 +2455,8 @@ class QCAreaTypeListView(generics.GenericAPIView):
 class QCDeskHelperDashboardView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True)
+    queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True,
+                                                            qc_done=False)
     serializer_class = QCDeskHelperDashboardSerializer
 
     @check_whc_manager_coordinator_supervisor_qc_executive
@@ -2466,7 +2467,6 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
 
         self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
         self.queryset = self.filter_qc_desk_helper_dashboard_data()
-
         qc_desk_helper_dashboard_data = self.queryset.values('qc_desk').distinct()
 
         serializer = self.serializer_class(qc_desk_helper_dashboard_data, many=True)
@@ -2478,6 +2478,9 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
         qc_desk = self.request.GET.get('qc_desk')
         qc_area_id = self.request.GET.get('qc_area_id')
         qc_area = self.request.GET.get('qc_area')
+
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
         '''Filters using qc_desk, qc_area'''
         if qc_desk_id:
@@ -2492,6 +2495,17 @@ class QCDeskHelperDashboardView(generics.GenericAPIView):
         if qc_area:
             self.queryset = self.queryset.filter(qc_area__area_id=qc_area)
 
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    last_assigned_at__gte=start_date.date(), last_assigned_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(last_assigned_at__date=selected_date.date())
+
         return self.queryset
 
 
@@ -2503,7 +2517,7 @@ class QCJobsDashboardView(generics.GenericAPIView):
 
     def get_serializer_context(self):
         context = super(QCJobsDashboardView, self).get_serializer_context()
-        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date()), "%Y-%m-%d")
+        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date().isoformat()), "%Y-%m-%d")
         start_date = end_date - timedelta(days=int(self.request.GET.get('data_days', 0)))
         context.update({"start_date": start_date.date(), "end_date": end_date.date()})
         return context

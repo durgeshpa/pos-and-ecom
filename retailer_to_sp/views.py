@@ -30,7 +30,9 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging)
+
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
+                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -53,8 +55,8 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date
-from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel
+from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
@@ -653,6 +655,7 @@ def trip_planning_change(request, pk):
                         else:
                             trip_instance.rt_invoice_trip.all().update(
                                 shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                            update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if trip_status == Trip.READY:
@@ -662,16 +665,17 @@ def trip_planning_change(request, pk):
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
                         trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
-
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if current_trip_status == Trip.RETURN_VERIFIED:
@@ -699,7 +703,7 @@ def trip_planning_change(request, pk):
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
                             selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
                                                       trip=trip_instance)
-
+                            update_packages_on_shipment_status_change(selected_shipments)
                         # updating order status for shipments with respect to trip status
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
@@ -749,15 +753,17 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status='MOVED_TO_DISPATCH') |
-                Q(shipment_status='RESCHEDULED') |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                Q(shipment_status=Dispatch.RESCHEDULED) |
+                Q(shipment_status=Dispatch.NOT_ATTEMPT) |
                 Q(trip=trip_id), order__seller_shop=seller_shop
             ).order_by('-rank')
 
         elif seller_shop and trip_id:
             dispatches = Dispatch.objects.filter(
                 Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
-                Q(shipment_status='RESCHEDULED') |
+                Q(shipment_status=Dispatch.RESCHEDULED) |
+                Q(shipment_status=Dispatch.NOT_ATTEMPT) |
                 Q(trip=trip_id), order__seller_shop=seller_shop)
 
         elif trip_id:
@@ -768,7 +774,8 @@ class LoadDispatches(APIView):
                 rank=SearchRank(vector, query) + similarity
             ).filter(
                 Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
-                Q(shipment_status=OrderedProduct.RESCHEDULED),
+                Q(shipment_status=OrderedProduct.RESCHEDULED) |
+                Q(shipment_status=OrderedProduct.NOT_ATTEMPT),
                 order__seller_shop=seller_shop
             ).order_by('-rank')
 
@@ -777,7 +784,8 @@ class LoadDispatches(APIView):
                 'order', 'order__shipping_address', 'order__ordered_cart'
             ).filter(
                 Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
-                Q(shipment_status=OrderedProduct.RESCHEDULED),
+                Q(shipment_status=OrderedProduct.RESCHEDULED) |
+                Q(shipment_status=OrderedProduct.NOT_ATTEMPT),
                 order__seller_shop=seller_shop
             ).order_by('invoice__invoice_no')
 
@@ -786,6 +794,7 @@ class LoadDispatches(APIView):
                 rank=SearchRank(vector, query) + similarity
             ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                      Q(shipment_status=OrderedProduct.RESCHEDULED) |
+                     Q(shipment_status=OrderedProduct.NOT_ATTEMPT) |
                      Q(trip=trip_id)).order_by('-rank')
 
         elif area:
@@ -796,6 +805,15 @@ class LoadDispatches(APIView):
         else:
             dispatches = Dispatch.objects.none()
 
+        # Exclude Not Attempted shipments
+        not_attempt_dispatches = ShipmentNotAttempt.objects.values_list(
+            'shipment', flat=True
+        ).filter(created_at__date=datetime.date.today(),
+                 shipment__shipment_status=OrderedProduct.NOT_ATTEMPT
+        )
+        dispatches = dispatches.exclude(id__in=not_attempt_dispatches)
+
+        # Exclude Rescheduled shipments
         reschedule_dispatches = ShipmentRescheduling.objects.values_list(
             'shipment', flat=True
         ).filter(
@@ -1521,6 +1539,26 @@ def reshedule_update_shipment(shipment, shipment_proudcts_formset, shipment_resc
             instance.returned_damage_qty = 0
             instance.save()
 
+
+def not_attempt_update_shipment(shipment, shipment_proudcts_formset, shipment_not_attempt_formset):
+    with transaction.atomic():
+        for inline_form in shipment_not_attempt_formset:
+            instance = getattr(inline_form, 'instance', None)
+            instance.trip = shipment.trip
+            instance.save()
+
+        shipment.shipment_status = OrderedProduct.NOT_ATTEMPT
+        shipment.trip = None
+        shipment.save()
+        shipment_not_attempt_inventory_change([shipment])
+
+        for inline_form in shipment_proudcts_formset:
+            instance = getattr(inline_form, 'instance', None)
+            instance.delivered_qty = 0
+            instance.returned_qty = 0
+            instance.returned_damage_qty = 0
+            instance.save()
+
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 
@@ -1637,7 +1675,8 @@ class OrderCancellation(object):
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
-            elif (self.last_shipment_status in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED] and
+            elif (self.last_shipment_status in
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
@@ -1683,6 +1722,7 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
             cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
+        release_qc_area_on_order_cancel(instance.order_no)
 
 
 @receiver(post_save, sender=Order)
@@ -1847,7 +1887,8 @@ def create_franchise_po(request, pk):
         products = order.ordered_cart.rt_cart_list.all()
         for mapp in products:
             p = mapp.cart_product
-            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop).exists():
+            if not RetailerProduct.objects.filter(linked_product=p, shop=order.buyer_shop, is_deleted=False,
+                                                  product_ref__isnull=True).exists():
                 url = f"""<div><a style="color:blue;" href="%s" target="_blank">Download Unmapped Products List 
                                         </a></div>""" % (reverse('admin:franchise_po_fail_list', args=(pk,)))
                 error = mark_safe(
@@ -1908,3 +1949,20 @@ def create_order_shipment(order_instance):
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
 
 
+def update_shipment_package_status(shipment_instance):
+    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
+    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
+    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
+                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+
+
+def update_packages_on_shipment_status_change(shipments):
+    for instance in shipments:
+        update_shipment_package_status(instance)

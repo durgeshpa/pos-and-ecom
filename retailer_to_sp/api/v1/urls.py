@@ -13,7 +13,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
-                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason
                     )
 
 router = routers.DefaultRouter()
@@ -79,6 +79,7 @@ urlpatterns = [
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
     url('^retailer-list/$', RetailerList.as_view(), name='retailer-list'),
     url('^reschedule-reason/$', RescheduleReason.as_view(), name='reschedule-reason'),
+    url('^not-attempt-reason/$', NotAttemptReason.as_view(), name='not-attempt-reason'),
     url('^return-reason/$', ReturnReason.as_view(), name='return-reason'),
     url('^discounted_credit_note/(?P<pk>\d+)/note/$',
         DownloadCreditNoteDiscounted.as_view(),
