@@ -106,13 +106,15 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/pos/pos_change_list.html'
+    change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
-              'online_enabled', 'online_price', 'created_at', 'modified_at','measurement_category','product_pack_type')
+              'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
@@ -148,7 +150,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
         urls = super(RetailerProductAdmin, self).get_urls()
