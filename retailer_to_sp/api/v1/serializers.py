@@ -2157,13 +2157,18 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
                   'trip_packaging_details', 'created_by', 'updated_by',)
 
 
-class TripSummarySerializer(serializers.Serializer):
+class SummarySerializer(serializers.Serializer):
     total_invoices = serializers.IntegerField()
     total_crates = serializers.IntegerField()
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
     total_trip = serializers.IntegerField()
-    trip_weight = serializers.IntegerField()
+    weight = serializers.IntegerField()
+
+
+class TripSummarySerializer(serializers.Serializer):
+    trip_data = SummarySerializer(read_only=True)
+    non_trip_data = SummarySerializer(read_only=True)
 
 
 class DispatchInvoiceSerializer(serializers.ModelSerializer):

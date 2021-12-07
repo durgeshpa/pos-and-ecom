@@ -15,8 +15,8 @@ from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
-from django.db import transaction
-from django.db.models import F, Sum, Q, Count
+from django.db import transaction, models
+from django.db.models import F, Sum, Q, Count, Value, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -84,7 +84,8 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
-    get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
+    get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
+    get_logged_user_wise_query_set_for_dispatch_trip
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
@@ -7313,6 +7314,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         order_by('-id')
     serializer_class = DispatchTripCrudSerializers
 
+    @check_whc_manager_dispatch_executive
     def get(self, request):
         """ GET API for Dispatch Trip """
         info_logger.info("Dispatch Trip GET api called.")
@@ -7325,6 +7327,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             dispatch_trips_data = id_validation['data']
         else:
             """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
             self.queryset = self.search_filter_dispatch_trips_data()
             dispatch_trip_total_count = self.queryset.count()
             dispatch_trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
@@ -7333,6 +7336,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         msg = f"total count {dispatch_trip_total_count}" if dispatch_trips_data else "no dispatch_trip found"
         return get_response(msg, serializer.data, True)
 
+    @check_whc_manager_dispatch_executive
     def post(self, request):
         """ POST API for Dispatch Trip Creation with Image """
 
@@ -7348,6 +7352,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             return get_response('dispatch_trip created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    @check_whc_manager_dispatch_executive
     def put(self, request):
         """ PUT API for Dispatch Trip Updation """
 
@@ -7372,6 +7377,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             return get_response('dispatch_trip updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    @check_whc_manager_dispatch_executive
     def delete(self, request):
         """ Delete Dispatch Trip """
 
@@ -7466,17 +7472,9 @@ class ShipmentPackagingView(generics.GenericAPIView):
 class TripSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = DispatchTrip.objects. \
-        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
-                       'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
-                       'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
-                       'destination_shop__shop_owner', 'destination_shop__shop_type',
-                       'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
-        prefetch_related('shipments_details'). \
-        order_by('-id')
     serializer_class = TripSummarySerializer
 
-    # @check_whc_manager_coordinator_supervisor_trip
+    @check_whc_manager_dispatch_executive
     def get(self, request):
         """ GET API for trip summary """
         info_logger.info("Order Status Summary GET api called.")
@@ -7484,28 +7482,81 @@ class TripSummaryView(generics.GenericAPIView):
         validated_data = validate_data_days_date_request(self.request)
         if 'error' in validated_data:
             return get_response(validated_data['error'])
+        if not self.request.GET.get('dispatch_center', None):
+            return get_response("'dispatch_center' | This is mandatory")
+        trip_summary_data = {
+            "trip_data": self.added_shipments_to_trip_summary(self.request),
+            "non_trip_data": self.non_added_shipments_to_trip_summary(self.request)
+        }
+        serializer = self.serializer_class(trip_summary_data)
+        msg = "" if trip_summary_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    def added_shipments_to_trip_summary(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
         # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
-        self.queryset = self.filter_trip_summary_data()
-        resp_data = self.queryset.aggregate(no_of_trips=Sum('id'), no_of_crates=Sum('no_of_crates'),
-                                            no_of_packets=Sum('no_of_packets'), no_of_sacks=Sum('no_of_sacks'),
-                                            no_of_invoices=Count('shipments_details__shipment'))
-        trip_weight = 0
-        for ss in self.queryset.all():
-            for obj in ss.shipments_details.all():
-                trip_weight += obj.shipment.shipment_weight
+        dispatch_trip_qs = DispatchTrip.objects. \
+            select_related('seller_shop', 'source_shop', 'destination_shop', 'delivery_boy'). \
+            prefetch_related('shipments_details'). \
+            order_by('-id')
+        dispatch_trip_qs = get_logged_user_wise_query_set_for_dispatch_trip(request.user, dispatch_trip_qs)
+        dispatch_trip_qs = self.filter_trip_summary_data(dispatch_trip_qs)
+        resp_data = dispatch_trip_qs.aggregate(
+            no_of_trips=Count('id'), no_of_crates=Sum('no_of_crates'), no_of_packets=Sum('no_of_packets'),
+            no_of_sacks=Sum('no_of_sacks'), weight=Sum('weight'), no_of_invoices=Count('shipments_details__shipment'))
         trip_summary_data = {
             'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_trip': resp_data['no_of_trips'] if resp_data['no_of_trips'] else 0,
-            'trip_weight': trip_weight
+            'weight': resp_data['weight'] if resp_data['weight'] else 0
         }
-        serializer = self.serializer_class(trip_summary_data)
-        msg = "" if trip_summary_data else "no trip found"
-        return get_response(msg, serializer.data, True)
+        return trip_summary_data
 
-    def filter_trip_summary_data(self):
+
+    def non_added_shipments_to_trip_summary(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
+        # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
+        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.READY_TO_SHIP).\
+            select_related('order', 'order__seller_shop'). \
+            order_by('-id')
+        shipment_qs = get_logged_user_wise_query_set_for_dispatch(request.user, shipment_qs)
+        shipment_qs = self.filter_non_added_in_trip_shipments_summary_data(shipment_qs)
+        resp_data = shipment_qs.aggregate(no_of_invoices=Count('id'))
+        resp_data['no_of_crates'] = 0
+        resp_data['no_of_packets'] = 0
+        resp_data['no_of_sacks'] = 0
+        resp_data['no_of_trips'] = 0
+        resp_data['weight'] = 0
+        for ss in shipment_qs.all():
+            smt_pack_data = ss.shipment_packaging.\
+                aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1),
+                                                  default=Value('0'), output_field=models.IntegerField(),)),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1),
+                                                   default=Value('0'), output_field=models.IntegerField(),)),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1),
+                                                 default=Value('0'), output_field=models.IntegerField(),))
+                          )
+            if smt_pack_data:
+                resp_data['no_of_crates'] += smt_pack_data['no_of_crates'] if smt_pack_data['no_of_crates'] else 0
+                resp_data['no_of_packets'] += smt_pack_data['no_of_packets'] if smt_pack_data['no_of_packets'] else 0
+                resp_data['no_of_sacks'] += smt_pack_data['no_of_sacks'] if smt_pack_data['no_of_sacks'] else 0
+        trip_summary_data = {
+            'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
+            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
+            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
+            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
+            'total_trip': resp_data['no_of_trips'] if resp_data['no_of_trips'] else 0,
+            'weight': resp_data['weight'] if resp_data['weight'] else 0
+        }
+        return trip_summary_data
+
+    def filter_trip_summary_data(self, queryset):
+        id = self.request.GET.get('id')
+        dispatch_center = self.request.GET.get('dispatch_center')
         seller_shop = self.request.GET.get('seller_shop')
         source_shop = self.request.GET.get('source_shop')
         destination_shop = self.request.GET.get('destination_shop')
@@ -7513,30 +7564,57 @@ class TripSummaryView(generics.GenericAPIView):
         created_at = self.request.GET.get('date')
         data_days = self.request.GET.get('data_days')
 
-        '''Filters using seller_shop, source_shop, destination_shop, delivery_boy, created_at'''
+        '''Filters using id, seller_shop, source_shop, destination_shop, delivery_boy, created_at'''
+        if id:
+            queryset = queryset.filter(id=id)
+
+        if dispatch_center:
+            queryset = queryset.filter(Q(source_shop__id=dispatch_center) | Q(destination_shop__id=dispatch_center))
+
         if seller_shop:
-            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+            queryset = queryset.filter(seller_shop__id=seller_shop)
 
         if source_shop:
-            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+            queryset = queryset.filter(source_shop__id=source_shop)
 
         if destination_shop:
-            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
+            queryset = queryset.filter(destination_shop__id=destination_shop)
 
         if delivery_boy:
-            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+            queryset = queryset.filter(delivery_boy__id=delivery_boy)
 
         if created_at:
             if data_days:
                 end_date = datetime.strptime(created_at, "%Y-%m-%d")
                 start_date = end_date - timedelta(days=int(data_days))
-                self.queryset = self.queryset.filter(
+                queryset = queryset.filter(
                     created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
             else:
                 created_at = datetime.strptime(created_at, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(created_at__date=created_at)
+                queryset = queryset.filter(created_at__date=created_at)
 
-        return self.queryset
+        return queryset
+
+    def filter_non_added_in_trip_shipments_summary_data(self, queryset):
+        dispatch_center = self.request.GET.get('dispatch_center')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using dispatch_center, created_at'''
+        if dispatch_center:
+            queryset = queryset.filter(order__dispatch_center__id=dispatch_center)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                queryset = queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                queryset = queryset.filter(created_at__date=created_at)
+
+        return queryset
 
 
 class DispatchCenterShipmentView(generics.GenericAPIView):
