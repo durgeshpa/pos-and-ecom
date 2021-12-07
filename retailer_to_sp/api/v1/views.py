@@ -1,14 +1,8 @@
 
+import json
 import logging
 import re
-import json
-
 from datetime import date as datetime_date
-from operator import itemgetter
-
-from django.contrib.auth.models import Group
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.http import HttpResponse
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -16,12 +10,14 @@ from operator import itemgetter
 
 import requests
 from decouple import config
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value, Count
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.contrib.auth import get_user_model
+from django.db.models import F, Sum, Q, Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from elasticsearch import Elasticsearch
@@ -37,33 +33,6 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
-from shops.api.v1.serializers import ShopBasicSerializer
-from wms.common_validators import validate_id, validate_data_format, validate_shipment_qc_desk, \
-    validate_id_and_warehouse, validate_data_days_date_request, validate_shipment
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
-    check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
-
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
-                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchItemDetailsSerializer, DispatchDashboardSerializer,
-                          UserSerializers, DispatchTripCrudSerializers, DispatchTripShipmentMappingSerializer,
-                          DispatchInvoiceSerializer, TripSummarySerializer, ShipmentNotAttemptSerializer
-                          )
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
-                                   DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES)
-from retailer_to_sp.common_function import dispatch_trip_search
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -101,16 +70,40 @@ from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
 from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_sp.common_function import dispatch_trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
+                                   DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
+from shops.api.v1.serializers import ShopBasicSerializer
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
-
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
+from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
+    check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
+                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
+                          DispatchItemsSerializer, DispatchDashboardSerializer,
+                          UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
+                          TripSummarySerializer, ShipmentNotAttemptSerializer
+                          )
 from ...common_validators import validate_shipment_dispatch_item
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
