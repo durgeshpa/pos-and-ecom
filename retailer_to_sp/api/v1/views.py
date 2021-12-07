@@ -103,7 +103,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
                           DispatchItemsSerializer, DispatchDashboardSerializer,
                           UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
-                          TripSummarySerializer, ShipmentNotAttemptSerializer
+                          TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers
                           )
 from ...common_validators import validate_shipment_dispatch_item
 
@@ -7398,6 +7398,126 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid dispatch trip id {z_id}', False)
         return get_response('dispatch trip were deleted successfully!', True)
+
+    def search_filter_dispatch_trips_data(self):
+        search_text = self.request.GET.get('search_text')
+        seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
+        destination_shop = self.request.GET.get('destination_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        dispatch_no = self.request.GET.get('dispatch_no')
+        vehicle_no = self.request.GET.get('vehicle_no')
+        trip_status = self.request.GET.get('trip_status')
+
+        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
+        if search_text:
+            self.queryset = dispatch_trip_search(self.queryset, search_text)
+
+        '''
+            Filters using seller_shop, source_shop, destination_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
+        '''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+
+        if destination_shop:
+            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if dispatch_no:
+            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if vehicle_no:
+            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
+
+        if trip_status:
+            self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        return self.queryset.distinct('id')
+
+
+class DispatchTripStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTrip.objects. \
+        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
+                       'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
+                       'destination_shop__shop_owner', 'destination_shop__shop_type',
+                       'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
+        prefetch_related('shipments_details'). \
+        only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
+             'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
+             'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
+             'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
+             'seller_shop__shop_owner__phone_number', 'source_shop__id', 'source_shop__status',
+             'source_shop__shop_name', 'source_shop__shop_type', 'source_shop__shop_type__shop_type',
+             'source_shop__shop_type__shop_sub_type', 'source_shop__shop_type__shop_sub_type__retailer_type_name',
+             'source_shop__shop_owner', 'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
+             'source_shop__shop_owner__phone_number', 'destination_shop__id', 'destination_shop__status',
+             'destination_shop__shop_name', 'destination_shop__shop_type', 'destination_shop__shop_type__shop_type',
+             'destination_shop__shop_type__shop_sub_type', 'destination_shop__shop_owner',
+             'destination_shop__shop_type__shop_sub_type__retailer_type_name',
+             'destination_shop__shop_owner__first_name', 'destination_shop__shop_owner__last_name',
+             'destination_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'starts_at',
+             'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets', 'no_of_sacks',
+             'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at', 'updated_at',
+             'created_by__id', 'created_by__first_name', 'created_by__last_name', 'created_by__phone_number',
+             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number',). \
+        order_by('-id')
+    serializer_class = DispatchTripStatusChangeSerializers
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Dispatch Trip """
+        info_logger.info("Dispatch Trip GET api called.")
+        if request.GET.get('id'):
+            """ Get Dispatch Trip for specific ID """
+            dispatch_trip_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            dispatch_trips_data = id_validation['data']
+        else:
+            """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+            self.queryset = self.search_filter_dispatch_trips_data()
+            dispatch_trip_total_count = self.queryset.count()
+            dispatch_trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(dispatch_trips_data, many=True)
+        msg = f"total count {dispatch_trip_total_count}" if dispatch_trips_data else "no dispatch_trip found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update dispatch_trip', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        dispatch_trip_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Dispatch Trip Updated Successfully.")
+            return get_response('dispatch_trip updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
     def search_filter_dispatch_trips_data(self):
         search_text = self.request.GET.get('search_text')
