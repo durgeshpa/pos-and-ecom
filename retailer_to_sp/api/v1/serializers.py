@@ -1915,7 +1915,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
-    shipment = ShipmentSerializerForDispatch()
+    shipment = ShipmentSerializerForDispatch(read_only=True)
 
     @staticmethod
     def get_status(obj):
