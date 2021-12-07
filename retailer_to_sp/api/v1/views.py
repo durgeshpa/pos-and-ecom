@@ -1104,7 +1104,8 @@ class CartCentral(GenericAPIView):
         """
         with transaction.atomic():
             try:
-                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active')
+                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
                 # Empty cart if shop/location changed
                 if cart.seller_shop.id != kwargs['shop'].id:
                     cart.seller_shop = kwargs['shop']
@@ -1499,10 +1500,8 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        try:
-            cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active')
-        except:
-            cart = Cart.objects.filter(cart_type='ECOM', buyer=user, cart_status='active').last()
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
+                                                                 seller_shop=seller_shop)
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
         cart.seller_shop = seller_shop
