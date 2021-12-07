@@ -293,7 +293,14 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         filter_list = [{"term": {"is_deleted": False}}]
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
@@ -331,8 +338,16 @@ class SearchProducts(APIView):
         body = dict()
         query_string = dict()
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
             filter_list.append({"term": {"product_pack_type": 'loose'}})
 
