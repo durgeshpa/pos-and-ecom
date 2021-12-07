@@ -443,6 +443,13 @@ class CouponOfferCreation(GenericAPIView):
         if offer:
             return api_response("Offer already exists for this Primary Product")
 
+        offer = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                     retailer_primary_product=retailer_free_product_obj,
+                                                     rule__coupon_ruleset__is_active=True)
+
+        if offer and  offer[0].retailer_free_product.id == data['primary_product_id']:
+            return api_response("Offer already exists for this Primary Product free product")
+
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
         combo_rule_name = str(shop_id) + "_" + combo_code
