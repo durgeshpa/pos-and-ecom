@@ -227,12 +227,16 @@ def generate_prn_csv_report(queryset):
     rows = []
     for p_return in queryset:
         for return_item in p_return.grn_order_return.select_related('product').iterator():
+            try:
+                shop = p_return.grn_ordered_id.order.ordered_cart.retailer_shop
+            except Exception:
+                shop = None
             rows.append(
                 [
                     p_return.pr_number,
                     p_return.status,
                     p_return.po_no,
-                    p_return.grn_ordered_id.order.ordered_cart.retailer_shop,
+                    shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
                     return_item.product.sku,
