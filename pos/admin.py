@@ -977,8 +977,8 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         for obj in queryset:
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.invoice_no, obj.invoice_date,
-                                 obj.invoice_amount, obj.order.ordered_cart.status, obj.created_at,
+                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.invoice_no, obj.invoice_date,
+                                 obj.invoice_amount,  obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
