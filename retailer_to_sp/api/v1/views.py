@@ -2755,6 +2755,10 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
+                shipmentproduct = shipment.rt_order_product_order_product_mapping.last()
+                if shipmentproduct:
+                    shipmentproduct.delivered_qty = shipmentproduct.shipped_qty
+                    shipmentproduct.save()
                 if shipment.pos_trips.filter(trip_type='ECOM').exists():
                     pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
                 else:
