@@ -473,6 +473,10 @@ class RewardCls(object):
                 redeem_points = 0
         else:
             redeem_points = 0
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        if max_redeem_points and max_redeem_points.value:
+            if redeem_points > max_redeem_points.value:
+                redeem_points = max_redeem_points.value
         cart.redeem_points = redeem_points
         cart.redeem_factor = value_factor
         cart.save()
@@ -484,6 +488,10 @@ class RewardCls(object):
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
         data['max_applicable_points'] = min(data['available_points'],
                                             int(cart.order_amount_after_discount * data['value_factor']))
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        if max_redeem_points and max_redeem_points.value:
+            if data['max_applicable_points'] > max_redeem_points.value:
+                data['max_applicable_points'] = max_redeem_points.value
         data['cart_redeem_points'] = points
         return data
 
