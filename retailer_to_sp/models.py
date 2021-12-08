@@ -6,7 +6,7 @@ import math
 from decimal import Decimal
 
 from django.db import models, transaction
-from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
+from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When, Count
 from django.db.models.signals import post_save
 from django.urls import reverse
 from django.core.exceptions import ValidationError
@@ -3281,6 +3281,7 @@ class DispatchTrip(BaseTimestampUserModel):
                                                       verbose_name="Total packets collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total sacks collected")
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight" )
 
     def __str__(self):
         del_boy = "--"
@@ -3331,12 +3332,11 @@ class DispatchTrip(BaseTimestampUserModel):
     def total_pending_shipments(self):
         return self.shipments_details.filter(shipment__shipment_status='OUT_FOR_DELIVERY').count()
 
-    # @property
+    @property
     def trip_weight(self):
-        queryset = self.shipments_details.all()
-        weight = sum([item.shipment.shipment_weight for item in queryset])  # Definitely takes more memory.
-        if weight != 0:
-            weight /= 1000
+
+        if self.weight != 0:
+            weight = self.weight/1000
         weight = round(weight, 2)
         return str(weight) + " Kg"
 
@@ -3360,10 +3360,46 @@ class DispatchTrip(BaseTimestampUserModel):
         return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (
             self.pk, self.dispatch_no))
 
+    def get_trip_weight(self):
+        trip_weight = 0
+        shipments_loaded = self.shipments_details.filter(~Q(shipment_status='CANCELLED'))
+        for shipment_mapping in shipments_loaded:
+            packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
+                                ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
+            for package_mapping in packages_loaded:
+                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                                .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
+                                           output_field=FloatField())).get('total_weight')
+        return trip_weight
+
+    def get_package_data(self):
+        data = {'no_of_crates': 0, 'no_of_packs': 0, 'no_of_sacks': 0}
+
+        shipments_loaded = self.shipments_details.filter(~Q(shipment_status='CANCELLED'))
+        for shipment_mapping in shipments_loaded:
+            packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
+                                ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
+
+            for package_mapping in packages_loaded:
+                package_data = package_mapping.aggregate(
+                          no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1),
+                                                  default=Value('0'), output_field=models.IntegerField(),)),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1),
+                                                   default=Value('0'), output_field=models.IntegerField(),)),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1),
+                                                 default=Value('0'), output_field=models.IntegerField(),))
+                          )
+                if package_data:
+                    data['no_of_crates'] += package_data['no_of_crates'] if package_data['no_of_crates'] else 0
+                    data['no_of_packs'] += package_data['no_of_packs'] if package_data['no_of_packs'] else 0
+                    data['no_of_sacks'] += package_data['no_of_sacks'] if package_data['no_of_sacks'] else 0
+
+        return data
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
     UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'
+    CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (LOADING_FOR_DC, 'Loading For Dispatch'),
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
@@ -3382,7 +3418,7 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
         (FULLY_DAMAGED, 'Fully Damaged'),
         (FULLY_MISSING, 'Fully Missing'),
     )
-    trip_id = models.ForeignKey(DispatchTrip, related_name='shipments_details', on_delete=models.DO_NOTHING)
+    trip = models.ForeignKey(DispatchTrip, related_name='shipments_details', on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
@@ -3392,6 +3428,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     LOADED, UNLOADED = 'LOADED', 'UNLOADED'
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
     MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
+    CANCELLED = 'CANCELLED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (UNLOADED, 'Unloaded'),
@@ -3399,6 +3436,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
         (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
         (MISSING_AT_LOADING, 'Missing At Loading'),
         (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+        (CANCELLED, 'Cancelled'),
     )
     trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
                                       on_delete=models.DO_NOTHING)
@@ -3406,5 +3444,5 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
 
-
 INVOICE_AVAILABILITY_CHOICES = Choices((0, 'ALL', 'All'), (1, 'ADDED', 'Added'), (2, 'NOT_ADDED', 'Not Added'))
+PACKAGE_VERIFY_CHOICES = Choices((0, 'OK', 'Okay'), (1, 'DAMAGED', 'Damaged'), (2, 'MISSING', 'Missing'))
