@@ -448,7 +448,7 @@ class CouponOfferCreation(GenericAPIView):
                                                      rule__coupon_ruleset__is_active=True)
 
         if offer and  offer[0].retailer_free_product.id == data['primary_product_id']:
-            return api_response("Offer already exists for this Primary Product free product")
+            return api_response("Offer already exists for this Primary Product as a free product for same free product" )
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
