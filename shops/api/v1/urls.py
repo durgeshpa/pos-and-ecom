@@ -3,8 +3,9 @@ from django.conf.urls import url
 from django.urls import path
 
 from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopListView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
-        FavouriteProductListView, UserTypeListView)
+                                ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
+                                FavouriteProductListView, UserTypeListView, SellerShopFilterView,
+                                DispatchCenterFilterView)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
@@ -54,6 +55,8 @@ urlpatterns = [
     url(r'^pos-shop-user/(?P<pk>\d+)/$', PosShopUserMappingView.as_view()),
     url('shop-list/', ShopListView.as_view(), name='shop-list'),
     url('pos-user-type-list/', UserTypeListView.as_view(), name='pos-user-type-list'),
+    url('seller-shops-list/', SellerShopFilterView.as_view(), name='seller-shops-list'),
+    url('dispatch-centers-list/', DispatchCenterFilterView.as_view(), name='dispatch-centers-list'),
 
 ]
 
