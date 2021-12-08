@@ -257,6 +257,7 @@ def generate_csv_payment_report(payments):
     csv_writer.writerow(
         [
             'ORDER NO',
+            'ORDER STATUS',
             'BILLING ADDRESS',
             'SELLER SHOP',
             'PAYMENT TYPE',
@@ -270,6 +271,7 @@ def generate_csv_payment_report(payments):
     rows = [
         [
             payment.order.order_no,
+            payment.order.get_order_status_display(),
             payment.order.billing_address,
             payment.order.seller_shop,
             payment.payment_type,
