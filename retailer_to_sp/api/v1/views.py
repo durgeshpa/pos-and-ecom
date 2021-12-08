@@ -1,6 +1,7 @@
 
 import json
 import logging
+import math
 import re
 from datetime import date as datetime_date
 from datetime import datetime, timedelta
@@ -103,7 +104,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
                           DispatchItemsSerializer, DispatchDashboardSerializer,
                           UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
-                          TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers
+                          TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers,
+                          LoadVerifyPackageSerializer, ShipmentPackageSerializer,  TripShipmentMappingSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item
 
@@ -7570,7 +7572,7 @@ class ShipmentPackagingView(generics.GenericAPIView):
                        'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
         prefetch_related('packaging_details', 'trip_packaging_details'). \
         order_by('-id')
-    serializer_class = DispatchItemsSerializer
+    serializer_class = ShipmentPackageSerializer
 
     def get(self, request):
         """ GET API for Shipment Packaging """
@@ -7838,6 +7840,75 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                 self.queryset = self.queryset.filter(trip_shipment__isnull=True)
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.exclude(~Q(trip_shipment__trip_id=trip_id), trip_shipment__isnull=False)
+                self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
 
         return self.queryset.distinct('id')
+
+
+class LoadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and load packages to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyPackageSerializer
+
+
+    def post(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Package loaded Successfully.")
+            return get_response('Package loageg successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class RemoveInvoiceFromTripView(generics.GenericAPIView):
+    """
+       View to remove invoice from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = TripShipmentMappingSerializer
+    queryset = DispatchTripShipmentMapping.objects.all()
+
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Remove invoice PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+
+        # validations for input
+        shipment_validation = self.validate_trip_invoice(self.queryset, int(modified_data['shipment_id']),
+                                                   int(modified_data['trip_id']))
+        if 'error' in shipment_validation:
+            return get_response(shipment_validation['error'])
+        trip_invoice_mapping = shipment_validation['data'].last()
+
+        serializer = self.serializer_class(instance=trip_invoice_mapping, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+
+            info_logger.info("Shipment removed successfully.")
+            return get_response('Shipment removed successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def validate_trip_invoice(self, shipment_id, trip_id):
+        if not self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                                                          trip_id=trip_id, shipment_id=shipment_id).exists():
+            return {"error": "invalid Shipment"}
+        return {"data" : self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                                                          trip_id=trip_id, shipment_id=shipment_id)}
