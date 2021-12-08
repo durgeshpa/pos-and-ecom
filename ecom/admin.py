@@ -3,6 +3,7 @@ from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
@@ -81,7 +82,6 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
     list_display = ('order', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
-    list_filter = ('order_status')
 
     actions = ['download_order_reports']
 
