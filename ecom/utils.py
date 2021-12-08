@@ -181,12 +181,12 @@ def generate_ecom_order_csv_report(queryset):
         if not brand:
             brand = sub_brand
             sub_brand = None
-            try:
-               sub_total = "{:.2f}".format(order.get(
-                    'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty') * order.get(
-                    'rt_order_order_product__rt_order_product_order_product_mapping__selling_price')),
-            except:
-                sub_total = float(0.0)
+        try:
+           sub_total = "{:.2f}".format(order.get(
+                'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty') * order.get(
+                'rt_order_order_product__rt_order_product_order_product_mapping__selling_price')),
+        except:
+            sub_total = float(0.0)
         csv_writer.writerow([
             order.get('order_no'),
             order.get('order__rt_order_order_product__invoice__invoice_no'),
