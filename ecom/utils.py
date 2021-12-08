@@ -156,17 +156,16 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order_amount', 'rt_payment_retailer_order__payment_type__type',
-                'ordered_cart__offers'
+                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at','ordered_cart__redeem_points', 'created_at'
                 ).iterator()
     for order in orders:
-        retailer_product_id = order.get('rt_order_product_order_product_mapping__retailer_product__id')
+        retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
         if retailer_product:
             tax_detail = get_ecom_tax_details(retailer_product.last())
         else:
             tax_detail = None
-        product_type = order.get('rt_order_product_order_product_mapping__product_type')
-        cart_offers = order['order__ordered_cart__offers']
+        product_type = order.get('rt_order_order_product__rt_order_product_order_product_mapping__product_type')
         cart_offers = order['ordered_cart__offers']
         offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
         category = order[
@@ -184,18 +183,29 @@ def generate_ecom_order_csv_report(queryset):
         if not brand:
             brand = sub_brand
             sub_brand = None
-        discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
-                                                                                      order.get('rt_order_product_order_product_mapping__selling_price'))
+        try:
+            discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
+                                                                                          order.get('rt_order_product_order_product_mapping__selling_price'))
+        except:
+            discount=float(0.0)
         try:
            sub_total = "{:.2f}".format(order.get(
                 'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty') * order.get(
                 'rt_order_order_product__rt_order_product_order_product_mapping__selling_price')),
         except:
             sub_total = float(0.0)
+        try:
+            delivered_qty = "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty'))
+        except:
+            delivered_qty = 0
+        try:
+            price_value="{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price'))
+        except:
+            price_value=float(0.0)
         csv_writer.writerow([
             order.get('order_no'),
-            order.get('order__rt_order_order_product__invoice__invoice_no'),
-            order.get('order_status'),
+            order.get('rt_order_order_product__invoice__invoice_no'),
+            str(order.get('order_status')).capitalize(),
             order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
             order.get('ordered_cart__seller_shop__id'),
             order.get('ordered_cart__seller_shop__shop_name'),
@@ -229,14 +239,14 @@ def generate_ecom_order_csv_report(queryset):
             sub_brand,
             tax_detail,
             discount,
-            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')),
-            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price')),
-            order.get('pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
-                if order.get('pos_trips__trip_start_at') else '',
-            order.get('pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
-                if order.get('pos_trips__trip_end_at') else '',
+            delivered_qty,
+            price_value,
+            order.get('rt_order_order_product__pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('rt_order_order_product__pos_trips__trip_start_at') else '',
+            order.get('rt_order_order_product__pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('rt_order_order_product__pos_trips__trip_end_at') else '',
             order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
-            order.get('order__ordered_cart__redeem_points'),
+            order.get('ordered_cart__redeem_points'),
         ])
 
     return response
