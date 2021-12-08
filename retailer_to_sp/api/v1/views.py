@@ -3,6 +3,7 @@ import logging
 import re
 from datetime import date as datetime_date
 from operator import itemgetter
+from django.db.models.expressions import F
 
 from django.template import loader
 from django.template.loader import render_to_string
@@ -2770,10 +2771,7 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
-                shipmentproduct = shipment.rt_order_product_order_product_mapping.last()
-                if shipmentproduct:
-                    shipmentproduct.delivered_qty = shipmentproduct.shipped_qty
-                    shipmentproduct.save()
+                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
                 if shipment.pos_trips.filter(trip_type='ECOM').exists():
                     pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
                 else:
