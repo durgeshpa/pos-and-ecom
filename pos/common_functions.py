@@ -784,7 +784,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or int(qty) < 0 or (int(qty) == 0 and not cart_id):
+            if qty is None or Decimal(qty) < 0 or (Decimal(qty) == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
