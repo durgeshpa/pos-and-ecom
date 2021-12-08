@@ -3405,6 +3405,7 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
         (UNLOADING_AT_DC, 'Unloading At Dispatch'),
         (UNLOADED_AT_DC, 'Unloaded At Dispatch'),
+        (CANCELLED, 'Cancelled'),
     )
 
     OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'
