@@ -537,7 +537,10 @@ class PosReturnGRNOrder(models.Model):
 
     @property
     def po_no(self):
-        return self.grn_ordered_id.order.ordered_cart.po_no
+        try:
+            return self.grn_ordered_id.order.ordered_cart.po_no
+        except Exception:
+            return None
 
 
 class PosReturnItems(models.Model):

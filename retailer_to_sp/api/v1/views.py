@@ -293,7 +293,14 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         filter_list = [{"term": {"is_deleted": False}}]
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
@@ -331,8 +338,16 @@ class SearchProducts(APIView):
         body = dict()
         query_string = dict()
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
             filter_list.append({"term": {"product_pack_type": 'loose'}})
 
@@ -1105,7 +1120,8 @@ class CartCentral(GenericAPIView):
         """
         with transaction.atomic():
             try:
-                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active')
+                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
                 # Empty cart if shop/location changed
                 if cart.seller_shop.id != kwargs['shop'].id:
                     cart.seller_shop = kwargs['shop']
@@ -1499,7 +1515,8 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active')
+        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
+                                                                 seller_shop=seller_shop)
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
         cart.seller_shop = seller_shop
@@ -2753,6 +2770,10 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
+                shipmentproduct = shipment.rt_order_product_order_product_mapping.last()
+                if shipmentproduct:
+                    shipmentproduct.delivered_qty = shipmentproduct.shipped_qty
+                    shipmentproduct.save()
                 if shipment.pos_trips.filter(trip_type='ECOM').exists():
                     pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
                 else:
@@ -6669,6 +6690,7 @@ class ShipmentView(GenericAPIView):
                         batch.save()
 
                 order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = self.request.user
                 order.save()
                 return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         else:
