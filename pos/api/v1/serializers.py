@@ -3302,7 +3302,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
                 product = RetailerProduct.objects.filter(id=int(rtn_product['product_id']), is_deleted=False, shop=shop).last()
                 if product.mrp < rtn_product['return_price']:
-                    raise serializers.ValidationError(f"product return price {rtn_product['return_price']} can not be "
+                    raise serializers.ValidationError(f"product {product.name} return price {rtn_product['return_price']} can not be "
                                                       f"more then product mrp {product.mrp}")
 
                 if product.product_pack_type == 'loose':
@@ -3323,7 +3323,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f"product not available in inventory")
 
                 if product_in_inventory.last().quantity < rtn_product['return_qty'] * rtn_product['pack_size']:
-                    raise serializers.ValidationError(f"your available quantity is {product_in_inventory.last().quantity} "
+                    raise serializers.ValidationError(f"product {product.name} available quantity is {product_in_inventory.last().quantity} "
                                                       f"you can't return {(rtn_product['return_qty'] * rtn_product['pack_size'])}")
 
             data['product_return'] = self.initial_data['product_return']
