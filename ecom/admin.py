@@ -80,7 +80,8 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     list_per_page = 10
-    list_display = ('order', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+    list_display = ('order', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+    list_filter = ('order_status')
 
     actions = ['download_order_reports']
 
@@ -118,7 +119,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         return obj.order.order_amount
 
     def order_status(self, obj):
-        return obj.order.order_status
+        return str(obj.order.order_status).capitalize()
 
     def order_no(self, obj):
         return obj.order.order_no
