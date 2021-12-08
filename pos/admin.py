@@ -743,7 +743,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
                 image.image.url, (image.image_alt_text or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
-        return True
+        return False
 
     def has_delete_permission(self, request, obj=None):
         return False
