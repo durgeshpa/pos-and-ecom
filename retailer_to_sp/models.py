@@ -3364,11 +3364,13 @@ class DispatchTrip(BaseTimestampUserModel):
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
     UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'
+    CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (LOADING_FOR_DC, 'Loading For Dispatch'),
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
         (UNLOADING_AT_DC, 'Unloading At Dispatch'),
         (UNLOADED_AT_DC, 'Unloaded At Dispatch'),
+        (CANCELLED, 'Cancelled'),
     )
 
     OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'

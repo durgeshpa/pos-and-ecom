@@ -2191,10 +2191,8 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Trip status can't update, already {str(dispatch_trip.trip_status)}")
             if (dispatch_trip.trip_status == DispatchTrip.NEW and
                 trip_status not in [DispatchTrip.STARTED, DispatchTrip.CANCELLED]) or \
-                    (dispatch_trip.trip_status == DispatchTrip.STARTED and
-                     trip_status not in [DispatchTrip.UNLOADING, DispatchTrip.CANCELLED]) or \
-                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and
-                     trip_status not in [DispatchTrip.COMPLETED, DispatchTrip.CANCELLED]):
+                    (dispatch_trip.trip_status == DispatchTrip.STARTED and trip_status != DispatchTrip.UNLOADING) or \
+                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and trip_status != DispatchTrip.COMPLETED):
                 raise serializers.ValidationError(
                     f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
@@ -2217,6 +2215,14 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         return data
 
+    def cancel_added_shipments_to_trip(self, dispatch_trip):
+        shipment_details = dispatch_trip.shipments_details.all()
+        for mapping in shipment_details:
+            if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                mapping.shipment.save()
+        shipment_details.update(shipment_status=DispatchTripShipmentMapping.CANCELLED)
+
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update DispatchTrip"""
@@ -2226,6 +2232,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        if validated_data['trip_status'] == DispatchTrip.CANCELLED:
+            self.cancel_added_shipments_to_trip(dispatch_trip_instance)
 
         return dispatch_trip_instance
 
