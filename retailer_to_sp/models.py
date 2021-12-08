@@ -3271,6 +3271,7 @@ class DispatchTrip(BaseTimestampUserModel):
                                               verbose_name="Vehicle Opening Trip(Kms)")
     closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
                                               verbose_name="Vehicle Closing Trip(Kms)")
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")

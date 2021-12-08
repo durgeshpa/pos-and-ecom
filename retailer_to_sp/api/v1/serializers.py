@@ -19,7 +19,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
-                                   DispatchTripShipmentPackages)
+                                   DispatchTripShipmentPackages, ShipmentNotAttempt)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -2121,6 +2121,115 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
         return dispatch_trip_instance
 
 
+class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    source_shop = ShopSerializer(read_only=True)
+    destination_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+    shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = DispatchTrip
+        fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
+                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
+                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+                  'shipments_details', 'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def validate(self, data):
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not DispatchTrip.objects.filter(id=self.initial_data['id']).exists():
+                raise serializers.ValidationError("Only status updation is allowed.")
+            dispatch_trip = DispatchTrip.objects.filter(id=self.initial_data['id']).last()
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory")
+
+        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
+            try:
+                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
+                if dispatch_trip.seller_shop != seller_shop:
+                    raise Exception("'seller_shop' | Invalid seller_shop for selected trip.")
+            except:
+                raise serializers.ValidationError("'seller_shop' | Invalid seller shop")
+
+        if 'source_shop' in self.initial_data and self.initial_data['source_shop']:
+            try:
+                source_shop = Shop.objects.get(id=self.initial_data['source_shop'],
+                                               shop_type__shop_type__in=['sp', 'dc'])
+                if dispatch_trip.source_shop != source_shop:
+                    raise Exception("'source_shop' | Invalid source_shop for selected trip.")
+            except:
+                raise serializers.ValidationError("'source_shop' | Invalid source shop")
+
+        if 'destination_shop' in self.initial_data and self.initial_data['destination_shop']:
+            try:
+                destination_shop = Shop.objects.get(id=self.initial_data['destination_shop'],
+                                                    shop_type__shop_type__in=['sp', 'dc'])
+                if dispatch_trip.destination_shop != destination_shop:
+                    raise Exception("'destination_shop' | Invalid destination_shop for selected trip.")
+            except:
+                raise serializers.ValidationError("'destination_shop' | Invalid destination shop")
+
+        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+            try:
+                delivery_boy = User.objects.get(id=self.initial_data['delivery_boy'], shop_employee__shop=seller_shop)
+                if dispatch_trip.delivery_boy != delivery_boy:
+                    raise Exception("'delivery_boy' | Invalid delivery_boy for selected trip.")
+            except:
+                raise serializers.ValidationError("'delivery_boy' | Invalid delivery boy")
+
+        if 'trip_status' in self.initial_data and self.initial_data['trip_status']:
+            trip_status = self.initial_data['trip_status']
+            if trip_status not in [DispatchTrip.NEW, DispatchTrip.STARTED, DispatchTrip.UNLOADING,
+                                   DispatchTrip.COMPLETED, DispatchTrip.CANCELLED]:
+                raise serializers.ValidationError("'trip_status' | Invalid status for the selected trip.")
+            if dispatch_trip.trip_status == trip_status:
+                raise serializers.ValidationError(f"Trip status is already {str(trip_status)}.")
+            if dispatch_trip.trip_status in [DispatchTrip.COMPLETED, DispatchTrip.CANCELLED]:
+                raise serializers.ValidationError(f"Trip status can't update, already {str(dispatch_trip.trip_status)}")
+            if (dispatch_trip.trip_status == DispatchTrip.NEW and
+                trip_status not in [DispatchTrip.STARTED, DispatchTrip.CANCELLED]) or \
+                    (dispatch_trip.trip_status == DispatchTrip.STARTED and
+                     trip_status not in [DispatchTrip.UNLOADING, DispatchTrip.CANCELLED]) or \
+                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and
+                     trip_status not in [DispatchTrip.COMPLETED, DispatchTrip.CANCELLED]):
+                raise serializers.ValidationError(
+                    f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
+
+            if trip_status == DispatchTrip.STARTED:
+                if not dispatch_trip.shipments_details.exists():
+                    raise serializers.ValidationError("Load shipments to the trip to start.")
+
+                if dispatch_trip.shipments_details.filter(
+                        shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                    raise serializers.ValidationError(
+                        "The trip can not start until and unless all shipments get loaded.")
+
+            if trip_status == DispatchTrip.COMPLETED:
+                if dispatch_trip.shipments_details.filter(
+                        shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).exists():
+                    raise serializers.ValidationError(
+                        "The trip can not complete until and unless all shipments get unloaded.")
+        else:
+            raise serializers.ValidationError("'trip_status' | This is mandatory")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update DispatchTrip"""
+        shipments_details = validated_data.pop("shipments_details", None)
+        try:
+            dispatch_trip_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return dispatch_trip_instance
+
+
 class DispatchShipmentSerializers(serializers.ModelSerializer):
     shop_owner = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
@@ -2155,6 +2264,20 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
                   'trip_packaging_details', 'created_by', 'updated_by',)
+
+
+class SummarySerializer(serializers.Serializer):
+    total_invoices = serializers.IntegerField()
+    total_crates = serializers.IntegerField()
+    total_packets = serializers.IntegerField()
+    total_sack = serializers.IntegerField()
+    total_trip = serializers.IntegerField()
+    weight = serializers.IntegerField()
+
+
+class TripSummarySerializer(serializers.Serializer):
+    trip_data = SummarySerializer(read_only=True)
+    non_trip_data = SummarySerializer(read_only=True)
 
 
 class DispatchInvoiceSerializer(serializers.ModelSerializer):
