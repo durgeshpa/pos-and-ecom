@@ -276,7 +276,7 @@ def generate_csv_payment_report(payments):
     rows = [
         [
             payment.order.order_no,
-            payment.order.order_status,
+            payment.order.get_order_status_display(),
             payment.order.billing_address,
             payment.order.seller_shop,
             payment.payment_type,
