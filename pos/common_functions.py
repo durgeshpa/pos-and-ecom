@@ -784,7 +784,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or qty < 0 or (qty == 0 and not cart_id):
+            if qty is None or int(qty) < 0 or (int(qty) == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
@@ -900,7 +900,7 @@ class PosAddToCart(object):
                     discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
                     if product.status != 'active':
                         return api_response("The discounted product is de-activated!")
-                    elif discounted_stock < qty:
+                    elif discounted_stock < Decimal(qty):
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
                 product_pack_type = product.product_pack_type
