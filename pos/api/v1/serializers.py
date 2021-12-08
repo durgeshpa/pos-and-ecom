@@ -2924,6 +2924,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
 
         post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
         products = post_return_item.values('product_id', 'return_qty', 'pack_size')
+
         for grn_product_return in products:
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, grn_product_return['return_qty'],
@@ -3273,6 +3274,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         shop = self.context.get('shop')
+        instance_id = self.instance.id if self.instance else None
 
         if not 'vendor_id' in self.initial_data or not self.initial_data['vendor_id']:
             raise serializers.ValidationError(_('vendor_id is required'))
@@ -3322,13 +3324,20 @@ class PRNOrderSerializer(serializers.ModelSerializer):
                 if not product_in_inventory:
                     raise serializers.ValidationError(f"product not available in inventory")
 
-                if product_in_inventory.last().quantity < rtn_product['return_qty'] * rtn_product['pack_size']:
-                    raise serializers.ValidationError(f"product {product.name} available quantity is {product_in_inventory.last().quantity} "
-                                                      f"you can't return {(rtn_product['return_qty'] * rtn_product['pack_size'])}")
+                returned_qty = 0
+                if instance_id:
+                    returned_instance = self.instance.grn_order_return.filter(product=product).last()
+                    if returned_instance:
+                        returned_qty = returned_instance.return_qty
+
+                if product_in_inventory.last().quantity < \
+                        ((rtn_product['return_qty'] * rtn_product['pack_size']) - returned_qty):
+                    raise serializers.ValidationError(
+                        f"product {product.name} available quantity is {product_in_inventory.last().quantity} "
+                        f"you can't return {(rtn_product['return_qty'] * rtn_product['pack_size'])}")
 
             data['product_return'] = self.initial_data['product_return']
 
-            instance_id = self.instance.id if self.instance else None
             if 'status' in data and data['status'] == PosReturnGRNOrder.CANCELLED and instance_id:
                 if PosReturnGRNOrder.objects.filter(id=instance_id, status=PosReturnGRNOrder.CANCELLED,
                                                     grn_ordered_id__order__ordered_cart__retailer_shop=shop).exists():
@@ -3440,7 +3449,7 @@ class PRNOrderSerializer(serializers.ModelSerializer):
     def update_cancel_return(self, grn_return_id, instance_id,):
 
         post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
-        products = post_return_item.values('product_id', 'return_qty')
+        products = post_return_item.values('product_id', 'return_qty', 'pack_size')
         for grn_product_return in products:
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, grn_product_return['return_qty'],
