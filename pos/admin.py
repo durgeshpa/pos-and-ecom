@@ -180,7 +180,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ( 'order', 'order_status', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
@@ -194,6 +194,9 @@ class PaymentAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
                          order__seller_shop__pos_shop__status=True)
+
+    def order_status(self, obj):
+        return str(obj.order.order_status).capitalize()
 
     def has_change_permission(self, request, obj=None):
         return False
