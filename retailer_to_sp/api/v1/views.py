@@ -1394,6 +1394,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             if not CartProductMapping.objects.filter(cart=cart).exists():
