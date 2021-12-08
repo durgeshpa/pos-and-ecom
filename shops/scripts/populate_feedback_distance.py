@@ -20,9 +20,7 @@ def run():
 def set_feedback_distance():
     try:
         info_logger.info('Set feedback distance when distance is null|started')
-        print(1)
         executive_feedback = ExecutiveFeedback.objects.filter(distance_in_km__isnull = True)  # distance=NULL
-        print(executive_feedback)
         if executive_feedback:
             for feedback in executive_feedback:
                 feedback_lat = feedback.latitude
