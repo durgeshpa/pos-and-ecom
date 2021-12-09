@@ -1494,6 +1494,7 @@ class OrderedProduct(models.Model):  # Shipment
     READY_TO_DISPATCH = 'READY_TO_DISPATCH'
     OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
     MOVED_TO_DISPATCH = 'MOVED_TO_DISPATCH'
+    IN_TRANSIT_TO_DISPATCH = 'IN_TRANSIT_TO_DISPATCH'
     FULLY_DELIVERED_AND_VERIFIED = 'FULLY_DELIVERED_AND_VERIFIED'
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
@@ -1503,6 +1504,7 @@ class OrderedProduct(models.Model):  # Shipment
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
         (MOVED_TO_DISPATCH, 'Moved to dispatch'),
+        (IN_TRANSIT_TO_DISPATCH, 'In Transit to Dispatch'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (OUT_FOR_DELIVERY, 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
@@ -3395,6 +3397,7 @@ class DispatchTrip(BaseTimestampUserModel):
                     data['no_of_sacks'] += package_data['no_of_sacks'] if package_data['no_of_sacks'] else 0
 
         return data
+
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
