@@ -77,7 +77,8 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
-                                   DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES)
+                                   DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
+                                   DispatchTripShipmentPackages)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -105,7 +106,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DispatchItemsSerializer, DispatchDashboardSerializer,
                           UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
                           TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers,
-                          LoadVerifyPackageSerializer, ShipmentPackageSerializer,  TripShipmentMappingSerializer
+                          LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
+                          UnloadVerifyPackageSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item
 
@@ -7853,7 +7855,6 @@ class LoadVerifyPackageView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = LoadVerifyPackageSerializer
 
-
     def post(self, request):
         """ POST API for Shipment Package Load Verification """
         info_logger.info("Load Verify POST api called.")
@@ -7869,6 +7870,57 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class UnloadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and unload packages from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnloadVerifyPackageSerializer
+    queryset = DispatchTripShipmentPackages.objects.all()
+
+    def validate_trip_shipment_package(self, package_id, trip_id):
+        trip_shipment_package = self.queryset.filter(
+            package_status__in=[DispatchTripShipmentPackages.LOADED, DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                                DispatchTripShipmentPackages.MISSING_AT_LOADING],
+            shipment_packaging_id=package_id, trip_shipment__trip__id=trip_id).last()
+        if not trip_shipment_package:
+            return {"error": "invalid Package"}
+        return {"data": trip_shipment_package}
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        shipment_validation = self.validate_trip_shipment_package(self.queryset, int(modified_data['package_id']),
+                                                                  int(modified_data['trip_id']))
+        if 'error' in shipment_validation:
+            return get_response(shipment_validation['error'])
+        trip_shipment_package = shipment_validation['data']
+
+        serializer = self.serializer_class(instance=trip_shipment_package, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Package unloaded Successfully.")
+            return get_response('Package unloaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
 class RemoveInvoiceFromTripView(generics.GenericAPIView):
     """
        View to remove invoice from a trip.
@@ -7877,7 +7929,6 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = TripShipmentMappingSerializer
     queryset = DispatchTripShipmentMapping.objects.all()
-
 
     def put(self, request):
         """ POST API for Shipment Package Load Verification """
