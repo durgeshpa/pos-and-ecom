@@ -1114,7 +1114,7 @@ def cancel_pickup(pickup_object):
         if picked_qty is None:
             picked_qty = 0
         remaining_qty = item.quantity - picked_qty
-        total_remaining += remaining_qty
+        # total_remaining += remaining_qty
         bin_quantity = bi.quantity + remaining_qty
         to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
         if to_be_picked_qty < 0:
@@ -1138,6 +1138,9 @@ def cancel_pickup(pickup_object):
 
             info_logger.info("cancel_pickup | created putaway | Bin-{}, batch-{}, quantity-{}"
                              .format(bi.bin_id, bi.batch_id, picked_qty))
+
+
+    total_remaining = pickup_object.quantity-pickup_object.pickup_quantity
     if total_remaining > 0:
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
             pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
