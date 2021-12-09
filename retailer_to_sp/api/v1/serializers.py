@@ -2078,7 +2078,8 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
 
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
             try:
-                delivery_boy = User.objects.get(id=self.initial_data['delivery_boy'], shop_employee__shop=seller_shop)
+                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                                shop_employee__shop=seller_shop).last()
             except:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy.groups.filter(name='Delivery Boy').exists():
