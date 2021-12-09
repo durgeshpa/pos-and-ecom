@@ -19,13 +19,13 @@ def create_order_data_excel(request, queryset):
     writer = csv.writer(response)
     writer.writerow([
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Seller Shop ID',
-        'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 
+        'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type',
         'Buyer Id', 'Buyer Name','Mobile No(Buyer)',
         'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category',
         'Product SubCategory', 'Quantity',
         'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount',
         'Spot Discount', 'Subtotal', 'Order Amount',
-        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
+        'Parent Id', 'Parent Name', 'Child Name', 'Brand',
         'Tax Slab(GST)', 'Tax Slab(Cess)', 'Tax Slab(Surcharge)', 'Tax Slab(TCS)'])
 
     orders = queryset \
@@ -260,12 +260,17 @@ def generate_csv_payment_report(payments):
     response["Content-Disposition"] = 'attachement; filename="{}"'.format(filename)
     csv_writer = csv.writer(response)
     csv_writer.writerow(
-        [
+        [   'INVOICE NO',
+            'INVOICE DATE',
             'ORDER NO',
+            'ORDER STATUS',
             'BILLING ADDRESS',
             'SELLER SHOP',
             'PAYMENT TYPE',
             'TRANSACTION ID',
+            'Point Redemption',
+            'Point Redemption Value',
+            'Coupon NAME',
             'AMOUNT',
             'PAID BY',
             'PROCCESSED BY',
@@ -273,12 +278,17 @@ def generate_csv_payment_report(payments):
         ]
     )
     rows = [
-        [
+        [   payment.order.shipments()[0].invoice if payment.order.shipments() else '',
+            payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
             payment.order.order_no,
+            payment.order.order_status,
             payment.order.billing_address,
             payment.order.seller_shop,
             payment.payment_type,
             payment.transaction_id,
+            payment.order.ordered_cart.redeem_points,
+            payment.order.ordered_cart.redeem_points_value,
+            ",".join( coupon.get('coupon_name','') for coupon in  payment.order.ordered_cart.offers).strip(',') if payment.order.ordered_cart.offers else None ,
             payment.amount,
             payment.paid_by,
             payment.processed_by,
