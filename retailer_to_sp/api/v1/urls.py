@@ -13,7 +13,9 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
-                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason,
+                    DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView,
+                    DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView
                     )
 
 router = routers.DefaultRouter()
@@ -101,6 +103,13 @@ urlpatterns = [
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
     url('delivery-boys-list/', DeliverBoysList.as_view(), name='delivery_boys_list'),
+    url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
+    url('update-dispatch-trip-status/', DispatchTripStatusChangeView.as_view(), name='update_dispatch_trip_status'),
+    url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
+    url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
+    url('trip-invoices/', DispatchCenterShipmentView.as_view()),
+    url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
+    url('trip-unload-shipment/', UnloadVerifyPackageView.as_view())
 ]
 
 urlpatterns += router.urls
