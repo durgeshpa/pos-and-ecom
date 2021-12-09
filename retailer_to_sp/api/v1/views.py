@@ -1979,7 +1979,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def delete_ecom_offer(self, request, *args, **kwargs):
@@ -2001,7 +2002,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     def post_basic_validate(self, shop):
         """
