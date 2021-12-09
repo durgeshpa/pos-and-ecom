@@ -18,7 +18,7 @@ def create_order_data_excel(request, queryset):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Order No', 'Invoice No', 'Order Status', 'Order Created At', ' Invoice Date ', 'Seller Shop ID',
+        'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Invoice Date ', 'Seller Shop ID',
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
         'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code', 'Product Category',
