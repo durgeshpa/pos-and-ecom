@@ -281,7 +281,7 @@ def generate_csv_payment_report(payments):
         [   payment.order.shipments()[0].invoice if payment.order.shipments() else '',
             payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
             payment.order.order_no,
-            payment.order.order_status,
+            payment.order.get_order_status_display(),
             payment.order.billing_address,
             payment.order.seller_shop,
             payment.payment_type,

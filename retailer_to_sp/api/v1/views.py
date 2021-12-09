@@ -3,6 +3,7 @@ import logging
 import re
 from datetime import date as datetime_date
 from operator import itemgetter
+from django.db.models.expressions import F
 
 from django.template import loader
 from django.template.loader import render_to_string
@@ -1409,6 +1410,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             if not CartProductMapping.objects.filter(cart=cart).exists():
@@ -1976,7 +1979,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def delete_ecom_offer(self, request, *args, **kwargs):
@@ -1998,7 +2002,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     def post_basic_validate(self, shop):
         """
@@ -2770,10 +2775,7 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
-                shipmentproduct = shipment.rt_order_product_order_product_mapping.last()
-                if shipmentproduct:
-                    shipmentproduct.delivered_qty = shipmentproduct.shipped_qty
-                    shipmentproduct.save()
+                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
                 if shipment.pos_trips.filter(trip_type='ECOM').exists():
                     pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
                 else:

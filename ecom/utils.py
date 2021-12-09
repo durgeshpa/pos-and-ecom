@@ -121,7 +121,7 @@ def generate_ecom_order_csv_report(queryset):
         'Tax Slab(GST)', 'Discount' ,'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,'Redeemed Points'
     ])
     orders = queryset \
-        .prefetch_related('order', 'invoice', 'pos_trips' ,'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
+        .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
                           'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer', 'rt_order_product_order_product_mapping',
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
@@ -130,104 +130,123 @@ def generate_ecom_order_csv_report(queryset):
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand',
-                          'order__rt_payment_retailer_order__payment_type', 'order__ordered_cart', 'order__ordered_cart__rt_cart_list'
+                          'rt_payment_retailer_order__payment_type', 'ordered_cart', 'ordered_cart__rt_cart_list'
                           )\
         .annotate(
-            purchased_subtotal=RoundAmount(Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
+            purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') * F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order__order_no', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
-                'order__ordered_cart__seller_shop__id', 'order__ordered_cart__seller_shop__shop_name',
-                'order__ordered_cart__seller_shop__shop_owner__id', 'order__ordered_cart__seller_shop__shop_owner__first_name',
-                'order__ordered_cart__seller_shop__shop_owner__phone_number',
-                'order__ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
-                'order__buyer__id', 'order__buyer__first_name', 'order__buyer__phone_number',
-                'rt_order_product_order_product_mapping__shipped_qty',
-                'rt_order_product_order_product_mapping__delivered_qty',
-                'rt_order_product_order_product_mapping__product_type',
-                'rt_order_product_order_product_mapping__selling_price',
-                'rt_order_product_order_product_mapping__retailer_product__id',
-                'rt_order_product_order_product_mapping__retailer_product__sku',
-                'rt_order_product_order_product_mapping__retailer_product__name',
-                'rt_order_product_order_product_mapping__retailer_product__mrp',
-                'rt_order_product_order_product_mapping__retailer_product__selling_price',
-                'rt_order_product_order_product_mapping__retailer_product__product_ean_code',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
-                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
-                'purchased_subtotal', 'order__order_amount', 'order__rt_payment_retailer_order__payment_type__type',
-                'order__ordered_cart__offers','pos_trips__trip_start_at', 'pos_trips__trip_end_at','order__ordered_cart__redeem_points', 'created_at').iterator()
+        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at','ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
+                'ordered_cart__seller_shop__shop_owner__id', 'ordered_cart__seller_shop__shop_owner__first_name',
+                'ordered_cart__seller_shop__shop_owner__phone_number',
+                'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
+                'buyer__id', 'buyer__first_name', 'buyer__phone_number',
+                'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty',
+                'rt_order_order_product__rt_order_product_order_product_mapping__product_type',
+                'rt_order_order_product__rt_order_product_order_product_mapping__selling_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__sku',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__selling_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__product_ean_code',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
+                'purchased_subtotal', 'order_amount', 'rt_payment_retailer_order__payment_type__type',
+                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at','ordered_cart__redeem_points', 'created_at'
+                ).iterator()
     for order in orders:
-        retailer_product_id = order.get('rt_order_product_order_product_mapping__retailer_product__id')
-        retailer_product = RetailerProduct.objects.get(id=retailer_product_id)
-        tax_detail = get_ecom_tax_details(retailer_product)
-        product_type = order.get('rt_order_product_order_product_mapping__product_type')
-        cart_offers = order['order__ordered_cart__offers']
+        retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
+        retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
+        if retailer_product:
+            tax_detail = get_ecom_tax_details(retailer_product.last())
+        else:
+            tax_detail = None
+        product_type = order.get('rt_order_order_product__rt_order_product_order_product_mapping__product_type')
+        cart_offers = order['ordered_cart__offers']
         offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
         category = order[
-            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
         sub_category = order[
-            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name']
         if not category:
             category = sub_category
             sub_category = None
 
         brand = order[
-            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name']
         sub_brand = order[
-            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name']
         if not brand:
             brand = sub_brand
             sub_brand = None
-        discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
-                                                                                      order.get('rt_order_product_order_product_mapping__selling_price'))
+        try:
+            discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
+                                                                                          order.get('rt_order_product_order_product_mapping__selling_price'))
+        except:
+            discount=float(0.0)
+        try:
+           sub_total = "{:.2f}".format(order.get(
+                'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty') * order.get(
+                'rt_order_order_product__rt_order_product_order_product_mapping__selling_price')),
+        except:
+            sub_total = float(0.0)
+        try:
+            delivered_qty = "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty'))
+        except:
+            delivered_qty = 0
+        try:
+            price_value="{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price'))
+        except:
+            price_value=float(0.0)
         csv_writer.writerow([
-            order.get('order__order_no'),
-            order.get('invoice__invoice_no'),
-            order.get('order__order_status'),
-            order.get('order__created_at').strftime('%m/%d/%Y-%H-%M-%S'),
-            order.get('order__ordered_cart__seller_shop__id'),
-            order.get('order__ordered_cart__seller_shop__shop_name'),
-            order.get('order__ordered_cart__seller_shop__shop_owner__id'),
-            order.get('order__ordered_cart__seller_shop__shop_owner__first_name'),
-            order.get('order__ordered_cart__seller_shop__shop_owner__phone_number'),
-            order.get('order__ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name'),
-            order.get('order__buyer__id'),
-            order.get('order__buyer__first_name'),
-            order.get('order__buyer__phone_number'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__id'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__sku'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__name'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__product_ean_code'),
+            order.get('order_no'),
+            order.get('rt_order_order_product__invoice__invoice_no'),
+            str(order.get('order_status')).capitalize(),
+            order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
+            order.get('ordered_cart__seller_shop__id'),
+            order.get('ordered_cart__seller_shop__shop_name'),
+            order.get('ordered_cart__seller_shop__shop_owner__id'),
+            order.get('ordered_cart__seller_shop__shop_owner__first_name'),
+            order.get('ordered_cart__seller_shop__shop_owner__phone_number'),
+            order.get('ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name'),
+            order.get('buyer__id'),
+            order.get('buyer__first_name'),
+            order.get('buyer__phone_number'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__sku'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__name'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__product_ean_code'),
             category,
             sub_category,
-            order.get('rt_order_product_order_product_mapping__shipped_qty'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty'),
             retailer_product_type.get(product_type, product_type),
-            order.get('rt_order_product_order_product_mapping__retailer_product__mrp'),
-            order.get('rt_order_product_order_product_mapping__selling_price'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'),
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None
             if len(offers) else None,
             #order.get('purchased_subtotal'),
-            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__shipped_qty')*order.get('rt_order_product_order_product_mapping__selling_price')),
-            order.get('order__order_amount'),
-            order.get('order__rt_payment_retailer_order__payment_type__type'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),
+            sub_total,
+            order.get('order_amount'),
+            order.get('rt_payment_retailer_order__payment_type__type'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),
             brand,
             sub_brand,
             tax_detail,
             discount,
-            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')),
-            "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price')),
-            order.get('pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
-                if order.get('pos_trips__trip_start_at') else '',
-            order.get('pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
-                if order.get('pos_trips__trip_end_at') else '',
+            delivered_qty,
+            price_value,
+            order.get('rt_order_order_product__pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('rt_order_order_product__pos_trips__trip_start_at') else '',
+            order.get('rt_order_order_product__pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
+                if order.get('rt_order_order_product__pos_trips__trip_end_at') else '',
             order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
-            order.get('order__ordered_cart__redeem_points'),
+            order.get('ordered_cart__redeem_points'),
         ])
 
     return response

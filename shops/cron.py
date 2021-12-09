@@ -47,9 +47,11 @@ def get_feedback_valid():
                 config_distance = get_config('feedback_distance')
                 if d > config_distance:
                     feedback.is_valid = False
+                    feedback.distance_in_km = d
                     feedback.save()
                 elif d <= config_distance:
                     feedback.is_valid = True
+                    feedback.distance_in_km = d
                     feedback.save()
                 print(feedback.is_valid)
     except Exception as error:
