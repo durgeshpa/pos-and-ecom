@@ -69,12 +69,12 @@ def create_order_data_excel(request, queryset):
 
     for order in orders.iterator():
         shipment = Invoice.objects.filter(id=order.get('invoice')).last().shipment
-        try:
-            inv_amount = shipment.rt_order_product_order_product_mapping.annotate(
-                item_amount=F('effective_price') * F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get(
-                'invoice_amount')
-        except:
-            inv_amount = shipment.invoice_amount
+        # try:
+        #     inv_amount = shipment.rt_order_product_order_product_mapping.annotate(
+        #         item_amount=F('effective_price') * F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get(
+        #         'invoice_amount')
+        # except:
+        #     inv_amount = shipment.invoice_amount
 
         # inv_amount = shipment.rt_order_product_order_product_mapping. \
         #     filter(retailer_product_id=order.get('rt_order_product_order_product_mapping__retailer_product__id')).\
