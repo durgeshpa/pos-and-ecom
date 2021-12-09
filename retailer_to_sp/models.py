@@ -3396,6 +3396,7 @@ class DispatchTrip(BaseTimestampUserModel):
 
         return data
 
+
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
     UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'

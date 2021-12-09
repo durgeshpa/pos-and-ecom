@@ -2485,7 +2485,6 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return trip_shipment_mapping
 
-
     def post_shipment_remove_change(self, trip_shipment_mapping):
         DispatchTripShipmentPackages.objects.filter(trip_shipment=trip_shipment_mapping)\
             .update(package_status=DispatchTripShipmentPackages.CANCELLED)
