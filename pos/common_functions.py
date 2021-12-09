@@ -952,6 +952,14 @@ class PosAddToCart(object):
                 if available_inventory < qty:
                     return api_response("You cannot add any more quantities for this product!")
 
+            product_pack_type = product.product_pack_type
+            kwargs['conversion_unit_id'] = None
+            if product_pack_type == 'packet':
+                qty = int(qty)
+            else:
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                    product, qty)
+
             # Return with objects
             kwargs['product'] = product
             kwargs['quantity'] = qty
