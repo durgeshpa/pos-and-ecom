@@ -2346,10 +2346,11 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                               f"cannot load package")
         trip_shipment = None
-        if DispatchTripShipmentMapping.objects.filter(trip=trip,
-                                                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
-            trip_shipment = DispatchTripShipmentMapping.objects.filter(trip=trip,
-                                                              shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+        if DispatchTripShipmentMapping.objects.filter(
+                trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+            trip_shipment = DispatchTripShipmentMapping.objects.filter(
+                trip=trip, shipment=package.shipment, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
@@ -2411,7 +2412,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         shipment = trip_shipment.shipment
         trip = trip_shipment.trip
         if trip_shipment.trip_shipment_mapped_packages.count() == shipment.shipment_packaging\
-                .filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_FOR_DISPATCH).count():
+                .filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).count():
             trip_shipment.shipment_status = DispatchTripShipmentMapping.LOADED_FOR_DC
 
             # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
@@ -2444,6 +2445,132 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
         trip.save()
+
+
+class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DispatchTripShipmentPackages
+        fields = '__all__'
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updating package is not allowed')
+
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.UNLOADING:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload package")
+
+        if 'package_id' not in self.initial_data or not self.initial_data['package_id']:
+            raise serializers.ValidationError("'package_id' | This is required.")
+        try:
+            package = ShipmentPackaging.objects.get(id=self.initial_data['package_id'])
+        except:
+            raise serializers.ValidationError("Invalid Package ID")
+
+        # Check for package status
+        if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED:
+            raise serializers.ValidationError(f"Package is in {package.status} state, Can't be unloaded")
+
+        # Check if package is loaded in trip
+        if not package.trip_packaging_details.filter(package_status=DispatchTripShipmentPackages.LOADED).exists():
+            raise serializers.ValidationError("This package was not loaded in the trip.")
+
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+            raise serializers.ValidationError("Invalid status choice")
+
+        # Check for shipment status
+        if package.shipment.shipment_status != OrderedProduct.IN_TRANSIT_TO_DISPATCH:
+            raise serializers.ValidationError(
+                f"The invoice is in {package.shipment.shipment_status} state, can't unload package")
+
+        trip_shipment = DispatchTripShipmentMapping.objects.filter(
+            trip=trip, shipment=package.shipment, shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).last()
+        if not trip_shipment:
+            raise serializers.ValidationError("Invalid shipment to unload for the trip.")
+
+        status = DispatchTripShipmentPackages.UNLOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripShipmentPackages.MISSING_AT_UNLOADING
+
+        shipment_health = trip_shipment.shipment_health
+        if status == DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING and \
+                shipment_health == DispatchTripShipmentMapping.PARTIALLY_MISSING:
+            shipment_health = DispatchTripShipmentMapping.PARTIALLY_MISSING_DAMAGED
+        elif status == DispatchTripShipmentPackages.MISSING_AT_UNLOADING and \
+                shipment_health == DispatchTripShipmentMapping.PARTIALLY_DAMAGED:
+            shipment_health = DispatchTripShipmentMapping.PARTIALLY_MISSING_DAMAGED
+        elif status == DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING:
+            shipment_health = DispatchTripShipmentMapping.PARTIALLY_DAMAGED
+        elif status == DispatchTripShipmentPackages.MISSING_AT_UNLOADING:
+            shipment_health = DispatchTripShipmentMapping.PARTIALLY_MISSING
+
+        data['trip_shipment_mapping'] = {}
+        data['trip_shipment_mapping']['trip'] = trip
+        data['trip_shipment_mapping']['shipment'] = package.shipment
+        data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
+        data['trip_shipment_mapping']['shipment_health'] = shipment_health
+
+        data['trip_package_mapping'] = {}
+        data['trip_package_mapping']['trip_shipment'] = trip_shipment
+        data['trip_package_mapping']['shipment_packaging'] = package
+        data['trip_package_mapping']['package_status'] = status
+
+        return data
+
+    def update(self, instance, validated_data):
+        """update DispatchTrip Package Mapping"""
+        try:
+            trip_package_mapping = super().update(instance, validated_data['trip_package_mapping'])
+            trip_shipment = validated_data['trip_package_mapping']['trip_shipment']
+            trip_shipment.shipment_status = validated_data['trip_package_mapping']['shipment_status']
+            trip_shipment.shipment_health = validated_data['trip_package_mapping']['shipment_health']
+            trip_shipment.save()
+            self.post_package_unload_trip_update(trip_package_mapping, trip_shipment)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return trip_package_mapping
+
+    def post_package_unload_trip_update(self, trip_package_mapping, trip_shipment):
+        """
+            Update shipment status to MOVED_TO_DISPATCH once all packages are verified on trip
+            Update trip shipment mapped as UNLOADED_AT_DC once all packages are added to trip
+            Update shipment_health to OKAY/FULLY_DAMAGED/FULLY_MISSING accordingly
+        """
+        shipment = trip_shipment.shipment
+        if trip_shipment.trip_shipment_mapped_packages.filter(package_status__in=[
+            DispatchTripShipmentPackages.UNLOADED, DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING,
+            DispatchTripShipmentPackages.MISSING_AT_UNLOADING]).count() == shipment.shipment_packaging\
+                .filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED).count():
+            trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
+
+            # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
+            if trip_shipment.trip_shipment_mapped_packages.\
+                filter(package_status=trip_package_mapping.package_status).count() == \
+                trip_shipment.trip_shipment_mapped_packages.count():
+                shipment_health = trip_shipment.shipment_health
+                if trip_package_mapping.package_status == DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING:
+                    shipment_health = DispatchTripShipmentMapping.FULLY_DAMAGED
+                elif trip_package_mapping.package_status == DispatchTripShipmentPackages.MISSING_AT_UNLOADING:
+                    shipment_health = DispatchTripShipmentMapping.FULLY_MISSING
+
+            trip_shipment.shipment_health = shipment_health
+            trip_shipment.save()
+            shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+            shipment.save()
 
 
 class TripShipmentMappingSerializer(serializers.ModelSerializer):

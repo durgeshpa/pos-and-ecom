@@ -15,7 +15,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
                     DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason,
                     DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView,
-                    DispatchTripStatusChangeView, LoadVerifyPackageView
+                    DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView
                     )
 
 router = routers.DefaultRouter()
@@ -108,7 +108,8 @@ urlpatterns = [
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
-    url('trip-load-shipment/', LoadVerifyPackageView.as_view())
+    url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
+    url('trip-unload-shipment/', UnloadVerifyPackageView.as_view())
 ]
 
 urlpatterns += router.urls
