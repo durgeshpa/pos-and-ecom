@@ -204,9 +204,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
                     decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError("Online Order Price should be equal to OR less than MRP")
 
-            if 'initial_purchase_value' in row.keys() and row['initial_purchase_value'] and \
-                    decimal.Decimal(row['initial_purchase_value']) > decimal.Decimal(row['selling_price']):
-                raise ValidationError("Initial Purchase Value should be equal to OR less than Selling Price")
+            # if 'initial_purchase_value' in row.keys() and row['initial_purchase_value'] and \
+            #         decimal.Decimal(row['initial_purchase_value']) > decimal.Decimal(row['selling_price']):
+            #     raise ValidationError("Initial Purchase Value should be equal to OR less than Selling Price")
 
             # Validate packaging type and measurement category
             if row['product_pack_type'].lower() not in ['loose', 'packet']:
