@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
@@ -615,6 +615,17 @@ class ShopTypeAdmin(admin.ModelAdmin):
     fields = ('shop_type', 'shop_sub_type', 'shop_min_amount', 'status')
 
 
+class ExecutiveFeedbackAdmin(admin.ModelAdmin):
+    fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
+              'longitude', 'is_valid', 'distance_in_km')
+    list_display = ('id', 'day_beat_plan_id', 'executive_feedback', 'feedback_date')
+    readonly_fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
+              'longitude', 'is_valid', 'distance_in_km')
+
+    def day_beat_plan_id(self, obj):
+        return obj.day_beat_plan.id
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -626,3 +637,4 @@ admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
 admin.site.register(ShopTiming, ShopTimingAdmin)
 admin.site.register(BeatPlanning, BeatPlanningAdmin)
 admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
+admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
