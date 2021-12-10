@@ -670,3 +670,13 @@ class ExecutiveFeedback(models.Model):
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
     is_valid = models.BooleanField(default=True)
     distance_in_km = models.DecimalField(max_digits=30, decimal_places=15, null=True)
+
+
+class ShopStatusLog(models.Model):
+    """
+    Maintain Log of Shop enabled and disabled
+    """
+    reason = models.CharField(max_length=125, blank=True, null=True)
+    user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
+    changed_at = models.DateTimeField(auto_now_add=True)
