@@ -463,8 +463,8 @@ class Cart(models.Model):
                                  'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount == 0):
-                            discount_value_cart = round((Decimal(cart_coupon.rule.discount.discount_value) / 100) * Decimal(cart_value),
-                                                        2)
+                            discount_value_cart = round((Decimal(cart_coupon.rule.discount.discount_value) / 100) *
+                                                        Decimal(cart_value), 2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
@@ -480,7 +480,7 @@ class Cart(models.Model):
                                  'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount < (
-                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value))):
                             discount_value_cart = cart_coupon.rule.discount.max_discount
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
