@@ -2,14 +2,7 @@ import json
 import logging
 import re
 from datetime import date as datetime_date
-from operator import itemgetter
 from django.db.models.expressions import F
-
-from django.template import loader
-from django.template.loader import render_to_string
-from num2words import num2words
-from elasticsearch import Elasticsearch
-from decouple import config
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -101,6 +94,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
 from .serializers import (ShipmentNotAttemptSerializer
                           )
 import math
+from fcm.utils import get_device_model
+Device = get_device_model()
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -2825,7 +2820,6 @@ class OrderCentral(APIView):
             # whatsapp api call for order cancellation
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
-
             return api_response("Order cancelled successfully!", None, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3110,6 +3104,19 @@ class OrderCentral(APIView):
             ]
             self.auto_process_order(order, payments, 'ecom')
             self.auto_process_ecom_order(order)
+            try:
+                from pyfcm import FCMNotification
+                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'), is_active=True).distinct('reg_id')
+                for device in devices:
+                    registration_id = device.reg_id
+                    message_title = "PepperTap Store Order Alert !!"
+                    message_body = "Hello, You received a new Order."
+                    result = push_service.notify_single_device(registration_id=registration_id, message_title=message_title,
+                                                               message_body=message_body)
+                    info_logger.info(result)
+            except Exception as e:
+                info_logger.info(e)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -5409,7 +5416,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
         #     static_file.write(content)
@@ -5584,7 +5590,6 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        
         # # content = render_to_string(template_name, data)
         # # with open("abc.html", 'w') as static_file:
         # #     static_file.write(content)

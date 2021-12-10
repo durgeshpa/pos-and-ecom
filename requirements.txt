@@ -156,3 +156,4 @@ django-model-utils~=4.0.0
 pyodbc==4.0.30
 django-tables2==2.3.4
 django-multiselectfield==0.1.12
+pyfcm==1.5.4
