@@ -141,6 +141,7 @@ def generate_ecom_order_csv_report(queryset):
                 'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
                 'buyer__id', 'buyer__first_name', 'buyer__phone_number',
                 'rt_order_order_product__rt_order_product_order_product_mapping__shipped_qty',
+                'rt_order_order_product__rt_order_product_order_product_mapping__delivered_qty',
                 'rt_order_order_product__rt_order_product_order_product_mapping__product_type',
                 'rt_order_order_product__rt_order_product_order_product_mapping__selling_price',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id',
@@ -184,8 +185,8 @@ def generate_ecom_order_csv_report(queryset):
             brand = sub_brand
             sub_brand = None
         try:
-            discount = order.get('rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_product_order_product_mapping__effective_price',
-                                                                                          order.get('rt_order_product_order_product_mapping__selling_price'))
+            discount = order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price') - order.get('rt_order_order_product__rt_order_product_order_product_mapping__effective_price',
+                                                                                          order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'))
         except:
             discount=float(0.0)
         try:
@@ -195,11 +196,11 @@ def generate_ecom_order_csv_report(queryset):
         except:
             sub_total = float(0.0)
         try:
-            delivered_qty = "{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty'))
+            delivered_qty = "{:.2f}".format(order.get('rt_order_order_product__rt_order_product_order_product_mapping__delivered_qty'))
         except:
             delivered_qty = 0
         try:
-            price_value="{:.2f}".format(order.get('rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_product_order_product_mapping__selling_price'))
+            price_value="{:.2f}".format(order.get('rt_order_order_product__rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'))
         except:
             price_value=float(0.0)
         csv_writer.writerow([
