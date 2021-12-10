@@ -1165,7 +1165,7 @@ def mail_warehouse_team_for_product_mappings(order_no, product_ids):
     try:
         if product_ids:
             products = ParentProduct.objects.filter(id__in=product_ids)
-            sender = get_config("ARS_MAIL_SENDER")
+            sender = get_config("sender")
             recipient_list = get_config("MAIL_DEV")
             subject = 'Products non-mapped with zone for order no {}'.format(order_no)
             body = "PFA the list of products which are not mapped with any zone for order no " + str(order_no) + "." \
