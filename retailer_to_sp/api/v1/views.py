@@ -2,16 +2,7 @@ import json
 import logging
 import re
 from datetime import date as datetime_date
-import os
-from operator import itemgetter
-from decouple import config, Csv
 from django.db.models.expressions import F
-
-from django.template import loader
-from django.template.loader import render_to_string
-from num2words import num2words
-from elasticsearch import Elasticsearch
-from decouple import config
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -105,7 +96,6 @@ from .serializers import (ShipmentNotAttemptSerializer
 import math
 from fcm.utils import get_device_model
 Device = get_device_model()
-from notification_center.fcm_notification import SendFCMNotification
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
