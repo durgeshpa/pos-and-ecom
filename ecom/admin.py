@@ -1,13 +1,18 @@
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html
+from django.urls import reverse
+
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
+from retailer_to_sp.models import Order
 
-from .proxy_models import EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
-from .models import Address, Tag, TagProductMapping
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
+from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
+from ecom.views import DownloadEcomOrderInvoiceView
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -24,7 +29,7 @@ class EcomCartProductMappingAdmin(admin.TabularInline):
         return False
 
 
-@admin.register(EcomCart)
+
 class EcomCartAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
@@ -72,60 +77,82 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
-@admin.register(EcomOrderedProduct)
 class EcomOrderProductAdmin(admin.ModelAdmin):
-    inlines = (OrderedProductMappingInline,)
-    search_fields = ('invoice__invoice_no', 'order__order_no')
+    search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
-    list_display = ('order', 'buyer_address', 'invoice_no', 'created_at')
+    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+
+    actions = ['download_order_reports']
 
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
+            'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
     )
 
     def seller_shop(self, obj):
-        return obj.order.seller_shop
+        return obj.seller_shop
 
     def buyer(self, obj):
-        return obj.order.buyer
+        return obj.buyer
 
     def buyer_address(self, obj):
-        return str(obj.order.ecom_address_order.address)+' '+str(obj.order.ecom_address_order.city)+' '+str(obj.order.ecom_address_order.state)
+        return str(obj.ecom_address_order.address) + ' ' + str(obj.ecom_address_order.city) + ' ' + str(
+            obj.ecom_address_order.state)
 
     def sub_total(self, obj):
-        return obj.order.ordered_cart.subtotal
+        return obj.ordered_cart.subtotal
 
     def offer_discount(self, obj):
-        return obj.order.ordered_cart.offer_discount
+        return obj.ordered_cart.offer_discount
 
     def reward_discount(self, obj):
-        return obj.order.ordered_cart.redeem_points_value
+        return obj.ordered_cart.redeem_points_value
 
     def order_amount(self, obj):
-        return obj.order.order_amount
+        return obj.order_amount
 
     def order_status(self, obj):
-        return obj.order.order_status
+        return str(obj.order_status).capitalize()
 
     def order_no(self, obj):
-        return obj.order.order_no
+        return obj.order_no
+
+    def download_invoice(self, obj):
+        try:
+            if obj.rt_order_order_product.last().invoice.invoice_pdf:
+                return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.rt_order_order_product.last().pk])))
+            else:
+                return '-'
+        except:
+            return '-'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(EcomOrderProductAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^ecom-order-invoice/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadEcomOrderInvoiceView.as_view()),
+                       name="ecom_download_order_invoice"
+                   )
+               ] + urls
+        return urls
 
     def get_queryset(self, request):
-        qs = super(EcomOrderProductAdmin, self).get_queryset(request)
-        qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        # qs = super(EcomOrderProductAdmin, self).get_queryset(request)
+        qs = Order.objects.filter(ordered_cart__cart_type='ECOM')
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
-        )
+            Q(seller_shop__pos_shop__user=request.user) |
+            Q(seller_shop__pos_shop__user_type__in=['manager', 'cashier', 'store_manager',])
+        ).distinct()
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -135,6 +162,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def download_order_reports(self, request, queryset):
+        return generate_ecom_order_csv_report(queryset)
 
     class Media:
         pass
@@ -161,6 +191,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(TagProductMapping)
 class TagProductMappingAdmin(admin.ModelAdmin):
     form = TagProductForm
@@ -178,12 +209,13 @@ class TagProductMappingAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
-    
-    def get_fields (self, request, obj=None, **kwargs):
+
+    def get_fields(self, request, obj=None, **kwargs):
         fields = super().get_fields(request, obj, **kwargs)
         fields.remove('product')
         fields.append('product')
         return fields
+
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
@@ -202,3 +234,8 @@ class TagAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return True
+
+
+admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
+admin.site.register(EcomCart, EcomCartAdmin)
+

@@ -640,8 +640,8 @@ class BeatUserMappingCsvSample(View):
             filename = shops[0].employee.first_name + '_' + datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
         except Exception as e:
             logger.exception(e)
-            user = get_user_model().objects.filter(id=request.GET['shop_user_mapping'])
-            filename = user[0].first_name + '_' + datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
+            # user = get_user_model().objects.filter(id=request.GET['shop_user_mapping'])
+            filename = "sample" + '_' + datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
 
         # The response gets a special MIME type, text/csv. This tells browsers that the document is a CSV file,
         # rather than an HTML file. If you leave this off, browsers will probably interpret the output as HTML,
@@ -660,11 +660,12 @@ class BeatUserMappingCsvSample(View):
             for shop in shops:
                 try:
                     writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
-                                     shop.shop.shipping_address.address_contact_number,
-                                     shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
+                                     shop.shop.shipping_address_obj.address_contact_number,
+                                     shop.shop.shipping_address_obj.address_line1, shop.shop.shipping_address_obj.pincode, '',
                                      ''])
-                except:
+                except Exception as e:
                     pass
+                    logger.exception(e)
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)

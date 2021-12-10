@@ -63,15 +63,18 @@ class ShopView(APIView):
         if not int(self.request.GET.get('from_location', '0')):
             # Get shop from latest order
             order = Order.objects.filter(buyer=self.request.user,
-                                         ordered_cart__cart_type__in=['BASIC', 'ECOM']).order_by('id').last()
+                                         ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                         seller_shop__online_inventory_enabled=True).order_by('id').last()
             if order:
                 return self.serialize(order.seller_shop)
 
             # check mapped pos shop
-            shop_map = ShopCustomerMap.objects.filter(user=self.request.user).last()
+            shop_map = ShopCustomerMap.objects.filter(user=self.request.user,
+                                                      shop__online_inventory_enabled=True).last()
             if shop_map:
                 return self.serialize(shop_map.shop)
 
+            return api_response('No shop found!')
         return self.shop_from_location()
 
     def shop_from_location(self):
@@ -154,17 +157,20 @@ class CategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_to_return = []
         categories_with_products = get_categories_with_products(kwargs['shop'])
-        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        all_active_categories = Category.objects.filter(category_parent=None, status=True, b2c_status=True)
+        # print("==============================================================")
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
             elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True):
+                for sub_category in c.cat_parent.filter(status=True, b2c_status=True):
+                    # print(sub_category)
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break
         serializer = self.serializer_class(categories_to_return, many=True)
         is_success = True if categories_to_return else False
+        # print("==============================================================")
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 
@@ -177,7 +183,8 @@ class SubCategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_with_products = get_categories_with_products(kwargs['shop'])
         category = Category.objects.get(pk=self.request.GET.get('category_id'))
-        sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
+        # print(category.__dict__)
+        sub_categories = category.cat_parent.filter(status=True, b2c_status=True, id__in=categories_with_products)
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
@@ -234,7 +241,8 @@ class UserShopView(APIView):
         # shop_customer_mapping = ShopCustomerMap.objects.filter(user=user)
         # shop = Shop.objects.filter(registered_shop__in=shop_customer_mapping)
         is_success, data, message = False, [], "No shop found"
-        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+        orders = Order.objects.filter(buyer=user, ordered_cart__cart_type__in=['BASIC', 'ECOM'],
+                                      seller_shop__online_inventory_enabled=True)
         shop = []
         for order in orders:
             if order.seller_shop not in shop:

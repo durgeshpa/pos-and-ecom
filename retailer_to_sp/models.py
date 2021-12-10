@@ -1895,6 +1895,10 @@ class Invoice(models.Model):
         return self.invoice_no
 
     @property
+    def pdf_name(self):
+        return 'Invoice_%s.pdf' % (self.invoice_no)
+    
+    @property
     def invoice_amount(self):
         try:
             inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(
@@ -2862,6 +2866,10 @@ class CreditNote(models.Model):
     credit_note_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def pdf_name(self):
+        return "CreditNote_%s.pdf" % (self.credit_note_id)
 
 
 class ReturnItems(models.Model):
