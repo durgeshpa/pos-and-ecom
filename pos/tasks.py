@@ -137,11 +137,13 @@ def update_es(products, shop_id):
 
         if PosCartProductMapping.objects.filter(product=product, is_grn_done=True,
                                                 cart__retailer_shop=product.shop).exists():
-            initial_purchase_value = PosCartProductMapping.objects.filter(
-                product=product, is_grn_done=True).last().price
+            po_grn_initial_value = PosCartProductMapping.objects.filter(
+                product=product, is_grn_done=True).last()
+            initial_purchase_value = po_grn_initial_value.price * po_grn_initial_value.pack_size
         else:
             initial_purchase_value = product.initial_purchase_value \
                 if product.initial_purchase_value else 0
+
         params = {
             'id': product.id,
             'name': product.name,
