@@ -1590,7 +1590,7 @@ class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):
 class CrateForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
-    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=False,
                                   widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
     crate_id = forms.CharField(required=False, max_length=20)
     crate_type = forms.ChoiceField(choices=Crate.CRATE_TYPE_CHOICES)
@@ -1604,18 +1604,34 @@ class CrateForm(forms.ModelForm):
             self.fields['crate_type'].disabled = True
         self.fields['crate_id'].disabled = True
 
+    def clean(self):
+        cleaned_data = super().clean()
+        crate_type = cleaned_data.get("crate_type")
+        zone = cleaned_data.get("zone")
+        if crate_type and crate_type != Crate.DISPATCH and zone is None:
+            raise ValidationError(_("Zone is required."))
+
     class Meta:
-        model = QCArea
+        model = Crate
         fields = ['warehouse', 'zone', 'crate_id', 'crate_type']
 
 
 class BulkCrateForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices, required=True,
                                        widget=autocomplete.ModelSelect2(url='warehouses-autocomplete'))
-    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=True,
+    zone = forms.ModelChoiceField(queryset=Zone.objects.all(), required=False,
                                   widget=autocomplete.ModelSelect2(url='zone-autocomplete', forward=('warehouse',)))
     crate_type = forms.ChoiceField(choices=Crate.CRATE_TYPE_CHOICES)
     quantity = forms.IntegerField(min_value=1, max_value=100)
+
+
+    def clean(self):
+        cleaned_data = super().clean()
+        crate_type = cleaned_data.get("crate_type")
+        zone = cleaned_data.get("zone")
+        if crate_type and crate_type != Crate.DISPATCH and zone is None:
+            raise ValidationError(_("Zone is required."))
+
 
     class Meta:
         model = Crate
