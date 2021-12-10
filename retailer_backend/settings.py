@@ -146,12 +146,8 @@ INSTALLED_APPS = [
     'ecom',
     'cms',
     'drf_yasg',
-    'fcm_django',
 ]
 
-FCM_DJANGO_SETTINGS = {
-        "FCM_SERVER_KEY": config("FCM_SERVER_KEY")
-}
 # if ENVIRONMENT.lower() in ["production","qa"]:
 #     INSTALLED_APPS +=[
 #         'elasticapm.contrib.django',

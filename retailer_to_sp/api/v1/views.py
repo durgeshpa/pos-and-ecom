@@ -5426,7 +5426,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
         #     static_file.write(content)
@@ -5601,7 +5600,6 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-
         # # content = render_to_string(template_name, data)
         # # with open("abc.html", 'w') as static_file:
         # #     static_file.write(content)
