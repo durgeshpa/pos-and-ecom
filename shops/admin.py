@@ -618,8 +618,12 @@ class ShopTypeAdmin(admin.ModelAdmin):
 class ExecutiveFeedbackAdmin(admin.ModelAdmin):
     fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
               'longitude', 'is_valid', 'distance_in_km')
+    list_display = ('id', 'day_beat_plan_id', 'executive_feedback', 'feedback_date')
     readonly_fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
               'longitude', 'is_valid', 'distance_in_km')
+
+    def day_beat_plan_id(self, obj):
+        return obj.day_beat_plan.id
 
 
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
