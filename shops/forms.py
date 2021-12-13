@@ -148,14 +148,10 @@ class ShopForm(forms.ModelForm):
         max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'size':50,'placeholder': 'Enter Location to Search'})
     )
 
-    reason_for_status = forms.CharField(
-        max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'size':30,'placeholder': 'Reason for enabling/disabling shop'})
-    )
-
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'reason_for_status',
+            'shop_name', 'shop_owner', 'shop_type', 'approval_status',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
             'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
 
@@ -194,20 +190,6 @@ class ShopForm(forms.ModelForm):
         if not self.shop_type_retailer(self) and not warehouse_code:
             raise ValidationError(_("This field is required"))
         return warehouse_code
-
-    def clean_reason_for_status(self):
-        reason = self.cleaned_data.get('reason_for_status', None)
-        approval_status = self.cleaned_data.get('approval_status', None)
-        if (approval_status != self.instance.approval_status) and not reason:
-            raise ValidationError(_("This field is required"))
-        return reason
-
-    def save(self, request, commit=True):
-        if 'reason_for_status' in self.changed_data:
-            reason_for_status = self.cleaned_data['reason_for_status']
-            ShopStatusLog.objects.create(reason = reason_for_status, user = self.request.user, shop = self.instance)
-        super(ShopForm, self).save(commit)
-
 
 from django.forms.models import BaseInlineFormSet
 

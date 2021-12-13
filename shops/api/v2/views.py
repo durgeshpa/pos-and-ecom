@@ -32,7 +32,8 @@ from .serializers import (
     ShopOwnerNameListSerializer, ShopUserMappingCrudSerializers, StateAddressSerializer, UserSerializers,
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
-    BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers
+    BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers,
+    DownloadShopStatusCSVSerializer
 )
 from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
@@ -1095,4 +1096,16 @@ class BeatPlanningView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return get_response('data uploaded successfully!', serializer.data, True)
+        return get_response(serializer_error(serializer), False)
+
+
+class DownloadShopStatusCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = DownloadShopStatusCSVSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

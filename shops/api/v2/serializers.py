@@ -14,7 +14,7 @@ from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
-                          DayBeatPlanning)
+                          DayBeatPlanning, ShopStatusLog)
 from addresses.models import Address, City, Pincode, State, address_type_choices
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
@@ -528,7 +528,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         validated_data.pop('shop_name_documents', None)
         validated_data.pop('shop_name_photos', None)
         validated_data.pop('retiler_mapping', None)
-
+        new_approval_status = validated_data.get('approval_status', None)
+        old_approval_status = getattr(instance, 'approval_status')
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
@@ -538,6 +539,15 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
         self.cr_up_addrs_imgs_docs_parentshop_relateduser(shop_instance, "updated")
         ShopCls.create_shop_log(shop_instance, "updated")
+
+        if old_approval_status != new_approval_status:
+            if new_approval_status == 0:
+                reason = 'Disapproved'
+            elif new_approval_status == 1:
+                reason = 'Awaiting Approval'
+            else:
+                reason = 'Approved'
+            ShopStatusLog.objects.create(reason=reason, user=self.request.user, shop=instance)
         return shop_instance
 
     def cr_up_addrs_imgs_docs_parentshop_relateduser(self, shop, action):
@@ -858,6 +868,8 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
                 id__in=validated_data['shop_id_list'])
             parent_products.update(approval_status=int(validated_data['approval_status']),
                                    updated_by=validated_data['updated_by'], updated_at=timezone.now())
+            for shop in parent_products:
+                ShopStatusLog.objects.create(reason='Disapproved', user=self.request.user, shop=instance)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(
                 e.args) > 0 else 'Unknown Error'}
@@ -1179,3 +1191,44 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return validated_data
+
+
+class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
+    shop_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Shop
+        fields = ('shop_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('shop_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one shop id must be selected '))
+
+        for s_id in data.get('shop_id_list'):
+            try:
+                Shop.objects.get(id=s_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(
+                    f'shop not found for id {s_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Shop._meta
+        field_names = ['shop', 'reason', 'changed at', 'user']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in validated_data['shop_id_list']:
+            data = ShopStatusLog.objects.values_list(
+                'shop', 'reason', 'changed_at', 'user') \
+                .filter(shop__id=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
