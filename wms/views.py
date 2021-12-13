@@ -8,6 +8,7 @@ import itertools
 from math import floor
 
 from dal import autocomplete
+from decouple import config
 from openpyxl import Workbook
 from openpyxl.writer.excel import save_virtual_workbook
 
@@ -1167,6 +1168,8 @@ def mail_warehouse_team_for_product_mappings(order_no, product_ids):
             products = ParentProduct.objects.filter(id__in=product_ids)
             sender = get_config("sender")
             recipient_list = get_config("MAIL_DEV")
+            if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER")
             subject = 'Products non-mapped with zone for order no {}'.format(order_no)
             body = "PFA the list of products which are not mapped with any zone for order no " + str(order_no) + "." \
                    "Please note that this order can't be process until and unless these products get mapped with zone."
