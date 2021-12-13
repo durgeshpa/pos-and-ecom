@@ -169,6 +169,8 @@ def generate_ecom_order_csv_report(queryset):
         product_type = order.get('rt_order_order_product__rt_order_product_order_product_mapping__product_type')
         cart_offers = order['ordered_cart__offers']
         offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
+        discounts = { item.get('item_id'): item.get('cart_or_brand_level_discount') \
+            for item in list(filter(lambda d: d['type'] in 'none', cart_offers))}
         category = order[
             'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
         sub_category = order[
@@ -231,7 +233,7 @@ def generate_ecom_order_csv_report(queryset):
             offers[0].get('discount_value', None) if len(offers) else None
             if len(offers) else None,
             #order.get('purchased_subtotal'),
-            sub_total,
+            sub_total[0] if sub_total else None,
             order.get('order_amount'),
             order.get('rt_payment_retailer_order__payment_type__type'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
@@ -239,7 +241,7 @@ def generate_ecom_order_csv_report(queryset):
             brand,
             sub_brand,
             tax_detail,
-            discount,
+            discounts.get(retailer_product_id),
             delivered_qty,
             price_value,
             order.get('rt_order_order_product__pos_trips__trip_start_at').strftime('%m/%d/%Y-%H-%M-%S') \
