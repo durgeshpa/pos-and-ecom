@@ -9,7 +9,8 @@ from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPla
                                 ShopListView, ShopManagerListView, ShopEmployeeListView, RetailerTypeList,
                                 ShopTypeChoiceView, BulkUpdateShopView, BeatPlanningExecutivesListView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
-                                BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV, ShopCrudView, ShopManagerListDisView)
+                                BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV, ShopCrudView,
+                                ShopManagerListDisView, DownloadShopStatusCSV)
 
 router = routers.DefaultRouter()
 
@@ -58,6 +59,7 @@ urlpatterns = [
     url('upload/beat-planning', BeatPlanningView.as_view(), name='upload/beat-planning'),
     url('beat-planning/', BeatPlanningListView.as_view(), name='beat-planning'),
     url('beat-plan-employees/', BeatPlanningExecutivesListView.as_view(), name='beat-plan-employees'),
+    url('download-shop-status', DownloadShopStatusCSV.as_view(), name='download-shop-status')
 ]
 
 urlpatterns += router.urls

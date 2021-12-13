@@ -1177,9 +1177,10 @@ class RetailerPurchaseReportView(View):
             quantity = pos_inv_products_map.quantity if pos_inv_products_map else 0
             if PosCartProductMapping.objects.filter(product=product['id'], is_grn_done=True,
                                                     cart__retailer_shop__id=shop).exists():
-                product['initial_purchase_value'] = PosCartProductMapping.objects.filter(
-                    product=product['id'], is_grn_done=True).last().price
-            total_purchase_value = (product['purchase_pack_size'] * product['initial_purchase_value']) if \
+                po_grn_initial_value = PosCartProductMapping.objects.filter(
+                    product=product['id'], is_grn_done=True).last()
+                product['initial_purchase_value'] = po_grn_initial_value.price * po_grn_initial_value.pack_size
+            total_purchase_value = (product['initial_purchase_value'] * quantity)/product['purchase_pack_size'] if \
                 product['initial_purchase_value'] else None
             writer.writerow(
                 [(i + 1), product['name'], product['sku'], product['linked_product__product_sku'],
