@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, ShopStatusLog)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
@@ -210,6 +210,22 @@ class ShopCityFilter(InputFilter):
         return queryset
 
 
+class ShopStatusAdmin(admin.TabularInline):
+    model = ShopStatusLog
+    fields = ('reason', 'user', 'created_at')
+    readonly_fields = ('reason', 'user', 'created_at')
+    extra = 0
+
+    def created_at(self, obj):
+        return obj.changed_at
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     change_form_template = 'admin/shops/shop/change_form.html'
@@ -220,7 +236,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv", "disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping
+        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
@@ -335,6 +351,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def disable_shop(modeladmin, request, queryset):
         queryset.update(approval_status=0)
+        for shop in queryset:
+            ShopStatusLog.objects.create(reason='Disapproved', user=request.user, shop=shop)
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
@@ -353,6 +371,18 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_shop_parent(self, obj):
         if obj.retiler_mapping.exists():
             return obj.retiler_mapping.last().parent
+
+    def save_model(self, request, obj, form, change):
+        if 'approval_status' in form.changed_data:
+            approval_status = form.cleaned_data['approval_status']
+            if approval_status == 0:
+                reason = 'Disapproved'
+            elif approval_status == 1:
+                reason = 'Awaiting Approval'
+            else:
+                reason = 'Approved'
+            ShopStatusLog.objects.create(reason = reason, user = request.user, shop = obj)
+        return super(ShopAdmin, self).save_model(request, obj, form, change)
 
     get_shop_parent.short_description = 'Parent Shop'
 
