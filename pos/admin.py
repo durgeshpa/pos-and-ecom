@@ -1,7 +1,7 @@
 import csv
 from datetime import date
 from io import StringIO
-
+from django.db.models import Q, Sum
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
@@ -972,21 +972,31 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
-                         'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
-                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
+        writer.writerow(['GRN Id','GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount' ,'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                         'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.','Store Id', 'Store Name', 'Shop User',
+                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'Tax Type ',
+                         'Tax Rate','Unit Price', 'Tax value','Total Value',
                          'Recieved Quantity'])
 
         for obj in queryset:
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.order.ordered_cart.status, obj.invoice_no, obj.invoice_date,
+                writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
+                                 obj.order.ordered_cart.status,
+                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum')*p.product.product_price,
+                                 obj.invoice_no, obj.invoice_date,
                                  obj.invoice_amount,  obj.created_at,
-                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
+                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
+                                 obj.order.ordered_cart.vendor.gst_number,
+                                 obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.received_qty])
+                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum'),p.product.product_tax.tax_type,
+                                 p.product.product_tax.tax_percentage,p.product.product_price,
+                                 (p.product.product_price*p.product.product_tax.tax_percentage)/100,
+                                 p.product.product_price+(p.product.product_price*p.product.product_tax.tax_percentage)/100,
+                                 p.received_qty])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

@@ -237,10 +237,10 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO', 'STORE NAME',
+            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'TAX TYPE','TAX RATE','STORE NAME',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
             'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
-            'GIVEN QTY', 'GIVEN QTY UNIT', 'CREATED AT'
+            'GRN  QTY', 'GIVEN QTY UNIT', 'CREATED AT','Vendor Name', 'Vendor Address','Vendor State','phone_number'
         ]
     )
     rows = []
@@ -255,6 +255,11 @@ def generate_prn_csv_report(queryset):
                     p_return.pr_number,
                     p_return.status,
                     p_return.po_no,
+                    p_return.grn_ordered_id.order.ordered_cart.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
+                    p_return.grn_ordered_id.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
+                    return_item.product.product_price,
+                    return_item.product.product_tax.tax_type,
+                    return_item.product.product_tax.tax_percentage,
                     shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
@@ -264,9 +269,15 @@ def generate_prn_csv_report(queryset):
                     return_item.selling_price,
                     return_item.return_qty,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
-                    return_item.qty_given,
+                    return_item.grn_received_qty if return_item.grn_return_id.grn_ordered_id else 0,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
-                    p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S")
+                    p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S"),
+                    p_return.vendor_id.vendor_name if p_return.vendor_id else "",
+                    p_return.vendor_id.address if p_return.vendor_id else '' ,
+                    p_return.vendor_id.state if p_return.vendor_id else '' ,
+                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else '' ,
+
+
                 ]
             )
     csv_writer.writerows(rows)
