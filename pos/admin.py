@@ -994,8 +994,8 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
                                  brand, sub_brand,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum'),p.product.product_tax.tax_type,
                                  p.product.product_tax.tax_percentage,p.product.product_price,
-                                 (p.product.product_price*p.product.product_tax.tax_percentage)/100,
-                                 p.product.product_price+(p.product.product_price*p.product.product_tax.tax_percentage)/100,
+                                 (float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                 float(p.product.product_price)+(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
                                  p.received_qty])
 
         f.seek(0)
