@@ -182,6 +182,22 @@ def qc_areas(picker_dashboards):
             ) for s in picker_dashboards)
     )
 
+def qc_desks(picker_dashboards):
+    return format_html_join(
+        "", "{}<br><br>",
+        (((s.qc_area.qc_desk_areas.last().name if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last()) if s.qc_area else "-",) for s in picker_dashboards)
+    )
+
+def qc_executives(picker_dashboards):
+    # var = [(
+    #        s.qc_area.qc_desk_areas.last().qc_executive if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last() if s.qc_area else "-",)
+    #        for s in picker_dashboards]
+    # print(var)
+    return format_html_join(
+        "", "{}<br><br>",
+        (((s.qc_area.qc_desk_areas.last().qc_executive if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last()) if s.qc_area else "-",) for s in picker_dashboards)
+    )
+
 def zones(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
