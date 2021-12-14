@@ -1065,7 +1065,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
-                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    'qc_desk', 'qc_executive', 'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1632,6 +1632,11 @@ class ShipmentAdmin(NestedModelAdmin):
         except:
             city = obj.order.seller_shop.shop_name_address_mapping.last().city
         return str(city)
+
+    def invoice_amount(self, obj):
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] or obj.invoice_no == '-':
+            return format_html("-")
+        return obj.invoice_amount
 
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:
