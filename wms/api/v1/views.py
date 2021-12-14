@@ -575,12 +575,11 @@ class BinIDList(APIView):
             if bins_added.get(pick_up.bin.bin.id) is not None and \
                     bins_added[pick_up.bin.bin.id]["pickup_status"] != 'picking_complete':
                 continue
-            if pick_up.pickup_quantity is None:
-                pickup_status = 'picking_pending'
+
+            if pick_up.pickup_quantity is not None and pick_up.pickup_quantity < pick_up.quantity:
+                pickup_status = 'picking_partial'
             elif pick_up.pickup_quantity == pick_up.quantity:
                 pickup_status = 'picking_complete'
-            elif 0 < pick_up.pickup_quantity < pick_up.quantity:
-                pickup_status = 'picking_partial'
             else:
                 pickup_status = 'picking_pending'
 
