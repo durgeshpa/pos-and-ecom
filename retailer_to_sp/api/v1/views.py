@@ -6759,7 +6759,7 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
-            if not request.GET.get('shipment_id') or not request.GET.get('batch_id'):
+            if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
 
@@ -6796,6 +6796,7 @@ class ProcessShipmentView(generics.GenericAPIView):
         """ Filters the Shipment data based on request"""
         shipment_id = self.request.GET.get('shipment_id')
         batch_id = self.request.GET.get('batch_id')
+        ean_code = self.request.GET.get('ean_code')
 
         '''Filters using shipment_id & batch_id'''
         if shipment_id:
@@ -6803,6 +6804,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         if batch_id:
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
+
+        if ean_code:
+            self.queryset = self.queryset.filter(product__product_ean_code=ean_code)
 
         return self.queryset.distinct('id')
 
