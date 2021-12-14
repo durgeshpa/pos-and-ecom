@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+from products.models import  ProductTaxMapping
 from django.utils.safestring import mark_safe
 from django.db import models
 
@@ -101,6 +101,9 @@ class RetailerProduct(models.Model):
     @property
     def product_price(self):
         return self.selling_price
+    @property
+    def product_tax(self):
+        return ProductTaxMapping.objects.filter(product=self.id).first().tax
 
     def save(self, *args, **kwargs):
         # Discounted
@@ -588,6 +591,10 @@ class PosReturnItems(models.Model):
         elif self.product.product_pack_type == 'loose' and not self.grn_return_id.grn_ordered_id:
             return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
+
+    @property
+    def grn_received_qty(self):
+        return self.grn_return_id.grn_ordered_id.po_grn_products.filter(product=self.product).first().received_qty
 
     def save(self, *args, **kwargs):
         if not self.id and self.grn_return_id.grn_ordered_id:
