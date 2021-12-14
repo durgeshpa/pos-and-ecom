@@ -1633,6 +1633,11 @@ class ShipmentAdmin(NestedModelAdmin):
             city = obj.order.seller_shop.shop_name_address_mapping.last().city
         return str(city)
 
+    def invoice_amount(self, obj):
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] or obj.invoice_no == '-':
+            return format_html("-")
+        return obj.invoice_amount
+
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:
             return format_html("<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Order Cancelled</a>" %(obj.id))
