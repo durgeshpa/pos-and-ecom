@@ -80,7 +80,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
-                  'product_image', 'product_mrp')
+                  'product_image', 'product_mrp', 'product_ean_code')
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
