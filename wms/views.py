@@ -1176,7 +1176,8 @@ def mail_products_list_not_mapped_yet_to_any_zone():
             recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER", recipient_list)
         subject = 'Products list non-mapped with any zone'
         body = "PFA the list of products which are not mapped with any zone. " \
-               "Please note that this order can't be process until and unless these products get mapped with zone."
+               "Please note that any order having any of these products can't be processed " \
+               "until and unless these products get mapped with zone."
         f = StringIO()
         writer = csv.writer(f)
         filename = 'Products-without-zone-mapped.csv'
