@@ -1169,7 +1169,7 @@ def mail_products_list_not_mapped_yet_to_any_zone():
         product_parent_product__related_sku__quantity__gt=0,
         product_parent_product__related_sku__warehouse__id=600, product_zones__isnull=True).distinct()
     info_logger.info("Non mapped products, Count: " + str(products.count()))
-    if products:
+    if products.count() > 0:
         sender = get_config("sender")
         recipient_list = get_config("MAIL_DEV")
         if config('OS_ENV') and config('OS_ENV') in ['Production']:
