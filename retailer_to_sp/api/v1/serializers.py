@@ -1925,7 +1925,7 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
-    shipment = ShipmentSerializerForDispatch()
+    shipment = ShipmentSerializerForDispatch(read_only=True)
 
     @staticmethod
     def get_status(obj):
@@ -2012,13 +2012,13 @@ class DispatchTripShipmentPackagesSerializers(serializers.ModelSerializer):
 
 
 class DispatchTripShipmentMappingSerializer(serializers.ModelSerializer):
-    trip_id = DispatchTripSerializers(read_only=True)
-    shipment = OrderedProductSerializer(read_only=True)
+    trip = DispatchTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
     trip_shipment_mapped_packages = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
 
     class Meta:
         model = DispatchTripShipmentMapping
-        fields = ('id', 'trip_id', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages',)
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages',)
 
 
 class DispatchTripCrudSerializers(serializers.ModelSerializer):
@@ -2304,9 +2304,13 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
 
 class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
+    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
+
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = '__all__'
+        fields = ('trip_shipment', 'created_by', 'updated_by')
 
     def validate(self, data):
         # Validate request data
@@ -2346,6 +2350,12 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
             raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                               f"cannot load package")
+
+        # Check if invoice loading already completed
+        if DispatchTripShipmentMapping.objects.filter(trip=trip, shipment=package.shipment,
+                                                      shipment_status=DispatchTripShipmentMapping.LOADED_FOR_DC).exists():
+            raise serializers.ValidationError("The invoice loading is already completed.")
+
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
                 trip=trip, shipment=package.shipment,
@@ -2387,6 +2397,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         """create a new DispatchTrip Package Mapping"""
         try:
@@ -2394,11 +2405,11 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             if not trip_shipment:
                 trip_shipment = DispatchTripShipmentMapping.objects.create(**validated_data['trip_shipment_mapping'])
             else:
-                trip_shipment = trip_shipment.update(**validated_data['trip_shipment_mapping'])
+                trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
+                trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
             trip_package_mapping = DispatchTripShipmentPackages.objects.create(**validated_data['trip_package_mapping'])
-            self.post_package_load_trip_update(trip_package_mapping, trip_shipment,
-                                               validated_data['trip_shipment_mapping'])
+            self.post_package_load_trip_update(trip_package_mapping, trip_shipment)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -2417,10 +2428,10 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             trip_shipment.shipment_status = DispatchTripShipmentMapping.LOADED_FOR_DC
 
             # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
+            shipment_health = trip_shipment.shipment_health
             if trip_shipment.trip_shipment_mapped_packages.\
                 filter(package_status=trip_package_mapping.package_status).count() == \
                 trip_shipment.trip_shipment_mapped_packages.count():
-                shipment_health = trip_shipment.shipment_health
                 if trip_package_mapping.package_status == DispatchTripShipmentPackages.DAMAGED_AT_LOADING:
                     shipment_health = DispatchTripShipmentMapping.FULLY_DAMAGED
                 elif trip_package_mapping.package_status == DispatchTripShipmentPackages.MISSING_AT_LOADING:
@@ -2430,16 +2441,16 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             trip_shipment.save()
             shipment.shipment_status = OrderedProduct.READY_TO_DISPATCH
             shipment.save()
-
-            if shipment_health not in [DispatchTripShipmentMapping.FULLY_MISSING,
-                                       DispatchTripShipmentMapping.FULLY_DAMAGED]:
-                trip.no_of_shipments = trip.no_of_shipments + 1
+            #
+            # if shipment_health not in [DispatchTripShipmentMapping.FULLY_MISSING,
+            #                            DispatchTripShipmentMapping.FULLY_DAMAGED]:
+            #     trip.no_of_shipments = trip.no_of_shipments + 1
         if trip_package_mapping.package_status == DispatchTripShipmentPackages.LOADED:
-            if trip_package_mapping.shipment_packaging.package_type == ShipmentPackaging.CRATE:
+            if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
                 trip.no_of_crates = trip.no_of_crates + 1
-            elif trip_package_mapping.shipment_packaging.package_type == ShipmentPackaging.BOX:
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
                 trip.no_of_packets = trip.no_of_packets + 1
-            elif trip_package_mapping.shipment_packaging.package_type == ShipmentPackaging.SACK:
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
                 trip.no_of_sacks = trip.no_of_sacks + 1
             package_weight = trip_package_mapping.shipment_packaging.packaging_details.all()\
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),

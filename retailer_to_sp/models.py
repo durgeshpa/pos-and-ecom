@@ -3448,5 +3448,5 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
 
-INVOICE_AVAILABILITY_CHOICES = Choices((0, 'ALL', 'All'), (1, 'ADDED', 'Added'), (2, 'NOT_ADDED', 'Not Added'))
-PACKAGE_VERIFY_CHOICES = Choices((0, 'OK', 'Okay'), (1, 'DAMAGED', 'Damaged'), (2, 'MISSING', 'Missing'))
+INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
+PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))
