@@ -233,7 +233,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
               'approval_status']
-    actions = ["export_as_csv", "disable_shop"]
+    actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
@@ -353,6 +353,24 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         queryset.update(approval_status=0)
         for shop in queryset:
             ShopStatusLog.objects.create(reason='Disapproved', user=request.user, shop=shop)
+
+    def download_status_report(self, request, queryset):
+
+        field_names = ['shop_id', 'shop_name', 'reason', 'changed at', 'user_id', 'user_name']
+        meta = self.model._meta
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in queryset:
+            data = ShopStatusLog.objects.values_list(
+                'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
+
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
