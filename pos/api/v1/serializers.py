@@ -1885,11 +1885,16 @@ class POSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid Vendor Id")
 
         # Validate products
+        product_list = []
         for product_dict in attrs['products']:
             product = RetailerProduct.objects.filter(id=product_dict['product_id'],
                                                      shop=self.context.get('shop')).last()
             if not product:
                 raise serializers.ValidationError("Product Id Invalid {}".format(product_dict['product_id']))
+            if product.id in product_list:
+                raise serializers.ValidationError("{} | Do not repeat same product for one PO".format(product.name))
+            product_list.append(product.id)
+
             if float(product_dict['price']) > float(product.mrp):
                 raise serializers.ValidationError(
                     "Price cannot be greater than product MRP ({}) for product {}".format(product.mrp, product.name))
@@ -2150,6 +2155,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
 
         # Validate products
         product_added = False
+        product_list = []
         for product in attrs['products']:
             product['product_id'] = int(product['product_id'])
             po_product = po.po_products.filter(product_id=product['product_id']).last()
@@ -2159,6 +2165,9 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             product_added = True
             product_obj = po_product.product
             # qty w.r.t pack type
+            if product_obj.id in product_list:
+                raise serializers.ValidationError("{} | Do not repeat same product for one GRN".format(product_obj.name))
+            product_list.append(product_obj.id)
             if product_obj.product_pack_type == 'loose':
                 if po_product.qty_conversion_unit:
                     product['received_qty'], qty_unit = get_default_qty(po_product.qty_conversion_unit.unit, product_obj,
