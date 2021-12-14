@@ -1892,7 +1892,7 @@ class POSerializer(serializers.ModelSerializer):
             if not product:
                 raise serializers.ValidationError("Product Id Invalid {}".format(product_dict['product_id']))
             if product.id in product_list:
-                raise serializers.ValidationError("{} | Do not repeat same product for one PO".format(product.name))
+                raise serializers.ValidationError("{} | Duplicate product found for PO".format(product.name))
             product_list.append(product.id)
 
             if float(product_dict['price']) > float(product.mrp):
@@ -2166,7 +2166,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             product_obj = po_product.product
             # qty w.r.t pack type
             if product_obj.id in product_list:
-                raise serializers.ValidationError("{} | Do not repeat same product for one GRN".format(product_obj.name))
+                raise serializers.ValidationError("{} | Duplicate product found for GRN".format(product_obj.name))
             product_list.append(product_obj.id)
             if product_obj.product_pack_type == 'loose':
                 if po_product.qty_conversion_unit:
