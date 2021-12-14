@@ -1065,7 +1065,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
-                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    'qc_desk', 'qc_executive', 'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
