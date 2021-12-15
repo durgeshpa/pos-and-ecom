@@ -2147,7 +2147,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     def get_shipment_status(self, obj):
         if obj.shipment_status:
             shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
-            return shipment_status[obj.shipment_status]
+            return shipment_status.get(obj.shipment_status)
         return "-"
     get_shipment_status.short_description = "Shipment Status"
 
