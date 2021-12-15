@@ -7903,7 +7903,7 @@ class UnloadVerifyPackageView(generics.GenericAPIView):
             return get_response("'status' | This is required.", False)
 
         # validations for input
-        shipment_validation = self.validate_trip_shipment_package(self.queryset, int(modified_data['package_id']),
+        shipment_validation = self.validate_trip_shipment_package(int(modified_data['package_id']),
                                                                   int(modified_data['trip_id']))
         if 'error' in shipment_validation:
             return get_response(shipment_validation['error'])
