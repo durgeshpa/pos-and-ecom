@@ -2217,7 +2217,8 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         return data
 
     def unloading_added_shipments_to_trip(self, dispatch_trip):
-        shipment_details = dispatch_trip.shipments_details.filter(shipment_status=OrderedProduct.IN_TRANSIT_TO_DISPATCH)
+        shipment_details = dispatch_trip.shipments_details.filter(
+            shipment_status=DispatchTripShipmentMapping.LOADED_FOR_DC)
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC)
 
     def dispatch_added_shipments_to_trip(self, dispatch_trip):
