@@ -226,7 +226,7 @@ def order_shipment_status_reason(shipments):
 def order_shipment_amount(shipments):
     return format_html_join(
     "","{}<br><br>",
-            ((s.invoice_amount,
+            ((s.invoice_amount if s.shipment_status not in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] else '-',
             ) for s in shipments)
     )
 
