@@ -2216,6 +2216,26 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         return data
 
+    def unloading_added_shipments_to_trip(self, dispatch_trip):
+        shipment_details = dispatch_trip.shipments_details.filter(
+            shipment_status=DispatchTripShipmentMapping.LOADED_FOR_DC)
+        shipment_details.update(shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC)
+
+    def dispatch_added_shipments_to_trip(self, dispatch_trip):
+        shipment_details = dispatch_trip.shipments_details.all()
+        for shipment_detail in shipment_details:
+            if shipment_detail.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                shipment_detail.shipment.shipment_status = OrderedProduct.IN_TRANSIT_TO_DISPATCH
+                shipment_detail.shipment.save()
+            shipment_packagings = shipment_detail.trip_shipment_mapped_packages.all()
+            for mapping in shipment_packagings:
+                if mapping.package_status in [DispatchTripShipmentPackages.LOADED,
+                                              DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                                              DispatchTripShipmentPackages.MISSING_AT_LOADING] and \
+                        mapping.shipment_packaging.status == ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH:
+                    mapping.shipment_packaging.status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED
+                    mapping.shipment_packaging.save()
+
     def cancel_added_shipments_to_trip(self, dispatch_trip):
         shipment_details = dispatch_trip.shipments_details.all()
         for mapping in shipment_details:
@@ -2233,6 +2253,12 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        if validated_data['trip_status'] == DispatchTrip.STARTED:
+            self.dispatch_added_shipments_to_trip(dispatch_trip_instance)
+
+        if validated_data['trip_status'] == DispatchTrip.UNLOADING:
+            self.unloading_added_shipments_to_trip(dispatch_trip_instance)
 
         if validated_data['trip_status'] == DispatchTrip.CANCELLED:
             self.cancel_added_shipments_to_trip(dispatch_trip_instance)
@@ -2460,15 +2486,16 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
 
 class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
+    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = '__all__'
+        fields = ('trip_shipment', 'created_by', 'updated_by')
 
     def validate(self, data):
         # Validate request data
-        if 'id' in self.initial_data:
-            raise serializers.ValidationError('Updating package is not allowed')
 
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
             raise serializers.ValidationError("'trip_id' | This is required.")
@@ -2491,6 +2518,12 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
         # Check for package status
         if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED:
             raise serializers.ValidationError(f"Package is in {package.status} state, Can't be unloaded")
+
+        # Check if invoice loading already completed
+        if DispatchTripShipmentMapping.objects.filter(
+                trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).exists():
+            raise serializers.ValidationError("The invoice unloading is already completed.")
 
         # Check if package is loaded in trip
         if not package.trip_packaging_details.filter(package_status=DispatchTripShipmentPackages.LOADED).exists():
@@ -2532,7 +2565,7 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping'] = {}
         data['trip_shipment_mapping']['trip'] = trip
         data['trip_shipment_mapping']['shipment'] = package.shipment
-        data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
+        data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.UNLOADING_AT_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
 
         data['trip_package_mapping'] = {}
@@ -2542,13 +2575,14 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """update DispatchTrip Package Mapping"""
         try:
             trip_package_mapping = super().update(instance, validated_data['trip_package_mapping'])
             trip_shipment = validated_data['trip_package_mapping']['trip_shipment']
-            trip_shipment.shipment_status = validated_data['trip_package_mapping']['shipment_status']
-            trip_shipment.shipment_health = validated_data['trip_package_mapping']['shipment_health']
+            trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
+            trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
             trip_shipment.save()
             self.post_package_unload_trip_update(trip_package_mapping, trip_shipment)
         except Exception as e:
@@ -2570,6 +2604,7 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
 
             # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
+            shipment_health = trip_shipment.shipment_health
             if trip_shipment.trip_shipment_mapped_packages.\
                 filter(package_status=trip_package_mapping.package_status).count() == \
                 trip_shipment.trip_shipment_mapped_packages.count():
