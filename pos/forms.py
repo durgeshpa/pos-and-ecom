@@ -12,7 +12,7 @@ import csv
 from tempus_dominus.widgets import DateTimePicker
 
 from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
-    MeasurementUnit
+    MeasurementUnit, BulkRetailerProduct
 from products.models import Product
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
@@ -92,14 +92,14 @@ class RetailerProductsCSVDownloadForm(forms.Form):
     """
         Select shop for downloading Retailer Products
     """
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', )
     )
 
 
-class RetailerProductsCSVUploadForm(forms.Form):
+class RetailerProductsCSVUploadForms(forms.Form):
     """
         Select shop for create or update Products
     """
@@ -474,3 +474,41 @@ class RetailerPurchaseReportForm(forms.Form):
                                      pos_enabled=True, pos_shop__status=True),
         widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
     )
+
+
+class RetailerProductsCSVUploadForm(forms.ModelForm):
+    """
+        Select shop for create or update Products
+    """
+    seller_shop = forms.ModelChoiceField(
+        label='Select Shop',
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['f']),
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', ),
+    )
+
+    class Meta:
+        model = BulkRetailerProduct
+        fields = ('seller_shop', 'products_csv', 'uploaded_by',)
+
+    def __init__(self, *args, **kwargs):
+
+        try:
+            self.shop_id = kwargs.pop('shop_id')
+        except:
+            self.shop_id = ''
+
+        try:
+            self.uploaded_by = kwargs.pop('user')
+        except:
+            self.uploaded_by = ''
+        super().__init__(*args, **kwargs)
+        self.fields['uploaded_by'].required = False
+        self.fields['uploaded_by'].widget = forms.HiddenInput()
+
+    def clean(self):
+        if 'products_csv' in self.cleaned_data:
+            if self.cleaned_data['products_csv']:
+                if not self.cleaned_data['products_csv'].name[-4:] in ('.csv'):
+                    raise forms.ValidationError("Sorry! Only csv file accepted")
+        self.cleaned_data['uploaded_by'] = self.uploaded_by
+
