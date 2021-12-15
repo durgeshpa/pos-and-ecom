@@ -1187,6 +1187,39 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 #     cron_log_entry.save()
 
 
+def mail_products_list_not_mapped_yet_to_any_zone():
+    info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | STARTED')
+    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+    stage_total_available = InventoryState.objects.only('id').get(inventory_state='total_available').id
+    products = ParentProduct.objects.filter(
+        status=True, product_parent_product__status='active',
+        product_parent_product__related_sku__inventory_type=type_normal,
+        product_parent_product__related_sku__inventory_state=stage_total_available,
+        product_parent_product__related_sku__quantity__gt=0,
+        product_parent_product__related_sku__warehouse__id=600, product_zones__isnull=True).distinct()
+    info_logger.info("Non mapped products, Count: " + str(products.count()))
+    if products.count() > 0:
+        sender = get_config("sender")
+        recipient_list = get_config("MAIL_DEV")
+        if config('OS_ENV') and config('OS_ENV') in ['Production']:
+            recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER", recipient_list)
+        subject = 'Products list non-mapped with any zone'
+        body = "PFA the list of products which are not mapped with any zone. " \
+               "Please note that order having any of these products can't be processed " \
+               "until and unless these products get mapped with zone."
+        f = StringIO()
+        writer = csv.writer(f)
+        filename = 'Products-without-zone-mapped.csv'
+        columns = ['Parent Id', 'Name']
+        writer.writerow(columns)
+        for item in products:
+            writer.writerow([item.parent_id, item.name])
+        attachment = {'name': filename, 'type': 'text/csv', 'value': f.getvalue()}
+        send_mail(sender, recipient_list, subject, body, [attachment])
+        info_logger.info("Email sent to the warehouse team with the list of products non mapped with any zone.")
+    info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | COMPLETED')
+
+
 def mail_warehouse_team_for_product_mappings(order_no, product_ids):
     """
     Generates and send mail to warehouse team with the summary of all the
