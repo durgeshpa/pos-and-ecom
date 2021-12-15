@@ -193,7 +193,11 @@ class Shop(models.Model):
     @property
     def get_shop_pin_code(self):
         if self.shop_name_address_mapping.exists():
-            return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
+            pincode = self.shop_name_address_mapping.filter(address_type='shipping').last().pincode
+            if pincode:
+                return pincode
+            else:
+                return self.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode
 
     get_shop_pin_code.fget.short_description = 'PinCode'
 
