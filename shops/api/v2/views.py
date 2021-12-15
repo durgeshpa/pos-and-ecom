@@ -284,7 +284,7 @@ class ShopCrudView(generics.GenericAPIView):
             return get_response(id_validation['error'])
         shop_instance = id_validation['data']
 
-        serializer = self.serializer_class(instance=shop_instance, data=modified_data)
+        serializer = self.serializer_class(instance=shop_instance, data=modified_data, context={'request':request})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Updated Successfully.")
@@ -826,7 +826,7 @@ class DisapproveShopSelectedShopView(UpdateAPIView):
 
         info_logger.info("Shop Disapproved PUT api called.")
         serializer = self.serializer_class(instance=self.shop_list.filter(id__in=request.data['shop_id_list']),
-                                           data=request.data, partial=True)
+                                           data=request.data, partial=True, context = {'request': request})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             return get_response('shop disapproved successfully!', True)

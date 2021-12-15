@@ -530,6 +530,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         validated_data.pop('retiler_mapping', None)
         new_approval_status = validated_data.get('approval_status', None)
         old_approval_status = getattr(instance, 'approval_status')
+        request = self.context.get('request', None)
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
@@ -547,7 +548,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 reason = 'Awaiting Approval'
             else:
                 reason = 'Approved'
-            ShopStatusLog.objects.create(reason=reason, user=self.request.user, shop=instance)
+            ShopStatusLog.objects.create(reason=reason, user=request.user, shop=instance)
         return shop_instance
 
     def cr_up_addrs_imgs_docs_parentshop_relateduser(self, shop, action):
@@ -864,12 +865,13 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         try:
+            request = self.context.get('request', None)
             parent_products = Shop.objects.filter(
                 id__in=validated_data['shop_id_list'])
             parent_products.update(approval_status=int(validated_data['approval_status']),
                                    updated_by=validated_data['updated_by'], updated_at=timezone.now())
             for shop in parent_products:
-                ShopStatusLog.objects.create(reason='Disapproved', user=self.request.user, shop=instance)
+                ShopStatusLog.objects.create(reason='Disapproved', user=request.user, shop=shop)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(
                 e.args) > 0 else 'Unknown Error'}
@@ -1218,7 +1220,7 @@ class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         meta = Shop._meta
-        field_names = ['shop', 'reason', 'changed at', 'user']
+        field_names = ['shop_id', 'shop_name', 'reason', 'changed at', 'user_id', 'user_name']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1227,7 +1229,7 @@ class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
         writer.writerow(field_names)
         for s_id in validated_data['shop_id_list']:
             data = ShopStatusLog.objects.values_list(
-                'shop', 'reason', 'changed_at', 'user') \
+                'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
                 .filter(shop__id=s_id)
             for obj in data:
                 writer.writerow(list(obj))
