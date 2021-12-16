@@ -774,7 +774,7 @@ def RetailerCatalogueSampleFile(request, *args):
                      "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
                      "2021-11-23", 8])
     writer.writerow(["", 36966, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", "", 'packet', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                     "", "", "", "", 'active', 2, "", "", "", 'packet', '', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
                      "2021-11-23", 9.5])
 
     return response

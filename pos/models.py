@@ -687,8 +687,8 @@ class BulkRetailerProduct(models.Model):
                 self.save()
                 bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
                 if len(error_dict) > 0:
-                    error_logger.info(f"Product can't create for some rows: {error_dict}")
-                    raise ValidationError(mark_safe(f"Product can't create for some rows, Please click the "
+                    error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                    raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
                                                     f"below Link for seeing the status"
                                                     f"{self.uploaded_product_list_status(error_dict)}"))
             else:

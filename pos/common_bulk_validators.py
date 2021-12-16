@@ -56,6 +56,7 @@ def bulk_product_validation(products_csv, shop_id):
     RetailerProduct = apps.get_model('pos.RetailerProduct')
     MeasurementCategory = apps.get_model('pos.MeasurementCategory')
     MeasurementUnit = apps.get_model('pos.MeasurementUnit')
+
     validated_rows = []
     error_dict = {}
     reader = csv.reader(codecs.iterdecode(products_csv, 'utf-8', errors='ignore'))
@@ -90,7 +91,7 @@ def bulk_product_validation(products_csv, shop_id):
             raise ValidationError(str(resp_initial_purchase_value['msg']))
 
         if int(row["shop_id"]) != shop_id:
-            error_msg.append("Check the shop id, you might be uploading to wrong shop!")
+            error_msg.append("uploading wrong shop!")
 
         if row["product_id"] != '':
             if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
@@ -108,8 +109,7 @@ def bulk_product_validation(products_csv, shop_id):
         if 'linked_product_sku' in row.keys():
             if row['linked_product_sku'] != '':
                 if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
-                    error_msg.append(
-                        _(f"{row['linked_product_sku']} | 'SKU ID' doesn't exist."))
+                    error_msg.append(str(f"linked_product_sku {row['linked_product_sku']} doesnt exist"))
 
         # Check for discounted product
         if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price') == '':
@@ -158,7 +158,7 @@ def bulk_product_validation(products_csv, shop_id):
             check_mandatory_data(row, 'measurement_category', row_num)
             try:
                 measure_cat = MeasurementCategory.objects.get(category=row['measurement_category'])
-                MeasurementUnit.objects.get(category=measure_cat)
+                MeasurementUnit.objects.get(id=measure_cat.id)
             except:
                 error_msg.append(str(f"Invalid measurement_category."))
             row['purchase_pack_size'] = 1
@@ -187,7 +187,7 @@ def bulk_product_validation(products_csv, shop_id):
 
         if error_msg:
             msg = ", "
-            msg = msg.join(error_msg)
+            msg = msg.join(map(str, error_msg))
             error_dict[str(row_num)] = msg
         else:
             validated_rows.append(row)
