@@ -146,6 +146,7 @@ INSTALLED_APPS = [
     'ecom',
     'cms',
     'drf_yasg',
+    'report',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
