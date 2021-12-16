@@ -564,7 +564,7 @@ LOGGING = {
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': 'retailer-backend/error.log',
+           'filename': '/var/log/retailer-backend/error.log',
            'formatter': 'verbose',
        },
        # 'console': {
@@ -574,7 +574,7 @@ LOGGING = {
         'cron_log_file': {
              'level': 'INFO',
              'class': 'logging.FileHandler',
-             'filename': 'retailer-backend/scheduled_jobs.log',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
 
@@ -614,26 +614,3 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-        }
-    },
-    'loggers': {
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-        },
-    }
-}
-
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
-WKHTMLTOPDF_CMD_OPTIONS = {
-    'quiet': True,
-    'enable_local_file_access': True
-}
