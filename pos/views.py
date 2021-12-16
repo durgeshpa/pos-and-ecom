@@ -927,7 +927,7 @@ class RetailerOrderedReportView(APIView):
                                                           order__ordered_cart__cart_type='BASIC',
                                                           order__seller_shop__id=shop,
                                                           order__rt_payment_retailer_order__payment_type__type__in=
-                                                          ['cash', 'Cash on delivery'],
+                                                          ['cash', 'Cash On Delivery', 'cash on delivery'],
                                                           order__ordered_by__id=user,
                                                           order__order_status__in=
                                                           [RetailerOrderedReport.ORDERED,
@@ -940,7 +940,7 @@ class RetailerOrderedReportView(APIView):
                                                             order__ordered_cart__cart_type='BASIC',
                                                             order__seller_shop__id=shop,
                                                             order__rt_payment_retailer_order__payment_type__type__in=
-                                                            ['PayU', 'credit', 'online'],
+                                                            ['PayU', 'credit', 'online', 'payu'],
                                                             order__ordered_by__id=user,
                                                             order__order_status__in=[
                                                                 RetailerOrderedReport.ORDERED,
@@ -977,7 +977,6 @@ class RetailerOrderedReportView(APIView):
                                                              ['PayU', 'credit', 'online', 'payu'],
                                                              order__ordered_by__id=user,
                                                              order__order_status__in=[
-                                                                 RetailerOrderedReport.PICKUP_CREATED,
                                                                  RetailerOrderedReport.OUT_FOR_DELIVERY,
                                                                  RetailerOrderedReport.PARTIALLY_RETURNED,
                                                                  RetailerOrderedReport.DELIVERED,
