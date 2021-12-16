@@ -19,7 +19,7 @@ from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, 
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty
-from pos.common_validators import get_validate_grn_order
+from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
@@ -343,8 +343,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock', 'product_ean_code')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -640,9 +639,14 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
+    order_cancel_reson = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
+
+    def get_order_cancel_reson(self,obj):
+        if obj.order_status == "CANCELLED":
+            return obj.get_cancellation_reason_display()
 
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
@@ -666,7 +670,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
+        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
                   'delivery_persons')
 
 
@@ -2540,7 +2544,23 @@ class RetailerProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'product_pack_type')
+        fields = ('id', 'name', 'product_pack_type', 'mrp')
+
+
+class PosInventoryProductMappingSerializer(serializers.ModelSerializer):
+    product = RetailerProductSerializer(read_only=True)
+    # inventory_state = serializers.SerializerMethodField()
+    available_quantity = serializers.SerializerMethodField()
+
+    # def get_inventory_state(self, obj):
+    #     return PosInventoryState.objects.filter(inventory_state=obj.inventory_state).last().inventory_state
+
+    def get_available_quantity(self, obj):
+        return obj.quantity
+
+    class Meta:
+        model = PosInventory
+        fields = ('product', 'available_quantity',)
 
 
 class PosGRNOrderProductMappingSerializer(serializers.ModelSerializer):
@@ -2754,8 +2774,9 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                                                                               po_product.product,
                                                                               rtn_product['return_qty'])
                     else:
-                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category, default=True).unit,
-                                                                          rtn_product['return_qty'])
+                        rtn_product['return_qty'], qty_unit = get_default_qty(MeasurementUnit.objects.get(category=po_product.product.measurement_category,default=True).unit,
+                                                                              po_product.product,
+                                                                              rtn_product['return_qty'])
                     rtn_product['pack_size'] = 1
                 else:
                     rtn_product['return_qty'] = int(rtn_product['return_qty'])
@@ -2879,7 +2900,8 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
                 pos_return_items_obj.save()
             else:
                 pos_return_items_obj.is_active = True
-                pos_return_items_obj.return_qty = grn_product_return['return_qty']
+                current_return_qty = grn_product_return['return_qty']
+                pos_return_items_obj.return_qty = current_return_qty
                 pos_return_items_obj.save()
 
             if created:
@@ -2911,6 +2933,7 @@ class ReturnGrnOrderSerializer(serializers.ModelSerializer):
 
         post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
         products = post_return_item.values('product_id', 'return_qty', 'pack_size')
+
         for grn_product_return in products:
             PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
                                           PosInventoryState.AVAILABLE, grn_product_return['return_qty'],
@@ -3012,6 +3035,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     delivery_person = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
+    order_cancel_reson = serializers.SerializerMethodField()
 
     @staticmethod
     def get_order_update(obj):
@@ -3021,6 +3045,11 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
+
+
+    def get_order_cancel_reson(self,obj):
+        if obj.order_status == "CANCELLED":
+            return obj.get_cancellation_reason_display()
 
     @staticmethod
     def get_invoice_amount_total(obj):
@@ -3202,4 +3231,267 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display', 'payment')
+                  'order_status_display','order_cancel_reson', 'payment')
+
+
+class PRNReturnItemsSerializer(serializers.ModelSerializer):
+    returned_product = serializers.SerializerMethodField()
+    return_qty = serializers.SerializerMethodField()
+    total_return_qty = serializers.SerializerMethodField()
+    return_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PosReturnItems
+        fields = ('pack_size', 'return_qty', 'return_price', 'total_return_qty', 'returned_product')
+
+    @staticmethod
+    def get_return_qty(obj):
+        return obj.qty_given
+
+    @staticmethod
+    def get_total_return_qty(obj):
+        return obj.return_qty
+
+    @staticmethod
+    def get_return_price(obj):
+        return obj.selling_price
+
+    @staticmethod
+    def get_returned_product(obj):
+        i_state_obj = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        product_in_inventory = PosInventory.objects.filter(product=obj.product.id,
+                                                           product__shop=obj.product.shop,
+                                                           inventory_state=i_state_obj)
+        return PosInventoryProductMappingSerializer(product_in_inventory, many=True).data
+
+
+class VendorInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vendor
+        fields = ('id', 'vendor_name', 'phone_number', 'email')
+
+
+class PRNOrderSerializer(serializers.ModelSerializer):
+    product_return = serializers.SerializerMethodField()
+    last_modified_by = PosShopUserSerializer(read_only=True)
+    vendor_id = VendorInfoSerializer(read_only=True)
+
+    class Meta:
+        model = PosReturnGRNOrder
+        fields = ('id', 'pr_number', 'status', 'vendor_id', 'product_return', 'last_modified_by',
+                  'debit_note_number', 'debit_note', 'created_at', 'modified_at')
+
+    def validate(self, data):
+        shop = self.context.get('shop')
+        instance_id = self.instance.id if self.instance else None
+
+        if not 'vendor_id' in self.initial_data or not self.initial_data['vendor_id']:
+            raise serializers.ValidationError(_('vendor_id is required'))
+
+        vendor_obj = get_validate_vendor(int(self.initial_data['vendor_id']), shop)
+        if 'error' in vendor_obj:
+            raise serializers.ValidationError(vendor_obj['error'])
+        data['vendor_id'] = vendor_obj['vendor_id']
+
+        if 'status' not in self.initial_data or self.initial_data['status'] != PosReturnGRNOrder.CANCELLED:
+            if 'product_return' not in self.initial_data or type(self.initial_data['product_return']) != list:
+                raise serializers.ValidationError("Provide return item details")
+
+            # Check return item details
+            for rtn_product in self.initial_data['product_return']:
+                if 'product_id' not in rtn_product or 'return_qty' not in rtn_product or 'return_price' not in \
+                        rtn_product or not rtn_product['product_id'] or not rtn_product['return_qty'] or \
+                        not rtn_product['return_price']:
+                    raise serializers.ValidationError("'product_id', 'return_qty' and 'return_price' are mandatory for "
+                                                      "every return product object.")
+
+                if rtn_product['return_qty'] <= 0:
+                    raise serializers.ValidationError("return_qty must be greater than 0.")
+
+                if not RetailerProduct.objects.filter(id=int(rtn_product['product_id']), is_deleted=False, shop=shop):
+                    raise serializers.ValidationError(f"please select valid product {rtn_product['product_id']}")
+
+                product = RetailerProduct.objects.filter(id=int(rtn_product['product_id']), is_deleted=False, shop=shop).last()
+                if product.mrp < rtn_product['return_price']:
+                    raise serializers.ValidationError(f"product {product.name} return price {rtn_product['return_price']} can not be "
+                                                      f"more then product mrp {product.mrp}")
+
+                if product.product_pack_type == 'loose':
+                    rtn_product['return_qty'], qty_unit = get_default_qty(
+                        MeasurementUnit.objects.get(category=product.measurement_category,
+                                                    default=True).unit, product, rtn_product['return_qty'])
+
+                    rtn_product['pack_size'] = 1
+                else:
+                    rtn_product['return_qty'] = int(rtn_product['return_qty'])
+                    rtn_product['pack_size'] = product.purchase_pack_size
+
+                i_state_obj = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+                product_in_inventory = PosInventory.objects.filter(product=int(rtn_product['product_id']),
+                                                                   product__shop=shop,
+                                                                   inventory_state=i_state_obj)
+                if not product_in_inventory:
+                    raise serializers.ValidationError(f"product not available in inventory")
+
+                returned_qty = 0
+                if instance_id:
+                    returned_instance = self.instance.grn_order_return.filter(product=product).last()
+                    if returned_instance:
+                        returned_qty = returned_instance.return_qty
+
+                if product_in_inventory.last().quantity < \
+                        ((rtn_product['return_qty'] * rtn_product['pack_size']) - returned_qty):
+                    raise serializers.ValidationError(
+                        f"product {product.name} available quantity is {product_in_inventory.last().quantity} "
+                        f"you can't return {(rtn_product['return_qty'] * rtn_product['pack_size'])}")
+
+            data['product_return'] = self.initial_data['product_return']
+
+            if 'status' in data and data['status'] == PosReturnGRNOrder.CANCELLED and instance_id:
+                if PosReturnGRNOrder.objects.filter(id=instance_id, status=PosReturnGRNOrder.CANCELLED,
+                                                    grn_ordered_id__order__ordered_cart__retailer_shop=shop).exists():
+                    raise serializers.ValidationError("This Order is already cancelled")
+
+        return data
+
+    def get_product_return(self, obj):
+        order_return_status = self.context.get('status')
+        shop = self.context.get('shop')
+        status = True
+        if order_return_status == 'CANCELLED':
+            status = False
+        po_products_data = PRNReturnItemsSerializer(
+            PosReturnItems.objects.filter(
+                grn_return_id=obj.id, grn_return_id__status=order_return_status, is_active=status,
+                grn_return_id__vendor_id__retailer_shop=shop), many=True).data
+        return po_products_data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ return product """
+        products_return = validated_data.pop('product_return', None)
+        try:
+            grn_return_id = PosReturnGRNOrder.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if grn_return_id.status == PosReturnGRNOrder.RETURNED and products_return:
+            self.create_return_items(grn_return_id, products_return)
+        return PosReturnGRNOrder.objects.get(id=grn_return_id.id)
+
+    def create_return_items(self, grn_return_id, products_return):
+        for product_return in products_return:
+            pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
+                grn_return_id=grn_return_id, product_id=product_return['product_id'],
+                defaults={})
+            pos_return_items_obj.selling_price = round(float(product_return['return_price']), 2)
+            pos_return_items_obj.pack_size = product_return['pack_size']
+            pos_return_items_obj.return_qty = pos_return_items_obj.return_qty + product_return['return_qty']
+            pos_return_items_obj.save()
+
+            PosInventoryCls.grn_inventory(product_return['product_id'], PosInventoryState.AVAILABLE,
+                                          PosInventoryState.AVAILABLE, -(product_return['return_qty']),
+                                          grn_return_id.last_modified_by, grn_return_id.id, PosInventoryChange.RETURN,
+                                          product_return['pack_size'])
+
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ update returned product."""
+        products_return = validated_data.pop('product_return', None)
+        try:
+            # call super to save modified instance along with the validated data
+            grn_return_id = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if grn_return_id.status == PosReturnGRNOrder.RETURNED and products_return:
+            self.update_return_items(grn_return_id, products_return)
+        else:
+            self.update_cancel_return(grn_return_id, instance)
+        return grn_return_id
+
+    def update_return_items(self, grn_return_id, grn_products_return):
+        self.manage_nonexisting_return_products(grn_return_id, grn_products_return)
+        for grn_product_return in grn_products_return:
+            pos_return_items_obj, created = PosReturnItems.objects.get_or_create(
+                grn_return_id=grn_return_id, product_id=grn_product_return['product_id'],
+                defaults={})
+
+            existing_return_qty = 0
+            if pos_return_items_obj.is_active:
+                existing_return_qty = pos_return_items_obj.return_qty
+
+            current_return_qty = grn_product_return['return_qty']
+            pos_return_items_obj.return_qty = current_return_qty
+            pos_return_items_obj.is_active = True
+            pos_return_items_obj.pack_size = grn_product_return['pack_size']
+            pos_return_items_obj.selling_price = round(float(grn_product_return['return_price']), 2)
+            pos_return_items_obj.save()
+
+            if created:
+                PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
+                                              PosInventoryState.AVAILABLE, -current_return_qty,
+                                              grn_return_id.last_modified_by, grn_return_id.id,
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
+
+            elif current_return_qty == existing_return_qty:
+                pass
+
+            elif existing_return_qty > current_return_qty:
+                PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
+                                              PosInventoryState.AVAILABLE, (existing_return_qty-current_return_qty),
+                                              grn_return_id.last_modified_by, grn_return_id.id,
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
+            else:
+                PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
+                                              PosInventoryState.AVAILABLE, -(current_return_qty-existing_return_qty),
+                                              grn_return_id.last_modified_by, grn_return_id.id,
+                                              PosInventoryChange.RETURN, grn_product_return['pack_size'])
+        if grn_return_id.debit_note is not None:
+            grn_return_id.debit_note = None
+            grn_return_id.save()
+
+        mail_to_vendor_on_order_return_creation.delay(grn_return_id.id)
+
+    def update_cancel_return(self, grn_return_id, instance_id,):
+
+        post_return_item = PosReturnItems.objects.filter(grn_return_id=instance_id)
+        products = post_return_item.values('product_id', 'return_qty', 'pack_size')
+        for grn_product_return in products:
+            PosInventoryCls.grn_inventory(grn_product_return['product_id'], PosInventoryState.AVAILABLE,
+                                          PosInventoryState.AVAILABLE, grn_product_return['return_qty'],
+                                          grn_return_id.last_modified_by,
+                                          grn_return_id.id, PosInventoryChange.RETURN,
+                                          grn_product_return['pack_size'])
+            PosReturnItems.objects.filter(grn_return_id=grn_return_id,
+                                          product=grn_product_return['product_id']).update(is_active=False)
+
+        if grn_return_id.debit_note is not None:
+            grn_return_id.debit_note = None
+            grn_return_id.debit_note_number = None
+            grn_return_id.save()
+
+    def manage_nonexisting_return_products(self, grn_return_id, grn_products_return):
+        post_return_item = PosReturnItems.objects.filter(grn_return_id=grn_return_id, is_active=True)
+        post_return_item_dict = post_return_item.values('product_id', 'return_qty', 'pack_size')
+        products = [sub['product_id'] for sub in post_return_item_dict]
+        products_dict = {sub['product_id']: sub['return_qty'] for sub in post_return_item_dict}
+        product_pack_size_dict = {sub['product_id']: sub['pack_size'] for sub in post_return_item_dict}
+        grn_products = [sub['product_id'] for sub in grn_products_return]
+        for product in [item for item in products if item not in grn_products]:
+            PosInventoryCls.grn_inventory(product, PosInventoryState.AVAILABLE,
+                                          PosInventoryState.AVAILABLE, products_dict[product],
+                                          grn_return_id.last_modified_by,
+                                          grn_return_id.id, PosInventoryChange.RETURN,
+                                          product_pack_size_dict[product])
+            # PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).delete()
+            PosReturnItems.objects.filter(grn_return_id=grn_return_id, product=product).update(is_active=False)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%b %d %Y %I:%M%p")
+        if representation['modified_at']:
+            representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
+        return representation

@@ -99,6 +99,14 @@
                     {% endif %}
                 {% endif %}
 
+                {% if app.name == "Point Of Sale" %}
+                   {% if model.name == "Inventory States" %}
+                   <tr>
+                        <th scope="row"><a href="/admin/pos/retailerproduct/retailer-purchase-value-form/">Purchase Value Report</a></th>
+                   </tr>
+                    {% endif %}
+                {% endif %}
+
                 {% if app.name == "B2C Franchise Management" %}
                    {% if user.is_superuser == False %}
                         {% if model.name == "Bins" %}

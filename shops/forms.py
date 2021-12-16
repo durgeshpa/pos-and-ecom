@@ -1,7 +1,8 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
-from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
+from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
+    BeatPlanning, ShopStatusLog
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -189,7 +190,6 @@ class ShopForm(forms.ModelForm):
         if not self.shop_type_retailer(self) and not warehouse_code:
             raise ValidationError(_("This field is required"))
         return warehouse_code
-
 
 from django.forms.models import BaseInlineFormSet
 
