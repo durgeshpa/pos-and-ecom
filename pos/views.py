@@ -927,7 +927,8 @@ class RetailerOrderedReportView(APIView):
                                                           order__ordered_cart__cart_type='BASIC',
                                                           order__seller_shop__id=shop,
                                                           order__rt_payment_retailer_order__payment_type__type__in=
-                                                          ['cash', 'Cash On Delivery', 'cash on delivery'],
+                                                          ['cash', 'Cash On Delivery',
+                                                           'cash on delivery', 'Cash on delivery'],
                                                           order__ordered_by__id=user,
                                                           order__order_status__in=
                                                           [RetailerOrderedReport.ORDERED,
@@ -962,7 +963,8 @@ class RetailerOrderedReportView(APIView):
                                                            order__ordered_cart__cart_type='ECOM',
                                                            order__seller_shop__id=shop,
                                                            order__rt_payment_retailer_order__payment_type__type__in=
-                                                           ['cash', 'Cash On Delivery', 'cash on delivery'],
+                                                           ['cash', 'Cash On Delivery', 'cash on delivery',
+                                                            'Cash on delivery'],
                                                            order__ordered_by__id=user,
                                                            order__order_status__in=[RetailerOrderedReport.DELIVERED,
                                                                                     RetailerOrderedReport.PARTIALLY_RETURNED,
