@@ -78,7 +78,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
-                                   DispatchTripShipmentPackages)
+                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -107,7 +107,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
                           TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers,
                           LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
-                          UnloadVerifyPackageSerializer, LastMileTripCrudSerializers
+                          UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
+                          LastMileTripShipmentsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item
 
@@ -8102,3 +8103,112 @@ class LastMileTripCrudView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LastMileTripShipmentsView(generics.GenericAPIView):
+    """
+    View to get invoices ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileTripShipmentsSerializer
+    queryset = OrderedProduct.objects.filter(~Q(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED,
+                                                                     OrderedProduct.QC_STARTED,
+                                                                     OrderedProduct.QC_REJECTED,
+                                                                     OrderedProduct.READY_TO_SHIP])).\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'invoice'). \
+        prefetch_related('qc_area__qc_desk_areas'). \
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'created_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_dispatch(request.user, self.queryset)
+        self.queryset = self.search_filter_invoice_data()
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no invoice found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error" : "'seller_shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_invoice_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+        date = self.request.GET.get('date')
+        shipment_status = self.request.GET.get('shipment_status')
+        city = self.request.GET.get('city')
+        city_name = self.request.GET.get('city_name')
+        pincode = self.request.GET.get('pincode')
+        pincode_no = self.request.GET.get('pincode_no')
+        seller_shop = self.request.GET.get('seller_shop')
+        buyer_shop = self.request.GET.get('buyer_shop')
+        dispatch_center = self.request.GET.get('dispatch_center')
+        trip_id = self.request.GET.get('trip_id')
+        availability = self.request.GET.get('availability')
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = shipment_search(self.queryset, search_text)
+
+        '''Filters using warehouse, product, zone, date, status, putaway_type_id'''
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if shipment_status:
+            self.queryset = self.queryset.filter(shipment_status=shipment_status)
+
+        if city:
+            self.queryset = self.queryset.filter(order__shipping_address__city_id=city)
+
+        if city_name:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city_name)
+
+        if pincode_no:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode_no)
+
+        if pincode:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode_link_id=pincode)
+
+        if seller_shop:
+            self.queryset = self.queryset.filter(order__seller_shop_id=seller_shop)
+
+        if buyer_shop:
+            self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
+
+        if availability:
+            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                self.queryset = self.queryset.filter(
+                    last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
+            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
+            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                self.queryset = self.queryset.filter(
+                    Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+
+        return self.queryset.distinct('id')
