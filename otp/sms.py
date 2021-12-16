@@ -13,6 +13,7 @@ class SendSms(object):
         super(SendSms, self).__init__()
         self.phone = phone
         self.body = body
+        self.mask = mask
 
     def send(self):
         message = self.body
