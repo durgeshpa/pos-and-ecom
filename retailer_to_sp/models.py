@@ -3454,13 +3454,13 @@ PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
-    UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'
+    DISPATCHED, DELIVERED = 'DISPATCHED', 'DELIVERED'
     CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (LOADING_FOR_DC, 'Loading For Dispatch'),
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
-        (UNLOADING_AT_DC, 'Unloading At Dispatch'),
-        (UNLOADED_AT_DC, 'Unloaded At Dispatch'),
+        (DISPATCHED, 'Dispatched'),
+        (DELIVERED, 'Delivered'),
         (CANCELLED, 'Cancelled'),
     )
     trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
