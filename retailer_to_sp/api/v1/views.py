@@ -7573,7 +7573,9 @@ class ShipmentPackagingView(generics.GenericAPIView):
                        'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
                        'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
                        'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
-        prefetch_related('packaging_details', 'trip_packaging_details'). \
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
+                         'shipment__last_mile_trip_shipment'). \
         order_by('-id')
     serializer_class = ShipmentPackageSerializer
 

@@ -2267,10 +2267,38 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         return dispatch_trip_instance
 
 
+class LastMileTripShipmentMappingSerializers(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+
+    class Meta:
+        model = LastMileTripShipmentMapping
+        fields = ('id', 'trip')
+
+
+class ShipmentReschedulingListingSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date', 'created_by', 'created_at', 'modified_at',)
+
+
+class ShipmentNotAttemptListingSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ShipmentNotAttempt
+        fields = ('shipment', 'not_attempt_reason', 'created_by', 'created_at', 'modified_at',)
+
+
 class DispatchShipmentSerializers(serializers.ModelSerializer):
     shop_owner = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     shipment_status = ChoicesSerializer(choices=OrderedProduct.SHIPMENT_STATUS, required=True)
+    not_attempt_shipment = ShipmentNotAttemptListingSerializer(read_only=True, many=True)
+    rescheduling_shipment = ShipmentReschedulingListingSerializer(read_only=True, many=True)
+    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
+    last_mile_trip_shipment = LastMileTripShipmentMappingSerializers(read_only=True, many=True)
 
     @staticmethod
     def get_shop_owner(obj):
@@ -2284,7 +2312,8 @@ class DispatchShipmentSerializers(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('id', 'invoice_no', 'shipment_status', 'shipment_address', 'shop_owner',
                   'order_created_date', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
-                  'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified')
+                  'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified', 'not_attempt_shipment',
+                  'rescheduling_shipment', 'trip_shipment', 'last_mile_trip_shipment')
 
 
 class ShipmentPackageSerializer(serializers.ModelSerializer):
