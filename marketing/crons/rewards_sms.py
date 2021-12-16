@@ -72,7 +72,7 @@ def notify():
                                   body="Congratulations, you have won {} reward points because {} friends"
                                        " shopped using your referral code! Shop at PepperTap store and avail discounts"
                                        " upto {} INR"
-                                  .format(total_points, n_users, round(total_points / used_reward_factor, 2)))
+                                  .format(total_points, n_users, round(total_points / used_reward_factor, 2)),mask="PEPTAB")
 
                 message.send()
 

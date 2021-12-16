@@ -171,7 +171,7 @@ class RewardPoint(models.Model):
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s off on"
                                " next purchase. Login and share your referral code:%s with friends and win more points."
-                               % (points, int(points / used_reward_factor), referral_code))
+                               % (points, int(points / used_reward_factor), referral_code),mask='PEPTAB')
         message.send()
 
     @property
