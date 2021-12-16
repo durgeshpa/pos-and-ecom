@@ -1006,12 +1006,17 @@ class DecodeBarcode(APIView):
         data = []
         for barcode in barcode_list:
             barcode_length = len(barcode)
-            if barcode_length != 13:
+            if barcode_length == 8:
+                barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                data.append(data_item)
+                continue
+            elif barcode_length != 13:
                 barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                 data_item = {'is_success': False, 'message': 'Barcode length must be 13 characters',
                              'data': barcode_data}
                 data.append(data_item)
-                continue;
+                continue
             type_identifier = barcode[0:2]
             if type_identifier[0] == '1':
                 id = barcode[1:12].lstrip('0')
@@ -1021,8 +1026,8 @@ class DecodeBarcode(APIView):
                     id = 0
                 bin = Bin.objects.filter(pk=id).last()
                 if bin is None:
-                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
-                    data_item = {'is_success': False, 'message': 'Bin Id not found', 'data': barcode_data}
+                    barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
                 else:
                     bin_id = bin.bin_id
@@ -1069,7 +1074,7 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'qc area', 'id': area_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-            elif type_identifier == '40':
+            elif type_identifier == '04':
                 id = barcode[2:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -1085,7 +1090,7 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'crate', 'id': crate_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-            elif type_identifier == '50':
+            elif type_identifier == '05':
                 id = barcode[2:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -1101,8 +1106,9 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:
-                barcode_data = {'type': '', 'id': '', 'barcode': barcode}
-                data_item = {'is_success': False, 'message': 'Barcode type not supported', 'data': barcode_data}
+                barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                data_item = {'is_success': False, 'message': '', 'data': barcode_data}
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
+
