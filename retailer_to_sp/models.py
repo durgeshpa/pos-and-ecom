@@ -3450,3 +3450,19 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
 PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))
+
+
+class LastMileTripShipmentMapping(BaseTimestampUserModel):
+    LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    UNLOADING_AT_DC, UNLOADED_AT_DC = 'UNLOADING_AT_DC', 'UNLOADED_AT_DC'
+    CANCELLED = 'CANCELLED'
+    SHIPMENT_STATUS = (
+        (LOADING_FOR_DC, 'Loading For Dispatch'),
+        (LOADED_FOR_DC, 'Loaded For Dispatch'),
+        (UNLOADING_AT_DC, 'Unloading At Dispatch'),
+        (UNLOADED_AT_DC, 'Unloaded At Dispatch'),
+        (CANCELLED, 'Cancelled'),
+    )
+    trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
+    shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
+    shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)

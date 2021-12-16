@@ -19,7 +19,8 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
-                                   DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES)
+                                   DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
+                                   LastMileTripShipmentMapping)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -2668,3 +2669,93 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
         trip_shipment_mapping.trip.no_of_packates = package_data['box']
         trip_shipment_mapping.trip.no_of_sacks = package_data['sacks']
         trip_shipment_mapping.trip.save()
+
+
+class LastMileTripShipmentMappingSerializers(serializers.ModelSerializer):
+    shipment = DispatchShipmentSerializers(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = LastMileTripShipmentMapping
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'created_at', 'updated_at', 'created_by', 'updated_by')
+
+
+class LastMileTripCrudSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+    last_mile_trip_shipments_details = LastMileTripShipmentMappingSerializers(read_only=True, many=True)
+
+    class Meta:
+        model = Trip
+        fields = ('id', 'trip_id', 'seller_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy', 'e_way_bill_no',
+                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
+                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+                  'trip_amount', 'received_amount', 'total_received_amount', 'received_cash_amount',
+                  'received_online_amount',  'cash_to_be_collected_value', 'total_trip_shipments',
+                  'total_delivered_shipments', 'total_returned_shipments', 'total_pending_shipments',
+                  'total_rescheduled_shipments', 'total_trip_amount_value', 'total_pending_shipments',
+                  'total_rescheduled_shipments', 'total_return_amount', 'no_of_shipments',
+                  'last_mile_trip_shipments_details', 'created_at', 'modified_at')
+
+    def validate(self, data):
+
+        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+            data['vehicle_no'] = self.initial_data['vehicle_no']
+        else:
+            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
+
+        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
+            try:
+                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
+                data['seller_shop'] = seller_shop
+            except:
+                raise serializers.ValidationError("Invalid seller_shop")
+        else:
+            raise serializers.ValidationError("'seller_shop' | This is mandatory")
+
+        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+            try:
+                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                                shop_employee__shop=seller_shop).last()
+            except:
+                raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
+            if delivery_boy.groups.filter(name='Delivery Boy').exists():
+                data['delivery_boy'] = delivery_boy
+            else:
+                raise serializers.ValidationError("Delivery Boy does not have required permission.")
+        else:
+            raise serializers.ValidationError("'delivery_boy' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not Trip.objects.filter(
+                    id=self.initial_data['id'], seller_shop=seller_shop).exists():
+                raise serializers.ValidationError("Seller shop updation are not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Last Mile Trip"""
+        last_mile_trip_shipments_details = validated_data.pop("last_mile_trip_shipments_details", None)
+        try:
+            trip_instance = Trip.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return trip_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update Last Mile Trip"""
+        last_mile_trip_shipments_details = validated_data.pop("last_mile_trip_shipments_details", None)
+        try:
+            trip_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return trip_instance
+
+
