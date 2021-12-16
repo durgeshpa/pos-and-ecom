@@ -2035,8 +2035,7 @@ class POGetSerializer(serializers.ModelSerializer):
                                        | Q(product__product_ean_code__icontains=search_text)
                                        | Q(product__sku__icontains=search_text))
 
-        return SmallOffsetPagination().paginate_queryset(
-            POProductGetSerializer(resp_obj, many=True).data, self.context['request'])
+        return POProductGetSerializer(resp_obj, many=True).data
 
     class Meta:
         model = PosCart

@@ -558,13 +558,13 @@ LOGGING = {
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/info.log',
+           'filename': 'retailer-backend/info.log',
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/error.log',
+           'filename': 'retailer-backend/error.log',
            'formatter': 'verbose',
        },
        # 'console': {
@@ -574,7 +574,7 @@ LOGGING = {
         'cron_log_file': {
              'level': 'INFO',
              'class': 'logging.FileHandler',
-             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'filename': 'retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
 
@@ -590,7 +590,14 @@ LOGGING = {
     },
 }
 SWAGGER_SETTINGS = {
-   'USE_SESSION_AUTH': False,
+   'USE_SESSION_AUTH': True,
+    'SECURITY_DEFINITIONS': {
+            'api_key': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization'
+            }
+        },
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -608,8 +615,25 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
 
-# WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        }
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    }
+}
 
-# WKHTMLTOPDF_CMD_OPTIONS = {
-#     'quiet': True,
-# }
+WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD_OPTIONS = {
+    'quiet': True,
+    'enable_local_file_access': True
+}
