@@ -1094,7 +1094,7 @@ class RetailerOrderedReportView(APIView):
         response['Content-Disposition'] = 'attachment; filename="order-report.csv"'
         writer = csv.writer(response)
         shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
-                                        pos_enabled=True, pos_shop__status=True).last()
+                                       pos_enabled=True, pos_shop__status=True).last()
         writer.writerow(['Shop Name:', shop_obj.shop_name])
         writer.writerow(['Start Date:', start_date])
         writer.writerow(['End Date:', end_date])
@@ -1110,7 +1110,6 @@ class RetailerOrderedReportView(APIView):
                              (pos_cash_amt+ecomm_cash_amt),
                              pos_online_amt, ecomm_online_amt],)
         return response
-
 
 
 class RetailerOrderedReportFormView(View):
