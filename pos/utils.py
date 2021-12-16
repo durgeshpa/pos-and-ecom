@@ -44,7 +44,7 @@ def create_order_data_excel(request, queryset):
         .annotate(
             purchased_subtotal=RoundAmount(Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id' ,'order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
+        .values('id', 'order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
                 'invoice__created_at', 'order__seller_shop__id', 'order__seller_shop__shop_name',
                 'order__seller_shop__shop_owner__id', 'order__seller_shop__shop_owner__first_name',
                 'order__seller_shop__shop_owner__phone_number',
