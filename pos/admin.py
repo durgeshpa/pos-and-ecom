@@ -905,7 +905,7 @@ class PosCartAdmin(admin.ModelAdmin):
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
                          'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value', 'linked_product_sku'])
+                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value'])
 
         for obj in queryset:
             for p in obj.po_products.all():
@@ -914,8 +914,7 @@ class PosCartAdmin(admin.ModelAdmin):
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price, purchase_value,
-                                 p.product.linked_product.product_sku if p.product.linked_product else ''])
+                                 brand, sub_brand, p.qty, p.price, purchase_value])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
