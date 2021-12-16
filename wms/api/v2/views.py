@@ -31,7 +31,7 @@ from wms.common_validators import validate_ledger_request, validate_data_format,
     validate_putaway_user_against_putaway, validate_grouped_request, validate_data_days_date_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
     PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
-    QCDeskQCAreaAssignmentMapping
+    QCDeskQCAreaAssignmentMapping, Crate
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
     zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
     check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search, \
@@ -48,7 +48,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
-    QCDeskSerializer
+    QCDeskSerializer, CrateSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2647,3 +2647,49 @@ class QCDeskFilterView(generics.GenericAPIView):
 
         return self.queryset.distinct('id')
 
+
+class CrateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Crate.objects.only('id', 'crate_id', 'zone__id', 'zone__zone_number', 'zone__name', 'crate_barcode_txt',
+                                  'crate_type')
+    serializer_class = CrateSerializer
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get Crate for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            crates = id_validation['data']
+        else:
+            self.queryset = self.search_filter_crate_data()
+            crates = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(crates, many=True)
+        msg = "" if crates else "no crate found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_crate_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+        zone = self.request.GET.get('zone')
+        zone_number = self.request.GET.get('zone_number')
+        crate_id = self.request.GET.get('crate_id')
+        crate_type = self.request.GET.get('crate_type')
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone=zone)
+
+        if zone_number:
+            self.queryset = self.queryset.filter(zone__zone_number=zone_number)
+
+        if crate_id:
+            self.queryset = self.queryset.filter(crate_id=crate_id)
+
+        if crate_type:
+            self.queryset = self.queryset.filter(crate_type=crate_type)
+
+        return self.queryset.distinct('id')

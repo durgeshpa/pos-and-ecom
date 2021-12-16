@@ -77,7 +77,7 @@ class ShipmentMergedBarcode(APIView):
         shipment_packagings = shipment.shipment_packaging.all()
         pack_cnt = shipment_packagings.count()
         for cnt, packaging in enumerate(shipment_packagings):
-            barcode_id = str("50" + str(packaging.id).zfill(10))
+            barcode_id = str("05" + str(packaging.id).zfill(10))
             if packaging.crate:
                 pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
             else:

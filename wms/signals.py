@@ -137,7 +137,7 @@ def create_qc_area_barcode(sender, instance=None, created=False, update_fields=N
 def create_crate_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Generates barcode_txt and bar_code image for QCArea"""
     if created:
-        instance.crate_barcode_txt = '40' + str(instance.id).zfill(10)
+        instance.crate_barcode_txt = '04' + str(instance.id).zfill(10)
         image = barcode_gen(str(instance.crate_barcode_txt))
         instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
