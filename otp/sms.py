@@ -9,11 +9,12 @@ from .tasks import send_gupshup_request
 class SendSms(object):
     """Configure to change SMS backend"""
 
-    def __init__(self, phone, body , mask='PEPTAB'):
+    def __init__(self, phone, body, mask="GRAMFAC"):
         super(SendSms, self).__init__()
         self.phone = phone
         self.body = body
         self.mask = mask
+
     def send(self):
         message = self.body
         number = ValidatePhone(self.phone)
@@ -28,8 +29,7 @@ class SendSms(object):
                 'password': config('SMS_PWD'),
                 'v': '1.1',
                 'format': 'text',
-                'mask':self.mask
-
+                'mask' : self.mask
             }
             url = "https://enterprise.smsgupshup.com/GatewayAPI/rest"
             return send_gupshup_request.delay(url, query)
