@@ -654,11 +654,11 @@ class BulkRetailerProduct(models.Model):
         Shop, related_name='pos_bulk_seller_shop',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    bulk_no = models.CharField(unique=True, max_length=20)
     uploaded_by = models.ForeignKey(
         get_user_model(), null=True, related_name='product_uploaded_by',
         on_delete=models.DO_NOTHING
     )
+    bulk_no = models.CharField(unique=True, max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

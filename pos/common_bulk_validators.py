@@ -95,32 +95,30 @@ def bulk_product_validation(products_csv, shop_id):
 
         if row["product_id"] != '':
             if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
-                error_msg.append(f"Row{row['product_id']} | does not exist")
+                error_msg.append(f"product_id {row['product_id']} does not exist")
 
         if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
-            error_msg.append(str(f"Row {row_num} | 'Product MRP' can only be a numeric value."))
+            error_msg.append(str("mrp can only be a numeric value."))
 
         if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
-            error_msg.append(str(f"'Selling Price' can only be a numeric value."))
+            error_msg.append(str("selling_price can only be a numeric value."))
 
         if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
-            error_msg.append(str(f"'Selling Price' cannot be greater than 'Product Mrp'"))
+            error_msg.append(str(f"selling_price cannot be greater than mrp"))
 
         if 'linked_product_sku' in row.keys():
             if row['linked_product_sku'] != '':
                 if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
-                    error_msg.append(str(f"linked_product_sku {row['linked_product_sku']} doesnt exist"))
+                    error_msg.append(str(f"linked_product_sku {row['linked_product_sku']} does not exist"))
 
         # Check for discounted product
         if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price') == '':
-            error_msg.append(
-                _(f"'Discounted Product' cannot be created for new product | Provide product Id"))
+            error_msg.append(str(f"'Discounted Product cannot be created for new product Provide product Id"))
 
         if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
             product = RetailerProduct.objects.filter(id=row["product_id"]).last()
             if product.sku_type == 4:
-                error_msg.append("This product is already discounted. Further discounted product"
-                                 " cannot be created.")
+                error_msg.append("This product is already discounted. Further discounted product")
             elif 'discounted_stock' not in row.keys() or not row['discounted_stock']:
                 error_msg.append("Discounted stock is required to create discounted product")
             elif decimal.Decimal(row['discounted_price']) <= 0:
