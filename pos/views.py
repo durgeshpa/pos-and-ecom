@@ -720,7 +720,7 @@ def get_pos_posinventorychange(prod_sku=None):
     return pos_inventory
 
 
-def posinventorychange_data_excel(request,queryset):
+def posinventorychange_data_excel(request, queryset):
 
 
     filename = "posinventorychange_data_excel.csv"
