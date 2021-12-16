@@ -91,6 +91,7 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city_name',
                   'state_name', 'default')
         read_only_fields = ['id', 'user']
+        ref_name = "ecomm_address"
 
     def validate(self, attrs):
         # Validate Pin Code
@@ -345,7 +346,6 @@ class ProductSerializer(serializers.ModelSerializer):
             image = retailer_object.image.url
         return image
 
-
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'mrp', 'online_price', 'image')
@@ -448,6 +448,7 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         attrs['products'] = products_info
         return attrs
+
 
 class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:

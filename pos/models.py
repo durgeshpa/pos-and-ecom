@@ -14,7 +14,7 @@ from retailer_backend.validators import ProductNameValidator, NameValidator, Add
 from accounts.models import User
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
-                                   OrderedProductMapping)
+                                   OrderedProductMapping, Order)
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
 
 PAYMENT_MODE_POS = (
@@ -262,6 +262,7 @@ class PosCartProductMapping(models.Model):
     pack_size = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     is_grn_done = models.BooleanField(default=False)
+    is_bulk = models.BooleanField(default=False)
     qty_conversion_unit = models.ForeignKey(MeasurementUnit, related_name='rt_unit_pos_cart_mapping',
                                             null=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -272,8 +273,8 @@ class PosCartProductMapping(models.Model):
 
     @property
     def ordered_packs(self):
-        if self.product.product_pack_type == 'packet':
-            return int(self.qty / self.pack_size)
+        if self.product.product_pack_type == 'packet' and not self.is_bulk:
+            return int(self.pack_size)
         return None
 
     @property
@@ -287,7 +288,8 @@ class PosCartProductMapping(models.Model):
                 return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
 
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(Decimal(qty) / Decimal(self.pack_size))
+            return int(qty)
+            # return int(Decimal(qty) / Decimal(self.pack_size))
         return int(qty)
 
     @property
@@ -301,8 +303,15 @@ class PosCartProductMapping(models.Model):
 
         return None
 
+    def total_pieces(self):
+        if self.is_bulk:
+            return int(self.qty)
+        return round(self.qty * self.pack_size, 2)
+
     def total_price(self):
-        return round(self.price * self.qty, 2)
+        if self.is_bulk:
+            return round(self.price * self.qty, 2)
+        return round(self.price * self.qty * self.pack_size, 2)
 
     def product_name(self):
         return self.product.name
@@ -364,7 +373,7 @@ class PosGRNOrderProductMapping(models.Model):
     @property
     def received_packs(self):
         if self.product.product_pack_type == 'packet':
-            return int(self.received_qty / self.pack_size)
+            return int(self.pack_size)
         return None
 
     @property
@@ -376,7 +385,7 @@ class PosGRNOrderProductMapping(models.Model):
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(qty / self.pack_size)
+            return int(qty)
         return qty
 
     @property
@@ -544,7 +553,7 @@ class PosReturnItems(models.Model):
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
             return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
-            return int(qty / self.pack_size)
+            return int(qty)
         return qty
 
     @property
@@ -561,3 +570,8 @@ class PosReturnItems(models.Model):
             self.selling_price = po_product.price if po_product else 0
         super(PosReturnItems, self).save(*args, **kwargs)
 
+
+class RetailerOrderedReport(Order):
+    class Meta:
+        proxy = True
+        verbose_name = 'Order - Report'

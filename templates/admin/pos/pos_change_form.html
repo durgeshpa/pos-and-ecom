@@ -1,0 +1,32 @@
+{% extends "admin/change_form.html" %} {% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+
+<script>
+        $(document).ready(function(jQuery) {
+            function enableforLooseProduct () {
+                product_pack_type = $("#id_product_pack_type").children("option:selected").text();
+                console.log(product_pack_type)
+                if (product_pack_type == 'Loose'){
+                    $('#id_measurement_category').prop('disabled', false);
+                }
+                else {
+                    $('#id_measurement_category').prop('disabled', true);
+                    $('#id_measurement_category').val("");
+                }
+            }
+
+            enableforLooseProduct();
+
+            document.getElementById('id_product_pack_type').onchange = function() {
+                enableforLooseProduct();
+            };
+        });
+
+
+</script>
+
+{% endblock %}

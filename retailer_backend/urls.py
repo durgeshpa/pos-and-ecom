@@ -19,6 +19,7 @@ from django.urls import path
 from django.conf.urls import include, url
 from rest_framework.documentation import include_docs_urls
 from rest_framework_swagger.views import get_swagger_view
+from rest_framework import permissions
 from decouple import config, Csv
 from django.conf import settings
 from retailer_backend.cron import CronToDeleteOrderedProductReserved, DailyStock
@@ -28,9 +29,7 @@ from franchise.views import ProductList
 
 from django_ses.views import handle_bounce
 from django.views.decorators.csrf import csrf_exempt
-
-schema_view = get_swagger_view(title='GramFactory API')
-
+from retailer_backend.swagger_urls import schema_view
 
 urlpatterns = [
     url(r'^api-auth/', include('rest_framework.urls')),
@@ -61,10 +60,7 @@ urlpatterns = [
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
-
     url('^daily-stock/$', DailyStock.as_view(), name='daily_stock'),
-    # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
-    # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
     url(r'^analytics/', include('analytics.urls')),
@@ -80,6 +76,9 @@ urlpatterns = [
     url(r'^ecom/', include('ecom.urls')),
     url(r'^cms/', include('cms.urls')),
     url(r'^coupon/', include('coupon.urls')),
+    url(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    url(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    url(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

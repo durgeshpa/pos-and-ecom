@@ -209,3 +209,80 @@ def create_order_return_excel(queryset):
             ])
 
     return response
+
+
+def generate_prn_csv_report(queryset):
+    filename = 'PRN_Report_{}.csv'.format(datetime.datetime.now().strftime("%m/%d/%Y--%H-%M-%S"))
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    csv_writer = csv.writer(response)
+    csv_writer.writerow(
+        [
+            'PR NO.', 'STATUS', 'PO NO',
+            'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
+            'PRODUCT SELLING PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
+            'GIVEN QTY', 'GIVEN QTY UNIT', 'CREATED AT'
+        ]
+    )
+    rows = []
+    for p_return in queryset:
+        for return_item in p_return.grn_order_return.select_related('product').iterator():
+            rows.append(
+                [
+                    p_return.pr_number,
+                    p_return.status,
+                    p_return.po_no,
+                    return_item.product.name,
+                    return_item.product.product_ean_code,
+                    return_item.product.sku,
+                    return_item.product.product_pack_type,
+                    return_item.product.mrp,
+                    return_item.product.selling_price,
+                    return_item.return_qty,
+                    return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
+                    return_item.qty_given,
+                    return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
+                    p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S")
+                ]
+            )
+    csv_writer.writerows(rows)
+    return response
+
+
+def generate_csv_payment_report(payments):
+    filename = "Buyer_payment_{}.csv".format(datetime.datetime.now().strftime("%m/%d/%Y--%H-%M-%S"))
+    response = HttpResponse(content_type='text/csv')
+    response["Content-Disposition"] = 'attachement; filename="{}"'.format(filename)
+    csv_writer = csv.writer(response)
+    csv_writer.writerow(
+        [
+            'ORDER NO',
+            'ORDER STATUS',
+            'BILLING ADDRESS',
+            'SELLER SHOP',
+            'PAYMENT TYPE',
+            'TRANSACTION ID',
+            'AMOUNT',
+            'PAID BY',
+            'PROCCESSED BY',
+            'PAID AT'
+        ]
+    )
+    rows = [
+        [
+            payment.order.order_no,
+            payment.order.get_order_status_display(),
+            payment.order.billing_address,
+            payment.order.seller_shop,
+            payment.payment_type,
+            payment.transaction_id,
+            payment.amount,
+            payment.paid_by,
+            payment.processed_by,
+            payment.created_at.strftime("%m/%d/%Y-%H:%M:%S")
+        ]
+        for payment in payments
+    ]
+    csv_writer.writerows(rows)
+    return response
+

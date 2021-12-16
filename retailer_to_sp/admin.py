@@ -1270,7 +1270,7 @@ class ShipmentNotAttemptAdminNested(NestedTabularInline):
 class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     model = OrderedProductMapping
-    fields = ['product', 'ordered_qty','expiry_date', 'shipped_qty',
+    fields = ['product', 'ordered_qty', 'expiry_date', 'shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
     readonly_fields = ['ordered_qty', 'expiry_date', 'product', 'gf_code',
                        'cancellation_date']
@@ -2142,7 +2142,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     def get_shipment_status(self, obj):
         if obj.shipment_status:
             shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
-            return shipment_status[obj.shipment_status]
+            return shipment_status.get(obj.shipment_status)
         return "-"
     get_shipment_status.short_description = "Shipment Status"
 

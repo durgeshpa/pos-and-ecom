@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 
 import codecs
@@ -8,6 +9,7 @@ import decimal
 from dal import autocomplete
 from django import forms
 import csv
+from tempus_dominus.widgets import DateTimePicker
 
 from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailerProduct, MeasurementCategory, \
     MeasurementUnit
@@ -23,6 +25,16 @@ class RetailerProductsForm(forms.ModelForm):
             url='admin:product-price-autocomplete', ),
         required=False
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['measurement_category'].required = False
+
+    def clean(self):
+        data = self.cleaned_data
+        if data["product_pack_type"] == 'loose' and not data["measurement_category"]:
+            raise ValidationError(_('Measurement Category is required'))
+        return data
 
 
 class DiscountedRetailerProductsForm(forms.ModelForm):
@@ -205,10 +217,22 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
             if not str(row['purchase_pack_size']).isdigit():
                 raise ValidationError(_(f"Row {row_num} | Invalid purchase_pack_size."))
+
+            # check for offer price
+            if 'offer_price' in row.keys() and row['offer_price']:
+                if decimal.Decimal(row['offer_price']) > decimal.Decimal(row['mrp']):
+                    raise ValidationError("Offer Price should be equal to OR less than MRP")
+                if not 'offer_start_date' in row.keys() or not row['offer_start_date']:
+                    raise ValidationError("Offer Start Date is missing")
+                if not 'offer_end_date' in row.keys() or not row['offer_end_date']:
+                    raise ValidationError("Offer End Date is missing")
+                if row['offer_start_date'] > row['offer_end_date']:
+                    raise ValidationError("Offer start date should be less than offer end date")
+
             # Check if product with this ean code and mrp already exists
             if row.get('product_id') == '' and RetailerProduct.objects.filter(shop_id=row.get('shop_id'),
                                               product_ean_code=row.get('product_ean_code'),
-                                              mrp=row.get('mrp')).exists():
+                                              mrp=row.get('mrp'), is_deleted=False).exists():
                 raise ValidationError(_(f"Row {row_num} | "
                                  f"product with ean code {row.get('product_ean_code')} "
                                  f"and mrp {row.get('mrp')} already exists"))
@@ -362,6 +386,21 @@ class RetailerProductsStockUpdateForm(forms.Form):
                 raise ValidationError(_(f"Row {row_num} | {row['reason_for_update']} | "
                                         f"Reason for update is required!"))
 
+            #validation for discounted product
+            if row.get('product_id') != '' and 'discounted_price' in row.keys() and not row.get('discounted_price') == '':
+                product = RetailerProduct.objects.filter(id=row["product_id"]).last()
+                if product.sku_type == 4:
+                    raise ValidationError("This product is already discounted. Further discounted product"
+                                                      " cannot be created.")
+                elif 'discounted_inventory' not in row.keys() or not row['discounted_inventory']:
+                    raise ValidationError("Discounted qty is required to create discounted product")
+                elif decimal.Decimal(row['discounted_price']) <= 0:
+                    raise ValidationError("Discounted Price should be greater than 0")
+                elif decimal.Decimal(row['discounted_price']) >= product.selling_price:
+                    raise ValidationError("Discounted Price should be less than selling price")
+                elif int(row['discounted_inventory']) < 0:
+                    raise ValidationError("Invalid discounted qty")
+
 
 
     def read_file(self, headers, reader):
@@ -394,3 +433,31 @@ class RetailerProductsStockUpdateForm(forms.Form):
                 headers = next(reader, None)
                 self.read_file(headers, reader)
         return self.cleaned_data['file']
+
+
+class RetailerOrderedReportForm(forms.Form):
+    start_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+                'format': 'YYYY-MM-DD',
+            },
+            attrs={
+                'autocomplete': 'off'
+            }
+        ),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
+                                     pos_enabled=True, pos_shop__status=True),
+        widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
+    )
