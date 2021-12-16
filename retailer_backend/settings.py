@@ -558,7 +558,7 @@ LOGGING = {
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': 'retailer-backend/info.log',
+           'filename': '/var/log/retailer-backend/info.log',
            'formatter': 'verbose',
        },
        'file-error': {
@@ -590,7 +590,7 @@ LOGGING = {
     },
 }
 SWAGGER_SETTINGS = {
-   'USE_SESSION_AUTH': True,
+   'USE_SESSION_AUTH': False,
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -607,7 +607,9 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
+
 # WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+
 # WKHTMLTOPDF_CMD_OPTIONS = {
 #     'quiet': True,
 # }
