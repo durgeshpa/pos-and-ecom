@@ -4513,7 +4513,7 @@ class OrderReturns(APIView):
             qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
-            return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
+            return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product.name)}
 
         return {'ordered_product_map': ordered_product_map, 'return_qty': qty, 'product_id': product_id,
                 'previous_ret_qty': previous_ret_qty}
