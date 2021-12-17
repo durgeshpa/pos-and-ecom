@@ -387,7 +387,7 @@ def DownloadRetailerCatalogue(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
+         'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id' , 'category', 'sub_category',
          'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
          'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
          'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
@@ -408,6 +408,7 @@ def DownloadRetailerCatalogue(request, *args):
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
                     'linked_product__parent_product__parent_product_pro_category__category__category_name',
+                    'linked_product__parent_product__id',
                     'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
                     'linked_product__parent_product__parent_brand__brand_name',
                     'linked_product__parent_product__parent_brand__brand_parent__brand_name',
@@ -460,6 +461,7 @@ def DownloadRetailerCatalogue(request, *args):
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
+                 product['linked_product__parent_product__id'],
                  category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
                  product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
