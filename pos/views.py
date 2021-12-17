@@ -722,12 +722,10 @@ def posinventorychange_data_excel(request,queryset):
     writer.writerow(
             ['shop_id', 'shop_name', 'Product Name', 'Product SKU', 'Quantity', 'Transaction Type', 'Transaction Id', 'Initial State',
              'Final State', 'Changed By', 'Created at', 'Modfied at'])
-    for obj in queryset:
-        pos_inventory = get_pos_posinventorychange(obj.product.id)
-        for prod in pos_inventory:
-            writer.writerow([prod.product.shop.id, prod.product.shop.shop_name, prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
-            prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
-            ])
+    for prod in queryset:
+        writer.writerow([prod.product.shop.id, prod.product.shop.shop_name, prod.product.name, prod.product.sku, prod.quantity, prod.transaction_type, prod.transaction_id,
+        prod.initial_state, prod.final_state, prod.changed_by, prod.created_at, prod.modified_at,
+        ])
     return response
 
 
