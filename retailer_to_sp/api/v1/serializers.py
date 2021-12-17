@@ -2292,13 +2292,38 @@ class ShipmentNotAttemptListingSerializer(serializers.ModelSerializer):
 
 
 class DispatchShipmentSerializers(serializers.ModelSerializer):
+    trip = serializers.SerializerMethodField()
     shop_owner = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
     shipment_status = ChoicesSerializer(choices=OrderedProduct.SHIPMENT_STATUS, required=True)
-    not_attempt_shipment = ShipmentNotAttemptListingSerializer(read_only=True, many=True)
-    rescheduling_shipment = ShipmentReschedulingListingSerializer(read_only=True, many=True)
-    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
-    last_mile_trip_shipment = LastMileTripShipmentMappingSerializers(read_only=True, many=True)
+    not_attempt = serializers.SerializerMethodField()
+    rescheduling = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_trip(obj):
+        dispatch_trip = obj.trip_shipment.last()
+        last_mile_trip = obj.last_mile_trip_shipment.last()
+        if dispatch_trip and last_mile_trip:
+            if dispatch_trip.created_at > last_mile_trip.created_at:
+                return DispatchTripShipmentMappingSerializer(dispatch_trip, read_only=True).data
+            return LastMileTripShipmentMappingSerializers(last_mile_trip, read_only=True).data
+        elif dispatch_trip:
+            return DispatchTripShipmentMappingSerializer(dispatch_trip, read_only=True).data
+        elif last_mile_trip:
+            return LastMileTripShipmentMappingSerializers(last_mile_trip, read_only=True).data
+        return None
+
+    @staticmethod
+    def get_not_attempt(obj):
+        if obj.not_attempt_shipment.exists():
+            return ShipmentNotAttemptListingSerializer(obj.not_attempt_shipment.last(), read_only=True).data
+        return None
+
+    @staticmethod
+    def get_rescheduling(obj):
+        if obj.rescheduling_shipment.exists():
+            return ShipmentReschedulingListingSerializer(obj.rescheduling_shipment.last(), read_only=True).data
+        return None
 
     @staticmethod
     def get_shop_owner(obj):
@@ -2310,10 +2335,9 @@ class DispatchShipmentSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'shipment_status', 'shipment_address', 'shop_owner',
+        fields = ('id', 'trip', 'invoice_no', 'shipment_status', 'shipment_address', 'shop_owner',
                   'order_created_date', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
-                  'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified', 'not_attempt_shipment',
-                  'rescheduling_shipment', 'trip_shipment', 'last_mile_trip_shipment')
+                  'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified', 'not_attempt', 'rescheduling')
 
 
 class ShipmentPackageSerializer(serializers.ModelSerializer):

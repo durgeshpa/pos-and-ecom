@@ -3226,7 +3226,12 @@ class ShipmentPackaging(BaseTimestampUserModel):
         ('READY_TO_DISPATCH', 'Ready to dispatch'),
         ('REJECTED', 'Rejected'),
         ('DISPATCHED', 'Dispatched'),
-        ('DELIVERED', 'Delivered')
+        ('DELIVERED', 'Delivered'),
+        ('RETURN_VERIFIED', 'Return Verified'),
+    )
+    RETURN_REMARK_CHOICES = (
+        ('LABEL_MISSING', 'Label Missing'),
+        ('OTHER', 'Other'),
     )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
@@ -3234,6 +3239,7 @@ class ShipmentPackaging(BaseTimestampUserModel):
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=50, choices=DISPATCH_STATUS_CHOICES, default=DISPATCH_STATUS_CHOICES.PACKED)
     reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
+    return_remark = models.CharField(max_length=50, choices=RETURN_REMARK_CHOICES, null=True)
 
 
 class ShipmentPackagingMapping(BaseTimestampUserModel):
