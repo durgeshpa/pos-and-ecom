@@ -91,7 +91,7 @@ def bulk_product_validation(products_csv, shop_id):
             raise ValidationError(str(resp_initial_purchase_value['msg']))
 
         if int(row["shop_id"]) != shop_id:
-            error_msg.append("uploading wrong shop!")
+            error_msg.append(f"wrong shop_id {row['shop_id']}")
 
         if row["product_id"] != '':
             if not RetailerProduct.objects.filter(id=row["product_id"]).exists():
@@ -118,7 +118,7 @@ def bulk_product_validation(products_csv, shop_id):
         if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
             product = RetailerProduct.objects.filter(id=row["product_id"]).last()
             if product.sku_type == 4:
-                error_msg.append("This product is already discounted. Further discounted product")
+                error_msg.append("This product is already discounted")
             elif 'discounted_stock' not in row.keys() or not row['discounted_stock']:
                 error_msg.append("Discounted stock is required to create discounted product")
             elif decimal.Decimal(row['discounted_price']) <= 0:
