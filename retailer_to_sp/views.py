@@ -55,7 +55,8 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel
+from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel, \
+    get_response
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
@@ -69,14 +70,15 @@ class ShipmentMergedBarcode(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        pass
         shipment_id_list = {}
         pk = self.kwargs.get('pk')
         shipment = OrderedProduct.objects.filter(pk=pk).last()
+        if not shipment:
+            return get_response("Shipment not found for pk: " + str(pk) + ".")
         shipment_packagings = shipment.shipment_packaging.all()
         pack_cnt = shipment_packagings.count()
         for cnt, packaging in enumerate(shipment_packagings):
-            barcode_id = str("50" + str(packaging.id).zfill(10))
+            barcode_id = str("05" + str(packaging.id).zfill(10))
             if packaging.crate:
                 pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
             else:
@@ -84,11 +86,19 @@ class ShipmentMergedBarcode(APIView):
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
             route = "N/A"
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-            temp_data = {"qty": 1,
-                         "data": {shipment_count: pck_type_r_id,
-                                  shipment.order.order_no: customer_city_pincode,
-                                  "route ": route}}
-            shipment_id_list[barcode_id] = temp_data
+            if not packaging.crate and packaging.packaging_details.exists():
+                quantity = str(packaging.packaging_details.last().quantity)
+                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        product_name: quantity,
+                        "route ": route}
+            else:
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        "route ": route,
+                        "blank_row": ""}
+            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
         return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 

@@ -28,7 +28,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping, Crate
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
     get_validate_qc_areas
 
@@ -1993,3 +1993,18 @@ class QCDeskSerializer(QCDeskCrudSerializers):
     class Meta:
         model=QCDesk
         fields = ('id', 'desk_number', 'name', 'qc_executive')
+
+
+class ZoneSerializerForCrate(ZoneSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', 'zone_number', 'name', 'warehouse',)
+
+
+class CrateSerializer(serializers.ModelSerializer):
+    zone = ZoneSerializerForCrate()
+
+    class Meta:
+        model = Crate
+        fields = ('id', 'crate_id', 'zone')
+

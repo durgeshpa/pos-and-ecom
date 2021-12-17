@@ -10,7 +10,7 @@ from .views import InOutLedger, InOutLedgerCSV, ZoneCrudView, ZoneSupervisorsVie
     PickupEntryCreationView, UpdateQCAreaView, PickerUsersListView, ZonePickersView, PickerUserReAssignmentView, \
     OrderStatusSummaryView, PickerDashboardStatusSummaryView, ZoneWisePickerSummaryView, QCDeskCrudView, \
     PutawayTypeIDSearchView, QCAreaCrudView, QCAreaTypeListView, QCExecutivesView, QCDeskQCAreaAssignmentMappingView, \
-    QCDeskHelperDashboardView, QCJobsDashboardView, PendingQCJobsView, PickingTypeListView, QCDeskFilterView
+    QCDeskHelperDashboardView, QCJobsDashboardView, PendingQCJobsView, PickingTypeListView, QCDeskFilterView, CrateView
 
 urlpatterns = [
     url(r'^in-out-ledger/$', InOutLedger.as_view(), name='in-out-ledger'),
@@ -66,4 +66,5 @@ urlpatterns = [
     url('pending-qc-jobs/', PendingQCJobsView.as_view(), name='pending-qc-jobs'),
     url('picking-type-list/', PickingTypeListView.as_view(), name='picking-type-list'),
     url('qc-desk-list/', QCDeskFilterView.as_view(), name='qc-desk-list'),
+    url('crates/', CrateView.as_view())
 ]
