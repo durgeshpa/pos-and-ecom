@@ -8,6 +8,7 @@ import itertools
 from math import floor
 
 from dal import autocomplete
+from decouple import config
 from openpyxl import Workbook
 from openpyxl.writer.excel import save_virtual_workbook
 
@@ -35,7 +36,7 @@ from django.http import JsonResponse
 
 from global_config.views import get_config
 from products.utils import deactivate_product
-from retailer_backend.common_function import bulk_create
+from retailer_backend.common_function import bulk_create, send_mail
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
@@ -1157,6 +1158,34 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 #     cron_log_entry.save()
 
 
+def mail_warehouse_team_for_product_mappings(order_no, product_ids):
+    """
+    Generates and send mail to warehouse team with the summary of all the
+    Products of an Order which are not mapped to zone.
+    """
+    try:
+        if product_ids:
+            products = ParentProduct.objects.filter(id__in=product_ids)
+            sender = get_config("sender")
+            recipient_list = get_config("MAIL_DEV")
+            if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER")
+            subject = 'Products non-mapped with zone for order no {}'.format(order_no)
+            body = "PFA the list of products which are not mapped with any zone for order no " + str(order_no) + "." \
+                   "Please note that this order can't be process until and unless these products get mapped with zone."
+            f = StringIO()
+            writer = csv.writer(f)
+            filename = 'Products-without-zone-mapped-{}.csv'.format(order_no)
+            columns = ['Parent Id', 'Name']
+            writer.writerow(columns)
+            for item in products:
+                writer.writerow([item.parent_id, item.name])
+            attachment = {'name': filename, 'type': 'text/csv', 'value': f.getvalue()}
+            send_mail(sender, recipient_list, subject, body, [attachment])
+    except Exception as e:
+        info_logger.error("Exception|mail_warehouse_team_for_product_mappings|{}".format(e))
+
+
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
@@ -1196,10 +1225,10 @@ def pickup_entry_creation_with_cron():
 
                 cart_product_mapping_instances = order.ordered_cart.rt_cart_list
 
-                parent_product_count = cart_product_mapping_instances. \
+                parent_product_objs = cart_product_mapping_instances. \
                     values_list('cart_product__parent_product', flat=True). \
                     annotate(total_items=Count('cart_product__parent_product')). \
-                    order_by('-cart_product__parent_product').count()
+                    order_by('-cart_product__parent_product')
 
                 zones_list = cart_product_mapping_instances.filter(
                     cart_product__parent_product__product_zones__warehouse=warehouse).values_list(
@@ -1214,9 +1243,16 @@ def pickup_entry_creation_with_cron():
                 product_zone_dict = {zp['cart_product__parent_product__product_zones__product']: zp[
                                 'cart_product__parent_product__product_zones__zone'] for zp in list(zone_product)}
 
-                if len(product_zone_dict) != parent_product_count:
+                if len(product_zone_dict) != parent_product_objs.count():
                     cron_logger.info("{}| some/all products of order no {} does not mapped to any zone"
                                      .format(cron_name, order.order_no))
+                    try:
+                        mp = zone_product.values_list('cart_product__parent_product__product_zones__product', flat=True)
+                        product_ids_list = list(set(parent_product_objs) - set(mp))
+                        mail_warehouse_team_for_product_mappings(order.order_no, product_ids_list)
+                    except:
+                        cron_logger.info("{}| Exception occurred while sending non mapped products list for order no {}"
+                                         .format(cron_name, order.order_no))
                     continue
                 for order_product in order.ordered_cart.rt_cart_list.all():
 
@@ -1227,12 +1263,21 @@ def pickup_entry_creation_with_cron():
                     obj = CommonPickupFunctions.create_pickup_entry_with_zone(
                         warehouse, zone, 'Order', order.order_no, order_product.cart_product,
                         order_product.no_of_pieces, 'pickup_creation', inventory_type)
+
+                    tr_type = "pickup_created"
+                    tr_id = obj.pk
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, obj.sku, inventory_type, state_ordered, -1 * order_product.no_of_pieces,
+                        tr_type, tr_id)
+
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, obj.sku, inventory_type, state_to_be_picked, order_product.no_of_pieces,
+                        tr_type, tr_id)
+
                     cron_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
                                      .format(order.id, order_product.cart_product, inventory_type))
 
                     # Inventory Management
-                    tr_type = "pickup_created"
-                    tr_id = obj.pk
                     bin_inv_dict = {}
                     qty = obj.quantity
                     total_to_be_picked = 0
@@ -1292,13 +1337,6 @@ def pickup_entry_creation_with_cron():
                             warehouse, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
                             tr_id, already_picked)
 
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        warehouse, obj.sku, inventory_type, state_ordered, -1 * total_to_be_picked,
-                        tr_type, tr_id)
-
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        warehouse, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
-                        tr_type, tr_id)
 
                 # Zone wise Picker Dashboard Entry along with auto picker user assignment
                 for zone_id in zones_list:
