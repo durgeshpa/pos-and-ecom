@@ -336,8 +336,11 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_current_stock(obj):
-        current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
-        PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
+        current_stock = 0
+        if PosInventory.objects.filter(product=obj.id, inventory_state=
+            PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)):
+            current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
+            PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
         return current_stock
 
     class Meta:
