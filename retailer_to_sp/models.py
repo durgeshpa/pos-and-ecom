@@ -3228,10 +3228,14 @@ class ShipmentPackaging(BaseTimestampUserModel):
         ('DISPATCHED', 'Dispatched'),
         ('DELIVERED', 'Delivered'),
         ('RETURN_VERIFIED', 'Return Verified'),
+        ('RETURN_MISSING', 'Return Missing'),
+        ('RETURN_DAMAGED', 'Return Damaged'),
     )
+    LABEL_MISSING, LABEL_DAMAGED, OTHER = 'LABEL_MISSING', 'LABEL_DAMAGED', 'OTHER'
     RETURN_REMARK_CHOICES = (
-        ('LABEL_MISSING', 'Label Missing'),
-        ('OTHER', 'Other'),
+        (LABEL_MISSING, 'Label Missing'),
+        (LABEL_DAMAGED, 'Label Damaged'),
+        (OTHER, 'Other'),
     )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)

@@ -89,7 +89,7 @@ from wms.common_functions import OrderManagement, get_stock, is_product_not_elig
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
-from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
+from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
@@ -110,7 +110,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
                           LastMileTripShipmentsSerializer
                           )
-from ...common_validators import validate_shipment_dispatch_item
+from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -7594,6 +7594,64 @@ class ShipmentPackagingView(generics.GenericAPIView):
         serializer = self.serializer_class(self.queryset.filter(shipment=shipment), many=True)
         msg = "" if packaging_data else "no packaging found"
         return get_response(msg, serializer.data, True)
+
+
+class ShipmentCratesPackagingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects. \
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
+                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
+                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
+                         'shipment__last_mile_trip_shipment'). \
+        order_by('-id')
+    serializer_class = ShipmentPackageSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Packaging """
+        info_logger.info("Shipment Packaging GET api called.")
+        if not request.GET.get('crate_id'):
+            return get_response("'crate_id' | This is mandatory.")
+        """ Get Shipment Packaging for specific ID """
+        id_validation = validate_package_by_crate_id(self.queryset, request.GET.get('crate_id'), Crate.DISPATCH)
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+        shipment = packaging_data.shipment
+
+        serializer = self.serializer_class(self.queryset.filter(shipment=shipment, crate__isnull=False), many=True)
+        msg = "" if packaging_data else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'crate_id' not in modified_data or 'shipment_id' not in modified_data:
+            return get_response('please provide crate_id and shipment_id to verify shipment crate', False)
+
+        # validations for input id
+        id_validation = validate_package_by_crate_id(self.queryset, modified_data['crate_id'], Crate.DISPATCH,
+                                                     modified_data['shipment_id'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+        modified_data['packaging_type'] = packaging_data.packaging_type
+
+        serializer = self.serializer_class(instance=packaging_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment crate verified successfully.")
+            return get_response('shipment crate verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
 
 class TripSummaryView(generics.GenericAPIView):
