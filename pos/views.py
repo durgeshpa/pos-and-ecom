@@ -1460,7 +1460,7 @@ def products_list_status(request, product_status_info):
         row_num += 1
         if len(row) > 0:
             if row_num == 1:
-                writer.writerow(row + ["status"])
+                writer.writerow(row + ["upload_status"])
             else:
                 if str(row_num) in unavailable_skus:
                     writer.writerow(row + [product_status_info[str(row_num)]])
