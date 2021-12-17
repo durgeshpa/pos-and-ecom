@@ -101,9 +101,10 @@ def bulk_product_validation(products_csv, shop_id):
             error_msg.append(str("mrp can only be a numeric value."))
 
         if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
-            error_msg.append(str("selling_price can only be a numeric value."))
+            error_msg.append(str("selling_price can only be a numeric value"))
 
-        if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
+        if re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])) and re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])) and \
+                decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
             error_msg.append(str(f"selling_price cannot be greater than mrp"))
 
         if 'linked_product_sku' in row.keys():
@@ -113,7 +114,7 @@ def bulk_product_validation(products_csv, shop_id):
 
         # Check for discounted product
         if row.get('product_id') == '' and 'discounted_price' in row.keys() and not row.get('discounted_price') == '':
-            error_msg.append(str(f"'Discounted Product cannot be created for new product Provide product Id"))
+            error_msg.append(str(f"Discounted Product cannot be created for new product Provide product Id"))
 
         if row.get('product_id') != '' and 'discounted_price' in row.keys() and row.get('discounted_price'):
             product = RetailerProduct.objects.filter(id=row["product_id"]).last()
@@ -142,6 +143,8 @@ def bulk_product_validation(products_csv, shop_id):
             row['is_deleted'] = True
 
         if 'online_order_price' in row.keys() and row['online_order_price'] and \
+                re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])) and \
+                re.match("^\d+[.]?[\d]{0,2}$", str(row['online_order_price'])) and \
                 decimal.Decimal(row['online_order_price']) > decimal.Decimal(row['mrp']):
             error_msg.append("Online Order Price should be equal to OR less than MRP")
 
@@ -151,7 +154,7 @@ def bulk_product_validation(products_csv, shop_id):
 
         # Validate packaging type and measurement category
         if row['product_pack_type'].lower() not in ['loose', 'packet']:
-            error_msg.append(str(f"Invalid product_pack_type. Options are 'packet' or 'loose'"))
+            error_msg.append(str(f"Invalid product_pack_type {row['product_pack_type']}"))
         if row['product_pack_type'].lower() == 'loose':
             check_mandatory_data(row, 'measurement_category', row_num)
             try:
@@ -165,7 +168,9 @@ def bulk_product_validation(products_csv, shop_id):
             error_msg.append(str(f"Invalid purchase_pack_size."))
 
         # check for offer price
-        if 'offer_price' in row.keys() and row['offer_price']:
+        if 'offer_price' in row.keys() and row['offer_price'] and \
+                re.match("^\d+[.]?[\d]{0,2}$", str(row['offer_price'])) and \
+                re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
             if decimal.Decimal(row['offer_price']) > decimal.Decimal(row['mrp']):
                 error_msg.append("Offer Price should be equal to OR less than MRP")
             if not 'offer_start_date' in row.keys() or not row['offer_start_date']:

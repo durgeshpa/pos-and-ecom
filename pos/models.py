@@ -681,18 +681,16 @@ class BulkRetailerProduct(models.Model):
 
     def clean(self, *args, **kwargs):
         if self.products_csv:
+            self.save()
             error_dict, validated_rows = bulk_product_validation(self.products_csv, self.seller_shop.pk)
-
-            if self.products_csv:
-                self.save()
-                bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
-                if len(error_dict) > 0:
-                    error_logger.info(f"Product can't create/update for some rows: {error_dict}")
-                    raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
-                                                    f"below Link for seeing the status"
-                                                    f"{self.uploaded_product_list_status(error_dict)}"))
-            else:
-                super(BulkRetailerProduct, self).clean(*args, **kwargs)
+            bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
+                                                f"below Link for seeing the status"
+                                                f"{self.uploaded_product_list_status(error_dict)}"))
+        else:
+            super(BulkRetailerProduct, self).clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if self.pk is None:

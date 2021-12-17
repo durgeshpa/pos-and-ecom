@@ -1419,7 +1419,7 @@ def products_list_status(request, product_status_info):
     product_status_info = p.sub('\"', product_status_info)
     product_status_info = json.loads(product_status_info)
     info_logger.info(f"[pos/views.py]-products_list_status function called for Downloading the CSV file of "
-                     f"Bulk/Discounted Order Status")
+                     f"Bulk Product Creation/Updation Status")
     unavailable_skus = []
     for ele in product_status_info.keys():
         unavailable_skus.append(ele)
@@ -1451,7 +1451,7 @@ def products_list_status(request, product_status_info):
     csv_data = lines_list.split('\n')
     reader = csv.reader(csv_data)
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt) + " - Cart_Product_List_Status.csv"
+    filename = str(dt) + "Product_List_Status.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
@@ -1468,6 +1468,6 @@ def products_list_status(request, product_status_info):
                 else:
                     writer.writerow(row + ["Success"])
                     index = index + 1
-    info_logger.info(f"[products/views.py: products_list_status] - CSV for products_list_status has been "
+    info_logger.info(f"[pos/views.py: products_list_status] - CSV for products_list_status has been "
                      f"successfully downloaded with response [{response}]")
     return response
