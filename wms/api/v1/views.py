@@ -1107,7 +1107,7 @@ class DecodeBarcode(APIView):
                     data.append(data_item)
             else:
                 barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
-                data_item = {'is_success': False, 'message': '', 'data': barcode_data}
+                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
