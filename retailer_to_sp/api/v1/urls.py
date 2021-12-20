@@ -15,7 +15,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
                     DownloadShipmentInvoice, DispatchPackageRejectionReasonList, DeliverBoysList, NotAttemptReason,
                     DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView,
-                    DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView
+                    DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView, LastMileTripCrudView,
+                    LastMileTripShipmentsView, ShipmentCratesPackagingView
                     )
 
 router = routers.DefaultRouter()
@@ -106,10 +107,13 @@ urlpatterns = [
     url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
     url('update-dispatch-trip-status/', DispatchTripStatusChangeView.as_view(), name='update_dispatch_trip_status'),
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
+    url('shipment-crates-packaging/', ShipmentCratesPackagingView.as_view(), name='shipment_crates_packaging'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
-    url('trip-unload-shipment/', UnloadVerifyPackageView.as_view())
+    url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
+    url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
+    url('last-mile-invoices/', LastMileTripShipmentsView.as_view(), name='last_mile_invoices'),
 ]
 
 urlpatterns += router.urls

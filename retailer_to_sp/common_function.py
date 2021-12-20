@@ -148,9 +148,17 @@ def getGSTINNumber(shop_name):
 
 def dispatch_trip_search(queryset, search_text):
     '''
-    search using warehouse shop_name & supervisor name & coordinator name based on criteria that matches
+    search using seller_shop, source_shop, destination_shop, dispatch_no & delivery_boy based on criteria that matches
     '''
     queryset = queryset.filter(Q(seller_shop__shop_name__icontains=search_text) | Q(
         source_shop__shop_name__icontains=search_text) | Q(destination_shop__shop_name__icontains=search_text) | Q(
+        dispatch_no__icontains=search_text) | Q(delivery_boy__first_name__icontains=search_text))
+    return queryset
+
+def trip_search(queryset, search_text):
+    '''
+    search using seller_shop, dispatch_no & delivery_boy based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(seller_shop__shop_name__icontains=search_text) | Q(
         dispatch_no__icontains=search_text) | Q(delivery_boy__first_name__icontains=search_text))
     return queryset
