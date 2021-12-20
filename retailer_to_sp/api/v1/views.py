@@ -7674,16 +7674,16 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for Shipment Packaging """
         info_logger.info("Shipment Packaging GET api called.")
-        if not request.GET.get('crate_id'):
-            return get_response("'crate_id' | This is mandatory.")
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory.")
         """ Get Shipment Packaging for specific ID """
-        id_validation = validate_package_by_crate_id(self.queryset, request.GET.get('crate_id'), Crate.DISPATCH)
+        id_validation = validate_id(self.queryset, request.GET.get('package_id'))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
-        packaging_data = id_validation['data']
+        packaging_data = id_validation['data'].last()
         shipment = packaging_data.shipment
 
-        serializer = self.serializer_class(self.queryset.filter(shipment=shipment, crate__isnull=False), many=True)
+        serializer = self.serializer_class(packaging_data)
         msg = "" if packaging_data else "no packaging found"
         return get_response(msg, serializer.data, True)
 
