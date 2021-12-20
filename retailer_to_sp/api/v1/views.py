@@ -4461,7 +4461,11 @@ class OrderReturns(APIView):
         cart_product = CartProductMapping.objects.filter(cart=ordered_product_map.ordered_product.order.ordered_cart,
                                                          retailer_product=product).last()
         if product.product_pack_type == 'loose':
-            qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
+            if cart_product.qty_conversion_unit:
+                qty, qty_unit = get_default_qty(cart_product.qty_conversion_unit.unit, product, qty)
+            else:
+                qty, qty_unit = get_default_qty(MeasurementUnit.objects.get(category=product.measurement_category,
+                                                default=True).unit, product, qty)
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
