@@ -1995,10 +1995,18 @@ class QCDeskSerializer(QCDeskCrudSerializers):
         fields = ('id', 'desk_number', 'name', 'qc_executive')
 
 
+class ZoneSerializerForCrate(ZoneSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', 'zone_number', 'name', 'warehouse',)
+
+
 class CrateSerializer(serializers.ModelSerializer):
+    zone = ZoneSerializerForCrate()
+
     class Meta:
         model = Crate
-        fields = ('id', 'crate_id')
+        fields = ('id', 'crate_id', 'zone')
 
 
 class PickupCrateSerializer(QCDeskCrudSerializers):
