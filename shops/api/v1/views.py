@@ -988,6 +988,21 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :return: Beat Plan for Sales executive otherwise error message
         """
         try:
+            app_id = self.request.GET.get('app', None)
+            if app_id and int(app_id) == 1:
+                try:
+                    if self.request.GET['beat_plan_id']:
+                        beat_plan_id = self.request.GET['beat_plan_id']
+                        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan__id=beat_plan_id)
+                        beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
+                        return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                         'is_success': True},
+                                        status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.error(e)
+                    return Response({"detail": messages.ERROR_MESSAGES["4020"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
+
             if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
                 beat_user = self.queryset.filter(executive=self.request.user,
                                                  executive__user_type=self.request.user.user_type,
