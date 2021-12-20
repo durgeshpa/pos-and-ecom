@@ -37,7 +37,7 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, \
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
-    RetailerPurchaseReportFormView
+    RetailerPurchaseReportFormView, products_list_status
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -185,7 +185,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
                       self.admin_site.admin_view(RetailerPurchaseReportFormView.as_view()),
                       name="retailer-purchase-value-form"
                    ),
-
+                   url(
+                       r'^products_list_status/(?P<product_status_info>(.*))/$',
+                       self.admin_site.admin_view(products_list_status),
+                       name='products_list_status'
+                   ),
                ] + urls
         return urls
 
