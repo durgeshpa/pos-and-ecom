@@ -6810,7 +6810,7 @@ class ProcessShipmentView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
 
         if ean_code:
-            self.queryset = self.queryset.filter(product__product_ean_code=ean_code)
+            self.queryset = self.queryset.filter(product__product_ean_code__startswith=ean_code)
 
         return self.queryset.distinct('id')
 
