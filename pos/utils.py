@@ -290,9 +290,9 @@ def generate_csv_payment_report(payments):
     response["Content-Disposition"] = 'attachement; filename="{}"'.format(filename)
     csv_writer = csv.writer(response)
     csv_writer.writerow(
-        [   'INVOICE NO',
-            'INVOICE DATE',
-            'ORDER NO',
+        [   'Order No',
+            'Invoice No',
+            'Invoice Date',
             'ORDER STATUS',
             'BILLING ADDRESS',
             'SELLER SHOP',
@@ -307,25 +307,59 @@ def generate_csv_payment_report(payments):
             'PAID AT'
         ]
     )
-    rows = [
-        [   payment.order.shipments()[0].invoice if payment.order.shipments() else '',
-            payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
-            payment.order.order_no,
-            payment.order.get_order_status_display(),
-            payment.order.billing_address,
-            payment.order.seller_shop,
-            payment.payment_type,
-            payment.transaction_id,
-            payment.order.ordered_cart.redeem_points,
-            payment.order.ordered_cart.redeem_points_value,
-            ",".join( coupon.get('coupon_name','') for coupon in  payment.order.ordered_cart.offers).strip(',') if payment.order.ordered_cart.offers else None ,
-            payment.amount,
-            payment.paid_by,
-            payment.processed_by,
-            payment.created_at.strftime("%m/%d/%Y-%H:%M:%S")
-        ]
-        for payment in payments
-    ]
+    rows = []
+    for payment in payments:
+        row = []
+        row.append(payment.order.order_no)
+        row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
+        row.append(payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '')
+        row.append(payment.order.get_order_status_display())
+        row.append(payment.order.billing_address)
+        row.append(payment.order.seller_shop)
+        row.append(payment.payment_type)
+        row.append(payment.transaction_id)
+        row.append(payment.order.ordered_cart.redeem_points)
+        row.append(payment.order.ordered_cart.redeem_points_value)
+        offername = ''
+        if payment.order.ordered_cart.offers :
+            for coupon in payment.order.ordered_cart.offers:
+                if coupon.get('type') == 'combo':
+                    offername = offername + coupon.get('coupon_name', '')
+                if coupon.get('type') == 'discount':
+                    offername = offername +',' + coupon.get('coupon_name', '')
+                if coupon.get('type') == 'discount' and coupon.get('sub_type') == 'spot_discount':
+                    offername = offername +',' +  'spot_discount: {}'.format(coupon.get('discount'))+ " %" if coupon.get('is_percentage')==1 else ''
+        row.append(offername.strip(','))
+        row.append(payment.amount)
+        row.append(payment.paid_by)
+        row.append(payment.processed_by)
+        row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))
+        rows.append(row)
+
+
+
+
+
+    # rows = [
+    #     [
+    #         payment.order.order_no,
+    #         getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '',
+    #         payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
+    #         payment.order.get_order_status_display(),
+    #         payment.order.billing_address,
+    #         payment.order.seller_shop,
+    #         payment.payment_type,
+    #         payment.transaction_id,
+    #         payment.order.ordered_cart.redeem_points,
+    #         payment.order.ordered_cart.redeem_points_value,
+    #         ",".join( coupon.get('coupon_name','') for coupon in  payment.order.ordered_cart.offers).strip(',') if payment.order.ordered_cart.offers else None ,
+    #         payment.amount,
+    #         payment.paid_by,
+    #         payment.processed_by,
+    #         payment.created_at.strftime("%m/%d/%Y-%H:%M:%S")
+    #     ]
+    #     for payment in payments
+    # ]
     csv_writer.writerows(rows)
     return response
 
