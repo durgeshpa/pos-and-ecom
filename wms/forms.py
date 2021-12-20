@@ -24,7 +24,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from .common_functions import create_batch_id
 from global_config.views import get_config
-from retailer_to_sp.models import OrderedProduct
+from retailer_to_sp.models import OrderedProduct, PickerDashboard
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
 from dal import autocomplete
@@ -1279,6 +1279,11 @@ class ZoneForm(forms.ModelForm):
                         user.shop_employee.last().shop_id != int(self.data['warehouse']):
                     raise ValidationError(_(
                         "Invalid user " + str(user) + " selected as picker users."))
+            removed_zone_pickers = self.instance.picker_users.all().difference(self.cleaned_data['picker_users'])
+            for user in removed_zone_pickers:
+                if user.picker_user.filter(picking_status__in=[PickerDashboard.PICKING_ASSIGNED,
+                                                       PickerDashboard.PICKING_PENDING]).exists():
+                    raise ValidationError(f"User {user} has pending pickings, cannot remove this user ")
         return self.cleaned_data['picker_users']
 
     def clean(self):
