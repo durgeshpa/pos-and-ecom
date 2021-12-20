@@ -395,6 +395,7 @@ CRONJOBS = [
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
