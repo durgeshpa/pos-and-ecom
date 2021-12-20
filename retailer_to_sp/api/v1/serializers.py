@@ -2388,7 +2388,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
             if shipment_packaging.status == status:
-                raise serializers.ValidationError(f"Trip status is already {str(status)}.")
+                raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
             if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
@@ -2417,8 +2417,24 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
+        self.post_shipment_packaging_status_change(packaging_instance.shipment)
         return packaging_instance
+
+    def post_shipment_packaging_status_change(self, shipment_instance):
+        '''
+            Update the Shipment status on all crates scanned for fully delivered shipment
+        '''
+        info_logger.info(f"post_shipment_packaging_status_change|Shipment ID {shipment_instance.id}")
+        if shipment_instance.shipment_status == OrderedProduct.DELIVERED:
+            if not shipment_instance.shipment_packaging.filter(
+                    status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                    packaging_type=ShipmentPackaging.CRATE).exists():
+                shipment_instance.shipment_status = OrderedProduct.FULLY_DELIVERED_AND_VERIFIED
+                shipment_instance.save()
+            info_logger.info(f"post_shipment_packaging_status_change|Shipment status updated|Shipment ID "
+                             f"{shipment_instance.id}")
 
 
 class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
@@ -2468,7 +2484,7 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
             if shipment_packaging.status == status:
-                raise serializers.ValidationError(f"Trip status is already {str(status)}.")
+                raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
             if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
