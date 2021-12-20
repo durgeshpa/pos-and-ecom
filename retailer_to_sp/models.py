@@ -3235,7 +3235,16 @@ class ShipmentPackaging(BaseTimestampUserModel):
         ('READY_TO_DISPATCH', 'Ready to dispatch'),
         ('REJECTED', 'Rejected'),
         ('DISPATCHED', 'Dispatched'),
-        ('DELIVERED', 'Delivered')
+        ('DELIVERED', 'Delivered'),
+        ('RETURN_VERIFIED', 'Return Verified'),
+        ('RETURN_MISSING', 'Return Missing'),
+        ('RETURN_DAMAGED', 'Return Damaged'),
+    )
+    LABEL_MISSING, LABEL_DAMAGED, OTHER = 'LABEL_MISSING', 'LABEL_DAMAGED', 'OTHER'
+    RETURN_REMARK_CHOICES = (
+        (LABEL_MISSING, 'Label Missing'),
+        (LABEL_DAMAGED, 'Label Damaged'),
+        (OTHER, 'Other'),
     )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
@@ -3243,6 +3252,7 @@ class ShipmentPackaging(BaseTimestampUserModel):
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=50, choices=DISPATCH_STATUS_CHOICES, default=DISPATCH_STATUS_CHOICES.PACKED)
     reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
+    return_remark = models.CharField(max_length=50, choices=RETURN_REMARK_CHOICES, null=True)
 
 
 class ShipmentPackagingMapping(BaseTimestampUserModel):
@@ -3459,3 +3469,19 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
 PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))
+
+
+class LastMileTripShipmentMapping(BaseTimestampUserModel):
+    LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    DISPATCHED, DELIVERED = 'DISPATCHED', 'DELIVERED'
+    CANCELLED = 'CANCELLED'
+    SHIPMENT_STATUS = (
+        (LOADING_FOR_DC, 'Loading For Dispatch'),
+        (LOADED_FOR_DC, 'Loaded For Dispatch'),
+        (DISPATCHED, 'Dispatched'),
+        (DELIVERED, 'Delivered'),
+        (CANCELLED, 'Cancelled'),
+    )
+    trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
+    shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
+    shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
