@@ -2036,7 +2036,8 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
                   'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'shipments_details', 'created_at', 'updated_at', 'created_by', 'updated_by')
+                  'no_of_shipments', 'shipments_details', 'trip_amount',
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
 
     def validate(self, data):
 
@@ -2379,13 +2380,112 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Shipment packaging not found for selected shipment and crate.")
 
         if 'status' in self.initial_data and self.initial_data['status']:
-            status = self.initial_data['status']
-            if status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
-                              ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                              ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
+            if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.OK:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED
+            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED
+            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING
+            else:
                 raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
             if shipment_packaging.status == status:
-                raise serializers.ValidationError(f"Trip status is already {str(status)}.")
+                raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
+            if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
+                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
+                raise serializers.ValidationError(f"Current status is  {str(shipment_packaging.status)} | can't update")
+
+            if status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                          ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
+                if 'return_remark' in self.initial_data and self.initial_data['return_remark']:
+                    if any(self.initial_data['return_remark'] in i for i in ShipmentPackaging.RETURN_REMARK_CHOICES):
+                        data['return_remark'] = self.initial_data['return_remark']
+                    else:
+                        raise serializers.ValidationError("'return_remark' | Invalid remark.")
+                else:
+                    raise serializers.ValidationError("'return_remark' | This is mandatory for missing or damage.")
+            data['status'] = self.initial_data['status']
+        else:
+            raise serializers.ValidationError("'status' | This is mandatory")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update ShipmentPackaging"""
+        try:
+            packaging_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        self.post_shipment_packaging_status_change(packaging_instance.shipment)
+        return packaging_instance
+
+    def post_shipment_packaging_status_change(self, shipment_instance):
+        '''
+            Update the Shipment status on all crates scanned for fully delivered shipment
+        '''
+        info_logger.info(f"post_shipment_packaging_status_change|Shipment ID {shipment_instance.id}")
+        if shipment_instance.shipment_status == OrderedProduct.DELIVERED:
+            if not shipment_instance.shipment_packaging.filter(
+                    status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                    packaging_type=ShipmentPackaging.CRATE).exists():
+                shipment_instance.shipment_status = OrderedProduct.FULLY_DELIVERED_AND_VERIFIED
+                shipment_instance.save()
+            info_logger.info(f"post_shipment_packaging_status_change|Shipment status updated|Shipment ID "
+                             f"{shipment_instance.id}")
+
+
+class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    trip_packaging_details = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
+    status = ChoicesSerializer(choices=ShipmentPackaging.DISPATCH_STATUS_CHOICES, required=True)
+    crate = CrateSerializer(read_only=True)
+    packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
+    shipment = DispatchShipmentSerializers(read_only=True)
+    created_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'return_remark', 'reason_for_rejection',
+                  'packaging_details', 'trip_packaging_details', 'created_by', 'updated_by',)
+
+    def validate(self, data):
+
+        if 'package_id' in self.initial_data and self.initial_data['package_id']:
+            if ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).exists():
+                shipment_packaging = ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).last()
+            else:
+                raise serializers.ValidationError("Shipment packaging not found for selected shipment and crate.")
+        else:
+            raise serializers.ValidationError("'package_id' | This is mandatory")
+
+        if 'shipment_id' in self.initial_data and self.initial_data['shipment_id']:
+            if not OrderedProduct.objects.filter(
+                    id=self.initial_data['shipment_id'], shipment__shipment_status=OrderedProduct.RESCHEDULED).exists():
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment selected.")
+            shipment = OrderedProduct.objects.filter(
+                id=self.initial_data['shipment_id'], shipment__shipment_status=OrderedProduct.RESCHEDULED).last()
+            if shipment != shipment_packaging.shipment:
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected package")
+            data['shipment'] = shipment
+        else:
+            raise serializers.ValidationError("'shipment_id' | This is mandatory")
+
+        if 'status' in self.initial_data and self.initial_data['status']:
+            if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.OK:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
+            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED
+            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING
+            else:
+                raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
+            if shipment_packaging.status == status:
+                raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
             if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
@@ -2887,3 +2987,79 @@ class LastMileTripShipmentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_at', 'modified_at')
+
+
+class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
+    """ Serializer for Complete verify a Shipment"""
+    order = OrderSerializerForShipment(read_only=True)
+    status = serializers.SerializerMethodField()
+    qc_area = QCAreaSerializer(read_only=True)
+
+    def get_status(self, obj):
+        return obj.get_shipment_status_display()
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'order', 'status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area', 'created_at')
+
+    def validate(self, data):
+        """Validate the Shipment requests to complete verify"""
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            try:
+                shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
+                shipment_status = shipment.shipment_status
+            except Exception as e:
+                raise serializers.ValidationError("Invalid Shipment")
+            if shipment_status not in [OrderedProduct.FULLY_DELIVERED_AND_COMPLETED,
+                                       OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
+                                       OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
+                                       OrderedProduct.RESCHEDULED]:
+                raise serializers.ValidationError(f"Shipment not in valid state to complete verify.")
+
+            if shipment.shipment_packaging.filter(
+                    status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                    packaging_type=ShipmentPackaging.CRATE).exists():
+                raise serializers.ValidationError(f"All crates are not verified for shipment status "
+                                                  f"{shipment.shipment_status} | Id { shipment.pk }")
+
+            if shipment_status in [OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
+                                   OrderedProduct.FULLY_RETURNED_AND_COMPLETED]:
+                if shipment.rt_order_product_order_product_mapping.filter(
+                        returned_qty__gt=0, is_return_verified=False).exists():
+                    raise serializers.ValidationError(f"All returned products verification needed for shipment status "
+                                                      f"{shipment.shipment_status} | Id { shipment.pk }")
+
+            if shipment_status == OrderedProduct.RESCHEDULED:
+                if shipment.shipment_packaging.filter(
+                        status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                                       ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                       ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED])).exists():
+                    raise serializers.ValidationError(f"All packages are not verified for shipment status "
+                                                      f"{shipment.shipment_status} | Id {shipment.pk}")
+                data['shipment_status'] = OrderedProduct.RESCHEDULED
+
+            elif shipment_status == OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED:
+                data['shipment_status'] = OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED
+
+            elif shipment_status == OrderedProduct.FULLY_RETURNED_AND_COMPLETED:
+                data['shipment_status'] = OrderedProduct.FULLY_RETURNED_AND_VERIFIED
+
+            elif shipment_status == OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
+                data['shipment_status'] = OrderedProduct.FULLY_DELIVERED_AND_VERIFIED
+        else:
+            raise serializers.ValidationError("Shipment creation is not allowed.")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            shipment_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return shipment_instance
+

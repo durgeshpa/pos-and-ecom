@@ -108,7 +108,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers,
                           LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
                           UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
-                          LastMileTripShipmentsSerializer
+                          LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
+                          ShipmentCompleteVerifySerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id
 
@@ -7651,6 +7652,148 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
             serializer.save(updated_by=request.user)
             info_logger.info("shipment crate verified successfully.")
             return get_response('shipment crate verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
+    """
+       View to verify shipment packages from a rescheduled shipment.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects. \
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
+                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
+                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
+                         'shipment__last_mile_trip_shipment'). \
+        order_by('-id')
+    serializer_class = VerifyRescheduledShipmentPackageSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Packaging """
+        info_logger.info("Shipment Packaging GET api called.")
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory.")
+        """ Get Shipment Packaging for specific ID """
+        id_validation = validate_id(self.queryset, request.GET.get('package_id'))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data'].last()
+        shipment = packaging_data.shipment
+
+        serializer = self.serializer_class(packaging_data)
+        msg = "" if packaging_data else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_package_by_shipment_package(self, package_id, shipment_id):
+        shipment_package = self.queryset.filter(
+            id=package_id, shipment_id=shipment_id).last()
+        if not shipment_package:
+            return {"error": "invalid Package"}
+        if shipment_package.shipment.shipment_status != OrderedProduct.RESCHEDULED:
+            return {"error": f"Package for {OrderedProduct.RESCHEDULED} shipment can verify."}
+        if shipment_package.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
+                                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
+            return {"error": "Package is not in valid state to verify."}
+        return {"data": shipment_package}
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input id
+        id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
+                                                                  modified_data['shipment_id'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+        modified_data['packaging_type'] = packaging_data.packaging_type
+
+        serializer = self.serializer_class(instance=packaging_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment package verified successfully.")
+            return get_response('shipment package verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class ShipmentCompleteVerifyView(generics.GenericAPIView):
+    """
+       View to complete verify a shipment.
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentCompleteVerifySerializer
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+
+    def get(self, request):
+        if not request.GET.get('id'):
+            return get_response("'id' | This is mandatory")
+
+        """ Get Shipment for specific id """
+        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        self.queryset = id_validation['data']
+
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_dispatch_executive
+    def put(self, request):
+        """ PUT API for shipment update """
+
+        info_logger.info("Shipment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shipment', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shipment_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=shipment_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Shipment Updated Successfully.")
+            return get_response('shipment updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
