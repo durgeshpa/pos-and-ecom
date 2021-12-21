@@ -3349,6 +3349,14 @@ class DispatchTrip(BaseTimestampUserModel):
         return self.shipments_details.filter(shipment__shipment_status='OUT_FOR_DELIVERY').count()
 
     @property
+    def trip_amount(self):
+        return self.shipments_details.all() \
+            .annotate(invoice_amount=RoundAmount(Sum(F(
+                'shipment__rt_order_product_order_product_mapping__effective_price') * F(
+                'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
+            .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
+
+    @property
     def trip_weight(self):
 
         if self.weight != 0:
