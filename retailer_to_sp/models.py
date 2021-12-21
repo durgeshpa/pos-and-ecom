@@ -1495,24 +1495,27 @@ class OrderedProduct(models.Model):  # Shipment
     OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
     MOVED_TO_DISPATCH = 'MOVED_TO_DISPATCH'
     IN_TRANSIT_TO_DISPATCH = 'IN_TRANSIT_TO_DISPATCH'
+    FULLY_DELIVERED_AND_COMPLETED = 'FULLY_DELIVERED_AND_COMPLETED'
     FULLY_DELIVERED_AND_VERIFIED = 'FULLY_DELIVERED_AND_VERIFIED'
+    PARTIALLY_DELIVERED_AND_COMPLETED = 'PARTIALLY_DELIVERED_AND_COMPLETED'
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
+    FULLY_RETURNED_AND_COMPLETED = 'FULLY_RETURNED_AND_COMPLETED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
-        ('READY_TO_SHIP', 'QC Passed'),
+        (READY_TO_SHIP, 'QC Passed'),
         (PARTIALLY_QC_PASSED, 'Partially QC Passed'),
         (QC_REJECTED, 'QC Rejected'),
         (MOVED_TO_DISPATCH, 'Moved to dispatch'),
         (IN_TRANSIT_TO_DISPATCH, 'In Transit to Dispatch'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (OUT_FOR_DELIVERY, 'Out for Delivery'),
-        ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
-        ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
-        ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),
-        ('FULLY_RETURNED_AND_VERIFIED', 'Fully Returned and Verified'),
-        ('PARTIALLY_DELIVERED_AND_VERIFIED', 'Partially Delivered and Verified'),
-        ('FULLY_DELIVERED_AND_VERIFIED', 'Fully Delivered and Verified'),
+        (FULLY_RETURNED_AND_COMPLETED, 'Fully Returned and Completed'),
+        (PARTIALLY_DELIVERED_AND_COMPLETED, 'Partially Delivered and Completed'),
+        (FULLY_DELIVERED_AND_COMPLETED, 'Fully Delivered and Completed'),
+        (FULLY_RETURNED_AND_VERIFIED, 'Fully Returned and Verified'),
+        (PARTIALLY_DELIVERED_AND_VERIFIED, 'Partially Delivered and Verified'),
+        (FULLY_DELIVERED_AND_VERIFIED, 'Fully Delivered and Verified'),
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
@@ -2028,6 +2031,7 @@ class OrderedProductMapping(models.Model):
     picked_pieces = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
                                         validators=[MinValueValidator(0)])
     is_qc_done = models.BooleanField(default=False)
+    is_return_verified = models.BooleanField(default=False)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
