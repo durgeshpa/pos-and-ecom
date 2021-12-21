@@ -607,8 +607,9 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values(
-            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').order_by('shop__shop_name')
+        shop_list = list(shop_user_obj.values(
+            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').distinct('shop'))
+        shop_list = sorted(shop_list, key=lambda a: a['shop__shop_name'])
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
