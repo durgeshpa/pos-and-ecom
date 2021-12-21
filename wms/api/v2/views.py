@@ -2539,49 +2539,34 @@ class PendingQCJobsView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = OrderedProduct.objects.\
         filter(qc_area__isnull=False, shipment_status=OrderedProduct.SHIPMENT_CREATED).\
-        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        select_related('order', 'order__seller_shop', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
-        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
-             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
-             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
-             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
-             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
-             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
-             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+        only('id', 'order__order_no', 'order__seller_shop__id', 'shipment_status', 'qc_area__id',
              'qc_area__area_id', 'qc_area__area_type', 'created_at').\
         order_by('-id')
     serializer_class = PendingQCJobsSerializer
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+    @check_qc_executive
     def get(self, request):
         """ GET API for Pending QC Jobs """
         info_logger.info("Pending QC Jobs GET api called.")
-        if request.GET.get('id'):
-            """ Get Pending QC Jobs for specific Shipment ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            qc_areas_data = id_validation['data']
-            qc_area_total_count = qc_areas_data.count()
-        else:
-            if not request.GET.get('warehouse'):
-                return get_response("'warehouse' | This is mandatory.")
-            """ GET Pending QC Jobs List """
-            self.queryset = get_logged_user_wise_query_set_for_shipment(self.request.user, self.queryset)
-            self.queryset = self.search_filter_data()
-            qc_area_total_count = self.queryset.count()
-            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if not request.GET.get('crate'):
+            return get_response("'crate' | This is mandatory.")
+
+        """ GET Pending QC Jobs List """
+        self.queryset = get_logged_user_wise_query_set_for_shipment(self.request.user, self.queryset)
+        self.queryset = self.search_filter_data()
+        qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(qc_areas_data, many=True)
-        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no pending jobs found"
+        msg = "" if qc_areas_data else "No shipment is pending for QC for the logged in user"
         return get_response(msg, serializer.data, True)
 
     def search_filter_data(self):
         warehouse = self.request.GET.get('warehouse')
-        order = self.request.GET.get('order')
-        qc_desk = self.request.GET.get('qc_desk')
-        qc_area = self.request.GET.get('qc_area')
         crate = self.request.GET.get('crate')
 
         '''Filters using warehouse, order, area_enabled, qc_desk, qc_area'''
@@ -2589,20 +2574,9 @@ class PendingQCJobsView(generics.GenericAPIView):
         if warehouse:
             self.queryset = self.queryset.filter(order__seller_shop_id=warehouse)
 
-        if order:
-            self.queryset = self.queryset.filter(order__order_no=order)
-
-        if qc_desk:
-            self.queryset = self.queryset.filter(Q(qc_area__qc_desk_areas__desk_number=qc_desk) |
-                                                 Q(qc_area__qc_desk_areas__name=qc_desk))
-
-        if qc_area:
-            self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
-
         if crate:
             pickup_orders_list = Pickup.objects.filter(
-                warehouse_id=warehouse, pickup_crates__crate__crate_id__iexact=crate,
-                pickup_type_id__in=self.queryset.values_list('order__order_no', flat=True)).\
+                warehouse_id=warehouse, pickup_crates__crate__crate_id__iexact=crate, pickup_crates__is_in_use=True).\
                 values_list('pickup_type_id', flat=True)
             self.queryset = self.queryset.filter(order__order_no__in=pickup_orders_list)
 

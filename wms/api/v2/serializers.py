@@ -2009,35 +2009,10 @@ class CrateSerializer(serializers.ModelSerializer):
         fields = ('id', 'crate_id', 'zone')
 
 
-class PickupCrateSerializer(QCDeskCrudSerializers):
-    crate = CrateSerializer(read_only=True)
-    class Meta:
-        model = PickupCrate
-        fields = ('id', 'pickup', 'crate', 'quantity', 'is_in_use')
-
-
-class PickupSerializer(QCDeskCrudSerializers):
-    pickup_crates = PickupCrateSerializer(read_only=True, many=True)
-
-    class Meta:
-        model = Pickup
-        fields = ('id', 'pickup_crates', )
-
-
 class PendingQCJobsSerializer(serializers.ModelSerializer):
-    pickup = serializers.SerializerMethodField()
     order = OrderSerializer(read_only=True)
     qc_area = QCAreaSerializer(read_only=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_number', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
-                  'no_of_packets_check', 'no_of_sacks_check', 'pickup', 'order', 'qc_area')
-
-    @staticmethod
-    def get_pickup(obj):
-        if obj.order:
-            return PickupSerializer(Pickup.objects.filter(
-                pickup_type_id=obj.order.order_no), read_only=True, many=True).data
-        return None
-
+        fields = ('id', 'order', 'qc_area')
