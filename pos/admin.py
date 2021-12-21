@@ -44,7 +44,6 @@ from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel, create_order_return_excel, generate_prn_csv_report, generate_csv_payment_report
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
-from django.shortcuts import render, get_object_or_404
 
 
 class ExportCsvMixin:
@@ -975,17 +974,40 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         writer = csv.writer(f)
         writer.writerow(['GRN Id','GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount' ,'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
                          'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.','Store Id', 'Store Name', 'Shop User',
-                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'Tax Type ',
-                         'Tax Rate','Unit Price', 'Tax value','Total Value',
+                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'GST Tax','Cess_Tax','Surcharge_Tax',
+                         'Total Tax','Unit Price', 'Total Tax value',
                          'Recieved Quantity'])
+        rows = []
 
         for obj in queryset:
             i =0
+
+
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                gst_tax, cess_tax, surcharge_tax = '', '', ''
+                total_tax =0
+                original_amount = 0
+
+                if p.product.linked_product:
+                    if p.product.linked_product.product_pro_tax is not None:
+                        for tax in p.product.linked_product.product_pro_tax.all():
+                            if tax.tax.tax_type == 'gst':
+                                gst_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                            elif tax.tax.tax_type == 'cess':
+                                cess_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                            elif tax.tax.tax_type == 'surcharge':
+                                surcharge_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                    if total_tax:
+                        divisor = (1 + (total_tax / 100))
+                        original_amount = round(float(p.grn_order.order.ordered_cart.po_products.all()[i].total_price()) / float(divisor),3)
+
                 writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
                                  obj.order.ordered_cart.status,
-                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.all()[i].qty * p.product.product_price,
+                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.all()[i].total_price(),
                                  obj.invoice_no, obj.invoice_date,
                                  obj.invoice_amount,  obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
@@ -994,13 +1016,12 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.all()[i].qty, '',#p.product.product_tax.tax_type,
-                                 '',#'',#p.product.product_tax.tax_percentage,
-                                 p.product.product_price,
-                                 0,#(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
-                                 0,#float(p.product.product_price)+(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.all()[i].qty, gst_tax,
+                                 cess_tax, surcharge_tax, total_tax if total_tax else '',
+                                 p.grn_order.order.ordered_cart.po_products.all()[i].price,
+                                 (float(original_amount)*total_tax)/100 if total_tax else '',
                                  p.received_qty])
-                i +=1
+                i += 1
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
