@@ -1,5 +1,6 @@
 
 import logging
+import math
 import re
 import json
 
@@ -14,7 +15,7 @@ import requests
 from decouple import config
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q
+from django.db.models import F, Sum, Q, Case, When, Value
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -6821,7 +6822,10 @@ class ShipmentQCView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
     queryset = OrderedProduct.objects.\
-        annotate(status=F('shipment_status')).\
+        annotate(status=Case(
+                         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
+                              then=Value(OrderedProduct.SHIPMENT_CREATED)),
+                         default=F('shipment_status'))).\
         filter(qc_area__isnull=False).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
@@ -6838,8 +6842,6 @@ class ShipmentQCView(generics.GenericAPIView):
 
 
     def get(self, request):
-        if not request.GET.get('status'):
-            return get_response("'status' | This is mandatory")
 
         if request.GET.get('id'):
             """ Get Shipments for specific warehouse """
