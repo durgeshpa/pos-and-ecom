@@ -44,6 +44,7 @@ from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import create_order_data_excel, create_order_return_excel, generate_prn_csv_report, generate_csv_payment_report
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
+from django.shortcuts import render, get_object_or_404
 
 
 class ExportCsvMixin:
@@ -979,11 +980,12 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                          'Recieved Quantity'])
 
         for obj in queryset:
+            i =0
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
                 writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
                                  obj.order.ordered_cart.status,
-                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum')*p.product.product_price,
+                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.all()[i].qty * p.product.product_price,
                                  obj.invoice_no, obj.invoice_date,
                                  obj.invoice_amount,  obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
@@ -992,11 +994,13 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum'),p.product.product_tax.tax_type,
-                                 p.product.product_tax.tax_percentage,p.product.product_price,
-                                 (float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
-                                 float(p.product.product_price)+(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.all()[i].qty, '',#p.product.product_tax.tax_type,
+                                 '',#'',#p.product.product_tax.tax_percentage,
+                                 p.product.product_price,
+                                 0,#(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                 0,#float(p.product.product_price)+(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
                                  p.received_qty])
+                i +=1
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
