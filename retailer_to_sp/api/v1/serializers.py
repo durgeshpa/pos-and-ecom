@@ -1442,17 +1442,22 @@ class ShipmentReturnSerializer(serializers.ModelSerializer):
 
 class OrderedProductBatchSerializer(serializers.ModelSerializer):
     reason_for_rejection = serializers.SerializerMethodField()
+    is_crate_used_in_picking = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderedProductBatch
         fields = ('id', 'batch_id', 'quantity', 'ordered_pieces', 'delivered_qty', 'already_shipped_qty',
                   'expiry_date', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'pickup_quantity', 'expired_qty',
-                  'missing_qty', 'rejected_qty', 'reason_for_rejection', 'created_at', 'modified_at')
+                  'missing_qty', 'rejected_qty', 'reason_for_rejection', 'is_crate_used_in_picking',
+                  'created_at', 'modified_at')
 
     @staticmethod
     def get_reason_for_rejection(obj):
         return obj.get_reason_for_rejection_display()
 
+    @staticmethod
+    def get_is_crate_used_in_picking(obj):
+        return obj.rt_pickup_batch_mapping.last().pickup.pickup_crates.exists()
 
 class CrateSerializer(serializers.ModelSerializer):
     class Meta:
