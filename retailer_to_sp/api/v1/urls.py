@@ -99,6 +99,7 @@ urlpatterns = [
     url('dispatch-dashboard/', DispatchDashboardView.as_view()),
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
+    
 ]
 
 urlpatterns += router.urls
