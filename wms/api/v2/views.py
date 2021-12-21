@@ -2538,7 +2538,7 @@ class PendingQCJobsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = OrderedProduct.objects.\
-        filter(qc_area__isnull=False, shipment_status=OrderedProduct.SHIPMENT_CREATED).\
+        filter(qc_area__isnull=False, shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED]).\
         select_related('order', 'order__seller_shop', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
         only('id', 'order__order_no', 'order__seller_shop__id', 'shipment_status', 'qc_area__id',
