@@ -2012,7 +2012,11 @@ class CrateSerializer(serializers.ModelSerializer):
 class PendingQCJobsSerializer(serializers.ModelSerializer):
     order = OrderSerializer(read_only=True)
     qc_area = QCAreaSerializer(read_only=True)
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return obj.get_shipment_status_display()
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'qc_area')
+        fields = ('id', 'status', 'shipment_status', 'order', 'qc_area')

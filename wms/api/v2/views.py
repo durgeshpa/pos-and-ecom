@@ -2562,7 +2562,7 @@ class PendingQCJobsView(generics.GenericAPIView):
         qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(qc_areas_data, many=True)
-        msg = "" if qc_areas_data else "No shipment is pending for QC for the logged in user"
+        msg = "" if qc_areas_data else "No pending shipment for this crate."
         return get_response(msg, serializer.data, True)
 
     def search_filter_data(self):
