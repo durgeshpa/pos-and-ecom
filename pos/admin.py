@@ -1019,7 +1019,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                  brand, sub_brand,p.grn_order.order.ordered_cart.po_products.all()[i].qty, gst_tax,
                                  cess_tax, surcharge_tax, total_tax if total_tax else '',
                                  p.grn_order.order.ordered_cart.po_products.all()[i].price,
-                                 (float(original_amount)*total_tax)/100 if total_tax else '',
+                                 round(((float(original_amount)*total_tax)/100), 3) if total_tax else '',
                                  p.received_qty])
                 i += 1
 
