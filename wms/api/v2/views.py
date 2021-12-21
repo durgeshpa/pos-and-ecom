@@ -21,11 +21,12 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product
 
 from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, OrderedProduct
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
-    get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk
+    get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk, \
+    get_logged_user_wise_query_set_for_shipment
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request, validate_data_days_date_request
@@ -48,7 +49,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
     ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
-    QCDeskSerializer, CrateSerializer
+    QCDeskSerializer, CrateSerializer, PendingQCJobsSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -2536,18 +2537,28 @@ class QCJobsDashboardView(generics.GenericAPIView):
 class PendingQCJobsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = QCDeskQCAreaAssignmentMapping.objects. \
-        select_related('qc_desk__warehouse', 'qc_desk__warehouse__shop_owner', 'qc_desk__warehouse__shop_type',
-                       'qc_desk__warehouse__shop_type__shop_sub_type',). \
-        filter(token_id__isnull=False, qc_done=False).order_by('last_assigned_at')
-    serializer_class = QCDeskQCAreaAssignmentMappingSerializers
+    queryset = OrderedProduct.objects.\
+        filter(qc_area__isnull=False, shipment_status=OrderedProduct.SHIPMENT_CREATED).\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+    serializer_class = PendingQCJobsSerializer
 
     @check_whc_manager_coordinator_supervisor_qc_executive
     def get(self, request):
         """ GET API for Pending QC Jobs """
         info_logger.info("Pending QC Jobs GET api called.")
         if request.GET.get('id'):
-            """ Get Pending QC Jobs for specific ID """
+            """ Get Pending QC Jobs for specific Shipment ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
@@ -2557,8 +2568,8 @@ class PendingQCJobsView(generics.GenericAPIView):
             if not request.GET.get('warehouse'):
                 return get_response("'warehouse' | This is mandatory.")
             """ GET Pending QC Jobs List """
-            self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
-            self.queryset = self.search_filter_qc_areas_data()
+            self.queryset = get_logged_user_wise_query_set_for_shipment(self.request.user, self.queryset)
+            self.queryset = self.search_filter_data()
             qc_area_total_count = self.queryset.count()
             qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -2566,38 +2577,34 @@ class PendingQCJobsView(generics.GenericAPIView):
         msg = f"total count {qc_area_total_count}" if qc_areas_data else "no pending jobs found"
         return get_response(msg, serializer.data, True)
 
-    def search_filter_qc_areas_data(self):
+    def search_filter_data(self):
         warehouse = self.request.GET.get('warehouse')
-        token_id = self.request.GET.get('token_id')
-        area_enabled = self.request.GET.get('area_enabled')
+        order = self.request.GET.get('order')
         qc_desk = self.request.GET.get('qc_desk')
         qc_area = self.request.GET.get('qc_area')
         crate = self.request.GET.get('crate')
 
-        '''Filters using warehouse, token_id, area_enabled, qc_desk, qc_area'''
+        '''Filters using warehouse, order, area_enabled, qc_desk, qc_area'''
 
         if warehouse:
-            self.queryset = self.queryset.filter(qc_desk__warehouse__id=warehouse)
+            self.queryset = self.queryset.filter(order__seller_shop_id=warehouse)
 
-        if token_id:
-            self.queryset = self.queryset.filter(token_id__icontains=token_id)
-
-        if area_enabled:
-            self.queryset = self.queryset.filter(area_enabled=area_enabled)
+        if order:
+            self.queryset = self.queryset.filter(order__order_no=order)
 
         if qc_desk:
-            self.queryset = self.queryset.filter(Q(qc_desk__desk_number__icontains=qc_desk) |
-                                                 Q(qc_desk__name__icontains=qc_desk))
+            self.queryset = self.queryset.filter(Q(qc_area__qc_desk_areas__desk_number=qc_desk) |
+                                                 Q(qc_area__qc_desk_areas__name=qc_desk))
 
         if qc_area:
             self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
 
         if crate:
             pickup_orders_list = Pickup.objects.filter(
-                pickup_type_id__in=self.queryset.values_list('token_id', flat=True),
-                pickup_crates__crate__crate_id__iexact=crate).\
+                warehouse_id=warehouse, pickup_crates__crate__crate_id__iexact=crate,
+                pickup_type_id__in=self.queryset.values_list('order__order_no', flat=True)).\
                 values_list('pickup_type_id', flat=True)
-            self.queryset = self.queryset.filter(token_id__in=pickup_orders_list)
+            self.queryset = self.queryset.filter(order__order_no__in=pickup_orders_list)
 
         return self.queryset
 
