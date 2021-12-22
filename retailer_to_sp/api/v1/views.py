@@ -109,7 +109,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
                           UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
-                          ShipmentCompleteVerifySerializer
+                          ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id
 
@@ -7731,6 +7731,74 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
             info_logger.info("shipment package verified successfully.")
             return get_response('shipment package verified!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class VerifyReturnShipmentProductsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProductMapping.objects.all()
+    serializer_class = VerifyReturnShipmentProductsSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for Process Shipment """
+        info_logger.info("Process Shipment GET api called.")
+
+        if request.GET.get('id'):
+            """ Get Process Shipment for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            process_shipments_data = id_validation['data']
+
+        else:
+            """ Get Process Shipment for specific Shipment and batch Id """
+            if not request.GET.get('shipment_id') or not request.GET.get('batch_id'):
+                return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
+            process_shipments_data = self.filter_shipment_data()
+
+        serializer = self.serializer_class(process_shipments_data, many=True)
+        msg = "" if process_shipments_data else "no shipment product found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def put(self, request):
+        """ PUT API for Process Shipment Updation """
+
+        info_logger.info("Process Shipment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to process_shipment', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        process_shipment_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=process_shipment_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            info_logger.info("Process Shipment Updated Successfully.")
+            return get_response('process_shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        shipment_id = self.request.GET.get('shipment_id')
+        batch_id = self.request.GET.get('batch_id')
+
+        '''Filters using shipment_id & batch_id'''
+        if shipment_id:
+            self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
+
+        return self.queryset.distinct('id')
 
 
 class ShipmentCompleteVerifyView(generics.GenericAPIView):
