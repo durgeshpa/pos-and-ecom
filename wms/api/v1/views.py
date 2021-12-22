@@ -1008,6 +1008,8 @@ class DecodeBarcode(APIView):
                 data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                 data.append(data_item)
                 continue
+            elif barcode_length < 13:
+                barcode = barcode.zfill(13)
             elif barcode_length != 13:
                 barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                 data_item = {'is_success': False, 'message': 'Barcode length must be 13 characters',

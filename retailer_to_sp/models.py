@@ -2385,7 +2385,8 @@ class Shipment(OrderedProduct):
 
 
 class OrderedProductBatch(models.Model):
-    REJECTION_REASON_CHOICE = Choices((1,'Near Expiry'), (2, 'Not Clean'), (10, 'Other'))
+    REJECTION_REASON_CHOICE = Choices((1,'Near Expiry'), (2, 'Not Clean'), (3, 'Damaged'), (4, 'Expired'),
+                                      (10, 'Other'))
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
     pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
