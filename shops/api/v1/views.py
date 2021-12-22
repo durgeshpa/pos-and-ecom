@@ -1281,6 +1281,7 @@ class DispatchCenterFilterView(generics.GenericAPIView):
 
     def search_filter_shops_data(self):
         search_text = self.request.GET.get('search_text')
+        parent_shop = self.request.GET.get('parent_shop')
         shop_type = self.request.GET.get('shop_type')
         shop_owner = self.request.GET.get('shop_owner')
         pin_code = self.request.GET.get('pin_code')
@@ -1292,9 +1293,12 @@ class DispatchCenterFilterView(generics.GenericAPIView):
         if search_text:
             self.queryset = shop_search(self.queryset, search_text)
 
-        '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
+        '''Filters using parent_shop, shop_type, shop_owner, pin_code, city, status, approval_status'''
         if shop_type:
             self.queryset = self.queryset.filter(shop_type__id=shop_type)
+
+        if parent_shop:
+            self.queryset = self.queryset.filter(retiler_mapping__parent_id=parent_shop)
 
         if shop_owner:
             self.queryset = self.queryset.filter(shop_owner=shop_owner)
