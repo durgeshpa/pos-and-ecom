@@ -980,7 +980,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         rows = []
 
         for obj in queryset:
-            i =0
+
 
 
             for p in obj.po_grn_products.all():
@@ -1003,11 +1003,11 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                 total_tax += tax.tax.tax_percentage
                     if total_tax:
                         divisor = (1 + (total_tax / 100))
-                        original_amount = round(float(p.grn_order.order.ordered_cart.po_products.all()[i].total_price()) / float(divisor),3)
+                        original_amount = round(float(p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price()) / float(divisor),3)
 
                 writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
                                  obj.order.ordered_cart.status,
-                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.all()[i].total_price(),
+                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price(),
                                  obj.invoice_no, obj.invoice_date,
                                  obj.invoice_amount,  obj.created_at,
                                  obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
@@ -1016,12 +1016,11 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.all()[i].qty, gst_tax,
+                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().qty, gst_tax,
                                  cess_tax, surcharge_tax, total_tax if total_tax else '',
-                                 p.grn_order.order.ordered_cart.po_products.all()[i].price,
+                                 p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().price,
                                  round(((float(original_amount)*total_tax)/100), 3) if total_tax else '',
                                  p.received_qty])
-                i += 1
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

@@ -290,10 +290,10 @@ def generate_prn_csv_report(queryset):
                     return_item.grn_received_qty if return_item.grn_return_id.grn_ordered_id else 0,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
                     p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S"),
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else '',
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else '',
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else '',
+                    p_return.vendor_id.vendor_name if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.address if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else  "",
+                    p_return.vendor_id.state if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else  "",
 
 
                 ]
@@ -319,6 +319,8 @@ def generate_csv_payment_report(payments):
             'Point Redemption',
             'Point Redemption Value',
             'Coupon NAME',
+            'Coupon discount',
+            'Max coupon discount',
             'AMOUNT',
             'PAID BY',
             'PROCCESSED BY',
@@ -339,15 +341,22 @@ def generate_csv_payment_report(payments):
         row.append(payment.order.ordered_cart.redeem_points)
         row.append(payment.order.ordered_cart.redeem_points_value)
         offername = ''
+        discount = ''
+        max_discount = ''
         if payment.order.ordered_cart.offers :
             for coupon in payment.order.ordered_cart.offers:
                 if coupon.get('type') == 'combo':
                     offername = offername + coupon.get('coupon_name', '')
                 if coupon.get('type') == 'discount':
                     offername = offername +',' + coupon.get('coupon_name', '')
+                    discount = "Discount " + str(coupon.get('discount')) + " %  " if coupon.get('is_percentage') else ""
+                    max_discount = "Maximum discount {}".format(coupon.get('max_discount')) if  coupon.get('max_discount') else ''
+
                 if coupon.get('type') == 'discount' and coupon.get('sub_type') == 'spot_discount':
                     offername = offername +',' +  'spot_discount: {}'.format(coupon.get('discount'))+ " %" if coupon.get('is_percentage')==1 else ''
         row.append(offername.strip(','))
+        row.append(discount)
+        row.append(max_discount)
         row.append(payment.amount)
         row.append(payment.paid_by)
         row.append(payment.processed_by)
