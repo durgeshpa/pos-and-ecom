@@ -8,7 +8,7 @@ from .tasks import send_gupshup_request
 
 class SendSms(object):
     """Configure to change SMS backend"""
-    def __init__(self, phone, body,mask="GRAMFAC"):
+    def __init__(self, phone, body,mask="GRMFAC"):
 
         super(SendSms, self).__init__()
         self.phone = phone

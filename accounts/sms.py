@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 class SendSms(object):
     """Configure to change SMS backend"""
-    def __init__(self, phone,mask='GRAMFAC'):
+    def __init__(self, phone,mask='GRMFAC'):
         super(SendSms, self).__init__()
         self.phone = phone
         self.mask = mask
