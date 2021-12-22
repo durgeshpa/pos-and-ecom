@@ -8,8 +8,8 @@ from .tasks import send_gupshup_request
 
 class SendSms(object):
     """Configure to change SMS backend"""
-
     def __init__(self, phone, body,mask="GRAMFAC"):
+
         super(SendSms, self).__init__()
         self.phone = phone
         self.body = body
@@ -30,7 +30,6 @@ class SendSms(object):
                 'v': '1.1',
                 'format': 'text',
                 'mask':self.mask
-
             }
             url = "https://enterprise.smsgupshup.com/GatewayAPI/rest"
             return send_gupshup_request.delay(url, query)
