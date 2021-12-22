@@ -290,10 +290,10 @@ def generate_prn_csv_report(queryset):
                     return_item.grn_received_qty if return_item.grn_return_id.grn_ordered_id else 0,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
                     p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S"),
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else '',
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else '',
-                    p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else '',
+                    p_return.vendor_id.vendor_name if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.address if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else  "",
+                    p_return.vendor_id.state if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else  "",
 
 
                 ]
