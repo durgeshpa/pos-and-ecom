@@ -1683,6 +1683,11 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             self.update_product_batch_data(product_batch_instance, product_batch)
 
         if packaging:
+            if ShipmentPackaging.objects.filter(shipment=process_shipments_instance.ordered_product).exists():
+                for p in ShipmentPackaging.objects.filter(shipment=process_shipments_instance.ordered_product):
+                    ShipmentPackagingMapping.objects.filter(shipment_packaging=p).delete()
+                ShipmentPackaging.objects.filter(shipment=process_shipments_instance.ordered_product).delete()
+
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
