@@ -28,7 +28,7 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, PosReturnGRNOrder
-from pos.services import grn_product_search, grn_return_search
+from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
@@ -45,7 +45,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer)
+                          GrnOrderGetListSerializer, PRNOrderSerializer)
 from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
@@ -442,6 +442,13 @@ class CouponOfferCreation(GenericAPIView):
                                                      rule__coupon_ruleset__is_active=True)
         if offer:
             return api_response("Offer already exists for this Primary Product")
+
+        offer = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                     retailer_primary_product=retailer_free_product_obj,
+                                                     rule__coupon_ruleset__is_active=True)
+
+        if offer and  offer[0].retailer_free_product.id == data['primary_product_id']:
+            return api_response("Offer already exists for this Primary Product as a free product for same free product" )
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
@@ -1387,6 +1394,72 @@ class GrnReturnOrderView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(last_modified_by=request.user)
             return api_response('GRN returned updated successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+
+class PRNwithoutGRNView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @check_pos_shop
+    @check_return_status
+    def get(self, request, *args, **kwargs):
+        """ GET PRN List for without GRN Products"""
+        return_products = PosReturnGRNOrder.objects.filter(
+            vendor_id__retailer_shop=kwargs['shop'],
+            status=kwargs['status']).prefetch_related('grn_ordered_id', 'vendor_id', 'grn_order_return', ).\
+            select_related('last_modified_by', ).order_by('-modified_at')
+
+        if request.GET.get('id'):
+            """ Get PRN for specific ID """
+            id_validation = validate_id(return_products, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            return_products = id_validation['data']
+
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            return_products = non_grn_return_search(return_products, search_text)
+
+        if return_products:
+            serializer = PRNOrderSerializer(return_products, many=True,
+                                            context={'status': kwargs['status'], 'shop': kwargs['shop']})
+            return api_response('', serializer.data, status.HTTP_200_OK, True)
+        else:
+            return api_response("PRN not found")
+
+    @check_pos_shop
+    @check_return_status
+    def post(self, request, *args, **kwargs):
+        """ Create PRN for non GRN Products """
+        serializer = PRNOrderSerializer(data=request.data,
+                                        context={'status': kwargs['status'], 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            return api_response('PRN created successfully!', None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
+
+    @check_pos_shop
+    @check_return_status
+    def put(self, request, *args, **kwargs):
+        """ Update PRN for non GRN Products """
+        info_logger.info("Return PRN PUT api called.")
+        if 'id' not in request.data:
+            return api_response('please provide id to update return product', False)
+
+        # validations for input id
+        try:
+            pos_return_order = PosReturnGRNOrder.objects.filter(vendor_id__retailer_shop=kwargs['shop'])
+            id_instance = pos_return_order.get(id=int(request.data['id']))
+        except:
+            return api_response('please provide a valid id')
+        serializer = PRNOrderSerializer(instance=id_instance, data=request.data,
+                                        context={'status': kwargs['status'], 'shop': kwargs['shop']})
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            return api_response('PRN updated successfully!', None, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
 

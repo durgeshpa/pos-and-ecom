@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+from products.models import  ProductTaxMapping
 from django.utils.safestring import mark_safe
 from django.db import models
 
@@ -72,6 +72,7 @@ class RetailerProduct(models.Model):
                                          default='packet')
     measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
     purchase_pack_size = models.PositiveIntegerField(default=1)
+    initial_purchase_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
@@ -100,6 +101,9 @@ class RetailerProduct(models.Model):
     @property
     def product_price(self):
         return self.selling_price
+    @property
+    def product_tax(self):
+        return ProductTaxMapping.objects.filter(product=self.id).first().tax if ProductTaxMapping.objects.filter(product=self.id).first() else 0
 
     def save(self, *args, **kwargs):
         # Discounted
@@ -383,7 +387,10 @@ class PosGRNOrderProductMapping(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_order.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            else:
+                return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
@@ -391,8 +398,12 @@ class PosGRNOrderProductMapping(models.Model):
     @property
     def given_qty_unit(self):
         if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+            if PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
 
@@ -513,8 +524,10 @@ class PosReturnGRNOrder(models.Model):
     RETURN_STATUS = Choices((RETURNED, 'Returned'), (CANCELLED, 'Cancelled'))
     pr_number = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
-    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=False,
+    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=True, blank=True,
                                        on_delete=models.DO_NOTHING)
+    vendor_id = models.ForeignKey(Vendor, related_name='vendor_return', null=True, blank=True,
+                                  on_delete=models.DO_NOTHING)
     last_modified_by = models.ForeignKey(User, related_name='grn_return_last_modified_user', null=True, blank=True,
                                          on_delete=models.CASCADE)
     debit_note_number = models.CharField(max_length=255, null=True, blank=True)
@@ -527,7 +540,10 @@ class PosReturnGRNOrder(models.Model):
 
     @property
     def po_no(self):
-        return self.grn_ordered_id.order.ordered_cart.po_no
+        try:
+            return self.grn_ordered_id.order.ordered_cart.po_no
+        except Exception:
+            return None
 
 
 class PosReturnItems(models.Model):
@@ -547,27 +563,46 @@ class PosReturnItems(models.Model):
     @property
     def qty_given(self):
         qty = self.return_qty
-        if self.product.product_pack_type == 'loose' and qty:
+        if self.product.product_pack_type == 'loose' and qty and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
+        elif self.product.product_pack_type == 'loose' and qty and not self.grn_return_id.grn_ordered_id:
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
 
     @property
     def given_qty_unit(self):
-        if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+        if self.product.product_pack_type == 'loose' and self.grn_return_id.grn_ordered_id:
+            if PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
+        elif self.product.product_pack_type == 'loose' and not self.grn_return_id.grn_ordered_id:
+            return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
+    @property
+    def grn_received_qty(self):
+        return self.grn_return_id.grn_ordered_id.po_grn_products.filter(product=self.product).first().received_qty
+
     def save(self, *args, **kwargs):
-        if not self.id:
+        if not self.id and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             self.selling_price = po_product.price if po_product else 0
+        # elif not self.id:
+        #     self.selling_price = self.return_price
         super(PosReturnItems, self).save(*args, **kwargs)
 
 
@@ -575,3 +610,21 @@ class RetailerOrderedReport(Order):
     class Meta:
         proxy = True
         verbose_name = 'Order - Report'
+
+
+class PosTrip(models.Model):
+    ORDER_TRIP_TYPE = (
+        ('ECOM', 'Ecom'),
+    )
+    shipment = models.ForeignKey(OrderedProduct,
+                                 related_name='pos_trips',
+                                 on_delete=models.CASCADE)
+    trip_type = models.CharField(choices=ORDER_TRIP_TYPE,
+                                 max_length=10)
+    trip_start_at = models.DateTimeField(null=True,
+                                         blank=True)
+    trip_end_at = models.DateTimeField(null=True,
+                                       blank=True)
+
+    def __str__(self):
+        return str(self.id) + ' | ' + self.trip_type

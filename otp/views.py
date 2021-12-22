@@ -249,8 +249,8 @@ class SendSmsOTP(CreateAPIView):
         # Validate request data
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
-            ph_no, otp_type = self.request.data.get("phone_number"), self.request.data.get('otp_type', "1")
-            msg, status_code = RequestOTPCls.process_otp_request(ph_no, otp_type)
+            ph_no, otp_type, app_type = self.request.data.get("phone_number"), self.request.data.get('otp_type', "1") , request.data.get('app_type')
+            msg, status_code = RequestOTPCls.process_otp_request(ph_no, otp_type, app_type)
             return Response(msg, status=status_code)
         else:
             return api_serializer_errors(serializer.errors)
@@ -259,7 +259,7 @@ class SendSmsOTP(CreateAPIView):
 class RequestOTPCls(object):
 
     @classmethod
-    def process_otp_request(cls, ph_no, otp_type):
+    def process_otp_request(cls, ph_no, otp_type, app_type='2'):
         """
             Process valid request for otp
         """
@@ -271,7 +271,7 @@ class RequestOTPCls(object):
         if otp_type == "2":
             return RequestOTPCls.send_new_voice_otp(ph_no)
         else:
-            return RequestOTPCls.send_new_text_otp(ph_no)
+            return RequestOTPCls.send_new_text_otp(ph_no, app_type)
 
     @staticmethod
     def send_new_voice_otp(ph_no):
@@ -279,7 +279,7 @@ class RequestOTPCls(object):
             Generate and send new otp on call
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
-        sms_body = "OTP for your GramFactory account is %s" % otp
+        sms_body = "OTP for your Peppertap  account is %s" % otp
         message = SendVoiceSms(phone=ph_no, body=sms_body)
         message.send()
         phone_otp.last_otp = timezone.now()
@@ -289,15 +289,24 @@ class RequestOTPCls(object):
         return msg, status.HTTP_200_OK
 
     @staticmethod
-    def send_new_text_otp(ph_no):
+    def send_new_text_otp(ph_no, app_type):
         """
             Generate and send new otp on sms
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
-        sms_body = "%s is your One Time Password for GramFactory Account. Request time is %s, %s IST." % (
-            otp, date, time)
-        message = SendSms(phone=ph_no, body=sms_body)
+        sms_body = ''
+        mask ='GRMFAC'
+        if app_type =='3':
+            sms_body = "%s is your One Time Password for Peppertap  Account. Request time is %s, %s IST." % (
+                otp, date, time)
+            mask = 'PEPTAB'
+        else:
+            sms_body = "%s is your One Time Password for Gramfactory  Account. Request time is %s, %s IST." % (
+                otp, date, time)
+            mask = 'GRMFAC'
+
+        message = SendSms(phone=ph_no, body=sms_body, mask=mask)
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
