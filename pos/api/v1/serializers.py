@@ -641,6 +641,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+    return_id = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -677,10 +678,17 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
         return None
 
+    def get_return_id(self, obj):
+        returns = OrderReturn.objects.filter(order=obj, status='completed')
+        if returns:
+            return returns.last().id
+        else:
+            None
+
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'return_id')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -774,7 +782,7 @@ class ReturnItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', 'status', 'qty_unit')
+        fields = ('id', 'return_qty', 'status', 'qty_unit')
 
 
 class OrderReturnSerializer(serializers.ModelSerializer):
@@ -1628,7 +1636,7 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('product_id', 'product_name', 'selling_price', 'return_qty', 'qty_unit', 'return_value')
+        fields = ('id', 'product_id', 'product_name', 'selling_price', 'return_qty', 'qty_unit', 'return_value')
 
 
 class OrderReturnGetSerializer(serializers.ModelSerializer):
@@ -1730,7 +1738,9 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return_summary = dict()
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
-            'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+            'amount_returned'], return_summary['return_id'] = \
+            return_value, discount_adjusted, points_value, refund_amount, returns.last().id
+
         return return_summary
 
     def get_items(self, obj):
