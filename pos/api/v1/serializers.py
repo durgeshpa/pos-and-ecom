@@ -627,6 +627,12 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = ('payment_type', 'transaction_id', 'amount')
 
 
+class OrderReturnSerializerID(serializers.ModelSerializer):
+    class Meta:
+        model = OrderReturn
+        fields = ('id', 'return_reason', 'refund_amount', 'refund_points', 'status')
+
+
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
@@ -641,7 +647,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
-    return_id = serializers.SerializerMethodField()
+    rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -678,17 +684,10 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
         return None
 
-    def get_return_id(self, obj):
-        returns = OrderReturn.objects.filter(order=obj, status='completed')
-        if returns:
-            return returns.last().id
-        else:
-            None
-
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'return_id')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -1708,6 +1707,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     creation_date = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
+    rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
 
     @staticmethod
     def get_creation_date(obj):
@@ -1738,8 +1738,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return_summary = dict()
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
-            'amount_returned'], return_summary['return_id'] = \
-            return_value, discount_adjusted, points_value, refund_amount, returns.last().id
+            'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
 
         return return_summary
 
@@ -1836,7 +1835,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display', 'payment')
+                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
