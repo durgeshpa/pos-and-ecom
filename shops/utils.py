@@ -16,7 +16,7 @@ def create_shops_excel(queryset):
         'address_line1', 'address_contact_name', 'address_contact_number',
         'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
         'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name',
-        'shop_name__created_at').filter(shop_name__in=queryset)
+        'shop_name__created_at').filter(shop_name__id__in=queryset.values_list('id', flat=True))
     data_rows = data.count()
     workbook = xlsxwriter.Workbook(output, {'default_date_format':
                                             'dd/mm/yy hh:mm:ss'})
