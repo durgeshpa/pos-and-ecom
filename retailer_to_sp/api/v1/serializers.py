@@ -2084,7 +2084,7 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                                                 shop_employee__shop=seller_shop).last()
             except:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
-            if delivery_boy.groups.filter(name='Delivery Boy').exists():
+            if delivery_boy and delivery_boy.groups.filter(name='Delivery Boy').exists():
                 data['delivery_boy'] = delivery_boy
             else:
                 raise serializers.ValidationError("Delivery Boy does not have required permission.")
@@ -2341,20 +2341,20 @@ class DispatchShipmentSerializers(serializers.ModelSerializer):
                   'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified', 'not_attempt', 'rescheduling')
 
 
+
 class ShipmentPackageSerializer(serializers.ModelSerializer):
-    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
-    trip_packaging_details = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
-    status = ChoicesSerializer(choices=ShipmentPackaging.DISPATCH_STATUS_CHOICES, required=True)
+    trip_loading_status = serializers.SerializerMethodField()
     crate = CrateSerializer(read_only=True)
     packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
-    shipment = DispatchShipmentSerializers(read_only=True)
-    created_by = UserSerializers(read_only=True)
-    updated_by = UserSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+
+    def get_trip_loading_status(self, obj):
+        return obj.trip_packaging_details.last().package_status \
+            if obj.trip_packaging_details.exists() else None
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'return_remark', 'reason_for_rejection',
-                  'packaging_details', 'trip_packaging_details', 'created_by', 'updated_by',)
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'return_remark', 'trip_loading_status')
 
     def validate(self, data):
 
@@ -2535,9 +2535,13 @@ class TripSummarySerializer(serializers.Serializer):
 class DispatchInvoiceSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
     trip = serializers.SerializerMethodField()
+    created_date = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return DispatchTripSerializers(obj.trip_shipments.last().trip).data
+        return DispatchTripSerializers(obj.trip_shipment.last().trip).data if obj.trip_shipment.exists() else None
+
+    def get_created_date(self, obj):
+        return obj.created_at.strftime("%d/%b/%y %H:%M")
 
     class Meta:
         model = OrderedProduct
@@ -2572,7 +2576,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         if 'package_id' not in self.initial_data or not self.initial_data['package_id']:
             raise serializers.ValidationError("'package_id' | This is required.")
         try:
-            package = ShipmentPackaging.objects.get(id=self.initial_data['package_id'])
+            package = ShipmentPackaging.objects.get(id=self.initial_data['package_id'],
+                                                    shipment__order__seller_shop=trip.seller_shop)
         except:
             raise serializers.ValidationError("Invalid Package ID")
 

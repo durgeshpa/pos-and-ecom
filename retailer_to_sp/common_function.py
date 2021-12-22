@@ -165,3 +165,14 @@ def trip_search(queryset, search_text):
     queryset = queryset.filter(Q(seller_shop__shop_name__icontains=search_text) | Q(
         dispatch_no__icontains=search_text) | Q(delivery_boy__first_name__icontains=search_text))
     return queryset
+
+
+def get_logged_user_wise_query_set_for_trip_invoices(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('retailer_to_sp.can_plan_trip'):
+        queryset = queryset.filter(order__seller_shop__id=user.shop_employee.last().shop_id)
+    else:
+        queryset = queryset.none()
+    return queryset
