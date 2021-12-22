@@ -1586,8 +1586,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
             raise serializers.ValidationError("Shipment updation is not allowed.")
 
-        if mapping_instance.is_qc_done:
-            raise serializers.ValidationError("This product is already QC Passed.")
+        # if mapping_instance.is_qc_done:
+        #     raise serializers.ValidationError("This product is already QC Passed.")
 
         if mapping_instance.product != product:
             raise serializers.ValidationError("Product updation is not allowed.")
@@ -1883,8 +1883,26 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
         elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
+            self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
+
+    @staticmethod
+    def update_order_status_post_qc_done(shipment_instance):
+        if shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
+            total_shipped_qty = shipment_instance.order.rt_order_order_product \
+                .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty')) \
+                .get('total_shipped_qty')
+            total_ordered_qty = shipment_instance.order.ordered_cart.rt_cart_list \
+                .aggregate(total_ordered_qty=Sum('no_of_pieces')) \
+                .get('total_ordered_qty')
+
+            if total_ordered_qty == total_shipped_qty:
+                shipment_instance.order.order_status = Order.FULL_SHIPMENT_CREATED
+            else:
+                shipment_instance.order.order_status = Order.PARTIAL_SHIPMENT_CREATED
+            shipment_instance.order.save()
+
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
