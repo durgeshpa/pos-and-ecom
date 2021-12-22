@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping
+from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping, DispatchTrip
 from wms.models import Crate
 
 
@@ -73,4 +73,8 @@ def validate_package_by_crate_id(queryset, crate_id, crate_type=None, shipment_i
     if crate_type and obj.crate.crate_type != crate_type:
         return {'error': 'selected carte type is not allowed.'}
     return {'data': obj}
-    
+
+def validate_trip_user(trip_id, user):
+    if DispatchTrip.objects.filter(id=trip_id, seller_shop=user.shop_employee.last().shop).exists():
+        return {"data" : DispatchTrip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
+    return {"error" : "Invalid trip"}
