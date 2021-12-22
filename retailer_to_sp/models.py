@@ -3308,6 +3308,12 @@ class DispatchTrip(BaseTimestampUserModel):
                                                     verbose_name="Total sacks collected")
     weight = models.FloatField(null=True, default=0, verbose_name="Trip weight" )
 
+
+    class Meta:
+        permissions = (
+            ("can_plan_trip", "Can Plan Trip"),
+        )
+
     def __str__(self):
         del_boy = "--"
         if self.delivery_boy:

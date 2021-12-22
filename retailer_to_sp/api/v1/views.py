@@ -69,7 +69,8 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
+    get_logged_user_wise_query_set_for_trip_invoices
 from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
@@ -77,7 +78,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
-                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping)
+                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -111,7 +112,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
                           ShipmentCompleteVerifySerializer
                           )
-from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id
+from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -7572,7 +7573,7 @@ class DispatchTripStatusChangeView(generics.GenericAPIView):
 class ShipmentPackagingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects. \
+    queryset = ShipmentPackaging.objects.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH). \
         select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
                        'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
                        'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
@@ -7961,7 +7962,6 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                                                                      OrderedProduct.READY_TO_SHIP])).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
-        prefetch_related('qc_area__qc_desk_areas'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
              'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
@@ -7972,11 +7972,12 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'created_at'). \
         order_by('-id')
 
+
     def get(self, request):
         validation_response = self.validate_get_request()
         if "error" in validation_response:
             return get_response(validation_response["error"], False)
-        self.queryset = get_logged_user_wise_query_set_for_dispatch(request.user, self.queryset)
+        self.queryset = get_logged_user_wise_query_set_for_trip_invoices(request.user, self.queryset)
         self.queryset = self.search_filter_invoice_data()
         shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(shipment_data, many=True)
@@ -8011,7 +8012,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         buyer_shop = self.request.GET.get('buyer_shop')
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
-        availability = self.request.GET.get('availability')
+        availability = int(self.request.GET.get('availability'))
 
         '''search using warehouse name, product's name'''
         if search_text:
@@ -8041,7 +8042,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
 
         if dispatch_center:
-            self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
+            self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
 
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
@@ -8068,7 +8069,9 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
         serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
@@ -8418,3 +8421,18 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                     Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
 
         return self.queryset.distinct('id')
+
+
+
+class DispatchPackageStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in PACKAGE_VERIFY_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
