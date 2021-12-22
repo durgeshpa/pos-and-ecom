@@ -2177,7 +2177,8 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
             try:
-                delivery_boy = User.objects.get(id=self.initial_data['delivery_boy'], shop_employee__shop=seller_shop)
+                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                                   shop_employee__shop=seller_shop).last()
                 if dispatch_trip.delivery_boy != delivery_boy:
                     raise Exception("'delivery_boy' | Invalid delivery_boy for selected trip.")
             except:
@@ -2523,7 +2524,6 @@ class SummarySerializer(serializers.Serializer):
     total_crates = serializers.IntegerField()
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
-    total_trip = serializers.IntegerField()
     weight = serializers.IntegerField()
 
 
