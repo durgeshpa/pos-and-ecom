@@ -237,7 +237,8 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'TAX TYPE','TAX RATE','STORE NAME',
+            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
+            'Total Tax','STORE NAME',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
             'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
             'GRN  QTY', 'GIVEN QTY UNIT', 'CREATED AT','Vendor Name', 'Vendor Address','Vendor State','phone_number'
@@ -250,6 +251,21 @@ def generate_prn_csv_report(queryset):
                 shop = p_return.grn_ordered_id.order.ordered_cart.retailer_shop
             except Exception:
                 shop = None
+            gst_tax, cess_tax, surcharge_tax = '', '', ''
+            total_tax = 0
+            if return_item.product.linked_product:
+                if return_item.product.linked_product.product_pro_tax is not None:
+                    for tax in return_item.product.linked_product.product_pro_tax.all():
+                        if tax.tax.tax_type == 'gst':
+                            gst_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+                        elif tax.tax.tax_type == 'cess':
+                            cess_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+                        elif tax.tax.tax_type == 'surcharge':
+                            surcharge_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+
             rows.append(
                 [
                     p_return.pr_number,
@@ -258,8 +274,10 @@ def generate_prn_csv_report(queryset):
                     p_return.grn_ordered_id.order.ordered_cart.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     p_return.grn_ordered_id.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     return_item.product.product_price,
-                    return_item.product.product_tax.tax_type,
-                    return_item.product.product_tax.tax_percentage,
+                    gst_tax,
+                    cess_tax,
+                    surcharge_tax,
+                    total_tax,
                     shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
@@ -272,10 +290,10 @@ def generate_prn_csv_report(queryset):
                     return_item.grn_received_qty if return_item.grn_return_id.grn_ordered_id else 0,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
                     p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S"),
-                    p_return.vendor_id.vendor_name if p_return.vendor_id else "",
-                    p_return.vendor_id.address if p_return.vendor_id else '' ,
-                    p_return.vendor_id.state if p_return.vendor_id else '' ,
-                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else '' ,
+                    p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
+                    p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else '',
+                    p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else '',
+                    p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else '',
 
 
                 ]
