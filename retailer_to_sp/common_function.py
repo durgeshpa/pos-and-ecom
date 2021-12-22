@@ -139,6 +139,7 @@ def getGSTINNumber(shop_name):
         gstin_number = get_config('addistro_gstin_no', None)
     return gstin_number
 
+
 # def getShopLicenseNumber(shop_id):
 #     if shop_id == 32154:
 #         return get_config('addistro_license_no', None)
@@ -146,14 +147,16 @@ def getGSTINNumber(shop_name):
 #         return get_config('gfdn_license_no', None)
 #     return get_config('addistro_license_no', None)
 
+
 def dispatch_trip_search(queryset, search_text):
     '''
     search using seller_shop, source_shop, destination_shop, dispatch_no & delivery_boy based on criteria that matches
     '''
-    queryset = queryset.filter(Q(seller_shop__shop_name__icontains=search_text) | Q(
-        source_shop__shop_name__icontains=search_text) | Q(destination_shop__shop_name__icontains=search_text) | Q(
-        dispatch_no__icontains=search_text) | Q(delivery_boy__first_name__icontains=search_text))
+    queryset = queryset.filter(Q(dispatch_no__icontains=search_text) | Q(
+        delivery_boy__first_name__icontains=search_text) | Q(source_shop__shop_name__icontains=search_text) | Q(
+        destination_shop__shop_name__icontains=search_text) | Q(seller_shop__shop_name__icontains=search_text))
     return queryset
+
 
 def trip_search(queryset, search_text):
     '''
