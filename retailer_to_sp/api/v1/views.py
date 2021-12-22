@@ -7808,11 +7808,13 @@ class TripSummaryView(generics.GenericAPIView):
         """ GET API for trip summary """
         info_logger.info("Order Status Summary GET api called.")
         """ GET Trip Summary List """
-        validated_data = validate_data_days_date_request(self.request)
-        if 'error' in validated_data:
-            return get_response(validated_data['error'])
+        # validated_data = validate_data_days_date_request(self.request)
+        # if 'error' in validated_data:
+        #     return get_response(validated_data['error'])
         if not self.request.GET.get('dispatch_center', None):
             return get_response("'dispatch_center' | This is mandatory")
+        if not self.request.GET.get('trip_id', None):
+            return get_response("'trip_id' | This is mandatory")
         trip_summary_data = {
             "trip_data": self.added_shipments_to_trip_summary(self.request),
             "non_trip_data": self.non_added_shipments_to_trip_summary(self.request)
@@ -7839,7 +7841,6 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'total_trip': resp_data['no_of_trips'] if resp_data['no_of_trips'] else 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0
         }
         return trip_summary_data
@@ -7849,16 +7850,15 @@ class TripSummaryView(generics.GenericAPIView):
         """ GET API for trip summary """
         info_logger.info("Added shipmets to Trip Summary called.")
         # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
-        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.READY_TO_SHIP).\
+        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).\
             select_related('order', 'order__seller_shop'). \
             order_by('-id')
-        shipment_qs = get_logged_user_wise_query_set_for_dispatch(request.user, shipment_qs)
+        shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
         shipment_qs = self.filter_non_added_in_trip_shipments_summary_data(shipment_qs)
         resp_data = shipment_qs.aggregate(no_of_invoices=Count('id'))
         resp_data['no_of_crates'] = 0
         resp_data['no_of_packets'] = 0
         resp_data['no_of_sacks'] = 0
-        resp_data['no_of_trips'] = 0
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging.\
@@ -7878,13 +7878,12 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'total_trip': resp_data['no_of_trips'] if resp_data['no_of_trips'] else 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0
         }
         return trip_summary_data
 
     def filter_trip_summary_data(self, queryset):
-        id = self.request.GET.get('id')
+        trip_id = self.request.GET.get('trip_id')
         dispatch_center = self.request.GET.get('dispatch_center')
         seller_shop = self.request.GET.get('seller_shop')
         source_shop = self.request.GET.get('source_shop')
@@ -7895,7 +7894,7 @@ class TripSummaryView(generics.GenericAPIView):
 
         '''Filters using id, seller_shop, source_shop, destination_shop, delivery_boy, created_at'''
         if id:
-            queryset = queryset.filter(id=id)
+            queryset = queryset.filter(id=trip_id)
 
         if dispatch_center:
             queryset = queryset.filter(Q(source_shop__id=dispatch_center) | Q(destination_shop__id=dispatch_center))
@@ -8420,7 +8419,6 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
-
 class DispatchPackageStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -8431,5 +8429,19 @@ class DispatchPackageStatusList(generics.GenericAPIView):
         '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in PACKAGE_VERIFY_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class DispatchTripStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in DispatchTrip.DISPATCH_TRIP_STATUS]
         msg = ""
         return get_response(msg, data, True)
