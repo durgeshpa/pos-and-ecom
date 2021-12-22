@@ -30,6 +30,7 @@ class SendSms(object):
                 'v': '1.1',
                 'format': 'text',
                 'mask':self.mask
+
             }
             url = "https://enterprise.smsgupshup.com/GatewayAPI/rest"
             return send_gupshup_request.delay(url, query)
