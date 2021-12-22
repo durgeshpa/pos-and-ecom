@@ -640,6 +640,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
+    ordered_product = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -651,6 +652,14 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
         return round((ordered_product.invoice_amount_final), 2) if ordered_product else(obj.order_amount)
+
+    def get_ordered_product(self, obj):
+        """
+            Get ordered product id
+        """
+        ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
+            ordered_product.id
+        return ordered_product
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
@@ -670,8 +679,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
-                  'delivery_persons')
+        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -840,7 +849,8 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ('retailer_product', 'selling_price', 'qty', 'qty_unit', 'product_subtotal', 'rt_return_ordered_product')
+        fields = ('ordered_product', 'retailer_product', 'selling_price', 'qty', 'qty_unit', 'product_subtotal',
+                  'rt_return_ordered_product')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -1816,7 +1826,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display','payment')
+                  'delivery_person', 'buyer', 'order_status_display', 'payment')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -3064,7 +3074,6 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
 
-
     def get_order_cancel_reson(self,obj):
         if obj.order_status == "CANCELLED":
             return obj.get_cancellation_reason_display()
@@ -3247,9 +3256,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary',
+                  'invoice_summary', 'ordered_product',
                   'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display','order_cancel_reson', 'payment')
+                  'order_status_display', 'order_cancel_reson', 'payment')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
