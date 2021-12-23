@@ -7755,9 +7755,11 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
-            if not request.GET.get('shipment_id') or not request.GET.get('batch_id'):
-                return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
-            process_shipments_data = self.filter_shipment_data()
+            if request.GET.get('shipment_id') and (request.GET.get('batch_id') or request.GET.get('product_ean_code')):
+                process_shipments_data = self.filter_shipment_data()
+            else:
+                return get_response('please provide id / shipment_id & (batch_id or product_ean_code) '
+                                    'to get shipment product detail', False)
 
         serializer = self.serializer_class(process_shipments_data, many=True)
         msg = "" if process_shipments_data else "no shipment product found"
@@ -7791,11 +7793,15 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
     def filter_shipment_data(self):
         """ Filters the Shipment data based on request"""
         shipment_id = self.request.GET.get('shipment_id')
+        product_ean_code = self.request.GET.get('product_ean_code')
         batch_id = self.request.GET.get('batch_id')
 
         '''Filters using shipment_id & batch_id'''
         if shipment_id:
             self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
+
+        if product_ean_code:
+            self.queryset = self.queryset.filter(product__product_ean_code=product_ean_code)
 
         if batch_id:
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)

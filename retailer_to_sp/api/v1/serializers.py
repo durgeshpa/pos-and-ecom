@@ -90,7 +90,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
-                  'product_image', 'product_mrp')
+                  'product_image', 'product_mrp', 'product_ean_code')
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
@@ -2997,20 +2997,17 @@ class LastMileTripShipmentsSerializer(serializers.ModelSerializer):
 class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
     product = ProductSerializer(read_only=True)
-    product_price = serializers.SerializerMethodField()
-    product_total_price = serializers.SerializerMethodField()
-    product_type = serializers.SerializerMethodField()
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
     shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
 
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'ordered_qty', 'shipped_qty', 'product', 'product_price', 'product_total_price', 'is_qc_done',
-                  'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
-                  'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
-                  'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging')
+        fields = ('id', 'ordered_qty', 'shipped_qty', 'product', 'is_qc_done', 'selling_price', 'shipped_qty',
+                  'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'expired_qty', 'missing_qty',
+                  'rejected_qty', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'last_modified_by',
+                  'created_at', 'modified_at')
 
     def validate(self, data):
 
@@ -3064,13 +3061,15 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
-
                 if batch_returned_qty < 0 or batch_returned_damage_qty < 0 or batch_returned_missing_qty < 0 or \
                         float(batch_returned_qty) < float(batch_returned_damage_qty + batch_returned_missing_qty) or \
                         float(product_batch_instance.ordered_product_mapping.returned_qty) < float(
-                        batch_returned_qty + batch_returned_damage_qty + batch_returned_missing_qty):
-                    raise serializers.ValidationError("Sorry Quantity mismatch!! Returned pieces must be greater than "
-                                                      "the sum of (returned_damage_qty, returned_missing_qty.)")
+                        batch_returned_qty + batch_returned_damage_qty + batch_returned_missing_qty) or \
+                        float(product_batch_instance.already_shipped_qty) < \
+                        (float(product_batch_instance.delivered_qty) + float(
+                            batch_returned_qty + batch_returned_damage_qty + batch_returned_missing_qty)):
+                    raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Delivered, Returned, Damaged & "
+                                                      "Missing Quantity should be equals to Already Shipped Quantity")
                 product_batch['returned_qty'] = batch_returned_qty
                 product_batch['returned_damage_qty'] = batch_returned_damage_qty
                 product_batch['returned_missing_qty'] = batch_returned_missing_qty
@@ -3093,17 +3092,28 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
         if mapping_instance.product != product:
             raise serializers.ValidationError("Product updation is not allowed.")
-
-        if product_returned_qty < 0 or \
+        """
+            Returned pieces, damaged return, missing pieces must be positive values
+            Existing Returned pieces must be equal to entered returned pieces
+            Returned pieces + damaged return + missing pieces <= Shipped pieces
+            
+        """
+        if product_returned_qty < 0 or product_returned_damage_qty < 0 or product_returned_missing_qty < 0 or \
                 float(mapping_instance.returned_qty) != float(product_returned_qty) or \
-                float(product_returned_qty) < float(product_returned_damage_qty + product_returned_missing_qty):
-            raise serializers.ValidationError("Sorry Quantity mismatch!! Returned pieces must be greater than "
-                                              "the sum of (returned_damage_qty, returned_missing_qty.)")
+                float(mapping_instance.shipped_qty) < \
+                float(product_returned_qty + product_returned_damage_qty + product_returned_missing_qty):
+            raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Returned, Damaged & Missing Quantity "
+                                              "should be lesser than Shipped Quantity")
+
+        # Delivered pieces = Shipped pieces - Returned Pieces - Damaged return
+        product_delivered_qty = float(mapping_instance.shipped_qty) - \
+                                float(product_returned_qty + product_returned_damage_qty)
 
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
 
+        total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
-            if product_returned_qty == 0:
+            if total_product_returned_qty == float("0"):
                 raise serializers.ValidationError("To be returned quantity is zero, packaging is not required")
             total_product_qty = 0
             for package_obj in self.initial_data['packaging']:
@@ -3124,12 +3134,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError(validated_packages['error'])
                     for package in validated_packages['data']['packages']:
                         total_product_qty += package['quantity']
-            if total_product_qty != int(product_returned_qty):
+            if total_product_qty != int(total_product_returned_qty):
                 raise serializers.ValidationError("Total quantity packaged should match total returned quantity.")
-        elif product_returned_qty > 0:
+        elif total_product_returned_qty > 0:
             raise serializers.ValidationError("'packaging' | This is mandatory")
 
         data['packaging'] = self.initial_data.get('packaging')
+        data['delivered_qty'] = product_delivered_qty
         data['returned_damage_qty'] = product_returned_damage_qty
         data['returned_missing_qty'] = product_returned_missing_qty
         data['is_return_verified'] = True
@@ -3216,34 +3227,6 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                             shipment_packaging, shipment_map_instance, int(package['quantity']),
                             validated_data['last_modified_by'])
         return shipment_map_instance
-
-    @staticmethod
-    def get_product_price(obj):
-        """
-        Get effective product price per piece from OrderedProductMapping instance if available,
-        else get the price instance from CartProductMapping and calculate effective price
-        applicable per piece based on shipped quantity
-        """
-        product_price = 0
-        if obj.effective_price:
-            product_price = obj.effective_price
-        else:
-            cart_product_mapping = CartProductMapping.objects.filter(
-                cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart).last()
-            if cart_product_mapping and cart_product_mapping.cart_product_price:
-                cart_product_price = cart_product_mapping.cart_product_price
-                cart_product_case_size = cart_product_mapping.no_of_pieces/cart_product_mapping.qty
-                shipped_qty_in_pack = math.ceil(obj.shipped_qty / cart_product_case_size)
-                product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack), 2)
-        return product_price
-
-    def get_product_total_price(self, obj):
-        self.product_total_price = float(obj.effective_price) * float(obj.shipped_qty)
-        return round(self.product_total_price, 2)
-
-    @staticmethod
-    def get_product_type(obj):
-        return obj.get_product_type_display()
 
 
 class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
