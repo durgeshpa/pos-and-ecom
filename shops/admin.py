@@ -25,7 +25,7 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -555,9 +555,9 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                        name="user-autocomplete"
                    ),
                     url(
-                        r'^pos-shop-autocomplete/$',
-                        self.admin_site.admin_view(PosShopAutocomplete.as_view()),
-                        name="pos-shop-autocomplete"
+                        r'^pos-shop-complete/$',
+                        self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
+                        name="pos-shop-complete"
                     ),
 
                ] + urls
