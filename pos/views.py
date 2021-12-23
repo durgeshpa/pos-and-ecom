@@ -1316,7 +1316,6 @@ class RetailerOrderedReportView(APIView):
         writer.writerow([])
         writer.writerow(['User Name', 'Walkin Cash', 'Walkin Online', 'Ecomm PG', 'Ecomm Cash', 'Total Cash',
                          'Total Online', 'Total PG'])
-
         for user in users_list:
             pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt = \
                 self.total_order_calculation(user['user__id'], start_date, end_date, shop)

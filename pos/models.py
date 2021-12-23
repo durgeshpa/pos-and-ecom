@@ -118,7 +118,7 @@ class RetailerProduct(models.Model):
 
     @property
     def product_tax(self):
-        return ProductTaxMapping.objects.filter(product=self.id).first().tax
+        return ProductTaxMapping.objects.filter(product=self.id).first().tax if ProductTaxMapping.objects.filter(product=self.id).first() else 0
 
     def save(self, *args, **kwargs):
         # Discounted

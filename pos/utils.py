@@ -240,7 +240,8 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'TAX TYPE','TAX RATE','STORE NAME',
+            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
+            'Total Tax','STORE NAME',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
             'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
             'GRN  QTY', 'GIVEN QTY UNIT', 'CREATED AT','Vendor Name', 'Vendor Address','Vendor State','phone_number'
@@ -253,6 +254,21 @@ def generate_prn_csv_report(queryset):
                 shop = p_return.grn_ordered_id.order.ordered_cart.retailer_shop
             except Exception:
                 shop = None
+            gst_tax, cess_tax, surcharge_tax = '', '', ''
+            total_tax = 0
+            if return_item.product.linked_product:
+                if return_item.product.linked_product.product_pro_tax is not None:
+                    for tax in return_item.product.linked_product.product_pro_tax.all():
+                        if tax.tax.tax_type == 'gst':
+                            gst_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+                        elif tax.tax.tax_type == 'cess':
+                            cess_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+                        elif tax.tax.tax_type == 'surcharge':
+                            surcharge_tax = tax.tax.tax_percentage
+                            total_tax += tax.tax.tax_percentage
+
             rows.append(
                 [
                     p_return.pr_number,
@@ -261,8 +277,10 @@ def generate_prn_csv_report(queryset):
                     p_return.grn_ordered_id.order.ordered_cart.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     p_return.grn_ordered_id.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     return_item.product.product_price,
-                    return_item.product.product_tax.tax_type,
-                    return_item.product.product_tax.tax_percentage,
+                    gst_tax,
+                    cess_tax,
+                    surcharge_tax,
+                    total_tax,
                     shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
@@ -275,10 +293,10 @@ def generate_prn_csv_report(queryset):
                     return_item.grn_received_qty if return_item.grn_return_id.grn_ordered_id else 0,
                     return_item.given_qty_unit if return_item.given_qty_unit else 'PACK',
                     p_return.created_at.strftime("%m/%d/%Y-%H:%M:%S"),
-                    p_return.vendor_id.vendor_name if p_return.vendor_id else "",
-                    p_return.vendor_id.address if p_return.vendor_id else '' ,
-                    p_return.vendor_id.state if p_return.vendor_id else '' ,
-                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else '' ,
+                    p_return.vendor_id.vendor_name if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.vendor_name if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.address if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.address if p_return.grn_ordered_id else  "",
+                    p_return.vendor_id.state if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.state if p_return.grn_ordered_id else "",
+                    p_return.vendor_id.alternate_phone_number if p_return.vendor_id else p_return.grn_ordered_id.order.ordered_cart.vendor.alternate_phone_number if p_return.grn_ordered_id else  "",
 
 
                 ]
@@ -293,9 +311,9 @@ def generate_csv_payment_report(payments):
     response["Content-Disposition"] = 'attachement; filename="{}"'.format(filename)
     csv_writer = csv.writer(response)
     csv_writer.writerow(
-        [   'INVOICE NO',
-            'INVOICE DATE',
-            'ORDER NO',
+        [   'Order No',
+            'Invoice No',
+            'Invoice Date',
             'ORDER STATUS',
             'BILLING ADDRESS',
             'SELLER SHOP',
@@ -304,31 +322,74 @@ def generate_csv_payment_report(payments):
             'Point Redemption',
             'Point Redemption Value',
             'Coupon NAME',
+            'Coupon discount',
+            'Max coupon discount',
             'AMOUNT',
             'PAID BY',
             'PROCCESSED BY',
             'PAID AT'
         ]
     )
-    rows = [
-        [   payment.order.shipments()[0].invoice if payment.order.shipments() else '',
-            payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
-            payment.order.order_no,
-            payment.order.get_order_status_display(),
-            payment.order.billing_address,
-            payment.order.seller_shop,
-            payment.payment_type,
-            payment.transaction_id,
-            payment.order.ordered_cart.redeem_points,
-            payment.order.ordered_cart.redeem_points_value,
-            ",".join( coupon.get('coupon_name','') for coupon in  payment.order.ordered_cart.offers).strip(',') if payment.order.ordered_cart.offers else None ,
-            payment.amount,
-            payment.paid_by,
-            payment.processed_by,
-            payment.created_at.strftime("%m/%d/%Y-%H:%M:%S")
-        ]
-        for payment in payments
-    ]
+    rows = []
+    for payment in payments:
+        row = []
+        row.append(payment.order.order_no)
+        row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
+        row.append(payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '')
+        row.append(payment.order.get_order_status_display())
+        row.append(payment.order.billing_address)
+        row.append(payment.order.seller_shop)
+        row.append(payment.payment_type)
+        row.append(payment.transaction_id)
+        row.append(payment.order.ordered_cart.redeem_points)
+        row.append(payment.order.ordered_cart.redeem_points_value)
+        offername = ''
+        discount = ''
+        max_discount = ''
+        if payment.order.ordered_cart.offers :
+            for coupon in payment.order.ordered_cart.offers:
+                if coupon.get('type') == 'combo':
+                    offername = offername + coupon.get('coupon_name', '')
+                if coupon.get('type') == 'discount':
+                    offername = offername +',' + coupon.get('coupon_name', '')
+                    discount = "Discount " + str(coupon.get('discount')) + " %  " if coupon.get('is_percentage') else ""
+                    max_discount = "Maximum discount {}".format(coupon.get('max_discount')) if  coupon.get('max_discount') else ''
+
+                if coupon.get('type') == 'discount' and coupon.get('sub_type') == 'spot_discount':
+                    offername = offername +',' +  'spot_discount: {}'.format(coupon.get('discount'))+ " %" if coupon.get('is_percentage')==1 else ''
+        row.append(offername.strip(','))
+        row.append(discount)
+        row.append(max_discount)
+        row.append(payment.amount)
+        row.append(payment.paid_by)
+        row.append(payment.processed_by)
+        row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))
+        rows.append(row)
+
+
+
+
+
+    # rows = [
+    #     [
+    #         payment.order.order_no,
+    #         getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '',
+    #         payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '',
+    #         payment.order.get_order_status_display(),
+    #         payment.order.billing_address,
+    #         payment.order.seller_shop,
+    #         payment.payment_type,
+    #         payment.transaction_id,
+    #         payment.order.ordered_cart.redeem_points,
+    #         payment.order.ordered_cart.redeem_points_value,
+    #         ",".join( coupon.get('coupon_name','') for coupon in  payment.order.ordered_cart.offers).strip(',') if payment.order.ordered_cart.offers else None ,
+    #         payment.amount,
+    #         payment.paid_by,
+    #         payment.processed_by,
+    #         payment.created_at.strftime("%m/%d/%Y-%H:%M:%S")
+    #     ]
+    #     for payment in payments
+    # ]
     csv_writer.writerows(rows)
     return response
 

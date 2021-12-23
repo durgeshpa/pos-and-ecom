@@ -625,8 +625,8 @@ class InventoryReport(GenericAPIView):
         logs = PosInventoryChange.objects.filter(product_id=pk)
 
         # Search
-        if search_text:
-            logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text) | Q(product__name__icontains=search_text))
+        # if search_text:
+        #     logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text))
         logs = logs.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(logs, self.request)
         logs_data = InventoryLogReportSerializer(objects, many=True).data

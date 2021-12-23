@@ -203,7 +203,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
               'default', 'created_at', 'modified_at', 'deleted_at')
     list_display = fields
     search_fields = ('user__phone_number', 'user__first_name', 'contact_number', 'contact_name', 'pincode',
-                     'city')
+                     'city__city_name')
 
     def has_change_permission(self, request, obj=None):
         return False
