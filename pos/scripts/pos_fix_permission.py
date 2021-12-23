@@ -1,4 +1,7 @@
-from django.core.management.base import BaseCommand
+import os
+import django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", 'retailer_backend.settings')
+django.setup()
 from django.apps import apps
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -11,7 +14,7 @@ info_logger = logging.getLogger('file-info')
 def run(*args):
     for model in apps.get_models():
         opts = model._meta
-        if opts.app_label == 'pos':
+        if opts.app_label == 'ecom':
             ctype, created = ContentType.objects.get_or_create(
                 app_label=opts.app_label,
                 model=opts.object_name.lower())
@@ -29,3 +32,7 @@ def run(*args):
 
                 if pe_created:
                     print('Permission Created {}, {}, {}'.format(pe.id, pe.codename, ctype))
+
+
+if __name__ == '__main__':
+    run()

@@ -1,7 +1,8 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
-from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
+from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
+    BeatPlanning, ShopStatusLog
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -190,7 +191,6 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
-
 from django.forms.models import BaseInlineFormSet
 
 class RequiredInlineFormSet(BaseInlineFormSet):
@@ -294,7 +294,7 @@ class ShopUserMappingForm(forms.ModelForm):
 class PosShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(pos_enabled=True).all(),
-        widget=autocomplete.ModelSelect2(url='admin:pos-shop-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='admin:pos-shop-complete',)
     )
     user = forms.ModelChoiceField(
         queryset=get_user_model().objects.all(),

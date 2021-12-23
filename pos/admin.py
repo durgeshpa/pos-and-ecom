@@ -1,7 +1,7 @@
 import csv
 from datetime import date
 from io import StringIO
-
+from django.db.models import Q, Sum
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
@@ -34,8 +34,10 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
-    RetailerOrderReturnCreditNoteView,posinventorychange_data_excel
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, \
+    RetailerOrderProductInvoiceView, \
+    RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
+    RetailerPurchaseReportFormView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -111,11 +113,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
+              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
-                       'sku_type', 'mrp', 'modified_at', 'description')
+                       'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -171,6 +173,17 @@ class RetailerProductAdmin(admin.ModelAdmin):
                    url(r'^retailer_product_multiple_images_upload/$',
                        self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
                        name='retailer_product_multiple_images_upload'),
+
+                   url(
+                       r'^retailer-purchase-value-report/$',
+                       self.admin_site.admin_view(RetailerPurchaseReportView.as_view()),
+                       name="retailer-purchase-value-report"
+                   ),
+                   url(
+                      r'^retailer-purchase-value-form/$',
+                      self.admin_site.admin_view(RetailerPurchaseReportFormView.as_view()),
+                      name="retailer-purchase-value-form"
+                   ),
 
                ] + urls
         return urls
@@ -892,15 +905,16 @@ class PosCartAdmin(admin.ModelAdmin):
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
                          'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Price'])
+                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value'])
 
         for obj in queryset:
             for p in obj.po_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                purchase_value = p.price * p.qty
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price])
+                                 brand, sub_brand, p.qty, p.price, purchase_value])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -958,21 +972,55 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
     def download_grns(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
-                         'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
-                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
+        writer.writerow(['GRN Id','GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount' ,'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                         'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.','Store Id', 'Store Name', 'Shop User',
+                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'GST Tax','Cess_Tax','Surcharge_Tax',
+                         'Total Tax','Unit Price', 'Total Tax value',
                          'Recieved Quantity'])
+        rows = []
 
         for obj in queryset:
+
+
+
             for p in obj.po_grn_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.invoice_no, obj.invoice_date,
-                                 obj.invoice_amount, obj.order.ordered_cart.status, obj.created_at,
-                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
+                gst_tax, cess_tax, surcharge_tax = '', '', ''
+                total_tax =0
+                original_amount = 0
+
+                if p.product.linked_product:
+                    if p.product.linked_product.product_pro_tax is not None:
+                        for tax in p.product.linked_product.product_pro_tax.all():
+                            if tax.tax.tax_type == 'gst':
+                                gst_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                            elif tax.tax.tax_type == 'cess':
+                                cess_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                            elif tax.tax.tax_type == 'surcharge':
+                                surcharge_tax = tax.tax.tax_percentage
+                                total_tax += tax.tax.tax_percentage
+                    if total_tax:
+                        divisor = (1 + (total_tax / 100))
+                        original_amount = round(float(p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price()) / float(divisor),3)
+
+                writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
+                                 obj.order.ordered_cart.status,
+                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price(),
+                                 obj.invoice_no, obj.invoice_date,
+                                 obj.invoice_amount,  obj.created_at,
+                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
+                                 obj.order.ordered_cart.vendor.gst_number,
+                                 obj.order.ordered_cart.retailer_shop.id,
                                  obj.order.ordered_cart.retailer_shop.shop_name,
                                  obj.order.ordered_cart.retailer_shop.shop_owner,
                                  p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.received_qty])
+                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().qty, gst_tax,
+                                 cess_tax, surcharge_tax, total_tax if total_tax else '',
+                                 p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().price,
+                                 round(((float(original_amount)*total_tax)/100), 3) if total_tax else '',
+                                 p.received_qty])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

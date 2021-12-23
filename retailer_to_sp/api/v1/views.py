@@ -4,8 +4,8 @@ import math
 import re
 import json
 
-from datetime import date as datetime_date
 from django.http import HttpResponse
+from datetime import date as datetime_date
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
@@ -83,7 +83,8 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
-from pos.models import RetailerProduct, Payment as PosPayment, PaymentType, MeasurementUnit
+from pos.models import (RetailerProduct, Payment as PosPayment,
+                        PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
 from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
@@ -103,8 +104,22 @@ from sp_to_gram.tasks import es_search, upload_shop_stock
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
-from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from ...common_validators import validate_shipment_dispatch_item
+from wms.views import shipment_not_attempt_inventory_change
+from wms.views import shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
+                          OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
+                          GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
+                          OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
+                          OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
+                          ShopSerializer)
+from .serializers import (ShipmentNotAttemptSerializer
+                          )
+import math
+from fcm.utils import get_device_model
+Device = get_device_model()
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -298,7 +313,14 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         filter_list = [{"term": {"is_deleted": False}}]
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
 
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
@@ -336,8 +358,16 @@ class SearchProducts(APIView):
         body = dict()
         query_string = dict()
 
-        if int(self.request.GET.get('include_discounted', '1')) == 0:
+        # if int(self.request.GET.get('include_discounted', '1')) == 0:
+        #     filter_list.append({"term": {"is_discounted": False}})
+
+        if self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 1:
+            filter_list.append({"term": {"is_discounted": True}})
+        elif self.request.GET.get('include_discounted') and \
+                int(self.request.GET.get('include_discounted')) == 0:
             filter_list.append({"term": {"is_discounted": False}})
+
         if self.request.GET.get('product_pack_type', 'packet') == 'loose':
             filter_list.append({"term": {"product_pack_type": 'loose'}})
 
@@ -1387,7 +1417,6 @@ class CartCentral(GenericAPIView):
         with transaction.atomic():
             # basic validations for inputs
             shop, product, qty = kwargs['shop'], kwargs['product'], kwargs['quantity']
-
             # Update or create cart for user for shop
             cart = self.post_update_ecom_cart(shop)
             # Check if product has to be removed
@@ -1400,6 +1429,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.no_of_pieces = qty
+                cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
             if not CartProductMapping.objects.filter(cart=cart).exists():
@@ -1967,7 +1998,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def delete_ecom_offer(self, request, *args, **kwargs):
@@ -1989,7 +2021,8 @@ class CartCheckout(APIView):
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             cart.offers = offers_list
             cart.save()
-            return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE', '1')), status.HTTP_200_OK, True)
 
     def post_basic_validate(self, shop):
         """
@@ -2642,8 +2675,9 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Check if order exists
             try:
-                order = Order.objects.select_for_update().get(pk=kwargs['pk'], seller_shop=kwargs['shop'],
-                                          ordered_cart__cart_type__in=['BASIC', 'ECOM'])
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'],
+                                                              seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type__in=['BASIC', 'ECOM'])
             except ObjectDoesNotExist:
                 return api_response('Order Not Found!')
             # check input status validity
@@ -2670,9 +2704,17 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
-                    if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
-                                   last().user_type == 'manager':
-                        return api_response('Only MANAGER can Cancel the order!')
+                    user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                                   last().user_type
+                    flag = False
+                    if user_type == 'manager':
+                        flag = True
+                    elif user_type  == 'store_manager':
+                        flag = True
+                    elif user_type == 'cashier':
+                        flag = True
+                    if not flag:
+                        return api_response('Only MANAGER ,STORE MANAGER and CASHIER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
@@ -2684,6 +2726,8 @@ class OrderCentral(APIView):
                                                         order.order_no, PosInventoryChange.CANCELLED)
 
                 # update order status
+                order.cancellation_reason = request.data.get('cancellation_reason')
+                # print(order)
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
@@ -2710,12 +2754,20 @@ class OrderCentral(APIView):
                     return api_response("Please select a delivery person")
                 order.order_status = Order.OUT_FOR_DELIVERY
                 order.delivery_person = delivery_person
+                ###### trip me save created
                 order.save()
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
                 shipment.save()
+                if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                      shipment=shipment)
+                pos_trip.trip_start_at = datetime.now()
+                pos_trip.save()
                 # Inventory move from ordered to picked
                 ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
                 for product_map in ordered_products:
@@ -2742,6 +2794,14 @@ class OrderCentral(APIView):
                 shipment = OrderedProduct.objects.get(order=order)
                 shipment.shipment_status = order_status
                 shipment.save()
+                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
+                if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                      shipment=shipment)
+                pos_trip.trip_end_at = datetime.now()
+                pos_trip.save()
 
             return api_response("Order updated successfully!", None, status.HTTP_200_OK, True)
 
@@ -2784,7 +2844,6 @@ class OrderCentral(APIView):
             # whatsapp api call for order cancellation
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
-
             return api_response("Order cancelled successfully!", None, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3069,6 +3128,19 @@ class OrderCentral(APIView):
             ]
             self.auto_process_order(order, payments, 'ecom')
             self.auto_process_ecom_order(order)
+            try:
+                from pyfcm import FCMNotification
+                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'), is_active=True).distinct('reg_id')
+                for device in devices:
+                    registration_id = device.reg_id
+                    message_title = "PepperTap Store Order Alert !!"
+                    message_body = "Hello, You received a new Order."
+                    result = push_service.notify_single_device(registration_id=registration_id, message_title=message_title,
+                                                               message_body=message_body)
+                    info_logger.info(result)
+            except Exception as e:
+                info_logger.info(e)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
@@ -4469,7 +4541,7 @@ class OrderReturns(APIView):
                                                 default=True).unit, product, qty)
 
         if qty + previous_ret_qty > ordered_product_map.shipped_qty:
-            return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product_id)}
+            return {'error': "Product {} - total return qty cannot be greater than sold quantity".format(product.name)}
 
         return {'ordered_product_map': ordered_product_map, 'return_qty': qty, 'product_id': product_id,
                 'previous_ret_qty': previous_ret_qty}
@@ -5372,7 +5444,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
         #     static_file.write(content)
@@ -5547,7 +5618,6 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
 
         # with open("/home/amit/env/test5/qa4/cancel.pdf", "wb") as f:
         #     f.write(response.rendered_content)
-        
         # # content = render_to_string(template_name, data)
         # # with open("abc.html", 'w') as static_file:
         # #     static_file.write(content)
@@ -6542,14 +6612,14 @@ class PosShopUsersList(APIView):
         shop = kwargs['shop']
         data = dict()
         data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
-        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False)
+        pos_shop_users = PosShopUserMapping.objects.filter(shop=shop, user__is_staff=False).order_by('-id')
         if self.request.GET.get('is_delivery_person', False):
             pos_shop_users = pos_shop_users.filter(Q(user_type='delivery_person') | Q(is_delivery_person=True))
         search_text = self.request.GET.get('search_text')
         if search_text:
             pos_shop_users = pos_shop_users.filter(Q(user__phone_number__icontains=search_text) |
                                                    Q(user__first_name__icontains=search_text))
-        pos_shop_users = pos_shop_users.order_by('-status')
+        # pos_shop_users = pos_shop_users.order_by('-status')
         request_users = self.pagination_class().paginate_queryset(pos_shop_users, self.request)
         data['user_mappings'] = PosShopUserMappingListSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)

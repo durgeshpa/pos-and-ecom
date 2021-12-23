@@ -642,7 +642,8 @@ class PosInventoryState(models.Model):
 
 
 class PosInventory(models.Model):
-    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING)
+    product = models.ForeignKey("pos.RetailerProduct", on_delete=models.DO_NOTHING,
+                                related_name='pos_inv_products',)
     quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)

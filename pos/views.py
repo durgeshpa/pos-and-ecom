@@ -29,9 +29,11 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
-    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn
+    MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn, \
+    PosCartProductMapping
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
-    PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm
+    PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm, \
+    RetailerPurchaseReportForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
 from shops.models import Shop, PosShopUserMapping
@@ -130,11 +132,11 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                 row['offer_end_date'] = None
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
-            online_enabled, online_price, is_visible,product_pack_type = row.get('product_name'), row.get('product_ean_code'), \
+            online_enabled, online_price, is_visible, product_pack_type, initial_purchase_value = row.get('product_name'), row.get('product_ean_code'), \
                                                        row.get('mrp'), row.get('selling_price'), row.get('offer_price', None), \
                                                        row.get('offer_start_date', None), row.get('offer_end_date', None), None, \
                                                        row.get('description'), row.get('quantity'), row['online_enabled'], \
-                                                       row['online_price'], row['is_deleted'] , row.get('product_pack_type',None)
+                                                       row['online_price'], row['is_deleted'], row.get('product_pack_type',None), row.get('initial_purchase_value')
 
             if row.get('product_id') == '':
                 # we need to create this product
@@ -155,7 +157,8 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                        measure_cat_id, None,
                                                                        row.get('status'), offer_price, offer_sd,
                                                                        offer_ed, None, online_enabled, online_price,
-                                                                       purchase_pack_size, is_visible)
+                                                                       purchase_pack_size, is_visible,
+                                                                                   initial_purchase_value)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
@@ -164,7 +167,7 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
                                                                measure_cat_id, None, row.get('status'),
                                                                offer_price, offer_sd, offer_ed, None,
                                                                online_enabled, online_price,
-                                                               purchase_pack_size, is_visible)
+                                                               purchase_pack_size, is_visible, initial_purchase_value)
                 # Add Inventory
                 PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
                                                 round(Decimal(row.get('quantity')), 3), request.user,
@@ -205,6 +208,9 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
                     if product.selling_price != row.get('selling_price'):
                         product.selling_price = row.get('selling_price')
+
+                    if product.initial_purchase_value != row.get('initial_purchase_value'):
+                        product.initial_purchase_value = row.get('initial_purchase_value')
 
                     if product.status != row.get('status'):
                         if row.get('status') == 'deactivated':
@@ -382,9 +388,10 @@ def DownloadRetailerCatalogue(request, *args):
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
          'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
-         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock','discounted_price', 'product_pack_type',
-         'measurement_category', 'purchase_pack_size', 'available_for_online_orders', 'online_order_price',
-         'is_visible','offer_price','offer_start_date','offer_end_date'])
+         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
+         'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+         'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+         'initial_purchase_value'])
 
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
     if product_qs.exists():
@@ -405,7 +412,7 @@ def DownloadRetailerCatalogue(request, *args):
                     'linked_product__parent_product__parent_brand__brand_name',
                     'linked_product__parent_product__parent_brand__brand_parent__brand_name',
                     'status', 'discounted_product', 'discounted_product__sku', 'online_enabled', 'online_price',
-                    'is_deleted', 'offer_price', 'offer_start_date', 'offer_end_date')
+                    'is_deleted', 'offer_price', 'offer_start_date', 'offer_end_date', 'initial_purchase_value')
         product_dict = {}
         discounted_product_ids = []
         for product in retailer_products:
@@ -457,7 +464,7 @@ def DownloadRetailerCatalogue(request, *args):
                  product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
                  product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
-                 product['offer_end_date']])
+                 product['offer_end_date'], product['initial_purchase_value']])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -546,13 +553,14 @@ def RetailerCatalogueSampleFile(request, *args):
          'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
          'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
          'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
-         'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date'])
+         'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+         'initial_purchase_value'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
                      "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
-                     "2021-11-23"])
+                     "2021-11-23", 8])
     writer.writerow(["", 36966, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
                      "", "", "", "", 'active', 2, "", "", "", 'packet', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
-                     "2021-11-23"])
+                     "2021-11-23", 9.5])
 
     return response
 
@@ -1084,7 +1092,7 @@ class RetailerOrderedReportView(APIView):
         response['Content-Disposition'] = 'attachment; filename="order-report.csv"'
         writer = csv.writer(response)
         shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
-                                        pos_enabled=True, pos_shop__status=True).last()
+                                       pos_enabled=True, pos_shop__status=True).last()
         writer.writerow(['Shop Name:', shop_obj.shop_name])
         writer.writerow(['Start Date:', start_date])
         writer.writerow(['End Date:', end_date])
@@ -1110,6 +1118,7 @@ class RetailerOrderedReportFormView(View):
             'admin/services/retailer-order-report.html',
             {'form': form}
         )
+
 
 class RetailerOrderProductInvoiceView(View):
 
@@ -1158,3 +1167,66 @@ class RetailerOrderReturnCreditNoteView(View):
         except Exception as err:
             logging.exception("CreditNote download failed due to %s" % err)
             return HttpResponseBadRequest("CreditNote download failed due to %s" % err)
+
+
+class RetailerPurchaseReportView(View):
+
+    def get(self, *args, **kwargs):
+
+        shop = self.request.GET.get('shop', None)
+        error = False
+        if not shop:
+            messages.error(self.request, 'shop is mandatory')
+            error = True
+        if not Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                   pos_enabled=True, pos_shop__status=True):
+            messages.error(self.request, "Franchise Shop Id Not Approved / Invalid!")
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/product-purchase-value-report.html',
+                {'form': RetailerPurchaseReportForm(initial=self.request.GET)}
+            )
+
+        products = RetailerProduct.objects.filter(shop=shop).values('id', 'shop', 'name', 'sku',
+                                                                    'linked_product__product_sku',
+                                                                    'product_ean_code', 'purchase_pack_size',
+                                                                    'initial_purchase_value')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="purchase-value-report.csv"'
+        writer = csv.writer(response)
+        shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                       pos_enabled=True, pos_shop__status=True).last()
+        writer.writerow(['Shop Name:', shop_obj.__str__()])
+        writer.writerow([])
+        writer.writerow(['Sno', 'Product Name', 'Retailer SKU', 'Linked Product SKU', 'EAN',
+                         'Purchase Pack Size', 'Quantity', 'Purchase Value', 'Total Purchase Value'])
+
+        for i, product in enumerate(products):
+            pos_inv_products_map = PosInventory.objects.filter(
+                product__id=product['id'], inventory_state=PosInventoryState.objects.filter(
+                    inventory_state=PosInventoryState.AVAILABLE).last()).last()
+            quantity = pos_inv_products_map.quantity if pos_inv_products_map else 0
+            if PosCartProductMapping.objects.filter(product=product['id'], is_grn_done=True,
+                                                    cart__retailer_shop__id=shop).exists():
+                po_grn_initial_value = PosCartProductMapping.objects.filter(
+                    product=product['id'], is_grn_done=True).last()
+                product['initial_purchase_value'] = po_grn_initial_value.price * po_grn_initial_value.pack_size
+            total_purchase_value = (product['initial_purchase_value'] * quantity)/product['purchase_pack_size'] if \
+                product['initial_purchase_value'] else None
+            writer.writerow(
+                [(i + 1), product['name'], product['sku'], product['linked_product__product_sku'],
+                 product['product_ean_code'], product['purchase_pack_size'], quantity,
+                 product['initial_purchase_value'], total_purchase_value])
+        return response
+
+
+class RetailerPurchaseReportFormView(View):
+    def get(self, request):
+        form = RetailerPurchaseReportForm()
+        return render(
+            self.request,
+            'admin/services/product-purchase-value-report.html',
+            {'form': form}
+        )

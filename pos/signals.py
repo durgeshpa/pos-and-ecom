@@ -88,7 +88,10 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PosReturnGRNOrder)
 def create_pr_number(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.pr_number = purchase_return_number_pattern(instance.pk, instance.grn_ordered_id.grn_id)
+        if instance.grn_ordered_id:
+            instance.pr_number = purchase_return_number_pattern(instance.pk, instance.grn_ordered_id.grn_id)
+        else:
+            instance.pr_number = purchase_return_number_pattern(instance.pk, instance.vendor_id.pincode)
         instance.save()
 
 

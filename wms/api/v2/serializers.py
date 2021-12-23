@@ -169,6 +169,7 @@ class GRNOrderSerializers(serializers.ModelSerializer):
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
+        ref_name = "WarehouseSerializer v2"
         fields = ('id', '__str__')
 
     def to_representation(self, instance):
@@ -202,6 +203,7 @@ class ChildProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
+        ref_name = "ChildProduct v2"
         fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
 
     def get_product_pro_image(self, obj):
@@ -335,6 +337,7 @@ class ZoneCrudSerializers(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParentProduct
+        ref_name = "Product v2"
         fields = ('id', 'name')
 
 

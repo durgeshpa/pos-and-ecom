@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, ShopStatusLog)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
@@ -25,7 +25,7 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -210,6 +210,22 @@ class ShopCityFilter(InputFilter):
         return queryset
 
 
+class ShopStatusAdmin(admin.TabularInline):
+    model = ShopStatusLog
+    fields = ('reason', 'user', 'created_at')
+    readonly_fields = ('reason', 'user', 'created_at')
+    extra = 0
+
+    def created_at(self, obj):
+        return obj.changed_at
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     change_form_template = 'admin/shops/shop/change_form.html'
@@ -217,10 +233,10 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
               'approval_status']
-    actions = ["export_as_csv", "disable_shop"]
+    actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping
+        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
@@ -335,6 +351,26 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def disable_shop(modeladmin, request, queryset):
         queryset.update(approval_status=0)
+        for shop in queryset:
+            ShopStatusLog.objects.create(reason='Disapproved', user=request.user, shop=shop)
+
+    def download_status_report(self, request, queryset):
+
+        field_names = ['shop_id', 'shop_name', 'reason', 'changed at', 'user_id', 'user_name']
+        meta = self.model._meta
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in queryset:
+            data = ShopStatusLog.objects.values_list(
+                'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
+
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
@@ -353,6 +389,18 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_shop_parent(self, obj):
         if obj.retiler_mapping.exists():
             return obj.retiler_mapping.last().parent
+
+    def save_model(self, request, obj, form, change):
+        if 'approval_status' in form.changed_data:
+            approval_status = form.cleaned_data['approval_status']
+            if approval_status == 0:
+                reason = 'Disapproved'
+            elif approval_status == 1:
+                reason = 'Awaiting Approval'
+            else:
+                reason = 'Approved'
+            ShopStatusLog.objects.create(reason = reason, user = request.user, shop = obj)
+        return super(ShopAdmin, self).save_model(request, obj, form, change)
 
     get_shop_parent.short_description = 'Parent Shop'
 
@@ -507,9 +555,9 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                        name="user-autocomplete"
                    ),
                     url(
-                        r'^pos-shop-autocomplete/$',
-                        self.admin_site.admin_view(PosShopAutocomplete.as_view()),
-                        name="pos-shop-autocomplete"
+                        r'^pos-shop-complete/$',
+                        self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
+                        name="pos-shop-complete"
                     ),
 
                ] + urls
@@ -615,6 +663,17 @@ class ShopTypeAdmin(admin.ModelAdmin):
     fields = ('shop_type', 'shop_sub_type', 'shop_min_amount', 'status')
 
 
+class ExecutiveFeedbackAdmin(admin.ModelAdmin):
+    fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
+              'longitude', 'is_valid', 'distance_in_km')
+    list_display = ('id', 'day_beat_plan_id', 'executive_feedback', 'feedback_date')
+    readonly_fields = ('day_beat_plan', 'executive_feedback', 'feedback_date', 'latitude',
+              'longitude', 'is_valid', 'distance_in_km')
+
+    def day_beat_plan_id(self, obj):
+        return obj.day_beat_plan.id
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -626,3 +685,4 @@ admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
 admin.site.register(ShopTiming, ShopTimingAdmin)
 admin.site.register(BeatPlanning, BeatPlanningAdmin)
 admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
+admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
