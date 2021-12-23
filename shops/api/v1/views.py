@@ -607,8 +607,9 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values(
-            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').order_by('shop__shop_name')
+        shop_list = list(shop_user_obj.values(
+            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').distinct('shop'))
+        shop_list = sorted(shop_list, key=lambda a: a['shop__shop_name'])
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -988,6 +989,21 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :return: Beat Plan for Sales executive otherwise error message
         """
         try:
+            app_id = self.request.GET.get('app', None)
+            if app_id and int(app_id) == 1:
+                try:
+                    if self.request.GET['beat_plan_id']:
+                        beat_plan_id = self.request.GET['beat_plan_id']
+                        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan__id=beat_plan_id)
+                        beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
+                        return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                         'is_success': True},
+                                        status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.error(e)
+                    return Response({"detail": messages.ERROR_MESSAGES["4020"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
+
             if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
                 beat_user = self.queryset.filter(executive=self.request.user,
                                                  executive__user_type=self.request.user.user_type,

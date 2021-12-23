@@ -1,5 +1,6 @@
 import csv
 import datetime
+from io import StringIO
 
 from django.db.models import Sum, F, FloatField
 from django.http import HttpResponse
@@ -22,7 +23,7 @@ def create_order_data_excel(request, queryset):
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Invoice Date ', 'Seller Shop ID',
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
-        'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code', 'Product Category',
+        'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code', 'Product Category',
         'Product SubCategory', 'Quantity', 'Invoice Quantity', 'Product Type', 'MRP', 'Selling Price',
         'Offer Applied', 'Offer Discount', 'Spot Discount', 'Order Amount', 'Invoice Amount',
         'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)',
@@ -32,6 +33,7 @@ def create_order_data_excel(request, queryset):
         .prefetch_related('order', 'invoice', 'order__seller_shop', 'order__seller_shop__shop_owner',
                           'order__seller_shop__shop_type__shop_sub_type', 'order__buyer',
                           'rt_order_product_order_product_mapping',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__product_sku',
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
@@ -44,7 +46,7 @@ def create_order_data_excel(request, queryset):
         .annotate(
             purchased_subtotal=RoundAmount(Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
+        .values('id', 'rt_order_product_order_product_mapping__retailer_product__linked_product','rt_order_product_order_product_mapping__retailer_product__linked_product__product_sku','order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
                 'invoice__created_at', 'order__seller_shop__id', 'order__seller_shop__shop_name',
                 'order__seller_shop__shop_owner__id', 'order__seller_shop__shop_owner__first_name',
                 'order__seller_shop__shop_owner__phone_number',
@@ -122,6 +124,7 @@ def create_order_data_excel(request, queryset):
             order.get('order__buyer__phone_number'),
             order.get('rt_order_product_order_product_mapping__retailer_product__id'),
             order.get('rt_order_product_order_product_mapping__retailer_product__sku'),
+            order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__product_sku'),
             order.get('rt_order_product_order_product_mapping__retailer_product__name'),
             order.get('rt_order_product_order_product_mapping__retailer_product__product_ean_code'),
             category,
@@ -390,3 +393,37 @@ def generate_csv_payment_report(payments):
     csv_writer.writerows(rows)
     return response
 
+
+def download_grn_cvs(queryset):
+    f = StringIO()
+    writer = csv.writer(f)
+    writer.writerow(['GRN Id','GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount' ,'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
+                        'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.','Store Id', 'Store Name', 'Shop User',
+                        'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'Tax Type ',
+                        'Tax Rate','Unit Price', 'Tax value','Total Value',
+                        'Recieved Quantity'])
+
+    for obj in queryset:
+        for p in obj.po_grn_products.all():
+            parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+            writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
+                                obj.order.ordered_cart.status,
+                                p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum')*p.product.product_price,
+                                obj.invoice_no, obj.invoice_date,
+                                obj.invoice_amount,  obj.created_at,
+                                obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
+                                obj.order.ordered_cart.vendor.gst_number,
+                                obj.order.ordered_cart.retailer_shop.id,
+                                obj.order.ordered_cart.retailer_shop.shop_name,
+                                obj.order.ordered_cart.retailer_shop.shop_owner,
+                                p.product.sku, p.product.name, parent_id, category, sub_category,
+                                brand, sub_brand,p.grn_order.order.ordered_cart.po_products.aggregate(Sum('qty')).get('qty__sum'),p.product.product_tax.tax_type,
+                                p.product.product_tax.tax_percentage,p.product.product_price,
+                                (float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                float(p.product.product_price)+(float(p.product.product_price)*p.product.product_tax.tax_percentage)/100,
+                                p.received_qty])
+
+    f.seek(0)
+    response = HttpResponse(f, content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
+    return response

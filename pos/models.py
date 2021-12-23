@@ -1,27 +1,41 @@
+import datetime
+import logging
 from decimal import Decimal
-from products.models import  ProductTaxMapping
-from django.utils.safestring import mark_safe
-from django.db import models
 
-from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.db import models
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from model_utils import Choices
 
-from addresses.models import City, State, Pincode
-from shops.models import Shop, PosShopUserMapping
-from products.models import Product
-from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from accounts.models import User
-from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from addresses.models import City, State, Pincode
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+from pos.bulk_product_creation import bulk_create_update_validated_products
+from pos.common_bulk_validators import bulk_product_validation
+from products.models import Product
+from products.models import ProductTaxMapping
+from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
                                    OrderedProductMapping, Order)
-from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
     ('online', 'Online Payment'),
     ('credit', 'Credit Payment')
 )
+
+logger = logging.getLogger(__name__)
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class MeasurementCategory(models.Model):
@@ -101,6 +115,7 @@ class RetailerProduct(models.Model):
     @property
     def product_price(self):
         return self.selling_price
+
     @property
     def product_tax(self):
         return ProductTaxMapping.objects.filter(product=self.id).first().tax if ProductTaxMapping.objects.filter(product=self.id).first() else 0
@@ -628,3 +643,67 @@ class PosTrip(models.Model):
 
     def __str__(self):
         return str(self.id) + ' | ' + self.trip_type
+
+
+class BulkRetailerProduct(models.Model):
+    products_csv = models.FileField(
+        upload_to='pos/products_csv',
+        null=True, blank=False
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='pos_bulk_seller_shop',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    uploaded_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='product_uploaded_by',
+        on_delete=models.DO_NOTHING
+    )
+    bulk_no = models.CharField(unique=True, max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def uploaded_product_list_status(self, error_dict):
+        product_upload_status_info = []
+        info_logger.info(f"[pos:models.py:BulkRetailerProduct]-uploaded_product_list_status function called")
+        error_dict[str('bulk_no')] = str(self.bulk_no)
+        product_upload_status_info.extend([error_dict])
+
+        status = "Bulk Product Creation"
+        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
+        Download {status} List Status</a></h2>""" % \
+              (
+                  reverse(
+                      'admin:products_list_status',
+                      args=(product_upload_status_info)
+                  )
+              )
+        return url
+
+    def clean(self, *args, **kwargs):
+        if self.products_csv:
+            self.save()
+            error_dict, validated_rows = bulk_product_validation(self.products_csv, self.seller_shop.pk)
+            bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
+                                                f"below Link for seeing the status"
+                                                f"{self.uploaded_product_list_status(error_dict)}"))
+        else:
+            super(BulkRetailerProduct, self).clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            current_date = datetime.datetime.now().strftime("%d%m%Y")
+            starts_with = "BP" + str(current_date) + str(self.seller_shop.pk).zfill(6)
+            last_number = 0
+            instance_with_current_pattern = BulkRetailerProduct.objects.filter(bulk_no__icontains=starts_with)
+            if instance_with_current_pattern.exists():
+                last_instance_no = BulkRetailerProduct.objects.filter(bulk_no__icontains=starts_with).latest('bulk_no')
+                last_number = int(getattr(last_instance_no, 'bulk_no')[-3:])
+            last_number += 1
+            self.bulk_no = starts_with + str(last_number).zfill(3)
+            self.uploaded_by = self.uploaded_by
+            super().save(*args, **kwargs)
+
+

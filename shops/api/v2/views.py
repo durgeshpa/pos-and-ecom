@@ -1030,6 +1030,8 @@ class BeatPlanningListView(GenericAPIView):
         manager_id = self.request.GET.get('manager_id', None)
         executive_id = self.request.GET.get('executive_id', None)
         status = self.request.GET.get('status', None)
+        if int(self.request.GET.get('app', None)) == 1:
+            manager_id = request.user.id
         if manager_id:
             self.queryset = self.queryset.filter(manager__id=manager_id)
         if executive_id:

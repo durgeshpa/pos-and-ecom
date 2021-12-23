@@ -15,7 +15,7 @@ from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
 from ecom.models import EcomTrip
-
+from django.contrib.admin import SimpleListFilter
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
     model = EcomCartProductMapping
@@ -79,6 +79,21 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
+class Sheller_SHOP(SimpleListFilter):
+    """custom Filter ....."""
+    title = 'Sheller_SHOP'
+    parameter_name = 'seller_shop'
+
+    def lookups(self, request, model_admin):
+        seller_shop = set([s.seller_shop for s in Order.objects.filter(ordered_cart__cart_type='ECOM')])
+        return [(s.id,s.shop_name) for s in seller_shop]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(seller_shop=self.value())
+        else:
+            return queryset
+
 class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
@@ -96,6 +111,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
     )
+    list_filter = [Sheller_SHOP, 'created_at']
 
     def seller_shop(self, obj):
         return obj.seller_shop
@@ -151,7 +167,12 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         # qs = super(EcomOrderProductAdmin, self).get_queryset(request)
+        # qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        # print('='*50)
+        # print(len(qs))
         qs = Order.objects.filter(ordered_cart__cart_type='ECOM')
+        # print(len(qs))
+        # print('=' * 50)
         if request.user.is_superuser:
             return qs
         return qs.filter(
