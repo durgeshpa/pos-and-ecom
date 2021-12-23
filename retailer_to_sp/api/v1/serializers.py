@@ -2891,7 +2891,7 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
         trip_shipment_mapping.trip.save()
 
 
-class LastMileTripShipmentMappingSerializers(serializers.ModelSerializer):
+class LastMileTripShipmentMappingListSerializers(serializers.ModelSerializer):
     shipment = DispatchShipmentSerializers(read_only=True)
     created_by = UserSerializer(read_only=True)
     updated_by = UserSerializer(read_only=True)
@@ -2904,7 +2904,7 @@ class LastMileTripShipmentMappingSerializers(serializers.ModelSerializer):
 class LastMileTripCrudSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
-    last_mile_trip_shipments_details = LastMileTripShipmentMappingSerializers(read_only=True, many=True)
+    last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
 
     class Meta:
         model = Trip
@@ -3350,4 +3350,91 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_instance
+
+
+class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+    last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
+
+    class Meta:
+        model = Trip
+        fields = ('id', 'trip_id', 'seller_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy', 'e_way_bill_no',
+                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
+                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+                  'trip_amount', 'received_amount', 'total_received_amount', 'received_cash_amount',
+                  'received_online_amount',  'cash_to_be_collected_value', 'total_trip_shipments',
+                  'total_delivered_shipments', 'total_returned_shipments', 'total_pending_shipments',
+                  'total_rescheduled_shipments', 'total_trip_amount_value', 'total_pending_shipments',
+                  'total_rescheduled_shipments', 'total_return_amount', 'no_of_shipments',
+                  'last_mile_trip_shipments_details', 'created_at', 'modified_at')
+
+    def validate(self, data):
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if Trip.objects.filter(id=self.initial_data['id']).exists():
+                trip_instance = Trip.objects.filter(id=self.initial_data['id']).last()
+            else:
+                raise serializers.ValidationError("Seller shop updation are not allowed.")
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory")
+
+        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+            vehicle_no = self.initial_data['vehicle_no']
+            if trip_instance.vehicle_no != vehicle_no:
+                raise Exception("'vehicle_no' | Invalid vehicle_no for selected trip.")
+
+        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
+            try:
+                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
+                if trip_instance.seller_shop != seller_shop:
+                    raise Exception("'seller_shop' | Invalid seller_shop for selected trip.")
+            except:
+                raise serializers.ValidationError("'seller_shop' | Invalid seller shop")
+
+        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+            try:
+                delivery_boy = User.objects.filter(
+                    id=self.initial_data['delivery_boy'], shop_employee__shop=seller_shop).last()
+                if trip_instance.delivery_boy != delivery_boy:
+                    raise Exception("'delivery_boy' | Invalid delivery_boy for selected trip.")
+            except:
+                raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
+
+        if 'trip_status' in self.initial_data and self.initial_data['trip_status']:
+            trip_status = self.initial_data['trip_status']
+            if trip_status != Trip.RETURN_VERIFIED:
+                raise serializers.ValidationError("'trip_status' | Invalid status for the selected trip.")
+        else:
+            trip_status = Trip.RETURN_VERIFIED
+
+        if trip_instance.trip_status != Trip.COMPLETED or trip_instance.trip_status == trip_status:
+            raise serializers.ValidationError(f"Trip status can't update, already {str(trip_instance.trip_status)}")
+        if trip_instance.trip_status == Trip.COMPLETED and trip_status != Trip.RETURN_VERIFIED:
+            raise serializers.ValidationError(f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
+
+        if trip_instance.trip_status == Trip.COMPLETED and trip_status == Trip.RETURN_VERIFIED:
+            trip_shipment_mappings = trip_instance.last_mile_trip_shipments_details.all()
+            if not trip_shipment_mappings:
+                raise serializers.ValidationError("No shipments added to the trip.")
+
+            for mapping in trip_shipment_mappings:
+                if mapping.shipment.rt_order_product_order_product_mapping.filter(
+                        returned_qty__gt=0, is_return_verified=False).exists():
+                    return serializers.ValidationError(
+                        f"Please verify all crates for the shipment {mapping.shipment}.")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update Last Mile Trip"""
+        try:
+            trip_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return trip_instance
+
 
