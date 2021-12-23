@@ -110,7 +110,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
                           UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
-                          ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer
+                          ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
+                          ShipmentCratesValidatedSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user
 
@@ -7800,6 +7801,45 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
 
         return self.queryset.distinct('id')
+
+
+class ShipmentCratesValidatedView(generics.GenericAPIView):
+    """
+       View to validate shipment crates.
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentCratesValidatedSerializer
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+
+    def get(self, request):
+        if not request.GET.get('id'):
+            return get_response("'id' | This is mandatory")
+
+        """ Get Shipment for specific id """
+        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        self.queryset = id_validation['data']
+
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
 
 
 class ShipmentCompleteVerifyView(generics.GenericAPIView):

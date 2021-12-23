@@ -2428,7 +2428,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
         info_logger.info(f"post_shipment_packaging_status_change|Shipment ID {shipment_instance.id}")
         if shipment_instance.shipment_status == OrderedProduct.DELIVERED:
             if not shipment_instance.shipment_packaging.filter(
-                    status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                    ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
                     packaging_type=ShipmentPackaging.CRATE).exists():
@@ -3246,6 +3246,37 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         return obj.get_product_type_display()
 
 
+class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
+    """ Serializer for Complete verify a Shipment"""
+    order = OrderSerializerForShipment(read_only=True)
+    status = serializers.SerializerMethodField()
+    all_returned_crates_validated = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_status(obj):
+        return obj.get_shipment_status_display()
+
+    @staticmethod
+    def get_all_returned_crates_validated(obj):
+        if obj.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_COMPLETED,
+                                   OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
+                                   OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
+                                   OrderedProduct.RESCHEDULED]:
+            if not obj.shipment_packaging.filter(
+                    ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                    packaging_type=ShipmentPackaging.CRATE).exists():
+                return True
+            return False
+        return None
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'status', 'invoice_no', 'invoice_amount', 'all_returned_crates_validated',
+                  'order', 'created_at')
+
+
 class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
     """ Serializer for Complete verify a Shipment"""
     order = OrderSerializerForShipment(read_only=True)
@@ -3275,7 +3306,7 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Shipment not in valid state to complete verify.")
 
             if shipment.shipment_packaging.filter(
-                    status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                    ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
                     packaging_type=ShipmentPackaging.CRATE).exists():
@@ -3291,7 +3322,7 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
 
             if shipment_status == OrderedProduct.RESCHEDULED:
                 if shipment.shipment_packaging.filter(
-                        status__in=~Q([ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                        ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                        ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                        ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED])).exists():
                     raise serializers.ValidationError(f"All packages are not verified for shipment status "
