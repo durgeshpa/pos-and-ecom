@@ -2014,6 +2014,7 @@ class OrderedProductMapping(models.Model):
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    returned_missing_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Missing")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     missing_qty = models.PositiveIntegerField(default=0, verbose_name="Missing Pieces")
     rejected_qty = models.PositiveIntegerField(default=0, verbose_name="Rejected Pieces")
@@ -2395,6 +2396,7 @@ class OrderedProductBatch(models.Model):
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    returned_missing_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Missing")
     pickup_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Picked Pieces",
                                           validators=[MinValueValidator(0)])
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
@@ -3241,12 +3243,20 @@ class ShipmentPackaging(BaseTimestampUserModel):
         (LABEL_DAMAGED, 'Label Damaged'),
         (OTHER, 'Other'),
     )
+    RETURNED, RESCHEDULED, NOT_ATTEMPT, DISPATCH = 'RETURNED', 'RESCHEDULED', 'NOT_ATTEMPT', 'DISPATCH'
+    MOVEMENT_TYPE_CHOICES = (
+        (RETURNED, 'Returned'),
+        (RESCHEDULED, 'Rescheduled'),
+        (NOT_ATTEMPT, 'Not Attempt'),
+        (DISPATCH, 'Dispatch'),
+    )
     warehouse = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_packaging', on_delete=models.DO_NOTHING)
     packaging_type = models.CharField(max_length=50, choices=PACKAGING_TYPE_CHOICES)
     crate = models.ForeignKey(Crate, related_name='crates_shipments', null=True, on_delete=models.DO_NOTHING)
     status = models.CharField(max_length=50, choices=DISPATCH_STATUS_CHOICES, default=DISPATCH_STATUS_CHOICES.PACKED)
-    reason_for_rejection = models.CharField(max_length=50, choices=REASON_FOR_REJECTION, null=True)
+    reason_for_rejection = models.CharField(max_length=30, choices=REASON_FOR_REJECTION, null=True)
+    movement_type = models.CharField(default=DISPATCH, max_length=20, choices=MOVEMENT_TYPE_CHOICES)
     return_remark = models.CharField(max_length=50, choices=RETURN_REMARK_CHOICES, null=True)
 
 
