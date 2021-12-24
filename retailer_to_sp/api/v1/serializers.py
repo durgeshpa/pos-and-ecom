@@ -2380,7 +2380,7 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
         shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
         return shop_owner_name
 
-    def get_shipment_crates_packaging(self, obj):
+    def get_total_shipment_crates(self, obj):
         if obj:
             return DispatchItemsSerializer(obj.shipment_packaging.filter(
                 packaging_type=ShipmentPackaging.CRATE, crate__isnull=False), read_only=True, many=True).data
