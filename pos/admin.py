@@ -185,9 +185,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                       name="retailer-purchase-value-form"
                    ),
                    url(
-                       r'^products_list_status/(?P<product_status_info>(.*))/$',
+                       r'^products-list-status/(?P<product_status_info>(.*))/$',
                        self.admin_site.admin_view(products_list_status),
-                       name='products_list_status'
+                       name='products-list-status'
                    ),
                ] + urls
         return urls
