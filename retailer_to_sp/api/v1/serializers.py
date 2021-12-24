@@ -2368,6 +2368,7 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     shipment_status = serializers.SerializerMethodField()
     order = OrderDetailForShipmentSerializer(read_only=True)
     shipment_crates_packaging = serializers.SerializerMethodField()
+    total_shipment_crates = serializers.SerializerMethodField()
 
     def get_shipment_status(self, obj):
         return obj.get_shipment_status_display()
@@ -2386,10 +2387,15 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
                 packaging_type=ShipmentPackaging.CRATE, crate__isnull=False), read_only=True, many=True).data
         return None
 
+    def get_total_shipment_crates(self, obj):
+        if obj:
+            return obj.shipment_packaging.filter(packaging_type=ShipmentPackaging.CRATE, crate__isnull=False).count()
+        return None
+
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'order', 'payment_mode',
-                  'shipment_address', 'shop_owner_name', 'shop_owner_number', 'shipment_crates_packaging')
+        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'order', 'payment_mode', 'shipment_address',
+                  'shop_owner_name', 'shop_owner_number', 'shipment_crates_packaging', 'total_shipment_crates')
 
 
 class ShipmentPackageSerializer(serializers.ModelSerializer):
