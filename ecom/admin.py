@@ -16,6 +16,9 @@ from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
 from ecom.models import EcomTrip
 from django.contrib.admin import SimpleListFilter
+from rangefilter.filter import DateRangeFilter
+from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
+
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
     model = EcomCartProductMapping
@@ -79,9 +82,9 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
-class Sheller_SHOP(SimpleListFilter):
+class Seller_SHOP(SimpleListFilter):
     """custom Filter ....."""
-    title = 'Sheller_SHOP'
+    title = 'Seller_SHOP'
     parameter_name = 'seller_shop'
 
     def lookups(self, request, model_admin):
@@ -111,7 +114,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
     )
-    list_filter = [Sheller_SHOP, 'created_at']
+    list_filter = [Seller_SHOP, ('created_at', DateRangeFilter)]
 
     def seller_shop(self, obj):
         return obj.seller_shop
