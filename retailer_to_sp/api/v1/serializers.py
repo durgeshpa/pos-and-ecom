@@ -1896,7 +1896,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def update_order_status_post_qc_done(shipment_instance):
-        if shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
+        if shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
             total_shipped_qty = shipment_instance.order.rt_order_order_product \
                 .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty')) \
                 .get('total_shipped_qty')
@@ -1908,7 +1908,9 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 shipment_instance.order.order_status = Order.FULL_SHIPMENT_CREATED
             else:
                 shipment_instance.order.order_status = Order.PARTIAL_SHIPMENT_CREATED
-            shipment_instance.order.save()
+        elif shipment_instance.shipment_status == OrderedProduct.QC_REJECTED:
+            shipment_instance.order.order_status = Order.QC_FAILED
+        shipment_instance.order.save()
 
 
 class CitySerializer(serializers.ModelSerializer):
