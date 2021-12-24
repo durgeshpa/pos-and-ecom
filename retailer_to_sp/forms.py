@@ -1124,7 +1124,7 @@ class OrderForm(forms.ModelForm):
         super(OrderForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            if instance.order_status in [Order.CANCELLED, Order.DISPATCHED, Order.COMPLETED]:
+            if instance.order_status in [Order.CANCELLED, Order.DISPATCHED, Order.COMPLETED, Order.QC_FAILED]:
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
             else:

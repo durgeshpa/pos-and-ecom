@@ -1531,12 +1531,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
-            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None or \
-                    'expired_qty' not in product_batch or product_batch['expired_qty'] is None or \
-                    'missing_qty' not in product_batch or product_batch['missing_qty'] is None or \
-                    'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
-                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
-                                                  "These are mandatory.")
+            if 'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
+                raise serializers.ValidationError("'rejected_qty' | This is mandatory.")
             try:
                 damaged_qty = int(product_batch['damaged_qty'])
                 expired_qty = int(product_batch['expired_qty'])
@@ -1897,7 +1893,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def update_order_status_post_qc_done(shipment_instance):
-        if shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
+        if shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
             total_shipped_qty = shipment_instance.order.rt_order_order_product \
                 .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty')) \
                 .get('total_shipped_qty')
@@ -1909,7 +1905,9 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 shipment_instance.order.order_status = Order.FULL_SHIPMENT_CREATED
             else:
                 shipment_instance.order.order_status = Order.PARTIAL_SHIPMENT_CREATED
-            shipment_instance.order.save()
+        elif shipment_instance.shipment_status == OrderedProduct.QC_REJECTED:
+            shipment_instance.order.order_status = Order.QC_FAILED
+        shipment_instance.order.save()
 
 
 class CitySerializer(serializers.ModelSerializer):

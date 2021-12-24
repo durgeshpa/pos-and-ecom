@@ -1195,6 +1195,9 @@ def cancel_order_with_pick(instance):
                              .format(instance.order_no))
             return
         if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
+            if instance.rt_order_order_product.last() and \
+                    instance.rt_order_order_product.last().shipment_status == 'QC_REJECTED':
+                return
             pickup_id = pickup_qs.last().id
             warehouse = pickup_qs.last().warehouse
             sku = pickup_qs.last().sku

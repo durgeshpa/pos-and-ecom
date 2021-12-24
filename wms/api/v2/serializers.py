@@ -1449,9 +1449,9 @@ class PicklistSerializer(serializers.ModelSerializer):
 
     def get_order_create_date(self, obj):
         if obj.order:
-            return obj.order.created_at.strftime("%d-%m-%Y")
+            return obj.order.created_at.strftime("%d-%m-%Y %H:%M")
         elif obj.repackaging:
-            return obj.repackaging.created_at.strftime("%d-%m-%Y")
+            return obj.repackaging.created_at.strftime("%d-%m-%Y %H:%M")
 
     def m_delivery_location(self, obj):
         if obj.order:
