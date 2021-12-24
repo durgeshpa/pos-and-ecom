@@ -1530,12 +1530,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
-            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None or \
-                    'expired_qty' not in product_batch or product_batch['expired_qty'] is None or \
-                    'missing_qty' not in product_batch or product_batch['missing_qty'] is None or \
-                    'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
-                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
-                                                  "These are mandatory.")
+            if 'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
+                raise serializers.ValidationError("'rejected_qty' | This is mandatory.")
             try:
                 damaged_qty = int(product_batch['damaged_qty'])
                 expired_qty = int(product_batch['expired_qty'])
