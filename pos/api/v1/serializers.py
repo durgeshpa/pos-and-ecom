@@ -3595,7 +3595,7 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
         url = f"""%s""" % \
               (
                   reverse(
-                      'products_list_status',
+                      'products-list-status',
                       args=(product_upload_status_info)
                   )
               )

@@ -22,12 +22,12 @@ urlpatterns = [
         name='retailer-order-return-credit-note'),
     url(r'^retailer-order-invoice/(?P<pk>\d+)/', RetailerOrderProductInvoiceView.as_view(),
         name='retailer-order-invoice'),
-    url(r'^products_list_status/(?P<product_status_info>(.*))/', views.products_list_status,
-        name='products_list_status'),
+    url(r'^products-list-status/(?P<product_status_info>(.*))/', views.products_list_status,
+        name='products-list-status'),
     url(r'^download/update-inventory-sample/', views.RetailerProductStockDownload, name='update-inventory-sample'),
     url(r'^download/create-update-product-sample/', views.RetailerCatalogueSampleFile,
         name='create-update-product-sample'),
-    url(r'^download/retailer_products_csv_download/', views.DownloadRetailerCatalogue,
-        name='retailer_products_csv_download'),
+    url(r'^download/retailer-products-csv-download/', views.DownloadRetailerCatalogue,
+        name='retailer-products-csv-download'),
     
 ]
