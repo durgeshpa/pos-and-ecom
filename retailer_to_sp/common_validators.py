@@ -74,7 +74,18 @@ def validate_package_by_crate_id(queryset, crate_id, crate_type=None, shipment_i
         return {'error': 'selected carte type is not allowed.'}
     return {'data': obj}
 
+
+def get_shipment_by_crate_id(crate_id, crate_type=None):
+    """ validation only crate_id that belong to a selected related model """
+    obj = ShipmentPackaging.objects.filter(crate__crate_id=crate_id).last()
+    if not obj:
+        return {'error': 'please provide a valid crate_id'}
+    if crate_type and obj.crate.crate_type != crate_type:
+        return {'error': 'selected carte type is not allowed.'}
+    return {'data': obj.shipment.pk}
+
+
 def validate_trip_user(trip_id, user):
     if DispatchTrip.objects.filter(id=trip_id, seller_shop=user.shop_employee.last().shop).exists():
-        return {"data" : DispatchTrip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
-    return {"error" : "Invalid trip"}
+        return {"data": DispatchTrip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
+    return {"error": "Invalid trip"}
