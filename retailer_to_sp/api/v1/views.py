@@ -112,9 +112,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
-                          ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers
+                          ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
+                          ShipmentDetailsByCrateSerializer
                           )
-from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user
+from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
+    get_shipment_by_crate_id
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -7604,6 +7606,41 @@ class ShipmentPackagingView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class ShipmentDetailsByCrateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('shipment_packaging').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+    serializer_class = ShipmentDetailsByCrateSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Details By Crate """
+        info_logger.info("Shipment Details By Crate GET api called.")
+        if not request.GET.get('crate_id'):
+            return get_response("'crate_id' | This is mandatory.")
+        """ Get Shipment Details By Crate for specific ID """
+        id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shipment_id = id_validation['data']
+
+        serializer = self.serializer_class(self.queryset.filter(id=shipment_id).last())
+        msg = "" if shipment_id else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+
 class ShipmentCratesPackagingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -8160,12 +8197,16 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
 
         if availability:
-            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(trip_shipment__isnull=True)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(trip_shipment__isnull=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
+            except:
+                pass
 
         return self.queryset.distinct('id')
 
@@ -8526,14 +8567,18 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
 
         if availability:
-            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                self.queryset = self.queryset.filter(
-                    last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.filter(
-                    Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(
+                        last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(
+                        Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+            except:
+                pass
 
         return self.queryset.distinct('id')
 

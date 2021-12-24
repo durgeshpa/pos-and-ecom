@@ -558,7 +558,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('order','invoice_no','invoice_link')
+        fields = ('order','invoice_no','invoice_link', 'shipment_status')
 
 #order serilizer
 class OrderSerializer(serializers.ModelSerializer):
@@ -2369,6 +2369,55 @@ class DispatchShipmentSerializers(serializers.ModelSerializer):
                   'order_created_date', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check',
                   'no_of_packets_check', 'no_of_sacks_check', 'is_customer_notified', 'not_attempt', 'rescheduling')
 
+
+class OrderDetailForShipmentSerializer(serializers.ModelSerializer):
+    seller_shop = ShopSerializer()
+    buyer_shop = ShopSerializer()
+    dispatch_center = ShopSerializer()
+    shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+    received_by = UserSerializer(read_only=True)
+
+    def to_representation(self, instance):
+        representation = super(OrderDetailForShipmentSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'dispatch_center',
+                  'shipping_address', 'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount',
+                  'order_status', 'received_by', 'created_at', 'modified_at')
+
+
+class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_owner_number = serializers.SerializerMethodField()
+    shipment_status = serializers.SerializerMethodField()
+    order = OrderDetailForShipmentSerializer(read_only=True)
+    shipment_crates_packaging = serializers.SerializerMethodField()
+
+    def get_shipment_status(self, obj):
+        return obj.get_shipment_status_display()
+
+    def get_shop_owner_number(self, obj):
+        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
+        return shop_owner_number
+
+    def get_shop_owner_name(self, obj):
+        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
+        return shop_owner_name
+
+    def get_shipment_crates_packaging(self, obj):
+        if obj:
+            return DispatchItemsSerializer(obj.shipment_packaging.filter(
+                packaging_type=ShipmentPackaging.CRATE, crate__isnull=False), read_only=True, many=True).data
+        return None
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'order', 'payment_mode',
+                  'shipment_address', 'shop_owner_name', 'shop_owner_number', 'shipment_crates_packaging')
 
 
 class ShipmentPackageSerializer(serializers.ModelSerializer):
