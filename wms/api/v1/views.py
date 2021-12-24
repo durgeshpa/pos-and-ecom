@@ -448,7 +448,7 @@ class PickupList(APIView):
                                     default=F('order'),
                                     output_field=models.CharField(),
                                 )).\
-            order_by('-created_at')
+            order_by('order__created_at', 'repackaging__created_at')
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
         validate_request = validate_pickup_request(request)
@@ -877,11 +877,9 @@ class PickupComplete(APIView):
                 pd_obj = PickerDashboard.objects.select_for_update().filter(
                     repackaging_id=rep_obj, zone__picker_users=request.user)
 
-            pd_obj = pd_obj.exclude(picking_status__in=['picking_complete', 'picking_cancelled'])
+            if pd_obj.filter(picking_status='picking_complete').exists():
+                return Response({'is_success': True, 'message': "Pickup completed for the selected items"})
 
-            if pd_obj.count() > 1:
-                msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
-                return Response(msg, status=status.HTTP_200_OK)
             pick_obj = Pickup.objects.select_for_update(). \
                 filter(pickup_type_id=order_no, zone__picker_users=request.user). \
                 exclude(status__in=['picking_complete', 'picking_cancelled'])
