@@ -8156,12 +8156,16 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
 
         if availability:
-            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(trip_shipment__isnull=True)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(trip_shipment__isnull=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
+            except:
+                pass
 
         return self.queryset.distinct('id')
 
@@ -8522,14 +8526,18 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
 
         if availability:
-            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                self.queryset = self.queryset.filter(
-                    last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
-            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.filter(
-                    Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(
+                        last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(
+                        Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+            except:
+                pass
 
         return self.queryset.distinct('id')
 
