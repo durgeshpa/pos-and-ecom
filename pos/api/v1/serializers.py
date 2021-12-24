@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 import datetime
 import calendar
@@ -5,15 +6,21 @@ import re
 import math
 
 from django.db.models.functions import Cast
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField, Count, Case, When
 from django.db import transaction, models
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 
 from addresses.models import Pincode
+from pos.bulk_product_creation import bulk_create_update_validated_products
+from pos.common_bulk_validators import bulk_product_validation
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping, Payment, PaymentType, Document, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder, PosReturnItems
+    PosGRNOrderProductMapping, Payment, PaymentType, Document, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder, \
+    PosReturnItems, BulkRetailerProduct
 from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_return_creation, genrate_debit_note_pdf
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
@@ -23,13 +30,19 @@ from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, isBlankRow
 from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
 from ecom.models import Address
 from ecom.api.v1.serializers import EcomOrderAddressSerializer
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -3534,3 +3547,56 @@ class PRNOrderSerializer(serializers.ModelSerializer):
         if representation['modified_at']:
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
+
+class BulkProductUploadSerializers(serializers.ModelSerializer):
+    """
+      Bulk Product Price Creation
+    """
+    products_csv = serializers.FileField(label='Upload Product')
+
+    class Meta:
+        model = BulkRetailerProduct
+        fields = ('products_csv',)
+
+    def validate(self, data):
+        if not data['products_csv'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ return product """
+        try:
+            bulk_product_obj = BulkRetailerProduct.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        data = self.pos_save_file(bulk_product_obj)
+        return data
+
+    def pos_save_file(self, bulk_product_obj):
+        if bulk_product_obj.products_csv:
+            error_dict, validated_rows = bulk_product_validation(bulk_product_obj.products_csv,
+                                                                 bulk_product_obj.seller_shop.pk)
+            bulk_create_update_validated_products(bulk_product_obj.uploaded_by, bulk_product_obj.seller_shop.pk,
+                                                  validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                return False, mark_safe(f"{self.uploaded_product_list_status(bulk_product_obj, error_dict)}")
+        return True, None
+
+    def uploaded_product_list_status(self, bulk_product_obj, error_dict):
+        product_upload_status_info = []
+        info_logger.info(f"[pos:BulkRetailerProduct]-uploaded_product_list_status function called")
+        error_dict[str('bulk_no')] = str(bulk_product_obj.bulk_no)
+        product_upload_status_info.extend([error_dict])
+
+        url = f"""%s""" % \
+              (
+                  reverse(
+                      'products_list_status',
+                      args=(product_upload_status_info)
+                  )
+              )
+        return url
