@@ -86,6 +86,7 @@ class Seller_SHOP(SimpleListFilter):
     """custom Filter ....."""
     title = 'Seller_SHOP'
     parameter_name = 'seller_shop'
+    template = 'django_admin_listfilter_dropdown/dropdown_filter.html'
 
     def lookups(self, request, model_admin):
         seller_shop = set([s.seller_shop for s in Order.objects.filter(ordered_cart__cart_type='ECOM')])
