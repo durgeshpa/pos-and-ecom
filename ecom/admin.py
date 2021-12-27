@@ -90,7 +90,7 @@ class Seller_SHOP(SimpleListFilter):
 
     def lookups(self, request, model_admin):
         seller_shop = set([s.seller_shop for s in Order.objects.filter(ordered_cart__cart_type='ECOM')])
-        return [(s.id,s.shop_name) for s in seller_shop]
+        return [(s.id, s.shop_name) for s in seller_shop]
 
     def queryset(self, request, queryset):
         if self.value():
