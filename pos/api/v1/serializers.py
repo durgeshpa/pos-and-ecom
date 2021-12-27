@@ -3091,6 +3091,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
+    ordered_product = serializers.SerializerMethodField()
 
     @staticmethod
     def get_order_update(obj):
@@ -3280,12 +3281,22 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_ordered_product(self, obj):
+        """
+            Get ordered product id
+        """
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last(). \
+                ordered_product.id
+            return ordered_product
+        return None
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary', 'ordered_product',
-                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display', 'order_cancel_reson', 'payment')
+                  'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
+                  'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
+                  'payment')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
