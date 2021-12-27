@@ -25,7 +25,7 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -232,7 +232,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status']
+              'approval_status', ]
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -345,7 +345,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted',
                                   'warehouse_code', 'created_by', 'dynamic_beat']
         elif request.user.has_perm('shops.hide_related_users'):
-            return self.fields
+            return self.fields + ['shop_location', 'latitude', 'longitude',]
         return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                               'created_by', 'dynamic_beat']
 
@@ -555,9 +555,9 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                        name="user-autocomplete"
                    ),
                     url(
-                        r'^pos-shop-autocomplete/$',
-                        self.admin_site.admin_view(PosShopAutocomplete.as_view()),
-                        name="pos-shop-autocomplete"
+                        r'^pos-shop-complete/$',
+                        self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
+                        name="pos-shop-complete"
                     ),
 
                ] + urls
