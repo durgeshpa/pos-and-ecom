@@ -105,6 +105,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
+        ref_name = 'Retailer Type v1'
         fields = '__all__'
 
 class ShopTypeSerializer(serializers.ModelSerializer):
@@ -115,6 +116,7 @@ class ShopTypeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
+        ref_name = 'Shop Type Serializer v1'
         fields = '__all__'
         #extra_kwargs = {
         #    'shop_sub_type': {'required': True},
@@ -353,6 +355,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     This is Serializer to ger Report for Sales Executive
     """
     executive_name = serializers.SerializerMethodField()
+    executive_id = serializers.SerializerMethodField()
     executive_contact_number = serializers.SerializerMethodField()
     shop_mapped = serializers.SerializerMethodField()
     shop_visited = serializers.SerializerMethodField()
@@ -368,6 +371,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :return: executive first name
         """
         return obj.employee.first_name
+
+    def get_executive_id(self, obj):
+        return obj.employee.id
 
     def get_executive_contact_number(self, obj):
         """
@@ -653,7 +659,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
+        fields = ('id', 'executive_name', 'executive_id', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
@@ -760,6 +766,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v1'
         fields = ('id', 'shop')
 
 
