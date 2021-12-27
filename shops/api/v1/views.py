@@ -227,8 +227,8 @@ class ShopDocumentView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        user_shops = Shop.objects.filter(shop_owner=self.request.user)
-        queryset = ShopDocument.objects.filter(shop_name__in=user_shops)
+        user_shops = Shop.objects.filter(shop_owner=self.request.user).values_list('id', flat=True)
+        queryset = ShopDocument.objects.filter(shop_name__id__in=list(user_shops))
         shop_id = self.request.query_params.get('shop_id', None)
         if shop_id is not None:
             queryset = queryset.filter(shop_name=shop_id)
