@@ -8695,6 +8695,30 @@ class DispatchPackageStatusList(generics.GenericAPIView):
         return get_response(msg, data, True)
 
 
+class ReschedulingReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ReschedulingReasonsList """
+        info_logger.info("ReschedulingReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentRescheduling.RESCHEDULING_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ReturnReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ReturnReasonsList """
+        info_logger.info("ReturnReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in OrderedProduct.RETURN_REASON]
+
+
 class DispatchTripStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
