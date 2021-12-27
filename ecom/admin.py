@@ -84,7 +84,7 @@ class OrderedProductMappingInline(admin.TabularInline):
 
 class Seller_SHOP(SimpleListFilter):
     """custom Filter ....."""
-    title = 'Seller_SHOP'
+    title = 'SellerShop'
     parameter_name = 'seller_shop'
     template = 'django_admin_listfilter_dropdown/dropdown_filter.html'
 
