@@ -371,7 +371,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 writer.writerow(list(obj))
         return response
 
-
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
             return format_html(
