@@ -673,7 +673,7 @@ class BulkRetailerProduct(models.Model):
         Download {status} List Status</a></h2>""" % \
               (
                   reverse(
-                      'admin:products_list_status',
+                      'admin:products-list-status',
                       args=(product_upload_status_info)
                   )
               )

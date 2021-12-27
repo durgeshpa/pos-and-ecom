@@ -28,7 +28,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -151,7 +151,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-
     def get_urls(self):
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
@@ -186,9 +185,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                       name="retailer-purchase-value-form"
                    ),
                    url(
-                       r'^products_list_status/(?P<product_status_info>(.*))/$',
+                       r'^products-list-status/(?P<product_status_info>(.*))/$',
                        self.admin_site.admin_view(products_list_status),
-                       name='products_list_status'
+                       name='products-list-status'
                    ),
                ] + urls
         return urls
@@ -1079,6 +1078,25 @@ class PosReturnGRNOrderAdmin(admin.ModelAdmin):
         return generate_prn_csv_report(queryset)
 
 
+class BulkRetailerProductAdmin(admin.ModelAdmin):
+    list_display = ('id', 'products_csv', 'seller_shop', 'uploaded_by', 'created_at', 'modified_at')
+
+    def get_queryset(self, request):
+        qs = super(BulkRetailerProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.none()
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
@@ -1089,3 +1107,4 @@ admin.site.register(RetailerCoupon, RetailerCouponAdmin)
 admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
 admin.site.register(RetailerCart, RetailerCartAdmin)
 admin.site.register(RetailerOrderedProduct, RetailerOrderProductAdmin)
+admin.site.register(BulkRetailerProduct, BulkRetailerProductAdmin)
