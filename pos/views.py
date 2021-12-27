@@ -30,6 +30,7 @@ from django.db import transaction
 from django.contrib import messages
 
 from django.views import View
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -590,12 +591,12 @@ def retailer_products_list(product):
     return linked_product_sku, sku_type, category, sub_category, brand, sub_brand
 
 
-def DownloadRetailerCatalogue(request, *args):
+def DownloadRetailerCatalogue(request, *args, **kwargs):
     """
     This function will return an File in csv format which can be used for Downloading the Product Catalogue
     (It is used when user wants to update retailer products)
     """
-    shop_id = request.GET['shop_id']
+    shop_id = request.GET['shop_id'] if request.GET.get('shop_id') else request.META.get('HTTP_SHOP_ID', None)
     filename = "retailer_products_update_sample_file.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
@@ -998,15 +999,15 @@ def RetailerProductStockDownload(request, *args):
     This function will return an Sample File in csv format which can be used for
     Downloading Retailer Products current stock and update the stock
     """
-
-    shop_id = request.GET['shop_id']
+    shop_id = request.GET['shop_id'] if request.GET.get('shop_id') else request.META.get('HTTP_SHOP_ID', None)
     filename = "retailer_product_stock.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop', 'product_sku', 'product_name', 'product_ean_code', 'mrp', 'selling_price',
-         'current_inventory', 'discounted_sku', 'discounted_inventory', 'discounted_price', 'updated_inventory', 'reason_for_update'])
+         'current_inventory', 'discounted_sku', 'discounted_inventory', 'discounted_price', 'updated_inventory',
+         'reason_for_update'])
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id))
     if product_qs.exists():
         retailer_products = product_qs \

@@ -1,8 +1,10 @@
 from django.conf.urls import include, url
 
 from pos import views
+from pos.api.v1.views import UpdateInventoryStockView
 from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
-    InventoryRetailerProductAutocomplete, RetailerOrderReturnCreditNoteView, RetailerOrderProductInvoiceView
+    InventoryRetailerProductAutocomplete, RetailerOrderReturnCreditNoteView, RetailerOrderProductInvoiceView, \
+    products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile
 from pos.filters import PosShopAutocomplete
 
 urlpatterns = [
@@ -20,5 +22,12 @@ urlpatterns = [
         name='retailer-order-return-credit-note'),
     url(r'^retailer-order-invoice/(?P<pk>\d+)/', RetailerOrderProductInvoiceView.as_view(),
         name='retailer-order-invoice'),
+    url(r'^products-list-status/(?P<product_status_info>(.*))/', views.products_list_status,
+        name='products-list-status'),
+    url(r'^download/update-inventory-sample/', views.RetailerProductStockDownload, name='update-inventory-sample'),
+    url(r'^download/create-update-product-sample/', views.RetailerCatalogueSampleFile,
+        name='create-update-product-sample'),
+    url(r'^download/retailer-products-csv-download/', views.DownloadRetailerCatalogue,
+        name='retailer-products-csv-download'),
     
 ]
