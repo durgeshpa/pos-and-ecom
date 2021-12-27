@@ -253,6 +253,7 @@ class StateAddressSerializer(serializers.ModelSerializer):
 class PincodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
+        ref_name = 'Pin Code Serializer v2'
         fields = '__all__'
 
 
@@ -307,6 +308,7 @@ class AddressSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = 'User Serializer v2'
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -315,6 +317,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v2'
         fields = ('id', 'shop_name', 'shop_owner')
 
     def get_shop_repr(self, obj):
@@ -887,6 +890,7 @@ class StateSerializer(serializers.ModelSerializer):
 
 
 class CitySerializer(serializers.ModelSerializer):
+    ref_name = 'Shop City v2'
     state = StateSerializer()
 
     class Meta:
