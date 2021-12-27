@@ -667,9 +667,11 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         """
             Get ordered product id
         """
-        ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
             ordered_product.id
-        return ordered_product
+            return ordered_product
+        return None
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
