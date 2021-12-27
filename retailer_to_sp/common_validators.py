@@ -40,7 +40,7 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
 
 def validate_shipment_package_list(package_dict):
     if 'packages' not in package_dict or not package_dict['packages']:
-        return {"error": "Missing 'packages' in shipment_crates for packaging_type 'CRATE'."}
+        return {"error": f"Missing 'packages' in shipment_crates for packaging_type {package_dict['type']}."}
     if not isinstance(package_dict['packages'], list):
         return {"error": "Key 'packages' can be of list type only."}
     for package in package_dict['packages']:
