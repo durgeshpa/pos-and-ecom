@@ -105,6 +105,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
+        ref_name = 'Retailer Type v1'
         fields = '__all__'
 
 class ShopTypeSerializer(serializers.ModelSerializer):
@@ -115,6 +116,7 @@ class ShopTypeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
+        ref_name = 'Shop Type Serializer v1'
         fields = '__all__'
         #extra_kwargs = {
         #    'shop_sub_type': {'required': True},
@@ -764,6 +766,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v1'
         fields = ('id', 'shop')
 
 
