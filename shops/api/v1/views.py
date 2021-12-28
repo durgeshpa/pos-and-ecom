@@ -1226,7 +1226,7 @@ class UserDocumentChoices(generics.GenericAPIView):
 
     def get(self, request):
         '''
-        API to get shipment package rejection reason list
+        API to get list of Shop User Document list
         '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in [(ShopDocument.UIDAI, "Aadhaar Card"), (ShopDocument.PASSPORT, "Passport"),
@@ -1240,7 +1240,7 @@ class ShopDocumentChoices(generics.GenericAPIView):
 
     def get(self, request):
         '''
-        API to get shipment package rejection reason list
+        API to get list of Shop Document list
         '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
