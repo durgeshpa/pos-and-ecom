@@ -1219,7 +1219,7 @@ class PosShopUserMappingView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ShopDocumentTypeChoices(generics.GenericAPIView):
+class UserDocumentChoices(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request):
@@ -1233,7 +1233,7 @@ class ShopDocumentTypeChoices(generics.GenericAPIView):
         return get_response(msg, data, True)
 
 
-class ShopDocumentTypeChoices(generics.GenericAPIView):
+class ShopDocumentChoices(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request):

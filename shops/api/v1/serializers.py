@@ -179,11 +179,6 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
             gst_regex = "^([0]{1}[1-9]{1}|[1-2]{1}[0-9]{1}|[3]{1}[0-7]{1})([a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}[1-9a-zA-Z]{1}[zZ]{1}[0-9a-zA-Z]{1})+$"
             if not re.match(gst_regex, data.get('shop_document_number')):
                 raise serializers.ValidationError({'shop_document_number': 'Please enter valid GSTIN'})
-
-        if data.get('shop_document_type') == ShopDocument.UIDAI or data.get('shop_document_type') == ShopDocument.PASSPORT or \
-                data.get('shop_document_type') == ShopDocument.DL or data.get('shop_document_type') == ShopDocument.EC:
-            if 'shop_document_number' not in data or not data.get('shop_document_number'):
-                data['shop_document_type'] = None
         return data
 
     def to_representation(self, instance):
@@ -196,6 +191,7 @@ class ShopRequestBrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopRequestBrand
         fields = '__all__'
+
 
 class ShopUserMappingSerializer(serializers.ModelSerializer):
     shop = ShopSerializer()
