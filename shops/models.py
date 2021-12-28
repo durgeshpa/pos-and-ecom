@@ -662,17 +662,22 @@ class ExecutiveFeedback(models.Model):
         (3, "Price Not Matching"),
         (4, "Stock Not Available"),
         (5, "Could Not Visit"),
+        (6, "Shop Closed"),
+        (7, "Owner NA"),
+        (8, "BDA on Leave"),
+        (9, "Already ordered today")
 
     )
     day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
                                       on_delete=models.CASCADE)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
     feedback_date = models.DateField(null=True, blank=True)
+    feedback_time = models.TimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
-    is_valid = models.BooleanField(default=True)
+    is_valid = models.BooleanField(default=False)
     distance_in_km = models.DecimalField(max_digits=30, decimal_places=15, null=True)
 
 
