@@ -72,7 +72,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
     online_enabled = serializers.BooleanField(default=True)
-    # online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
+                                            allow_null=True)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
     measurement_category = serializers.CharField(required=False, default=None)
@@ -105,7 +106,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             if 'online_price' not in attrs or not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
 
-        if 'online_price' in attrs and attrs['online_price'] > mrp:
+        if 'online_price' in attrs and attrs['online_price'] \
+                is not None and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
         image_count = 0
@@ -203,7 +205,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                                                 min_value=0.01)
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     online_enabled = serializers.BooleanField(default=True)
-    # online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
+                                            min_value=0.01, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
@@ -237,7 +240,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             if 'online_price' not in attrs or not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
 
-        if 'online_price' in attrs and attrs['online_price'] > mrp:
+        if 'online_price' in attrs and attrs['online_price'] \
+                is not None and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be less than or equal to mrp")
 
         image_count = 0
