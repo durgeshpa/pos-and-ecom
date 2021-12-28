@@ -8717,6 +8717,34 @@ class ReturnReasonsListView(generics.GenericAPIView):
         info_logger.info("ReturnReasonsList GET api called.")
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in OrderedProduct.RETURN_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShipmentNotAttemptReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ShipmentNotAttemptReasonsList """
+        info_logger.info("ShipmentNotAttemptReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentNotAttempt.NOT_ATTEMPT_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class CrateRemarkReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for CrateRemarkReasonsList """
+        info_logger.info("CrateRemarkReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.RETURN_REMARK_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
 
 
 class DispatchTripStatusList(generics.GenericAPIView):
