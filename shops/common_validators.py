@@ -102,7 +102,7 @@ def get_validate_shop_documents(shop_documents):
             if 'shop_document_number' not in shop_doc or not shop_doc['shop_document_number'] :
                 return {'error': "'shop_document_number' | This field is required."}
 
-            if 'id' not in shop_doc:
+            if 'id' not in shop_doc and 'shop_document_photo' in shop_doc and shop_doc['shop_document_photo']:
                 try:
                     shop_doc_photo = to_file(shop_doc['shop_document_photo'])
                     shop_doc_obj['shop_document_photo'] = shop_doc_photo
