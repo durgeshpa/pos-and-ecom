@@ -33,8 +33,7 @@ from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
-from wms.common_functions import release_picking_crates, send_update_to_qcdesk, create_shipment_reschedule, \
-    create_shipment_not_attempt
+from wms.common_functions import release_picking_crates, send_update_to_qcdesk
 from wms.models import Crate
 
 User = get_user_model()
@@ -1922,6 +1921,32 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return shipment_instance
 
+    def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date):
+        """Create shipment rescheduled"""
+        info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
+        if ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
+            ShipmentRescheduling.objects.create(
+                shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
+                created_by=shipment_instance.updated_by)
+        else:
+            raise Exception(f"create_shipment_reschedule|Reschedule already exists|Shipment ID {shipment_instance.id}")
+
+        info_logger.info(f"create_shipment_reschedule|Rescheduled|Shipment ID {shipment_instance.id}")
+
+    def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason):
+        """Create shipment not attempt"""
+        info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
+        if ShipmentNotAttempt.objects.filter(
+                shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
+            ShipmentNotAttempt.objects.create(
+                shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
+                created_by=shipment_instance.updated_by)
+        else:
+            raise Exception(f"create_shipment_not_attempt|Not attempt more than once in a day not allowed|Shipment ID "
+                            f"{shipment_instance.id}")
+
+        info_logger.info(f"create_shipment_not_attempt|Not Attempted|Shipment ID {shipment_instance.id}")
+
     def post_shipment_status_change(self, shipment_instance, shipment_reschedule, shipment_not_attempt):
         '''
             Update the QCArea assignment mapping on shipment QC start
@@ -1937,12 +1962,13 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
         elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
             if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
-                create_shipment_reschedule(shipment_instance, shipment_reschedule['rescheduling_reason'],
-                                           shipment_reschedule['rescheduling_date'])
+                self.create_shipment_reschedule(
+                    shipment_instance, shipment_reschedule['rescheduling_reason'],
+                    shipment_reschedule['rescheduling_date'])
                 info_logger.info(f"post_shipment_status_change|Rescheduled|Shipment ID {shipment_instance.id}")
         elif shipment_instance.shipment_status == OrderedProduct.NOT_ATTEMPT:
             if 'not_attempt_reason' in shipment_not_attempt:
-                create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'])
+                self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'])
                 info_logger.info(f"post_shipment_status_change|Not Attempted|Shipment ID {shipment_instance.id}")
 
 

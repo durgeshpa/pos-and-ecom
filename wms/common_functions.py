@@ -10,7 +10,6 @@ from celery.task import task
 from decouple import config
 # django imports
 from django import forms
-
 from django.db import transaction
 from django.db.models import Sum, Q
 from rest_framework import status
@@ -18,16 +17,13 @@ from rest_framework.response import Response
 
 # app imports
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
-from retailer_to_sp.models import ShipmentRescheduling, ShipmentNotAttempt
-
+from products.models import Product, ParentProduct, ProductPrice
+from shops.models import Shop
+from wms.common_validators import get_csv_file_data
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, QCArea, PickupCrate, QCDeskQCAreaAssignmentMapping)
-from wms.common_validators import get_csv_file_data
-
-from shops.models import Shop
-from products.models import Product, ParentProduct, ProductPrice
+                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping)
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -2627,34 +2623,6 @@ def send_update_to_qcdesk(shipment_instance):
         raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
 
     info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
-
-
-def create_shipment_reschedule(shipment_instance, rescheduling_reason, rescheduling_date):
-    """Create shipment rescheduled"""
-    info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
-    if ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
-        ShipmentRescheduling.objects.create(
-            shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
-            created_by=shipment_instance.updated_by)
-    else:
-        raise Exception(f"create_shipment_reschedule|Reschedule already exists|Shipment ID {shipment_instance.id}")
-
-    info_logger.info(f"create_shipment_reschedule|Rescheduled|Shipment ID {shipment_instance.id}")
-
-
-def create_shipment_not_attempt(shipment_instance, not_attempt_reason):
-    """Create shipment not attempt"""
-    info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
-    if ShipmentNotAttempt.objects.filter(
-            shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
-        ShipmentNotAttempt.objects.create(
-            shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
-            created_by=shipment_instance.updated_by)
-    else:
-        raise Exception(f"create_shipment_not_attempt|Not attempt more than once in a day not allowed|Shipment ID "
-                        f"{shipment_instance.id}")
-
-    info_logger.info(f"create_shipment_not_attempt|Not Attempted|Shipment ID {shipment_instance.id}")
 
 
 def release_picking_crates(order_instance):
