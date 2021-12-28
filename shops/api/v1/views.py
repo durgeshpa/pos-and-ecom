@@ -237,7 +237,7 @@ class ShopDocumentView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         validated_data = self.check_validate_data(request.data)
         if validated_data is None:
-            msg = {'is_success': False,
+            msg = {'is_success': True,
                    'message': ["Documents uploaded successfully"],
                    'response_data': None}
             return Response(msg,
