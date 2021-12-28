@@ -377,7 +377,7 @@ class ShopDocument(models.Model):
         (UDYOG_AADHAR, 'Udyog Aadhar')
     )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
-    shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
+    shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES)
     shop_document_number = models.CharField(max_length=100)
     shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/')
 

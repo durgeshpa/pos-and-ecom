@@ -374,6 +374,7 @@ class PincodeDataSerializers(serializers.ModelSerializer):
 
 class ShopDocumentDataSerializers(serializers.ModelSerializer):
     shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)
+
     class Meta:
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo')
@@ -480,8 +481,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_name_documents'] = shop_documents['data']
-        else:
-            raise serializers.ValidationError("atleast one shop document is required")
+        # else:
+        #     raise serializers.ValidationError("atleast one shop document is required")
 
         if 'shop_name_address_mapping' in self.initial_data and self.initial_data['shop_name_address_mapping']:
             addresses = get_validate_shop_address(self.initial_data['shop_name_address_mapping'])
