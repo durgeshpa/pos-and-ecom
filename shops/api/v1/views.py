@@ -276,11 +276,13 @@ class ShopDocumentView(generics.ListCreateAPIView):
 
     def check_validate_data(self, data):
 
-        if 'shop_document_type' in data and data['shop_document_type'] == ShopDocument.UIDAI or \
+        if 'shop_document_type' in data and (data['shop_document_type'] == ShopDocument.UIDAI or \
                 data['shop_document_type'] == ShopDocument.PASSPORT or data['shop_document_type'] == ShopDocument.DL \
-                or data['shop_document_type'] == ShopDocument.EC:
+                or data['shop_document_type'] == ShopDocument.EC):
             if 'shop_document_number' not in data or not data['shop_document_number']:
                 data = None
+        elif 'shop_document_type' not in data:
+            data = None
         return data
 
 
