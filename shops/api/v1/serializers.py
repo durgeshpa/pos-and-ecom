@@ -691,51 +691,51 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
-            day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
-            if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
-                                                 ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
-                if day_beat_plan[0].shop_category == "P1":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    temp_status = True
-                elif day_beat_plan[0].shop_category == "P2":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    temp_status = True
-                else:
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    temp_status = True
-
-            # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
-            # check next visit date condition for rest of the feedback
-            else:
-                if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-                else:
-                    next_visit_date = day_beat_plan[0].beat_plan_date
-                    beat_plan_date = next_visit_date
-                    temp_status = False
+            # day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+            # if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
+            #                                      ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
+            #     if day_beat_plan[0].shop_category == "P1":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         temp_status = True
+            #     elif day_beat_plan[0].shop_category == "P2":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         temp_status = True
+            #     else:
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         temp_status = True
+            #
+            # # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
+            # # check next visit date condition for rest of the feedback
+            # else:
+            #     if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #     else:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
 
             # Create Data for next visit in Day Beat Planning
-            DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
-                                                  next_plan_date=next_visit_date,
-                                                  beat_plan_date=beat_plan_date,
-                                                  shop=day_beat_plan[0].shop,
-                                                  beat_plan=day_beat_plan[0].beat_plan,
-                                                  temp_status=temp_status)
+            # DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
+            #                                       next_plan_date=next_visit_date,
+            #                                       beat_plan_date=beat_plan_date,
+            #                                       shop=day_beat_plan[0].shop,
+            #                                       beat_plan=day_beat_plan[0].beat_plan,
+            #                                       temp_status=temp_status)
 
             # return executive feedback instance
             return executive_feedback[0]
