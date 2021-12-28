@@ -93,8 +93,8 @@ def get_validate_shop_documents(shop_documents):
     for shop_doc in shop_documents:
         shop_doc_obj = shop_doc
         try:
-            if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
-                return {'error': "'shop_document_photo' | This field is required."}
+            # if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
+            #     return {'error': "'shop_document_photo' | This field is required."}
 
             if 'shop_document_type' not in shop_doc or not shop_doc['shop_document_type'] :
                 return {'error': "'shop_document_type' | This field is required."}
@@ -114,6 +114,11 @@ def get_validate_shop_documents(shop_documents):
             if 'error' in shop_doc_type:
                 return shop_doc_type
             shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
+            if not shop_doc_obj['shop_document_type'] == ShopDocument.UIDAI or \
+                not shop_doc_obj['shop_document_type'] == ShopDocument.PASSPORT or not shop_doc_obj['shop_document_type'] == ShopDocument.DL \
+                or not shop_doc_obj['shop_document_type'] == ShopDocument.EC:
+                if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
+                    return {'error': "'shop_document_photo' | This field is required."}
 
             if shop_doc['shop_document_type'] == ShopDocument.GSTIN:
                 shop_doc_num = validate_gstin_number(
