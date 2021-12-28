@@ -305,7 +305,7 @@ class FeedBackSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date',)
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date', 'feedback_time')
 
 
 class DayBeatPlanSerializer(serializers.ModelSerializer):
@@ -670,7 +670,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         Applied executive feedback create meta class
         """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at', 'latitude', 'longitude')
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'feedback_time', 'created_at', 'modified_at', 'latitude', 'longitude')
 
     def create(self, validated_data):
         """
@@ -685,6 +685,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
                                       feedback_date=validated_data['feedback_date'],
+                                      feedback_time=datetime.now().time(),
                                       latitude=validated_data.get('latitude', None),
                                       longitude=validated_data.get('longitude', None))
 
