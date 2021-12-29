@@ -3927,7 +3927,8 @@ class OrderListCentral(GenericAPIView):
         order_status = self.request.GET.get('order_status')
         order_type = self.request.GET.get('order_type', 'pos')
         if order_type == 'pos':
-            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type='BASIC')
             if order_status:
                 order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
                 qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs

@@ -179,6 +179,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductImage
+        ref_name = 'Parent Product Image v2'
         fields = ('image',)
 
     def create(self, validated_data):

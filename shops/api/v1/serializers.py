@@ -105,6 +105,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
+        ref_name = 'Retailer Type v1'
         fields = '__all__'
 
 class ShopTypeSerializer(serializers.ModelSerializer):
@@ -115,6 +116,7 @@ class ShopTypeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
+        ref_name = 'Shop Type Serializer v1'
         fields = '__all__'
         #extra_kwargs = {
         #    'shop_sub_type': {'required': True},
@@ -353,6 +355,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     This is Serializer to ger Report for Sales Executive
     """
     executive_name = serializers.SerializerMethodField()
+    executive_id = serializers.SerializerMethodField()
     executive_contact_number = serializers.SerializerMethodField()
     shop_mapped = serializers.SerializerMethodField()
     shop_visited = serializers.SerializerMethodField()
@@ -369,6 +372,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         return obj.employee.first_name
 
+    def get_executive_id(self, obj):
+        return obj.employee.id
+
     def get_executive_contact_number(self, obj):
         """
 
@@ -383,11 +389,18 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of shop map
         """
-        # condition to check past day
+
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
 
@@ -411,12 +424,20 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of shop visit
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
-        if self._context['report'] is '1':
+
+        #condition for today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                      feedback_date=datetime.today()
+                                                      ).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
                                                             feedback_date=previous_day_date
@@ -446,12 +467,25 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: productivity of sales executive
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         #previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                  feedback_date=datetime.today()
+                                                  ).count()
+            if shop_visit_count != 0:
+                productivity = "{:.2f}%".format(float(shop_visit_count / feedback_query) * 100)
+            else:
+                productivity = str(00.00) + '%'
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
             shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
@@ -496,8 +530,12 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of orders
         """
+        # condition to check today
+        if self._context['report'] is '0':
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=datetime.today()).count()
+
         # condition to check past day
-        if self._context['report'] is '1':
+        elif self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
             # previous_day_date = datetime.today()
             order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date).count()
@@ -523,8 +561,21 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: total amount of order
         """
+        # condition for today
+        if self._context['report'] is '0':
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=datetime.today())
+            # for order in order_object:
+            try:
+                payment_object = Payment.objects.filter(order_id__in=order_object)
+                if payment_object.exists():
+                    total_amount = round(payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum'])
+                else:
+                    total_amount = 0
+            except:
+                total_amount = 0
+
         # condition to check past day
-        if self._context['report'] is '1':
+        elif self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
             # previous_day_date = datetime.today()
             order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
@@ -577,11 +628,17 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of inactive shop map
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=False)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
 
@@ -602,7 +659,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
+        fields = ('id', 'executive_name', 'executive_id', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
@@ -709,6 +766,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v1'
         fields = ('id', 'shop')
 
 

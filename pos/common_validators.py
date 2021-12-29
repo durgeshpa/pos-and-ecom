@@ -1,6 +1,5 @@
 from .models import PosGRNOrder, Vendor
 from shops.models import CASHIER, STORE_MANAGER, PosShopUserMapping
-from .models import PosGRNOrder
 
 
 def validate_user_type_for_pos_shop(shop_id, user):
