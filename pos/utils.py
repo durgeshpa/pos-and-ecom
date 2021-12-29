@@ -240,8 +240,8 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
-            'Total Tax','STORE NAME',
+            'PR NO.', 'STATUS', 'PO NO', 'PO DATE', 'GRN DATE', 'Shop Name', 'PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
+            'Total Tax',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
             'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
             'GRN  QTY', 'GIVEN QTY UNIT', 'CREATED AT','Vendor Name', 'Vendor Address','Vendor State','phone_number'
@@ -276,12 +276,12 @@ def generate_prn_csv_report(queryset):
                     p_return.po_no,
                     p_return.grn_ordered_id.order.ordered_cart.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     p_return.grn_ordered_id.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
+                    shop if shop else return_item.product.shop,
                     return_item.product.product_price,
                     gst_tax,
                     cess_tax,
                     surcharge_tax,
                     total_tax,
-                    shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
                     return_item.product.sku,
