@@ -235,11 +235,18 @@ class ShopDocumentView(generics.ListCreateAPIView):
         return queryset
 
     def create(self, request, *args, **kwargs):
+        validated_data = self.check_validate_data(request.data)
+        if validated_data is None:
+            msg = {'is_success': True,
+                   'message': ["Documents uploaded successfully"],
+                   'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True,
-                   'message': ["Images uploaded successfully"],
+                   'message': ["Documents uploaded successfully"],
                    'response_data': None}
             return Response(msg,
                             status=status.HTTP_200_OK)
@@ -266,6 +273,17 @@ class ShopDocumentView(generics.ListCreateAPIView):
                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+    def check_validate_data(self, data):
+
+        if 'shop_document_type' in data and (data['shop_document_type'] == ShopDocument.UIDAI or \
+                data['shop_document_type'] == ShopDocument.PASSPORT or data['shop_document_type'] == ShopDocument.DL \
+                or data['shop_document_type'] == ShopDocument.EC):
+            if 'shop_document_number' not in data or not data['shop_document_number']:
+                data = None
+        elif 'shop_document_type' not in data:
+            data = None
+        return data
 
 
 class ShopView(generics.ListCreateAPIView):
@@ -1201,3 +1219,35 @@ class PosShopUserMappingView(generics.GenericAPIView):
             serializer.update(kwargs['pk'], serializer.data)
             return get_response('User Mapping Updated Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
+
+
+class UserDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop User Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.UIDAI, "Aadhaar Card"), (ShopDocument.PASSPORT, "Passport"),
+                                               (ShopDocument.DL, "Driving Licence"), (ShopDocument.EC, "Election Card")]]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShopDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
+                                               (ShopDocument.DRUG_L, 'Drug License'),
+                                               (ShopDocument.ELE_BILL, "Shop Electricity Bill"),
+                                               (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
+                                               # (ShopDocument.SLN, "Shop License No"),
+                                               (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
+        msg = ""
+        return get_response(msg, data, True)

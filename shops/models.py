@@ -362,6 +362,7 @@ class ShopDocument(models.Model):
     WSVD = 'wsvd'
     DRUG_L = 'drugl'
     UDYOG_AADHAR = 'ua'
+    PASSPORT = 'passport'
 
     SHOP_DOCUMENTS_TYPE_CHOICES = (
         (GSTIN, "GSTIN"),
@@ -369,6 +370,7 @@ class ShopDocument(models.Model):
         (UIDAI, "Aadhaar Card"),
         (ELE_BILL, "Shop Electricity Bill"),
         (PAN, "Pan Card No"),
+        (PASSPORT, "Passport"),
         (FSSAI, "Fssai License No"),
         (DL, "Driving Licence"),
         (EC, "Election Card"),
@@ -377,16 +379,19 @@ class ShopDocument(models.Model):
         (UDYOG_AADHAR, 'Udyog Aadhar')
     )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
-    shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES)
+    shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
     shop_document_number = models.CharField(max_length=100)
-    shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/')
+    shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
 
     def shop_document_photo_thumbnail(self):
-        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(
-            self.shop_document_photo.url, self.shop_name, self.shop_document_photo.url))
+        if self.shop_document_photo:
+            return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(
+                self.shop_document_photo.url, self.shop_name, self.shop_document_photo.url))
 
     def __str__(self):
-        return "%s - %s" % (self.shop_document_number, self.shop_document_photo.url)
+        if self.shop_document_photo:
+            return "%s - %s" % (self.shop_document_number, self.shop_document_photo.url)
+        return "%s" % (self.shop_document_number)
 
     def clean(self):
         super(ShopDocument, self).clean()

@@ -186,10 +186,12 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
 
+
 class ShopRequestBrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopRequestBrand
         fields = '__all__'
+
 
 class ShopUserMappingSerializer(serializers.ModelSerializer):
     shop = ShopSerializer()

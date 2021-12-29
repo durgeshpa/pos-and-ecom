@@ -163,7 +163,7 @@ class ShopForm(forms.ModelForm):
     @classmethod
     def shop_type_retailer(cls, data):
         shop_type = cls.get_shop_type(data)
-        if shop_type.shop_type not in ['r', 'f']:
+        if shop_type and shop_type.shop_type not in ['r', 'f']:
             return False
         return True
 
@@ -196,8 +196,8 @@ from django.forms.models import BaseInlineFormSet
 class RequiredInlineFormSet(BaseInlineFormSet):
     def _construct_form(self, i, **kwargs):
         form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
-        # if i < 1:
-        #     form.empty_permitted = False
+        if i < 1:
+            form.empty_permitted = False
         return form
 
 class AddressInlineFormSet(BaseInlineFormSet):
