@@ -115,7 +115,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailsByCrateSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -7631,8 +7631,8 @@ class ShipmentDetailsByCrateView(generics.GenericAPIView):
             id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
         elif request.GET.get('shipment_label_id'):
             id_validation = get_shipment_by_shipment_label(request.GET.get('shipment_label_id'))
-        elif request.GET.get('shipment_label_id'):
-            id_validation = validate_id(self.queryset, request.GET.get('shipment_id'))
+        elif request.GET.get('shipment_id'):
+            id_validation = validate_shipment_id(request.GET.get('shipment_id'))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         shipment_id = id_validation['data']
