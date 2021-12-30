@@ -3518,3 +3518,9 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
     trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+
+
+class ShopCrate(BaseTimestampUserModel):
+    shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
+    crate = models.ForeignKey(Crate, related_name='shop_crates', null=True, on_delete=models.DO_NOTHING)
+    is_available = models.BooleanField(default=False)
