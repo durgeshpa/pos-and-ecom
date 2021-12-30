@@ -92,7 +92,7 @@ class RetailerProductsCSVDownloadForm(forms.Form):
     """
         Select shop for downloading Retailer Products
     """
-    seller_shop = forms.ModelChoiceField(
+    shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', )

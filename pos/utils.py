@@ -240,8 +240,8 @@ def generate_prn_csv_report(queryset):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [
-            'PR NO.', 'STATUS', 'PO NO','PO DATE','GRN DATE','PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
-            'Total Tax','STORE NAME',
+            'PR NO.', 'STATUS', 'PO NO', 'PO DATE', 'GRN DATE', 'Shop Name', 'PRN UNIT PRICE', 'GST Tax','Cess_Tax','Surcharge_Tax',
+            'Total Tax',
             'PRODUCT', 'PRODUCT EAN CODE', 'PRODUCT SKU', 'PRODUCT TYPE', 'PRODUCT MRP',
             'PRODUCT PURCHASE PRICE', 'RETURN QTY', 'RETURN QTY UNIT',
             'GRN  QTY', 'GIVEN QTY UNIT', 'CREATED AT','Vendor Name', 'Vendor Address','Vendor State','phone_number'
@@ -276,12 +276,12 @@ def generate_prn_csv_report(queryset):
                     p_return.po_no,
                     p_return.grn_ordered_id.order.ordered_cart.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
                     p_return.grn_ordered_id.created_at.strftime("%m/%d/%Y--%H-%M-%S") if p_return.grn_ordered_id else '',
+                    shop if shop else return_item.product.shop,
                     return_item.product.product_price,
                     gst_tax,
                     cess_tax,
                     surcharge_tax,
                     total_tax,
-                    shop,
                     return_item.product.name,
                     return_item.product.product_ean_code,
                     return_item.product.sku,
@@ -321,9 +321,12 @@ def generate_csv_payment_report(payments):
             'TRANSACTION ID',
             'Point Redemption',
             'Point Redemption Value',
-            'Coupon NAME',
-            'Coupon discount',
+            'combo offer',
+            'coupon discount',
+            'coupon discount value',
             'Max coupon discount',
+            'spot discount',
+            'spot discount value',
             'AMOUNT',
             'PAID BY',
             'PROCCESSED BY',
@@ -343,23 +346,31 @@ def generate_csv_payment_report(payments):
         row.append(payment.transaction_id)
         row.append(payment.order.ordered_cart.redeem_points)
         row.append(payment.order.ordered_cart.redeem_points_value)
-        offername = ''
-        discount = ''
         max_discount = ''
+        combo_offer = ''
+        coupon_discount = ''
+        coupon_discount_v = ''
+        spot_discount = ''
+        spot_discount_v = ''
         if payment.order.ordered_cart.offers :
             for coupon in payment.order.ordered_cart.offers:
                 if coupon.get('type') == 'combo':
-                    offername = offername + coupon.get('coupon_name', '')
-                if coupon.get('type') == 'discount':
-                    offername = offername +',' + coupon.get('coupon_name', '')
-                    discount = "Discount " + str(coupon.get('discount')) + " %  " if coupon.get('is_percentage') else ""
-                    max_discount = "Maximum discount {}".format(coupon.get('max_discount')) if  coupon.get('max_discount') else ''
+                    combo_offer = coupon.get('coupon_name', '')
+                if coupon.get('type') == 'discount' and coupon.get('sub_type') == 'set_discount':
+                    coupon_discount = coupon.get('coupon_name', '')
+                    coupon_discount_v = "Rs. " + str(coupon.get('discount_value'))
+                    max_discount = "Maximum discount {}".format(coupon.get('max_discount')) if coupon.get('max_discount') else ''
 
                 if coupon.get('type') == 'discount' and coupon.get('sub_type') == 'spot_discount':
-                    offername = offername +',' +  'spot_discount: {}'.format(coupon.get('discount'))+ " %" if coupon.get('is_percentage')==1 else ''
-        row.append(offername.strip(','))
-        row.append(discount)
+                    spot_discount = (str(coupon.get('discount'))+" % ") if coupon.get('is_percentage') else 'Rs.' + str(coupon.get('discount'))
+                    spot_discount_v = str(coupon.get('discount_value'))
+
+        row.append(combo_offer)
+        row.append(coupon_discount)
+        row.append(coupon_discount_v)
         row.append(max_discount)
+        row.append(spot_discount)
+        row.append(spot_discount_v)
         row.append(payment.amount)
         row.append(payment.paid_by)
         row.append(payment.processed_by)

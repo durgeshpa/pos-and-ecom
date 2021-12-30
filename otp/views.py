@@ -297,7 +297,7 @@ class RequestOTPCls(object):
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
         sms_body = ''
         mask ='GRMFAC'
-        if app_type =='3':
+        if app_type =='3' or app_type =='2':
             sms_body = "%s is your One Time Password for Peppertap  Account. Request time is %s, %s IST." % (
                 otp, date, time)
             mask = 'PEPTAB'

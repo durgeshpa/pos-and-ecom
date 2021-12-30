@@ -10,6 +10,7 @@ class CountrySerializer(serializers.ModelSerializer):
 class StateSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
+        ref_name = 'Address State v1'
         fields = '__all__'
 
 class CitySerializer(serializers.ModelSerializer):

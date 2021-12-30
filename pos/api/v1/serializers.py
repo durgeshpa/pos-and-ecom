@@ -72,7 +72,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
     online_enabled = serializers.BooleanField(default=True)
-    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01,
                                             allow_null=True)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
@@ -105,8 +105,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if 'online_enabled' in attrs and attrs['online_enabled']:
             if 'online_price' not in attrs or not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
-
-        if 'online_price' in attrs and attrs['online_price'] \
+        if 'online_price' in attrs and attrs['online_price']\
                 is not None and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
@@ -242,7 +241,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if 'online_price' in attrs and attrs['online_price'] \
                 is not None and attrs['online_price'] > mrp:
-            raise serializers.ValidationError("Online Price should be less than or equal to mrp")
+            raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
         image_count = 0
         if 'images' in attrs and attrs['images']:
@@ -694,9 +693,11 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         """
             Get ordered product id
         """
-        ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
             ordered_product.id
-        return ordered_product
+            return ordered_product
+        return None
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
@@ -3103,6 +3104,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
+    ordered_product = serializers.SerializerMethodField()
 
     @staticmethod
     def get_order_update(obj):
@@ -3292,12 +3294,22 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_ordered_product(self, obj):
+        """
+            Get ordered product id
+        """
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last(). \
+                ordered_product.id
+            return ordered_product
+        return None
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary', 'ordered_product',
-                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display', 'order_cancel_reson', 'payment')
+                  'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
+                  'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
+                  'payment')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):

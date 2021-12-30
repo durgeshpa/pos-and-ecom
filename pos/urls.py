@@ -5,6 +5,7 @@ from pos.api.v1.views import UpdateInventoryStockView
 from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
     InventoryRetailerProductAutocomplete, RetailerOrderReturnCreditNoteView, RetailerOrderProductInvoiceView, \
     products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile
+
 from pos.filters import PosShopAutocomplete, NonPosShopAutocomplete
 
 urlpatterns = [
@@ -30,5 +31,6 @@ urlpatterns = [
         name='create-update-product-sample'),
     url(r'^download/retailer-products-csv-download/', views.DownloadRetailerCatalogue,
         name='retailer-products-csv-download'),
+
 
 ]
