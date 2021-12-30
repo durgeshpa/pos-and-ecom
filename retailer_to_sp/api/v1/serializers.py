@@ -3244,7 +3244,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         product_delivered_qty = float(mapping_instance.shipped_qty) - \
                                 float(product_returned_qty + product_returned_damage_qty)
 
-        warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
+        warehouse_id = mapping_instance.ordered_product.packaged_at
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
