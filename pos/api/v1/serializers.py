@@ -105,7 +105,6 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if 'online_enabled' in attrs and attrs['online_enabled']:
             if 'online_price' not in attrs or not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
-
         if 'online_price' in attrs and attrs['online_price']\
                 is not None and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
@@ -146,6 +145,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             attrs['purchase_pack_size'] = 1
         else:
             attrs['stock_qty'] = int(attrs['stock_qty'])
+
 
         return attrs
 
@@ -371,7 +371,8 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock', 'product_ean_code')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
+                  'product_ean_code')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
