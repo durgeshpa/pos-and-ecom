@@ -552,7 +552,8 @@ class BinIDList(APIView):
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__picker_users=request.user) \
+                                                           pickup__zone__picker_users=request.user,
+                                                           quantity__gt=0) \
                                                    .exclude(pickup__status='picking_cancelled').\
             order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
@@ -624,7 +625,7 @@ class PickupDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
-                                                            pickup__zone__picker_users=request.user)\
+                                                            pickup__zone__picker_users=request.user, quantity__gt=0)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
@@ -714,7 +715,8 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
+                                                                    quantity__gt=0)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
@@ -830,7 +832,7 @@ class PickupComplete(APIView):
 
             if pick_obj.exists():
                 for pickup in pick_obj:
-                    pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
+                    pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup, quantity__gt=0)
                     for pickup_bin in pickup_bin_list:
                         if pickup_bin.pickup_quantity is None:
                             return Response({'is_success': False,
