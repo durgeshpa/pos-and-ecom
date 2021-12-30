@@ -1987,7 +1987,7 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
 class ShipmentSerializerForDispatch(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'order_no')
+        fields = ('id', 'invoice_no', 'order_no', 'shipment_status')
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
