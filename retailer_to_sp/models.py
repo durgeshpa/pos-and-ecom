@@ -1633,6 +1633,20 @@ class OrderedProduct(models.Model):  # Shipment
                     _("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def packaged_at(self):
+        dispatch_trip = self.trip_shipment.last()
+        last_mile_trip = self.last_mile_trip_shipment.last()
+        if dispatch_trip and last_mile_trip:
+            if dispatch_trip.created_at > last_mile_trip.created_at:
+                return dispatch_trip.trip.source_shop.pk
+            return last_mile_trip.trip.seller_shop.pk
+        elif dispatch_trip:
+            return dispatch_trip.trip.source_shop.pk
+        elif last_mile_trip:
+            return last_mile_trip.trip.seller_shop.pk
+        return None
+
+    @property
     def invoice_subtotal(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(

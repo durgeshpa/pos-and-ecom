@@ -1830,20 +1830,51 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
         fields = ('id', 'order', 'status', 'shipment_status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area',
                   'qc_desk', 'created_date')
 
-
     def validate(self, data):
         """Validates the Shipment update requests"""
 
         if 'id' in self.initial_data and self.initial_data['id']:
+            try:
+                shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
+                shipment_status = shipment.shipment_status
+            except Exception as e:
+                raise serializers.ValidationError("Invalid Shipment")
+            shipment_reschedule = {}
+            shipment_not_attempt = {}
             if 'status' in self.initial_data and self.initial_data['status']:
-                try:
-                    shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
-                    shipment_status = shipment.shipment_status
-                except Exception as e:
-                    raise serializers.ValidationError("Invalid Shipment")
                 status = self.initial_data['status']
                 if status == shipment_status:
                     raise serializers.ValidationError(f'Shipment already in {status}')
+                elif status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
+                    if shipment_status != OrderedProduct.OUT_FOR_DELIVERY:
+                        raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
+                    if shipment_status == OrderedProduct.RESCHEDULED:
+                        if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
+                            raise serializers.ValidationError('A shipment cannot be rescheduled more than once.')
+                        if 'rescheduling_reason' not in self.initial_data or \
+                                not self.initial_data['rescheduling_reason']:
+                            raise serializers.ValidationError(f"'rescheduling_reason' | This is mandatory")
+                        if self.initial_data['rescheduling_reason'] not in ShipmentRescheduling.RESCHEDULING_REASON:
+                            raise serializers.ValidationError(f"'rescheduling_reason' | Invalid choice")
+                        if 'rescheduling_date' not in self.initial_data or not self.initial_data['rescheduling_date']:
+                            raise serializers.ValidationError(f"'rescheduling_date' | This is mandatory")
+                        rescheduling_date = self.initial_data['rescheduling_date']
+                        if rescheduling_date < datetime.date.today() or \
+                                rescheduling_date > (datetime.date.today() + datetime.timedelta(days=3)):
+                            raise serializers.ValidationError("'rescheduling_date' | The date must be within 3 days!")
+                        shipment_reschedule['rescheduling_reason'] = self.initial_data['rescheduling_reason']
+                        shipment_reschedule['rescheduling_date'] = rescheduling_date
+                    if shipment_status == OrderedProduct.NOT_ATTEMPT:
+                        if ShipmentNotAttempt.objects.filter(
+                                shipment=shipment, created_at__date=datetime.now().date()).exists():
+                            raise serializers.ValidationError(
+                                'A shipment cannot be mark not attempt more than once in a day.')
+                        if 'not_attempt_reason' not in self.initial_data or \
+                                not self.initial_data['not_attempt_reason']:
+                            raise serializers.ValidationError(f"'not_attempt_reason' | This is mandatory")
+                        if self.initial_data['not_attempt_reason'] not in ShipmentNotAttempt.NOT_ATTEMPT_REASON:
+                            raise serializers.ValidationError(f"'not_attempt_reason' | Invalid choice")
+                        shipment_not_attempt['not_attempt_reason'] = self.initial_data['not_attempt_reason']
                 elif (shipment_status not in [OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED,
                                               OrderedProduct.READY_TO_SHIP]) \
                     or (shipment_status == OrderedProduct.SHIPMENT_CREATED and status != OrderedProduct.QC_STARTED) \
@@ -1871,24 +1902,62 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     status = OrderedProduct.QC_REJECTED
                 data['shipment_status'] = status
 
+            elif 'return_reason' in self.initial_data and self.initial_data['return_reason']:
+                if shipment_status not in [OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
+                                           OrderedProduct.FULLY_RETURNED_AND_COMPLETED]:
+                    raise serializers.ValidationError(f"Updating 'return_reason' at {shipment_status} not allowed")
+                return_reason = self.initial_data['return_reason']
+                if return_reason not in OrderedProduct.RETURN_REASON:
+                    raise serializers.ValidationError(f"'return_reason' | Invalid choice")
+                data['return_reason'] = return_reason
             else:
-                raise serializers.ValidationError("Only status update is allowed")
+                raise serializers.ValidationError("Only status / return_reason update is allowed")
         else:
             raise serializers.ValidationError("Shipment creation is not allowed.")
 
+        data['shipment_reschedule'] = shipment_reschedule
+        data['shipment_not_attempt'] = shipment_not_attempt
         return data
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        shipment_reschedule = validated_data.pop("shipment_reschedule", None)
+        shipment_not_attempt = validated_data.pop("shipment_not_attempt", None)
         try:
             shipment_instance = super().update(instance, validated_data)
-            self.post_shipment_status_change(shipment_instance)
+            self.post_shipment_status_change(shipment_instance, shipment_reschedule, shipment_not_attempt)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_instance
 
-    def post_shipment_status_change(self, shipment_instance):
+    def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date):
+        """Create shipment rescheduled"""
+        info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
+        if ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
+            ShipmentRescheduling.objects.create(
+                shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
+                created_by=shipment_instance.updated_by)
+        else:
+            raise Exception(f"create_shipment_reschedule|Reschedule already exists|Shipment ID {shipment_instance.id}")
+
+        info_logger.info(f"create_shipment_reschedule|Rescheduled|Shipment ID {shipment_instance.id}")
+
+    def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason):
+        """Create shipment not attempt"""
+        info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
+        if ShipmentNotAttempt.objects.filter(
+                shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
+            ShipmentNotAttempt.objects.create(
+                shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
+                created_by=shipment_instance.updated_by)
+        else:
+            raise Exception(f"create_shipment_not_attempt|Not attempt more than once in a day not allowed|Shipment ID "
+                            f"{shipment_instance.id}")
+
+        info_logger.info(f"create_shipment_not_attempt|Not Attempted|Shipment ID {shipment_instance.id}")
+
+    def post_shipment_status_change(self, shipment_instance, shipment_reschedule, shipment_not_attempt):
         '''
             Update the QCArea assignment mapping on shipment QC start
             Release Picking Crates on Shipment QC DOne
@@ -1902,6 +1971,17 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
+        elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
+            if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
+                self.create_shipment_reschedule(
+                    shipment_instance, shipment_reschedule['rescheduling_reason'],
+                    shipment_reschedule['rescheduling_date'])
+                info_logger.info(f"post_shipment_status_change|Rescheduled|Shipment ID {shipment_instance.id}")
+        elif shipment_instance.shipment_status == OrderedProduct.NOT_ATTEMPT:
+            if 'not_attempt_reason' in shipment_not_attempt:
+                self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'])
+                info_logger.info(f"post_shipment_status_change|Not Attempted|Shipment ID {shipment_instance.id}")
+
 
     @staticmethod
     def update_order_status_post_qc_done(shipment_instance):
@@ -3194,7 +3274,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         product_delivered_qty = float(mapping_instance.shipped_qty) - \
                                 float(product_returned_qty + product_returned_damage_qty)
 
-        warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
+        warehouse_id = mapping_instance.ordered_product.packaged_at
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
