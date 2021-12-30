@@ -129,6 +129,9 @@ class ShopCls(object):
         beat_planning_objs = BeatPlanning.objects.filter(executive=executive_user)
         if beat_planning_objs:
             beat_planning_objs.update(status=False)
+            day_beat_plan = DayBeatPlanning.objects.filter(beat_plan__in=beat_planning_objs, next_plan_date__gt=datetime.date.today())
+            day_beat_plan.update(status=False)
+
 
     @classmethod
     def update_shop(cls, validated_data):
