@@ -1155,7 +1155,7 @@ def set_shop_map_cron():
         for beat in beat_plan:
             next_plan_date = datetime.today()
             day_beat_plan = DayBeatPlanning.objects.filter(
-                beat_plan=beat, next_plan_date=next_plan_date)
+                beat_plan=beat, next_plan_date=next_plan_date,status=True)
             for day_beat in day_beat_plan:
                 ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
     except Exception as error:
