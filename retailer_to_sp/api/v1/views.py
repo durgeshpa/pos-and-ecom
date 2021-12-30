@@ -6838,7 +6838,6 @@ class ShipmentQCView(generics.GenericAPIView):
              'qc_area__area_id', 'qc_area__area_type', 'created_at').\
         order_by('-id')
 
-
     def get(self, request):
         if not request.GET.get('status'):
             return get_response("'status' | This is mandatory")
@@ -7081,9 +7080,14 @@ class DispatchItemsView(generics.GenericAPIView):
 
     def filter_packaging_items(self):
         shipment_id = self.request.GET.get('shipment_id')
+        package_status = self.request.GET.get('package_status')
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
+
+        if package_status:
+            self.queryset = self.queryset.filter(status=package_status)
+
         return self.queryset
 
 
