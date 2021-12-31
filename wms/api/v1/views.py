@@ -551,11 +551,16 @@ class BinIDList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
-        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__picker_users=request.user,
-                                                           quantity__gt=0) \
-                                                   .exclude(pickup__status='picking_cancelled').\
-            order_by('bin__bin__bin_id')
+        if PickupBinInventory.objects.filter(
+                pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user, quantity__gt=0) \
+                .exclude(pickup__status='picking_cancelled').exists():
+            pickup_bin_obj = PickupBinInventory.objects.filter(
+                pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user, quantity__gt=0).exclude(
+                pickup__status='picking_cancelled').order_by('bin__bin__bin_id')
+        else:
+            pickup_bin_obj = PickupBinInventory.objects.filter(
+                pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user).exclude(
+                pickup__status='picking_cancelled').order_by('bin__bin__bin_id')
         if not pickup_bin_obj.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 
@@ -624,9 +629,16 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
-                                                            pickup__zone__picker_users=request.user, quantity__gt=0)\
-                                                    .exclude(pickup__status='picking_cancelled')
+        if PickupBinInventory.objects.filter(
+                pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id, pickup__zone__picker_users=request.user,
+                quantity__gt=0).exclude(pickup__status='picking_cancelled').exists():
+            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
+                                                                pickup__zone__picker_users=request.user, quantity__gt=0)\
+                                                        .exclude(pickup__status='picking_cancelled')
+        else:
+            picking_details = PickupBinInventory.objects.filter(
+                pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id, pickup__zone__picker_users=request.user)\
+                .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
@@ -713,11 +725,18 @@ class PickupDetail(APIView):
         tr_type = "picked"
         with transaction.atomic():
             for j, i in diction.items():
-                picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                    pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
-                                                                    quantity__gt=0)\
-                                                            .exclude(pickup__status='picking_cancelled')
+                if PickupBinInventory.objects.filter(
+                        pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
+                        bin__bin__bin_id=bin_id, pickup__sku__id=j, quantity__gt=0)\
+                        .exclude(pickup__status='picking_cancelled').exists():
+                    picking_details = PickupBinInventory.objects.filter(
+                        pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
+                        bin__bin__bin_id=bin_id, pickup__sku__id=j, quantity__gt=0)\
+                        .exclude(pickup__status='picking_cancelled')
+                else:
+                    picking_details = PickupBinInventory.objects.filter(
+                        pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
+                        bin__bin__bin_id=bin_id, pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
                                      'message': 'Picking details not found, please check the details entered.',
@@ -728,7 +747,7 @@ class PickupDetail(APIView):
                     total_to_be_picked = i['total_to_be_picked_qty']
                     info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
                                      .format(j, pickup_quantity, bin_id))
-                    if total_to_be_picked != picking_details.last().quantity :
+                    if total_to_be_picked != picking_details.last().quantity:
                         return Response({'is_success': False,
                                          'message': "To be Picked qty has changed, please revise your input for "
                                                     "Picked qty",
