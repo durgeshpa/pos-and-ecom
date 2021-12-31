@@ -89,6 +89,8 @@ class ShipmentMergedBarcode(APIView):
             if not packaging.crate and packaging.packaging_details.exists():
                 quantity = str(packaging.packaging_details.last().quantity)
                 product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                if product_name and len(product_name) > 32:
+                    product_name = product_name[:32] + "..."
                 data = {shipment_count: pck_type_r_id,
                         shipment.order.order_no: customer_city_pincode,
                         product_name: quantity,
