@@ -1227,7 +1227,7 @@ class UserDocumentChoices(generics.GenericAPIView):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in [(ShopDocument.UIDAI, "Aadhaar Card"), (ShopDocument.PASSPORT, "Passport"),
                                                (ShopDocument.DL, "Driving Licence"), (ShopDocument.EC, "Election Card")]]
-        msg = ""
+        msg = [""]
         return get_response(msg, data, True)
 
 
@@ -1245,5 +1245,5 @@ class ShopDocumentChoices(generics.GenericAPIView):
                                                (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
                                                # (ShopDocument.SLN, "Shop License No"),
                                                (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
-        msg = ""
+        msg = [""]
         return get_response(msg, data, True)
