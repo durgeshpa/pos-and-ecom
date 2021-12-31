@@ -146,6 +146,7 @@ INSTALLED_APPS = [
     'ecom',
     'cms',
     'drf_yasg',
+    'report',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -424,6 +425,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
+    ('0 1 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -592,13 +594,14 @@ LOGGING = {
 }
 SWAGGER_SETTINGS = {
    'USE_SESSION_AUTH': True,
-    'SECURITY_DEFINITIONS': {
-            'api_key': {
-                'type': 'apiKey',
-                'in': 'header',
-                'name': 'Authorization'
-            }
-        },
+    # 'SECURITY_DEFINITIONS': {
+    #         'api_key': {
+    #             'type': 'apiKey',
+    #             'in': 'header',
+    #             'name': 'Authorization'
+    #         }
+    #     },
+
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -615,3 +618,8 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
+
+LOGIN_URL = 'rest_framework:login'
+LOGOUT_URL = 'rest_framework:logout'
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

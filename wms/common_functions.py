@@ -1570,7 +1570,7 @@ def common_on_return_and_partial(shipment, flag):
                                            shipment_product_batch.returned_damage_qty)
 
                 elif flag == "partial_shipment":
-                    partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
+                    partial_ship_qty = (shipment_product_batch.pickup_quantity - (shipment_product_batch.quantity-(int(shipment_product_batch.expired_qty)+shipment_product_batch.damaged_qty+shipment_product_batch.missing_qty+shipment_product_batch.rejected_qty)))
                     if partial_ship_qty <= 0:
                         continue
                     else:

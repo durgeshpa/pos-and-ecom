@@ -607,8 +607,9 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values(
-            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').order_by('shop__shop_name')
+        shop_list = list(shop_user_obj.values(
+            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').distinct('shop'))
+        shop_list = sorted(shop_list, key=lambda a: a['shop__shop_name'])
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -987,10 +988,19 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :param kwargs: keyword argument
         :return: Beat Plan for Sales executive otherwise error message
         """
+        if self.request.user.user_type == 7:
+            try:
+                if self.request.GET['executive_id']:
+                    executive = User.objects.filter(id = int(self.request.GET['executive_id'])).last()
+            except Exception as e:
+                return Response({"detail": messages.ERROR_MESSAGES["4020"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+        else:
+            executive = self.request.user
         try:
             if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
-                beat_user = self.queryset.filter(executive=self.request.user,
-                                                 executive__user_type=self.request.user.user_type,
+                beat_user = self.queryset.filter(executive=executive,
+                                                 executive__user_type=executive.user_type,
                                                  executive__is_active=True)
                 if beat_user.exists():
                     try:
@@ -1023,11 +1033,13 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                     status=status.HTTP_200_OK)
             else:
                 try:
-                    queryset = BeatPlanning.objects.filter(status=True)
-                    beat_user = queryset.filter(executive=self.request.user,
-                                                executive__user_type=self.request.user.user_type,
+                    queryset = self.queryset
+                    if self.request.user.user_type == 6:
+                        queryset = BeatPlanning.objects.filter(status=True)
+                    beat_user = queryset.filter(executive=executive,
+                                                executive__user_type=executive.user_type,
                                                 executive__is_active=True)
-                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan__in=beat_user,
                                                                    next_plan_date=self.request.GET[
                                                                        'next_plan_date'])
                 except Exception as error:

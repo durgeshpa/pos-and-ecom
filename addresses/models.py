@@ -100,6 +100,14 @@ class Address(models.Model):
     def __str__(self):
         return "%s - %s" % (self.shop_name, self.address_line1)
 
+    def save(self, *args, **kwargs):
+        if not self.pincode:
+            if self.pincode_link:
+                self.pincode = self.pincode_link.pincode
+            else:
+                raise ValidationError(_('Pincode is required'))
+        super(Address, self).save(*args, **kwargs)
+
     @classmethod
     def check_warehouse_code(cls, obj):
         shop = obj.shop_name
