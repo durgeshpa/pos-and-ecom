@@ -115,7 +115,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
-    get_shipment_by_crate_id
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -7627,10 +7627,16 @@ class ShipmentDetailsByCrateView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for Shipment Details By Crate """
         info_logger.info("Shipment Details By Crate GET api called.")
-        if not request.GET.get('crate_id'):
-            return get_response("'crate_id' | This is mandatory.")
-        """ Get Shipment Details By Crate for specific ID """
-        id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
+        if not (request.GET.get('crate_id') or request.GET.get('shipment_id') or request.GET.get('shipment_label_id')):
+            return get_response("'crate_id/shipment_label_id/shipment_id' | This is mandatory.")
+        """Get Shipment"""
+        if request.GET.get('crate_id') :
+            """ Get Shipment Details By Crate for specific ID """
+            id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
+        elif request.GET.get('shipment_label_id'):
+            id_validation = get_shipment_by_shipment_label(request.GET.get('shipment_label_id'))
+        elif request.GET.get('shipment_id'):
+            id_validation = validate_shipment_id(request.GET.get('shipment_id'))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         shipment_id = id_validation['data']
@@ -8505,7 +8511,6 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                                                                      OrderedProduct.READY_TO_SHIP])).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
-        prefetch_related('qc_area__qc_desk_areas'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
              'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
@@ -8594,13 +8599,15 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
             try:
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(
-                        last_mile_trip_shipment__isnull=False, last_mile_trip_shipment__trip_id=trip_id)
+                    self.queryset = self.queryset.filter(Q( last_mile_trip_shipment__isnull=False,
+                                                            last_mile_trip_shipment__trip_id=trip_id)|
+                                                         Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                     self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
-                        Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True))
+                        Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True)|
+                        Q(trip_id=trip_id))
             except:
                 pass
 

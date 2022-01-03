@@ -1994,7 +1994,7 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
 class ShipmentSerializerForDispatch(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'order_no')
+        fields = ('id', 'invoice_no', 'order_no', 'shipment_status')
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
@@ -3231,6 +3231,8 @@ class LastMileTripShipmentsSerializer(serializers.ModelSerializer):
     def get_trip(obj):
         if obj.last_mile_trip_shipment.exists():
             return DispatchTripSerializers(obj.last_mile_trip_shipment.last().trip).data
+        elif obj.trip:
+            return DispatchTripSerializers(obj.trip).data
         return None
 
     class Meta:
