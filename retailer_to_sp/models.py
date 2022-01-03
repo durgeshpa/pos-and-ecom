@@ -3292,6 +3292,13 @@ class DispatchTrip(BaseTimestampUserModel):
         (COMPLETED, 'Completed'),
         (CANCELLED, 'Cancelled'),
     )
+
+    FORWARD, BACKWARD = 'FORWARD', 'BACKWARD'
+
+    DISPATCH_TRIP_TYPE = (
+        (FORWARD, 'Forward'),
+        (BACKWARD, 'Backward'),
+    )
     seller_shop = models.ForeignKey(Shop, related_name='dispatch_trip_seller_shop', null=True,
                                     on_delete=models.DO_NOTHING)
     source_shop = models.ForeignKey(Shop, related_name='dispatch_trip_source_shop', null=True,
@@ -3304,6 +3311,7 @@ class DispatchTrip(BaseTimestampUserModel):
         on_delete=models.DO_NOTHING, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
+    trip_type = models.CharField(max_length=100, default=FORWARD, choices=DISPATCH_TRIP_TYPE)
     trip_status = models.CharField(max_length=100, default=NEW, choices=DISPATCH_TRIP_STATUS)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -3312,6 +3320,8 @@ class DispatchTrip(BaseTimestampUserModel):
     closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
                                               verbose_name="Vehicle Closing Trip(Kms)")
     weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
+    no_of_empty_crates = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                     verbose_name="Total empty crates shipped")
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")
@@ -3321,8 +3331,7 @@ class DispatchTrip(BaseTimestampUserModel):
                                                       verbose_name="Total packets collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total sacks collected")
-    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight" )
-
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     class Meta:
         permissions = (
@@ -3527,3 +3536,24 @@ class ShopCrate(BaseTimestampUserModel):
 
     def __str__(self):
         return str(self.crate) + "-" + str(self.shop)
+
+
+class DispatchTripCrateMapping(BaseTimestampUserModel):
+    LOADED, UNLOADED = 'LOADED', 'UNLOADED'
+    DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
+    MISSING_AT_LOADING, MISSING_AT_UNLOADING, CANCELLED = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING', 'CANCELLED'
+    CRATE_STATUS = (
+        (LOADED, 'Loaded'),
+        (UNLOADED, 'Unloaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+        (CANCELLED, 'Cancelled'),
+    )
+    trip = models.ForeignKey(DispatchTrip, related_name='trip_empty_crates', on_delete=models.DO_NOTHING)
+    crate = models.ForeignKey(Crate, related_name='crate_trips', null=True, on_delete=models.DO_NOTHING)
+    crate_status = models.CharField(max_length=50, null=True, blank=True, choices=CRATE_STATUS)
+
+    def __str__(self):
+        return str(self.crate) + "-" + str(self.trip)

@@ -20,7 +20,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
-                                   LastMileTripShipmentMapping, ShopCrate)
+                                   LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -2168,7 +2168,7 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
             try:
                 delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                shop_employee__shop=seller_shop).last()
+                                                   shop_employee__shop=seller_shop).last()
             except:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy and delivery_boy.groups.filter(name='Delivery Boy').exists():
@@ -2177,6 +2177,12 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError("Delivery Boy does not have required permission.")
         else:
             raise serializers.ValidationError("'delivery_boy' | This is mandatory")
+
+        if 'trip_type' in self.initial_data and self.initial_data['trip_type']:
+            if any(self.initial_data['trip_type'] in i for i in DispatchTrip.DISPATCH_TRIP_TYPE):
+                data['trip_type'] = self.initial_data['trip_type']
+            else:
+                raise serializers.ValidationError("Invalid type choice")
 
         if 'id' in self.initial_data and self.initial_data['id']:
             if not DispatchTrip.objects.filter(
@@ -2706,6 +2712,84 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_date')
+
+
+class LoadVerifyCrateSerializer(serializers.ModelSerializer):
+
+    trip = DispatchTripSerializers(read_only=True)
+    crate = CrateSerializer(read_only=True)
+    crate_status = ChoicesSerializer(choices=DispatchTripCrateMapping.CRATE_STATUS)
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = DispatchTripCrateMapping
+        fields = ('trip', 'crate', 'crate_status', 'created_by', 'updated_by')
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updating package is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.NEW:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot load empty crate")
+
+        if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
+            if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                        shop_crates__shop__id=trip.source_shop, shop_crates__is_available=True).exists():
+                raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
+            crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                         shop_crates__shop__id=trip.source_shop, shop_crates__is_available=True).last()
+            data['crate'] = crate
+        else:
+            raise serializers.ValidationError("'crate_id' | This is mandatory")
+
+        # Check if crate already scanned
+        if trip.trip_empty_crates.filter(crate=crate).exists():
+            raise serializers.ValidationError("This package has already been verified.")
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripCrateMapping.LOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripCrateMapping.DAMAGED_AT_LOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripCrateMapping.MISSING_AT_LOADING
+
+        data['trip'] = trip
+        data['crate'] = crate
+        data['crate_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new DispatchTrip Package Mapping"""
+        try:
+            instance = DispatchTripCrateMapping.objects.create(**validated_data)
+            self.post_crate_load_trip_update(instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return instance
+
+    def post_crate_load_trip_update(self, trip_crate_mapping):
+        # Update total no of empty crates
+        trip = trip_crate_mapping.trip
+        if trip_crate_mapping.package_status == DispatchTripCrateMapping.LOADED:
+            trip.no_of_empty_crates = trip.no_of_empty_crates + 1
+            trip.save()
 
 
 class LoadVerifyPackageSerializer(serializers.ModelSerializer):

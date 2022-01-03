@@ -112,7 +112,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
-                          ShipmentDetailsByCrateSerializer
+                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id
@@ -8001,7 +8001,6 @@ class TripSummaryView(generics.GenericAPIView):
         }
         return trip_summary_data
 
-
     def non_added_shipments_to_trip_summary(self, request):
         """ GET API for trip summary """
         info_logger.info("Added shipmets to Trip Summary called.")
@@ -8211,6 +8210,31 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LoadVerifyCrateView(generics.GenericAPIView):
+    """
+       View to verify and load packages to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyCrateSerializer
+
+    def post(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Empty crate loaded Successfully.")
+            return get_response('Empty crate loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
 class LoadVerifyPackageView(generics.GenericAPIView):
     """
        View to verify and load packages to a trip.
@@ -8232,7 +8256,7 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
-            return get_response('Package loageg successfully!', serializer.data)
+            return get_response('Package loaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 

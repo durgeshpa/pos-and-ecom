@@ -21,7 +21,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentCompleteVerifyView, VerifyReturnShipmentProductsView, DispatchPackageStatusList,
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
-                    CrateRemarkReasonsListView, LastMileTripStatusList
+                    CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView
                     )
 
 router = routers.DefaultRouter()
@@ -122,6 +122,7 @@ urlpatterns = [
     url('shipment-complete-verification/', ShipmentCompleteVerifyView.as_view(), name='shipment_complete_verification'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
+    url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
