@@ -2729,7 +2729,7 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Validate request data
         if 'id' in self.initial_data:
-            raise serializers.ValidationError('Updating package is not allowed')
+            raise serializers.ValidationError('Updation is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
             raise serializers.ValidationError("'trip_id' | This is required.")
         try:

@@ -8218,14 +8218,14 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
 
 class LoadVerifyCrateView(generics.GenericAPIView):
     """
-       View to verify and load packages to a trip.
+       View to verify and load empty crate to a trip.
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = LoadVerifyCrateSerializer
 
     def post(self, request):
-        """ POST API for Shipment Package Load Verification """
+        """ POST API for Empty Crate Load Verification """
         info_logger.info("Load Verify POST api called.")
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
