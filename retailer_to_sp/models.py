@@ -3524,3 +3524,6 @@ class ShopCrate(BaseTimestampUserModel):
     shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='shop_crates', null=True, on_delete=models.DO_NOTHING)
     is_available = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.crate) + "-" + str(self.shop)

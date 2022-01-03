@@ -20,7 +20,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
-                                   LastMileTripShipmentMapping)
+                                   LastMileTripShipmentMapping, ShopCrate)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -1650,6 +1650,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 defaults={'created_by': updated_by, 'updated_by': updated_by})
+            self.mark_crate_used(instance)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -1668,6 +1669,12 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+    def mark_crate_used(self, packaging_instance):
+        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
+        shop_crate_instance = ShopCrate.objects.update_or_create(
+            shop=packaging_instance.warehouse, crate=packaging_instance.crate, defaults={'is_available': False})
+        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -2494,10 +2501,21 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
 
+        if 'shop' in self.initial_data and self.initial_data['shop']:
+            try:
+                shop = Shop.objects.get(id=self.initial_data['shop'], shop_type__shop_type__in=['sp', 'dc'])
+                data['warehouse'] = shop
+            except:
+                raise serializers.ValidationError("Invalid shop")
+        else:
+            raise serializers.ValidationError("'shop' | This is mandatory")
+
         if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
-            if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).exists():
+            if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                        shop_crates__shop__id=shop, shop_crates__is_available=True).exists():
                 raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
-            crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).last()
+            crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                         shop_crates__shop__id=shop, shop_crates__is_available=True).last()
             data['crate'] = crate
         else:
             raise serializers.ValidationError("'crate_id' | This is mandatory")
@@ -2511,7 +2529,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'shipment_id' | This is mandatory")
 
         if ShipmentPackaging.objects.filter(crate=crate, shipment=shipment).exists():
-            shipment_packaging = ShipmentPackaging.objects.filter(crate=crate, shipment=shipment).last()
+            shipment_packaging = ShipmentPackaging.objects.filter(warehouse=shop, crate=crate, shipment=shipment).last()
         else:
             raise serializers.ValidationError("Shipment packaging not found for selected shipment and crate.")
 
@@ -2555,6 +2573,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         self.post_shipment_packaging_status_change(packaging_instance.shipment)
+        self.mark_crate_available(packaging_instance)
         return packaging_instance
 
     def post_shipment_packaging_status_change(self, shipment_instance):
@@ -2572,6 +2591,12 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
                 shipment_instance.save()
             info_logger.info(f"post_shipment_packaging_status_change|Shipment status updated|Shipment ID "
                              f"{shipment_instance.id}")
+
+    def mark_crate_available(self, packaging_instance):
+        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
+        shop_crate_instance = ShopCrate.objects.update_or_create(
+            shop=packaging_instance.warehouse, crate=packaging_instance.crate, defaults={'is_available': True})
+        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
 
 class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):

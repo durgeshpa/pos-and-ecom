@@ -7689,6 +7689,7 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
             return get_response(id_validation['error'])
         packaging_data = id_validation['data']
         modified_data['packaging_type'] = packaging_data.packaging_type
+        modified_data['shop'] = request.user.shop_employee.all().last().shop_id
 
         serializer = self.serializer_class(instance=packaging_data, data=modified_data)
         if serializer.is_valid():
@@ -8756,5 +8757,19 @@ class DispatchTripStatusList(generics.GenericAPIView):
         '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in DispatchTrip.DISPATCH_TRIP_STATUS]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class LastMileTripStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
         msg = ""
         return get_response(msg, data, True)
