@@ -3283,13 +3283,15 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
 
 
 class DispatchTrip(BaseTimestampUserModel):
-    NEW, STARTED, UNLOADING, COMPLETED, CANCELLED = 'NEW', 'STARTED', 'UNLOADING', 'COMPLETED', 'CANCELLED'
+    NEW, STARTED, COMPLETED = 'NEW', 'STARTED', 'COMPLETED'
+    UNLOADING, CLOSED, CANCELLED = 'UNLOADING', 'CLOSED', 'CANCELLED'
 
     DISPATCH_TRIP_STATUS = (
         (NEW, 'New'),
         (STARTED, 'Started'),
-        (UNLOADING, 'Unloading'),
         (COMPLETED, 'Completed'),
+        (UNLOADING, 'Unloading'),
+        (CLOSED, 'Closed'),
         (CANCELLED, 'Cancelled'),
     )
 
