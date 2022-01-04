@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework import generics, status, viewsets, permissions, authentication
 from rest_framework.parsers import FormParser, MultiPartParser
 
+from accounts.models import USER_DOCUMENTS_TYPE_CHOICES
 from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
@@ -1225,8 +1226,7 @@ class UserDocumentChoices(generics.GenericAPIView):
         API to get list of Shop User Document list
         '''
         fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in [(ShopDocument.UIDAI, "Aadhaar Card"), (ShopDocument.PASSPORT, "Passport"),
-                                               (ShopDocument.DL, "Driving Licence"), (ShopDocument.EC, "Election Card")]]
+        data = [dict(zip(fields, d)) for d in USER_DOCUMENTS_TYPE_CHOICES]
         msg = [""]
         return get_response(msg, data, True)
 
