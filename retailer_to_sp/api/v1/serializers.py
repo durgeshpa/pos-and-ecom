@@ -2758,14 +2758,12 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This package has already been verified.")
         if 'status' not in self.initial_data or not self.initial_data['status']:
             raise serializers.ValidationError("'status' | This is required.")
-        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+        elif self.initial_data['status'] not in [1, 2]:
             raise serializers.ValidationError("Invalid status choice")
 
         status = DispatchTripCrateMapping.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
             status = DispatchTripCrateMapping.DAMAGED_AT_LOADING
-        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
-            status = DispatchTripCrateMapping.MISSING_AT_LOADING
 
         data['trip'] = trip
         data['crate'] = crate
