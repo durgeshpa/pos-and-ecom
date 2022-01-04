@@ -126,7 +126,7 @@ class UserDocument(models.Model):
     user = models.ForeignKey(User, related_name='user_documents', on_delete=models.CASCADE)
     user_document_type = models.CharField(max_length=100, choices=USER_DOCUMENTS_TYPE_CHOICES, default='uidai')
     user_document_number = models.CharField(max_length=100)
-    user_document_photo = models.FileField(upload_to='user_photos/documents/')
+    user_document_photo = models.FileField(upload_to='user_photos/documents/', null=True)
 
     def user_document_photo_thumbnail(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_document_photo.url))
