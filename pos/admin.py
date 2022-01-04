@@ -34,10 +34,10 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, \
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerReturnReportFormView, \
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
-    RetailerPurchaseReportFormView, products_list_status
+    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -505,6 +505,17 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
                        r'^retailer-order-report-form/$',
                        self.admin_site.admin_view(RetailerOrderedReportFormView.as_view()),
                        name="retailer-order-report-form"
+                   ),
+                    url(
+                       r'^retailer-return-report/$',
+                       self.admin_site.admin_view(RetailerReturnReportView.as_view()),
+                       name="retailer-return-report"
+                   ),
+                   
+                   url(
+                       r'^retailer-return-report-form/$',
+                       self.admin_site.admin_view(RetailerReturnReportFormView.as_view()),
+                       name="retailer-return-report-form"
                    ),
                    url(
                        r'^retailer-order-invoice/(?P<pk>\d+)/$',
