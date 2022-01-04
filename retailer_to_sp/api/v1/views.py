@@ -79,7 +79,8 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
-                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES)
+                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
+                                   DispatchTripCrateMapping)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -112,7 +113,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
-                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer
+                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id
@@ -8238,6 +8239,57 @@ class LoadVerifyCrateView(generics.GenericAPIView):
             serializer.save(created_by=request.user)
             info_logger.info("Empty crate loaded Successfully.")
             return get_response('Empty crate loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class UnloadVerifyCrateView(generics.GenericAPIView):
+    """
+       View to verify and unload packages from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnloadVerifyCrateSerializer
+    queryset = DispatchTripCrateMapping.objects.all()
+
+    def validate_trip_empty_crate(self, crate_id, trip_id):
+        trip_empty_crate = self.queryset.filter(
+            crate_status__in=[DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING,
+                              DispatchTripCrateMapping.MISSING_AT_LOADING],
+            crate_id=crate_id, trip__id=trip_id).last()
+        if not trip_empty_crate:
+            return {"error": "invalid Crate"}
+        return {"data": trip_empty_crate}
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'crate_id' not in modified_data:
+            return get_response("'crate_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        crate_validation = self.validate_trip_empty_crate(int(modified_data['crate_id']),
+                                                             int(modified_data['trip_id']))
+        if 'error' in crate_validation:
+            return get_response(crate_validation['error'])
+        trip_empty_crate = crate_validation['data']
+
+        serializer = self.serializer_class(instance=trip_empty_crate, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Crate unloaded Successfully.")
+            return get_response('Crate unloaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 

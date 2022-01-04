@@ -2718,7 +2718,7 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
 
     trip = DispatchTripSerializers(read_only=True)
     crate = CrateSerializer(read_only=True)
-    crate_status = ChoicesSerializer(choices=DispatchTripCrateMapping.CRATE_STATUS)
+    crate_status = ChoicesSerializer(choices=DispatchTripCrateMapping.CRATE_STATUS, required=False)
     created_by = UserSerializer(read_only=True)
     updated_by = UserSerializer(read_only=True)
 
@@ -2743,12 +2743,13 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot load empty crate")
 
         if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
-            if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
-                                        shop_crates__shop__id=trip.source_shop, shop_crates__is_available=True).exists():
+            if Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                    shop_crates__shop=trip.source_shop, shop_crates__is_available=True).exists():
+                crate = Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                                             shop_crates__shop=trip.source_shop, shop_crates__is_available=True).last()
+                data['crate'] = crate
+            else:
                 raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
-            crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
-                                         shop_crates__shop__id=trip.source_shop, shop_crates__is_available=True).last()
-            data['crate'] = crate
         else:
             raise serializers.ValidationError("'crate_id' | This is mandatory")
 
@@ -2785,11 +2786,104 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         return instance
 
     def post_crate_load_trip_update(self, trip_crate_mapping):
+        info_logger.info(f"post_crate_load_trip_update|trip_crate_mapping {trip_crate_mapping}")
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
-        if trip_crate_mapping.package_status == DispatchTripCrateMapping.LOADED:
+        if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
             trip.no_of_empty_crates = trip.no_of_empty_crates + 1
             trip.save()
+
+        # Make crate used at source
+        shop = trip_crate_mapping.trip.source_shop
+        crate = trip_crate_mapping.crate
+        shop_crate_instance = ShopCrate.objects.update_or_create(
+            shop=shop, crate=crate, defaults={'is_available': False})
+        info_logger.info(f"Crate marked used| {shop_crate_instance}")
+
+
+class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    crate = CrateSerializer(read_only=True)
+    crate_status = ChoicesSerializer(choices=DispatchTripCrateMapping.CRATE_STATUS, required=False)
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = DispatchTripCrateMapping
+        fields = ('trip', 'crate', 'crate_status', 'created_by', 'updated_by')
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updation is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.UNLOADING:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload empty crate")
+
+        if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
+            if not Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).exists():
+                raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
+            crate = Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).last()
+            data['crate'] = crate
+        else:
+            raise serializers.ValidationError("'crate_id' | This is mandatory")
+
+        # Check if crate already scanned
+        if not trip.trip_empty_crates.filter(
+                crate=crate, crate_status__in=[
+                    DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING,
+                    DispatchTripCrateMapping.MISSING_AT_LOADING]).exists():
+            raise serializers.ValidationError("This crate was not loaded to the trip.")
+        if trip.trip_empty_crates.filter(
+                crate=crate, crate_status__in=[
+                    DispatchTripCrateMapping.UNLOADED, DispatchTripCrateMapping.DAMAGED_AT_UNLOADING,
+                    DispatchTripCrateMapping.MISSING_AT_UNLOADING]).exists():
+            raise serializers.ValidationError("This crate has already been verified.")
+
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripCrateMapping.UNLOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripCrateMapping.DAMAGED_AT_UNLOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripCrateMapping.MISSING_AT_UNLOADING
+
+        data['trip'] = trip
+        data['crate'] = crate
+        data['crate_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update DispatchTrip Package Mapping"""
+        try:
+            instance = super().update(instance, validated_data)
+            self.post_crate_unload_trip_update(instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
+
+    def post_crate_unload_trip_update(self, trip_crate_mapping):
+        info_logger.info(f"post_crate_unload_trip_update|trip_crate_mapping {trip_crate_mapping}")
+        # Make crate available at destination
+        shop = trip_crate_mapping.trip.destination_shop
+        crate = trip_crate_mapping.crate
+        shop_crate_instance = ShopCrate.objects.update_or_create(
+            shop=shop, crate=crate, defaults={'is_available': True})
+        info_logger.info(f"Crate marked available| {shop_crate_instance}")
 
 
 class LoadVerifyPackageSerializer(serializers.ModelSerializer):
