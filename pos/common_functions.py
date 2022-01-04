@@ -983,7 +983,7 @@ def get_default_qty(given_qty_unit, product, qty):
 
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
     bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
-    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
+    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name, retailer_shop=buyer_shop)
     if created:
         vendor.vendor_name, vendor.address, vendor.pincode = 'PepperTap', bill_add.address_line1, bill_add.pincode
         vendor.city, vendor.state = bill_add.city, bill_add.state
