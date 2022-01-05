@@ -896,7 +896,7 @@ class Order(models.Model):
     FULLY_RETURNED = 'fully_returned'
     PICKED = 'picked'
     OUT_FOR_DELIVERY = 'out_for_delivery'
-
+    QC_FAILED = 'QC_FAILED'
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
         (DISPATCH_PENDING, 'Dispatch Pending'),  # 2
@@ -930,7 +930,8 @@ class Order(models.Model):
         (PARTIALLY_RETURNED, 'Partially Returned'),
         (FULLY_RETURNED, 'Fully Returned'),
         (PICKED, 'Order Processing'),
-        (OUT_FOR_DELIVERY, 'Out For Delivery')
+        (OUT_FOR_DELIVERY, 'Out For Delivery'),
+        (QC_FAILED, 'QC Failed')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
