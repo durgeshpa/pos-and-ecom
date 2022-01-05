@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
@@ -7,6 +8,12 @@ from shops.models import ParentRetailerMapping
 from global_config.views import get_config
 
 today = datetime.datetime.today()
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 def getShopMapping(shop_id):
     try:
