@@ -2598,7 +2598,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        self.post_shipment_packaging_status_change(packaging_instance.shipment)
+        # self.post_shipment_packaging_status_change(packaging_instance.shipment)
         self.mark_crate_available(packaging_instance)
         return packaging_instance
 
