@@ -3321,10 +3321,82 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
         if 'id' in self.initial_data and self.initial_data['id']:
             if not Trip.objects.filter(
-                    id=self.initial_data['id'], seller_shop=seller_shop).exists():
-                raise serializers.ValidationError("Seller shop updation are not allowed.")
+                    id=self.initial_data['id'], seller_shop=seller_shop, delivery_boy=delivery_boy).exists():
+                raise serializers.ValidationError("Seller shop / delivery boy updation are not allowed.")
+            trip_instance = Trip.objects.filter(
+                id=self.initial_data['id'], seller_shop=seller_shop, delivery_boy=delivery_boy).last()
+            if 'trip_status' in self.initial_data and self.initial_data['trip_status']:
+                trip_status = self.initial_data['trip_status']
+                if trip_status not in [Trip.READY, Trip.STARTED, Trip.COMPLETED, Trip.RETURN_VERIFIED,
+                                       Trip.PAYMENT_VERIFIED, Trip.CANCELLED]:
+                    raise serializers.ValidationError("'trip_status' | Invalid status for the selected trip.")
+                if trip_instance.trip_status == trip_status:
+                    raise serializers.ValidationError(f"Trip status is already {str(trip_status)}.")
+                if trip_instance.trip_status in [Trip.PAYMENT_VERIFIED, Trip.CANCELLED]:
+                    raise serializers.ValidationError(
+                        f"Trip status can't update, already {str(trip_instance.trip_status)}")
+                if (trip_instance.trip_status == Trip.READY and
+                    trip_status not in [Trip.STARTED, Trip.CANCELLED]) or \
+                        (trip_instance.trip_status == Trip.STARTED and trip_status != Trip.COMPLETED) or \
+                        (trip_instance.trip_status == Trip.COMPLETED and trip_status != Trip.RETURN_VERIFIED) or \
+                        (trip_instance.trip_status == Trip.RETURN_VERIFIED and trip_status != Trip.PAYMENT_VERIFIED):
+                    raise serializers.ValidationError(
+                        f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
+                if trip_status == Trip.STARTED:
+                    if 'opening_kms' in self.initial_data and self.initial_data['opening_kms']:
+                        try:
+                            opening_kms = int(self.initial_data['opening_kms'])
+                            data['opening_kms'] = opening_kms
+                        except:
+                            raise serializers.ValidationError("'opening_kms' | Invalid value")
+                    else:
+                        raise serializers.ValidationError("'opening_kms' | This is mandatory")
+
+                    if not trip_instance.last_mile_trip_shipments_details.exists():
+                        raise serializers.ValidationError("Load shipments to the trip to start.")
+
+                    if trip_instance.last_mile_trip_shipments_details.filter(
+                            shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
+                        raise serializers.ValidationError(
+                            "The trip can not start until and unless all shipments get loaded.")
+
+                if trip_status == Trip.COMPLETED:
+                    if 'closing_kms' in self.initial_data and self.initial_data['closing_kms']:
+                        try:
+                            closing_kms = int(self.initial_data['closing_kms'])
+                            data['closing_kms'] = closing_kms
+                        except:
+                            raise serializers.ValidationError("'closing_kms' | Invalid value")
+                    else:
+                        raise serializers.ValidationError("'closing_kms' | This is mandatory")
+
+                if trip_status == Trip.RETURN_VERIFIED:
+                    if trip_instance.last_mile_trip_shipments_details.filter(~Q(shipment__shipment_status__in=[
+                        OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,  OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                            OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED])).exists():
+                        raise serializers.ValidationError(
+                            "The trip can not return verified until and unless all shipments get verified.")
+            else:
+                raise serializers.ValidationError("'trip_status' | This is mandatory")
+        else:
+            data['trip_status'] = Trip.READY
         return data
+
+    def shipments_added_to_trip(self, last_mile_trip):
+        shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
+        for shipment_detail in shipment_details:
+            if shipment_detail.shipment.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+                shipment_detail.shipment.shipment_status = OrderedProduct.FULLY_DELIVERED_AND_COMPLETED
+                shipment_detail.shipment.save()
+
+    def cancel_added_shipments_to_trip(self, last_mile_trip):
+        shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
+        # for mapping in shipment_details:
+        #     if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+        #         mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+        #         mapping.shipment.save()
+        shipment_details.update(shipment_status=LastMileTripShipmentMapping.CANCELLED)
 
     @transaction.atomic
     def create(self, validated_data):
@@ -3347,6 +3419,12 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
+        if validated_data['trip_status'] == Trip.STARTED:
+            self.shipments_added_to_trip(trip_instance)
+
+        if validated_data['trip_status'] == Trip.CANCELLED:
+            self.cancel_added_shipments_to_trip(trip_instance)
 
         return trip_instance
 
