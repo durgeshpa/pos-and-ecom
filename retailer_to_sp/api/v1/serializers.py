@@ -1681,8 +1681,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
         if packaging:
             if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
-                shipment_packaging_ids = ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
-                                                                     .values_list('shipment_packaging_id', flat=True)
+                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
+                                                                     .values_list('shipment_packaging_id', flat=True))
                 ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
 
                 ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
