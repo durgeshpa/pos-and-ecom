@@ -24,16 +24,16 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
         except:
             return {"error": "'crate.quantity' | Invalid crate quantity."}
 
-        if not Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
-                                    crate_type=Crate.DISPATCH).exists():
+        if not Crate.objects.filter(crate_id=crate_obj['crate_id'], crate_type=Crate.DISPATCH,
+                                    shop_crates__shop__id=warehouse_id, shop_crates__is_available=True).exists():
             return {"error": "Invalid crates selected in packaging."}
-        crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
-                                    crate_type=Crate.DISPATCH).last()
+        crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], crate_type=Crate.DISPATCH,
+                                     shop_crates__shop__id=warehouse_id, shop_crates__is_available=True).last()
         if crate.crates_shipments.filter(
             ~Q(shipment=shipment),
             ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED,
                            ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED])).exists():
-            return {"error" : "This crate is being used for some other shipment."}
+            return {"error": "This crate is being used for some other shipment."}
         crate_already_used.append(crate_obj['crate_id'])
     return {"data": crates_dict}
 
@@ -86,8 +86,8 @@ def get_shipment_by_crate_id(crate_id, crate_type=None):
 
 
 def validate_trip_user(trip_id, user):
-    if DispatchTrip.objects.filter(id=trip_id, seller_shop=user.shop_employee.last().shop).exists():
-        return {"data": DispatchTrip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
+    if DispatchTrip.objects.filter(id=trip_id, source_shop=user.shop_employee.last().shop).exists():
+        return {"data": DispatchTrip.objects.get(id=trip_id, source_shop=user.shop_employee.last().shop)}
     return {"error": "Invalid trip"}
 
 def get_shipment_by_shipment_label(shipment_label_id):

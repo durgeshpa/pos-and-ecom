@@ -21,7 +21,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentCompleteVerifyView, VerifyReturnShipmentProductsView, DispatchPackageStatusList,
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
-                    CrateRemarkReasonsListView
+                    CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView, UnloadVerifyCrateView
                     )
 
 router = routers.DefaultRouter()
@@ -122,6 +122,8 @@ urlpatterns = [
     url('shipment-complete-verification/', ShipmentCompleteVerifyView.as_view(), name='shipment_complete_verification'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
+    url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
+    url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
@@ -133,6 +135,7 @@ urlpatterns = [
     url('not-attempt-reason-choice/', ShipmentNotAttemptReasonsListView.as_view(), name='not_attempt_reason_choice'),
     url('crate-remark-reason-choice/', CrateRemarkReasonsListView.as_view(), name='crate_remark_reason_choice'),
     url('trip-status-choice/', DispatchTripStatusList.as_view()),
+    url('last-mile-status-choice/', LastMileTripStatusList.as_view()),
 ]
 
 urlpatterns += router.urls
