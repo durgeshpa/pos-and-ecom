@@ -8417,9 +8417,13 @@ class LastMileTripCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = Trip.objects. \
+        annotate(status=Case(
+                         When(trip_status__in=[Trip.READY, Trip.STARTED], then=Value("PENDING")),
+                         When(trip_status__in=[Trip.CANCELLED, Trip.PAYMENT_VERIFIED, Trip.RETURN_VERIFIED],
+                              then=Value("CLOSED")),
+                         default=F('trip_status'))).\
         select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
                        'seller_shop__shop_type__shop_sub_type', 'delivery_boy'). \
-        prefetch_related('rt_invoice_trip'). \
         only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
              'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
              'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
@@ -8524,6 +8528,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         dispatch_no = self.request.GET.get('dispatch_no')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
+        t_status = self.request.GET.get('status')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
         if search_text:
@@ -8546,6 +8551,9 @@ class LastMileTripCrudView(generics.GenericAPIView):
 
         if trip_status:
             self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        if t_status:
+            self.queryset = self.queryset.filter(status=t_status)
 
         return self.queryset.distinct('id')
 
