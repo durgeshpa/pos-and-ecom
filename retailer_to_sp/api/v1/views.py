@@ -6072,8 +6072,10 @@ class ShipmentDeliveryUpdate(APIView):
                     ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
                 if shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    initial_returned_qty = int(returned_qty) + int(damaged_qty)
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
                         returned_qty=returned_qty, returned_damage_qty=damaged_qty, delivered_qty=delivered_qty,
+                        initial_returned_qty=initial_returned_qty, initial_delivered_qty=delivered_qty,
                         cancellation_date=datetime.now())
                 # shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
@@ -8491,6 +8493,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         trip_instance = id_validation['data'].last()
+        modified_data['dispatch_no'] = trip_instance.dispatch_no
 
         serializer = self.serializer_class(instance=trip_instance, data=modified_data)
         if serializer.is_valid():

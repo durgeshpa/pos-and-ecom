@@ -2047,6 +2047,10 @@ class OrderedProductMapping(models.Model):
                                         validators=[MinValueValidator(0)])
     is_qc_done = models.BooleanField(default=False)
     is_return_verified = models.BooleanField(default=False)
+    initial_returned_qty = models.PositiveIntegerField(default=0, verbose_name="Initially Returned Quantity",
+                                                       help_text="Returned damaged by delivery boy")
+    initial_delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Initially Delivered Quantity",
+                                                        help_text="Shipped - initial returned qty")
 
     def clean(self):
         super(OrderedProductMapping, self).clean()

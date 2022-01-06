@@ -2166,10 +2166,9 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid source & destination | Source & Destination can't be same.")
 
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
-            try:
-                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                   shop_employee__shop=seller_shop).last()
-            except:
+            delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                               shop_employee__shop=seller_shop).last()
+            if not delivery_boy:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy and delivery_boy.groups.filter(name='Delivery Boy').exists():
                 data['delivery_boy'] = delivery_boy
@@ -3303,10 +3302,9 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("'seller_shop' | This is mandatory")
 
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
-            try:
-                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                shop_employee__shop=seller_shop).last()
-            except:
+            delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                               shop_employee__shop=seller_shop).last()
+            if not delivery_boy:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy.groups.filter(name='Delivery Boy').exists():
                 data['delivery_boy'] = delivery_boy
