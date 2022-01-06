@@ -2598,7 +2598,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        self.post_shipment_packaging_status_change(packaging_instance.shipment)
+        # self.post_shipment_packaging_status_change(packaging_instance.shipment)
         self.mark_crate_available(packaging_instance)
         return packaging_instance
 
@@ -3452,6 +3452,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
     shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
+    is_fully_delivered = serializers.SerializerMethodField()
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -3459,7 +3460,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                   'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'expired_qty', 'missing_qty',
                   'rejected_qty', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
                   'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'last_modified_by',
-                  'created_at', 'modified_at')
+                  'is_fully_delivered', 'created_at', 'modified_at')
 
     def validate(self, data):
 
@@ -3474,7 +3475,6 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
         product_returned_qty = 0
         product_returned_damage_qty = 0
-        product_returned_missing_qty = 0
 
         # Batch Validations
         if 'rt_ordered_product_mapping' not in self.initial_data or \
@@ -3482,26 +3482,22 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                 not self.initial_data['rt_ordered_product_mapping']:
             raise serializers.ValidationError("'rt_ordered_product_mapping' | This is mandatory")
 
+        rt_ordered_product_mapping = []
         for product_batch in self.initial_data['rt_ordered_product_mapping']:
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
             if 'returned_qty' not in product_batch or product_batch['returned_qty'] is None or \
-                    'returned_damage_qty' not in product_batch or product_batch['returned_damage_qty'] is None or \
-                    'returned_missing_qty' not in product_batch or product_batch['returned_missing_qty'] is None:
-                raise serializers.ValidationError(
-                    "'returned_qty', 'returned_damage_qty' & 'returned_missing_qty' | These are mandatory.")
+                    'returned_damage_qty' not in product_batch or product_batch['returned_damage_qty'] is None:
+                raise serializers.ValidationError("'returned_qty', 'returned_damage_qty' | These are mandatory.")
             try:
                 batch_returned_qty = int(product_batch['returned_qty'])
                 batch_returned_damage_qty = int(product_batch['returned_damage_qty'])
-                batch_returned_missing_qty = int(product_batch['returned_missing_qty'])
             except:
-                raise serializers.ValidationError(
-                    "'returned_qty', 'returned_damage_qty' & 'returned_missing_qty' | Invalid quantity.")
+                raise serializers.ValidationError("'returned_qty', 'returned_damage_qty' | Invalid quantity.")
 
             product_returned_qty += batch_returned_qty
             product_returned_damage_qty += batch_returned_damage_qty
-            product_returned_missing_qty += batch_returned_missing_qty
 
             if 'id' in product_batch and product_batch['id']:
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
@@ -3513,21 +3509,19 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
-                if batch_returned_qty < 0 or batch_returned_damage_qty < 0 or batch_returned_missing_qty < 0 or \
-                        float(batch_returned_qty) < float(batch_returned_damage_qty + batch_returned_missing_qty) or \
-                        float(product_batch_instance.ordered_product_mapping.returned_qty) < float(
-                        batch_returned_qty + batch_returned_damage_qty + batch_returned_missing_qty) or \
-                        float(product_batch_instance.already_shipped_qty) < \
-                        (float(product_batch_instance.delivered_qty) + float(
-                            batch_returned_qty + batch_returned_damage_qty + batch_returned_missing_qty)):
-                    raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Delivered, Returned, Damaged & "
-                                                      "Missing Quantity should be equals to Already Shipped Quantity")
+                if batch_returned_qty < 0 or batch_returned_damage_qty < 0 or \
+                        float(product_batch_instance.already_shipped_qty) < (
+                        float(batch_returned_qty + batch_returned_damage_qty)):
+                    raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Delivered, Returned & Damaged "
+                                                      "Quantity should be equals to Already Shipped Quantity")
                 product_batch['returned_qty'] = batch_returned_qty
                 product_batch['returned_damage_qty'] = batch_returned_damage_qty
-                product_batch['returned_missing_qty'] = batch_returned_missing_qty
+                product_batch['delivered_qty'] = product_batch_instance.already_shipped_qty - (
+                        batch_returned_qty + batch_returned_damage_qty)
+                rt_ordered_product_mapping.append(product_batch)
             else:
                 raise serializers.ValidationError("'rt_ordered_product_mapping.id' | This is mandatory.")
-
+        data['rt_ordered_product_mapping'] = rt_ordered_product_mapping
         # Shipment's Product mapping Id Validation
         if 'id' not in self.initial_data and self.initial_data['id'] is None:
             raise serializers.ValidationError("'id' | This is mandatory.")
@@ -3545,16 +3539,12 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         if mapping_instance.product != product:
             raise serializers.ValidationError("Product updation is not allowed.")
         """
-            Returned pieces, damaged return, missing pieces must be positive values
-            Existing Returned pieces must be equal to entered returned pieces
-            Returned pieces + damaged return + missing pieces <= Shipped pieces
-            
+            Returned pieces, damaged return pieces must be positive values
+            Returned pieces + damaged return pieces <= Shipped pieces
         """
-        if product_returned_qty < 0 or product_returned_damage_qty < 0 or product_returned_missing_qty < 0 or \
-                float(mapping_instance.returned_qty) != float(product_returned_qty) or \
-                float(mapping_instance.shipped_qty) < \
-                float(product_returned_qty + product_returned_damage_qty + product_returned_missing_qty):
-            raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Returned, Damaged & Missing Quantity "
+        if product_returned_qty < 0 or product_returned_damage_qty < 0 or \
+                float(mapping_instance.shipped_qty) < float(product_returned_qty + product_returned_damage_qty):
+            raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Returned, Damaged Quantity "
                                               "should be lesser than Shipped Quantity")
 
         # Delivered pieces = Shipped pieces - Returned Pieces - Damaged return
@@ -3594,11 +3584,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         data['packaging'] = self.initial_data.get('packaging')
         data['delivered_qty'] = product_delivered_qty
         data['returned_damage_qty'] = product_returned_damage_qty
-        data['returned_missing_qty'] = product_returned_missing_qty
         data['is_return_verified'] = True
         data['warehouse_id'] = warehouse_id
 
         return data
+
+    def get_is_fully_delivered(self, obj):
+        return True if obj.shipped_qty == obj.delivered_qty else False
 
     def get_movement_type(self, shipment_instance):
         if shipment_instance.shipment_status in [OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
@@ -3638,7 +3630,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Ordered Product Mapping"""
-        ordered_product_batches = self.initial_data['rt_ordered_product_mapping']
+        ordered_product_batches = validated_data['rt_ordered_product_mapping']
         packaging = validated_data['packaging']
 
         try:
