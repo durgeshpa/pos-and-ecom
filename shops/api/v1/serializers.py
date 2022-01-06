@@ -304,6 +304,14 @@ class FeedBackSerializer(serializers.ModelSerializer):
             executive_feedback = "Stock Not Available"
         if obj.executive_feedback == '5':
             executive_feedback = "Could Not Visit"
+        if obj.executive_feedback == '6':
+            executive_feedback = "Shop Closed"
+        if obj.executive_feedback == '7':
+            executive_feedback = "Owner Not available"
+        if obj.executive_feedback == '8':
+            executive_feedback = "BDA on Leave"
+        if obj.executive_feedback == '9':
+            executive_feedback = "Already ordered today"
         return executive_feedback
 
     class Meta:
@@ -747,8 +755,11 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
 
             # return executive feedback instance
             return executive_feedback[0]
+        else:
+            validated_data['feedback_time'] = datetime.now().time()
+            return ExecutiveFeedback.objects.create(**validated_data)
+            
         # return False
-        return False
 
 class ChoiceField(serializers.ChoiceField):
 

@@ -629,7 +629,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
                                  address.pincode,
                                  plan_obj.shop_category,
                                  plan_obj.beat_plan_date.strftime("%d/%m/%y"),
-                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
+                                 'Active' if plan_obj.status is True else 'Inactive'])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
