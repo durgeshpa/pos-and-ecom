@@ -3304,19 +3304,15 @@ class LastMileTripShipmentMappingListSerializers(serializers.ModelSerializer):
 class LastMileTripCrudSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
-    last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
+    # status = serializers.SerializerMethodField()
+    # last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
 
     class Meta:
         model = Trip
         fields = ('id', 'trip_id', 'seller_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy', 'e_way_bill_no',
                   'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'trip_amount', 'received_amount', 'total_received_amount', 'received_cash_amount',
-                  'received_online_amount',  'cash_to_be_collected_value', 'total_trip_shipments',
-                  'total_delivered_shipments', 'total_returned_shipments', 'total_pending_shipments',
-                  'total_rescheduled_shipments', 'total_trip_amount_value', 'total_pending_shipments',
-                  'total_rescheduled_shipments', 'total_return_amount', 'no_of_shipments',
-                  'last_mile_trip_shipments_details', 'created_at', 'modified_at')
+                  'trip_amount', 'no_of_shipments', 'created_at', 'modified_at')
 
     def validate(self, data):
 
