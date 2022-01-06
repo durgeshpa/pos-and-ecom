@@ -59,30 +59,30 @@ def set_feedbacks():
                                                  day_beat_plan__shop__longitude__isnull=False, 
                                                  latitude__isnull=False, 
                                                  longitude__isnull=False)
-    print(len(feedbacks))
+    print(len(feedbacks), "Found feedbacks")
+    # print(feedbacks)
     valid = []
     invalid = []
+    config_distance = get_config('feedback_distance')
     for feedback in feedbacks:
         feedback_lat = feedback.latitude
         feedback_lng = feedback.longitude
         shop_lat = feedback.day_beat_plan.shop.latitude
         shop_lng = feedback.day_beat_plan.shop.longitude
-        # print(feedback_lat, feedback_lng, shop_lat, shop_lng)
         if not feedback_lng or not feedback_lat or not shop_lat or not shop_lng:
             continue
         else:
             d = distance((shop_lat, shop_lng), (feedback_lat, feedback_lng))
-            # print(d)
-            config_distance = get_config('feedback_distance')
-            if d > config_distance:
+            d2 = round(d, 2)
+            if d2 > config_distance:
                 feedback.is_valid = False
                 feedback.distance_in_km = d
-                valid.append(feedback.id)
+                invalid.append([feedback.id, d2])
                 feedback.save()
-            elif d <= config_distance:
+            elif d2 <= config_distance:
                 feedback.is_valid = True
                 feedback.distance_in_km = d
-                invalid.append(feedback.id)
+                valid.append([feedback.id, d2])
                 feedback.save()
     print("Valid feedbacks", valid)
     print("Invalid feedbacks", invalid)
