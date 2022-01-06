@@ -371,7 +371,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 writer.writerow(list(obj))
         return response
 
-
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
             return format_html(
@@ -630,7 +629,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
                                  address.pincode,
                                  plan_obj.shop_category,
                                  plan_obj.beat_plan_date.strftime("%d/%m/%y"),
-                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
+                                 'Active' if plan_obj.status is True else 'Inactive'])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

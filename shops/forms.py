@@ -163,7 +163,7 @@ class ShopForm(forms.ModelForm):
     @classmethod
     def shop_type_retailer(cls, data):
         shop_type = cls.get_shop_type(data)
-        if shop_type.shop_type not in ['r', 'f']:
+        if shop_type and shop_type.shop_type not in ['r', 'f']:
             return False
         return True
 

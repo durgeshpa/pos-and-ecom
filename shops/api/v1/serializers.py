@@ -138,13 +138,13 @@ class ShopSerializer(serializers.ModelSerializer):
         model = Shop
         fields = ('id','shop_name','shop_type','imei_no','shop_id', 'latitude', 'longitude')
 
-    def validate(self, data):
-        """Latitude and Longitude for retailer type shops"""
-        shop_type = data.get('shop_type')
-        if shop_type.shop_type == 'r':
-            if not data.get('latitude') or not data.get('longitude'):
-                raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
-        return data
+    # def validate(self, data):
+    #     """Latitude and Longitude for retailer type shops"""
+    #     shop_type = data.get('shop_type')
+    #     if shop_type.shop_type == 'r':
+    #         if not data.get('latitude') or not data.get('longitude'):
+    #             raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
+    #     return data
 
 
 
@@ -188,10 +188,12 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
 
+
 class ShopRequestBrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopRequestBrand
         fields = '__all__'
+
 
 class ShopUserMappingSerializer(serializers.ModelSerializer):
     shop = ShopSerializer()
@@ -302,12 +304,20 @@ class FeedBackSerializer(serializers.ModelSerializer):
             executive_feedback = "Stock Not Available"
         if obj.executive_feedback == '5':
             executive_feedback = "Could Not Visit"
+        if obj.executive_feedback == '6':
+            executive_feedback = "Shop Closed"
+        if obj.executive_feedback == '7':
+            executive_feedback = "Owner Not available"
+        if obj.executive_feedback == '8':
+            executive_feedback = "BDA on Leave"
+        if obj.executive_feedback == '9':
+            executive_feedback = "Already ordered today"
         return executive_feedback
 
     class Meta:
         """ Meta class """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date',)
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date', 'feedback_time')
 
 
 class DayBeatPlanSerializer(serializers.ModelSerializer):
@@ -676,7 +686,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         Applied executive feedback create meta class
         """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at', 'latitude', 'longitude')
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'feedback_time', 'created_at', 'modified_at', 'latitude', 'longitude')
 
     def create(self, validated_data):
         """
@@ -691,61 +701,65 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
                                       feedback_date=validated_data['feedback_date'],
+                                      feedback_time=datetime.now().time(),
                                       latitude=validated_data.get('latitude', None),
                                       longitude=validated_data.get('longitude', None))
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
-            day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
-            if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
-                                                 ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
-                if day_beat_plan[0].shop_category == "P1":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    temp_status = True
-                elif day_beat_plan[0].shop_category == "P2":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    temp_status = True
-                else:
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    temp_status = True
-
-            # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
-            # check next visit date condition for rest of the feedback
-            else:
-                if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-                else:
-                    next_visit_date = day_beat_plan[0].beat_plan_date
-                    beat_plan_date = next_visit_date
-                    temp_status = False
+            # day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+            # if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
+            #                                      ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
+            #     if day_beat_plan[0].shop_category == "P1":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         temp_status = True
+            #     elif day_beat_plan[0].shop_category == "P2":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         temp_status = True
+            #     else:
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         temp_status = True
+            #
+            # # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
+            # # check next visit date condition for rest of the feedback
+            # else:
+            #     if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #     else:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
 
             # Create Data for next visit in Day Beat Planning
-            DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
-                                                  next_plan_date=next_visit_date,
-                                                  beat_plan_date=beat_plan_date,
-                                                  shop=day_beat_plan[0].shop,
-                                                  beat_plan=day_beat_plan[0].beat_plan,
-                                                  temp_status=temp_status)
+            # DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
+            #                                       next_plan_date=next_visit_date,
+            #                                       beat_plan_date=beat_plan_date,
+            #                                       shop=day_beat_plan[0].shop,
+            #                                       beat_plan=day_beat_plan[0].beat_plan,
+            #                                       temp_status=temp_status)
 
             # return executive feedback instance
             return executive_feedback[0]
+        else:
+            validated_data['feedback_time'] = datetime.now().time()
+            return ExecutiveFeedback.objects.create(**validated_data)
+            
         # return False
-        return False
 
 class ChoiceField(serializers.ChoiceField):
 

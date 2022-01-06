@@ -249,12 +249,18 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
                     if row['offer_price']:
                         product.offer_price = decimal.Decimal(row['offer_price'])
+                    else:
+                        product.offer_price = None
 
-                    if row['offer_start_date']:
+                    if row['offer_start_date'] and row['offer_price']:
                         product.offer_start_date = row['offer_start_date']
+                    else:
+                        product.offer_start_date = None
 
-                    if row['offer_end_date']:
+                    if row['offer_end_date'] and row['offer_price']:
                         product.offer_end_date = row['offer_end_date']
+                    else:
+                        product.offer_end_date = None
 
                     if product_pack_type:
                         product.product_pack_type = product_pack_type.lower()
@@ -453,12 +459,19 @@ def bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_li
 
                     if row['offer_price']:
                         product.offer_price = decimal.Decimal(row['offer_price'])
+                    else:
+                        product.offer_price = None
 
-                    if row['offer_start_date']:
+
+                    if row['offer_start_date'] and row['offer_price']:
                         product.offer_start_date = row['offer_start_date']
+                    else:
+                        product.offer_start_date = None
 
-                    if row['offer_end_date']:
+                    if row['offer_end_date'] and row['offer_price']:
                         product.offer_end_date = row['offer_end_date']
+                    else:
+                        product.offer_end_date = None
 
                     if product_pack_type:
                         product.product_pack_type = product_pack_type.lower()
@@ -1328,12 +1341,127 @@ class RetailerOrderedReportView(APIView):
         return response
 
 
+class RetailerReturnReportView(APIView):
+    permission_classes = (AllowAny,)
+
+    def total_return_calculation(self, user, start_date, end_date, shop):
+
+        pos_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
+                                                             order_return__order__seller_shop__id=shop,
+                                                             created_at__date__gte=start_date,
+                                                             created_at__date__lte=end_date,
+                                                             order_return__processed_by__id=user,
+                                                             order_return__refund_mode='cash').\
+            aggregate(amt=Sum('order_return__refund_amount'))
+
+        pos_online_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
+                                                               order_return__order__seller_shop__id=shop,
+                                                               created_at__date__gte=start_date,
+                                                               created_at__date__lte=end_date,
+                                                               order_return__processed_by__id=user,
+                                                               order_return__refund_mode__in=['online', 'credit']).\
+            aggregate(amt=Sum('order_return__refund_amount'))
+
+        ecom_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='ECOM',
+                                                              order_return__order__seller_shop__id=shop,
+                                                              created_at__date__gte=start_date,
+                                                              created_at__date__lte=end_date,
+                                                              order_return__processed_by__id=user,
+                                                              order_return__refund_mode='cash').\
+            aggregate(amt=Sum('order_return__refund_amount'))
+
+        ecom_online_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='ECOM',
+                                                                order_return__order__seller_shop__id=shop,
+                                                                created_at__date__gte=start_date,
+                                                                created_at__date__lte=end_date,
+                                                                order_return__processed_by__id=user,
+                                                                order_return__refund_mode__in=['online', 'credit']).\
+            aggregate(amt=Sum('order_return__refund_amount'))
+
+        pos_cash_return_amt = pos_cash_return_order_qs['amt'] if 'amt' in pos_cash_return_order_qs and \
+                                                                 pos_cash_return_order_qs['amt'] else 0
+        pos_online_return_amt = pos_online_return_order_qs['amt'] if 'amt' in pos_online_return_order_qs and \
+                                                                     pos_online_return_order_qs['amt'] else 0
+        ecom_cash_return_amt = ecom_cash_return_order_qs['amt'] if 'amt' in ecom_cash_return_order_qs and \
+                                                                   ecom_cash_return_order_qs['amt'] else 0
+        ecom_online_return_amt = ecom_online_return_order_qs['amt'] if 'amt' in ecom_online_return_order_qs and \
+                                                                       ecom_online_return_order_qs['amt'] else 0
+
+        return pos_cash_return_amt, pos_online_return_amt, ecom_cash_return_amt, ecom_online_return_amt 
+
+    def get(self, *args, **kwargs):
+
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        shop = self.request.GET.get('shop', None)
+        error = False
+        if not shop:
+            messages.error(self.request, 'shop is mandatory')
+            error = True
+        if not Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                   pos_enabled=True, pos_shop__status=True):
+            messages.error(self.request, "Franchise Shop Id Not Approved / Invalid!")
+            error = True
+        if not start_date and not end_date:
+            messages.error(self.request, 'Start and End dates are mandatory')
+            error = True
+        elif not start_date:
+            messages.error(self.request, 'Start date is mandatory')
+            error = True
+        elif not end_date:
+            messages.error(self.request, 'End date is mandatory')
+            error = True
+        elif end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            error = True
+        if error:
+            return render(
+                self.request,
+                'admin/services/retailer-order-report.html',
+                {'form': RetailerOrderedReportForm(initial=self.request.GET)}
+            )
+
+        users_list = PosShopUserMapping.objects.filter(shop=shop).values('user__id', 'user__first_name',
+                                                                         'user__phone_number', 'user__last_name',
+                                                                         'user_type')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="return-report.csv"'
+        writer = csv.writer(response)
+        shop_obj = Shop.objects.filter(id=shop, shop_type__shop_type='f', status=True, approval_status=2,
+                                       pos_enabled=True, pos_shop__status=True).last()
+        writer.writerow(['Shop Name:', shop_obj.shop_name])
+        writer.writerow(['Start Date:', start_date])
+        writer.writerow(['End Date:', end_date])
+        writer.writerow([])
+        writer.writerow(['User Name', 'Walkin Return Cash', 'Walkin  Return  Online', 'Ecomm  Return PG', 'Ecomm  Return Cash', 'Total  Return Cash',
+                         'Total  Return  Online', 'Total  Return  PG'])
+        for user in users_list:
+            pos_cash_return_amt, pos_online_return_amt, ecom_cash_return_amt, ecom_online_return_amt = \
+                self.total_return_calculation(user['user__id'], start_date, end_date, shop)
+            writer.writerow([str(str(user['user__phone_number']) + " - " + user['user__first_name'] + " " +
+                                 user['user__last_name'] + " - " + str(user['user_type'])),
+                             pos_cash_return_amt, pos_online_return_amt, ecom_online_return_amt,  ecom_cash_return_amt,
+                             (pos_cash_return_amt+ecom_cash_return_amt),
+                             (pos_online_return_amt+ecom_online_return_amt), ecom_online_return_amt],)
+        return response
+
+
+
 class RetailerOrderedReportFormView(View):
     def get(self, request):
         form = RetailerOrderedReportForm()
         return render(
             self.request,
             'admin/services/retailer-order-report.html',
+            {'form': form}
+        )
+
+class RetailerReturnReportFormView(View):
+    def get(self, request):
+        form = RetailerOrderedReportForm()
+        return render(
+            self.request,
+            'admin/services/retailer-return-report.html',
             {'form': form}
         )
 

@@ -158,12 +158,19 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
                     if row['offer_price']:
                         product.offer_price = decimal.Decimal(row['offer_price'])
+                    else:
+                        product.offer_price = None
 
-                    if row['offer_start_date']:
+
+                    if row['offer_start_date'] and row['offer_price']:
                         product.offer_start_date = row['offer_start_date']
+                    else:
+                        product.offer_start_date = None
 
-                    if row['offer_end_date']:
+                    if row['offer_end_date'] and row['offer_price']:
                         product.offer_end_date = row['offer_end_date']
+                    else:
+                        product.offer_end_date = None
 
                     if product_pack_type:
                         product.product_pack_type = product_pack_type.lower()
