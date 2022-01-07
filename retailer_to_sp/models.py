@@ -1243,6 +1243,7 @@ class Trip(models.Model):
         Shop, related_name='trip_seller_shop', null=True,
         on_delete=models.DO_NOTHING
     )
+    source_shop = models.ForeignKey(Shop, related_name='trip_source_shop', null=True, on_delete=models.DO_NOTHING)
     dispatch_no = models.CharField(max_length=50, unique=True)
     delivery_boy = models.ForeignKey(
         UserWithName, related_name='order_delivered_by_user', null=True,
