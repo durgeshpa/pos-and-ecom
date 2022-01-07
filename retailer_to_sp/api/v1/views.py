@@ -2732,7 +2732,7 @@ class OrderCentral(APIView):
                 order.delivery_person = delivery_person
                 ###### trip me save created
                 order.save()
-                shipment = OrderedProduct.objects.get(order=order)
+                shipment = OrderedProduct.objects.filter(order=order).last()
                 shipment.shipment_status = OrderedProduct.READY_TO_SHIP
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
@@ -2767,7 +2767,7 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                shipment = OrderedProduct.objects.get(order=order)
+                shipment = OrderedProduct.objects.filter(order=order).last()
                 shipment.shipment_status = order_status
                 shipment.save()
                 shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
