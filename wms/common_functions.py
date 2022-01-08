@@ -2657,7 +2657,7 @@ def get_logged_user_wise_query_set_for_dispatch_trip(user, queryset):
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
         queryset = queryset.filter(seller_shop_id=user.shop_employee.all().last().shop_id)
-    if user.groups.filter(name='Dispatch Executive'):
+    elif user.groups.filter(name='Dispatch Executive'):
         queryset = queryset.filter(source_shop_id=user.shop_employee.all().last().shop_id)
     else:
         queryset = queryset.none()

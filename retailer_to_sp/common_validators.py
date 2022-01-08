@@ -1,6 +1,7 @@
 from django.db.models import Q
 
-from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping, DispatchTrip, OrderedProduct
+from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping, DispatchTrip, OrderedProduct, \
+    DispatchTripShipmentMapping
 from wms.models import Crate
 
 
@@ -96,9 +97,16 @@ def get_shipment_by_shipment_label(shipment_label_id):
         return {'error': 'please provide a valid shipment_label_id'}
     return {'data': obj.shipment.pk}
 
+
 def validate_shipment_id(shipment_id):
     obj = OrderedProduct.objects.filter(id=shipment_id).last()
     if not obj:
         return {'error': 'please provide a valid shipment_label_id'}
     return {'data': obj.pk}
 
+
+def validate_trip_shipment(trip_id, shipment_id):
+    if DispatchTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
+        return {"data": DispatchTripShipmentMapping.objects.filter(
+                                trip_id=trip_id, shipment_id=shipment_id).last()}
+    return {"error": 'Invalid Shipment'}

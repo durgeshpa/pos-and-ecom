@@ -114,10 +114,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
-                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer
+                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
+                          DispatchTripShipmentMappingSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -8876,3 +8877,30 @@ class LastMileTripStatusList(generics.GenericAPIView):
         data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
         msg = ""
         return get_response(msg, data, True)
+
+
+class LoadInvoiceView(generics.GenericAPIView):
+    """
+       View to mark invoice as added to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchTripShipmentMappingSerializer
+    queryset = DispatchTripShipmentMapping.objects.\
+                only('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages')
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_shipment = validate_trip_shipment(modified_data['trip_id'], modified_data['shipment_id'])
+        if 'error' in validated_shipment:
+            return get_response(validated_shipment['error'])
+        serializer = self.serializer_class(instance=validated_shipment['data'], data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Invoice added to the trip.")
+            return get_response('Invoice added to the trip.', serializer.data)
+        return get_response(serializer_error(serializer), False)
