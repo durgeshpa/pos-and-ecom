@@ -2194,10 +2194,9 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid source & destination | Source & Destination can't be same.")
 
         if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
-            try:
-                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                   shop_employee__shop=seller_shop).last()
-            except:
+            delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                               shop_employee__shop=seller_shop).last()
+            if not delivery_boy:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy and delivery_boy.groups.filter(name='Delivery Boy').exists():
                 data['delivery_boy'] = delivery_boy
@@ -3303,16 +3302,17 @@ class LastMileTripShipmentMappingListSerializers(serializers.ModelSerializer):
 
 class LastMileTripCrudSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
+    source_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
     # status = serializers.SerializerMethodField()
     # last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
 
     class Meta:
         model = Trip
-        fields = ('id', 'trip_id', 'seller_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy', 'e_way_bill_no',
-                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
-                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'trip_amount', 'no_of_shipments', 'created_at', 'modified_at')
+        fields = ('id', 'trip_id', 'seller_shop', 'source_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy',
+                  'e_way_bill_no', 'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms',
+                  'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
+                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'created_at', 'modified_at')
 
     def validate(self, data):
 
@@ -3330,11 +3330,20 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("'seller_shop' | This is mandatory")
 
-        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+        if 'source_shop' in self.initial_data and self.initial_data['source_shop']:
             try:
-                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                shop_employee__shop=seller_shop).last()
+                source_shop = Shop.objects.get(id=self.initial_data['source_shop'],
+                                               shop_type__shop_type__in=['sp', 'dc'])
+                data['source_shop'] = source_shop
             except:
+                raise serializers.ValidationError("Invalid source_shop")
+        else:
+            raise serializers.ValidationError("'source_shop' | This is mandatory")
+
+        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
+            delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
+                                               shop_employee__shop=seller_shop).last()
+            if not delivery_boy:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
             if delivery_boy.groups.filter(name='Delivery Boy').exists():
                 data['delivery_boy'] = delivery_boy
@@ -3345,8 +3354,9 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
         if 'id' in self.initial_data and self.initial_data['id']:
             if not Trip.objects.filter(
-                    id=self.initial_data['id'], seller_shop=seller_shop, delivery_boy=delivery_boy).exists():
-                raise serializers.ValidationError("Seller shop / delivery boy updation are not allowed.")
+                    id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
+                    delivery_boy=delivery_boy).exists():
+                raise serializers.ValidationError("Seller shop/ source shop / delivery boy updation are not allowed.")
             trip_instance = Trip.objects.filter(
                 id=self.initial_data['id'], seller_shop=seller_shop, delivery_boy=delivery_boy).last()
             if 'trip_status' in self.initial_data and self.initial_data['trip_status']:

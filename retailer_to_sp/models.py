@@ -1253,6 +1253,7 @@ class Trip(models.Model):
         Shop, related_name='trip_seller_shop', null=True,
         on_delete=models.DO_NOTHING
     )
+    source_shop = models.ForeignKey(Shop, related_name='trip_source_shop', null=True, on_delete=models.DO_NOTHING)
     dispatch_no = models.CharField(max_length=50, unique=True)
     delivery_boy = models.ForeignKey(
         UserWithName, related_name='order_delivered_by_user', null=True,
@@ -2057,6 +2058,10 @@ class OrderedProductMapping(models.Model):
                                         validators=[MinValueValidator(0)])
     is_qc_done = models.BooleanField(default=False)
     is_return_verified = models.BooleanField(default=False)
+    initial_returned_qty = models.PositiveIntegerField(default=0, verbose_name="Initially Returned Quantity",
+                                                       help_text="Returned damaged by delivery boy")
+    initial_delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Initially Delivered Quantity",
+                                                        help_text="Shipped - initial returned qty")
 
     def clean(self):
         super(OrderedProductMapping, self).clean()

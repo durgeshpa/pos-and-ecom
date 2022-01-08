@@ -6073,8 +6073,10 @@ class ShipmentDeliveryUpdate(APIView):
                     ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
                 if shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    initial_returned_qty = int(returned_qty) + int(damaged_qty)
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
                         returned_qty=returned_qty, returned_damage_qty=damaged_qty, delivered_qty=delivered_qty,
+                        initial_returned_qty=initial_returned_qty, initial_delivered_qty=delivered_qty,
                         cancellation_date=datetime.now())
                 # shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
@@ -8427,13 +8429,17 @@ class LastMileTripCrudView(generics.GenericAPIView):
                          When(trip_status__in=[Trip.CANCELLED, Trip.PAYMENT_VERIFIED, Trip.RETURN_VERIFIED],
                               then=Value("CLOSED")),
                          default=F('trip_status'))).\
-        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+        select_related('seller_shop', 'source_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
                        'seller_shop__shop_type__shop_sub_type', 'delivery_boy'). \
         only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
              'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
              'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
              'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
-             'seller_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'seller_shop__shop_owner__phone_number',  'source_shop__id', 'source_shop__status', 'source_shop__shop_name',
+             'source_shop__shop_type', 'source_shop__shop_type__shop_type', 'source_shop__shop_type__shop_sub_type',
+             'source_shop__shop_type__shop_sub_type__retailer_type_name', 'source_shop__shop_owner',
+             'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
+             'source_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
              'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'e_way_bill_no', 'starts_at',
              'completed_at', 'received_amount', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets',
              'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at',
@@ -8496,6 +8502,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         trip_instance = id_validation['data'].last()
+        modified_data['dispatch_no'] = trip_instance.dispatch_no
 
         serializer = self.serializer_class(instance=trip_instance, data=modified_data)
         if serializer.is_valid():
