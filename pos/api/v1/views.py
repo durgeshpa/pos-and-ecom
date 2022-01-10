@@ -1519,7 +1519,9 @@ class CreateBulkProductView(GenericAPIView):
             if success:
                 data = "Product Uploaded Successfully"
                 info_logger.info("CreateBulkProductView upload successfully")
-            return api_response(data, success=success)
+                return api_response(data, success=success, status_code=status.HTTP_200_OK)
+            else:
+                return api_response(data, success=success)
         return api_response(serializer_error(serializer), False)
 
 
@@ -1549,5 +1551,5 @@ class UpdateInventoryStockView(GenericAPIView):
                 count = 0
             stock_update(request, uploaded_data_list)
             info_logger.info("Stock updated successfully")
-            return api_response("Stock updated successfully", success=True)
+            return api_response("Stock updated successfully", None, status.HTTP_200_OK, True)
         return api_response(serializer_error(form), False)
