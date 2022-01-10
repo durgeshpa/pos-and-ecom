@@ -7309,7 +7309,6 @@ class DispatchTripsCrudView(generics.GenericAPIView):
                        'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
                        'destination_shop__shop_owner', 'destination_shop__shop_type',
                        'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
-        prefetch_related('shipments_details'). \
         only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
              'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
              'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
