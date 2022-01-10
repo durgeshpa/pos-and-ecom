@@ -1531,26 +1531,22 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
+            if 'total_qc_qty' not in product_batch or product_batch['total_qc_qty'] is None:
+                raise serializers.ValidationError("'total_qc_qty' | This is mandatory.")
+
             if 'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
                 raise serializers.ValidationError("'rejected_qty' | This is mandatory.")
             try:
-                damaged_qty = int(product_batch['damaged_qty'])
-                expired_qty = int(product_batch['expired_qty'])
-                missing_qty = int(product_batch['missing_qty'])
+                total_qc_qty = int(product_batch['total_qc_qty'])
                 rejected_qty = int(product_batch['rejected_qty'])
             except:
-                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
-                                                   "Invalid quantity.")
+                raise serializers.ValidationError("'total_qc_qty' & 'rejected_qty' | Invalid quantity.")
+
             if rejected_qty > 0 and \
                     ('reason_for_rejection' not in product_batch or
                      product_batch['reason_for_rejection'] not in OrderedProductBatch.REJECTION_REASON_CHOICE):
                 raise serializers.ValidationError("'reason_for_rejection' | This is mandatory "
                                                   "if rejected quantity is greater than zero.")
-
-            product_damaged_qty += damaged_qty
-            product_expired_qty += expired_qty
-            product_missing_qty += missing_qty
-            product_rejected_qty += rejected_qty
 
             if 'id' in product_batch and product_batch['id']:
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
@@ -1561,15 +1557,17 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
 
-                batch_shipped_qty = product_batch_instance.pickup_quantity - (
-                        product_batch['damaged_qty'] + product_batch['expired_qty'] +
-                        product_batch['missing_qty'] + product_batch['rejected_qty'])
+                missing_qty = product_batch_instance.pickup_quantity - total_qc_qty
+                product_batch['missing_qty'] = missing_qty
+                product_missing_qty += missing_qty
+                product_rejected_qty += rejected_qty
+
+                batch_shipped_qty = total_qc_qty - rejected_qty
 
                 if batch_shipped_qty < 0 or float(product_batch_instance.pickup_quantity) != float(
-                        batch_shipped_qty + product_batch['damaged_qty'] + product_batch['expired_qty'] +
-                        product_batch['missing_qty'] + product_batch['rejected_qty']):
+                        batch_shipped_qty + product_batch['missing_qty'] + product_batch['rejected_qty']):
                     raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
-                                                      "(damaged_qty, expired_qty, no.of pieces to ship.)")
+                                                      "(QC pieces + missing pieces.)")
                 product_batch['quantity'] = batch_shipped_qty
             else:
                 raise serializers.ValidationError("'rt_ordered_product_mapping.id' | This is mandatory.")
@@ -1595,7 +1593,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 shipped_qty + product_damaged_qty + product_expired_qty + product_missing_qty +
                 product_rejected_qty):
             raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
-                                              "(damaged_qty, expired_qty, no.of pieces to ship)")
+                                              "(total qc pieces + missing pieces)")
 
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
 
@@ -1655,6 +1653,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
+
             process_shipments_instance = product_batch_instance.update(**validated_data)
             product_batch_instance.last().save()
         except Exception as e:
@@ -1677,6 +1676,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         for product_batch in ordered_product_batches:
             product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id'])
             product_batch_id = product_batch.pop('id')
+            product_batch.pop('total_qc_qty')
             self.update_product_batch_data(product_batch_instance, product_batch)
 
         if packaging:
