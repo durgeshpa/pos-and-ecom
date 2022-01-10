@@ -3924,3 +3924,23 @@ class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
         return trip_instance
 
 
+class PackagesUnderTripSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    status = serializers.SerializerMethodField()
+    crate = CrateSerializer(read_only=True)
+    packaging_type = serializers.CharField(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+
+    @staticmethod
+    def get_status(obj):
+        return obj.get_status_display()
+
+
+    @staticmethod
+    def get_reason_for_rejection(obj):
+        return obj.get_reason_for_rejection_display()
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+

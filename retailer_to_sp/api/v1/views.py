@@ -114,10 +114,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
-                          DispatchTripShipmentMappingSerializer
+                          DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
+    validate_trip
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -8899,3 +8900,47 @@ class LoadInvoiceView(generics.GenericAPIView):
             info_logger.info("Invoice added to the trip.")
             return get_response('Invoice added to the trip.', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class PackagesUnderTripView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects.order_by('packaging_type')
+    serializer_class = PackagesUnderTripSerializer
+
+    # @check_whc_manager_dispatch_executive
+    def get(self, request):
+        '''
+        API to get all the packages for a trip
+        '''
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'))
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        self.queryset = self.filter_packaging_items()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_packaging_items(self):
+        trip_id = self.request.GET.get('trip_id')
+        shipment_id = self.request.GET.get('shipment_id')
+        package_status = self.request.GET.get('package_status')
+
+        if trip_id:
+            if self.queryset.filter(shipment__trip_shipment__trip_id=trip_id).exists():
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
+            elif self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id).exists():
+                self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
+            else:
+                self.queryset = self.queryset.none()
+
+        if shipment_id:
+            self.queryset = self.queryset.filter(shipment_id=shipment_id)
+
+        if package_status:
+            self.queryset = self.queryset.filter(status=package_status)
+
+        return self.queryset

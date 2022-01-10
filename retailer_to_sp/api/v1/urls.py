@@ -22,7 +22,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
                     CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView, UnloadVerifyCrateView,
-                    LoadInvoiceView
+                    LoadInvoiceView, PackagesUnderTripView
                     )
 
 router = routers.DefaultRouter()
@@ -138,6 +138,7 @@ urlpatterns = [
     url('crate-remark-reason-choice/', CrateRemarkReasonsListView.as_view(), name='crate_remark_reason_choice'),
     url('trip-status-choice/', DispatchTripStatusList.as_view()),
     url('last-mile-status-choice/', LastMileTripStatusList.as_view()),
+    url('packages-under-trip/', PackagesUnderTripView.as_view(), name='packages_under_trip'),
 ]
 
 urlpatterns += router.urls
