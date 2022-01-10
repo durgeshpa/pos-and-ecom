@@ -2526,8 +2526,8 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     trip_belongs_to = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.last().trip).data \
-            if obj.last_mile_trip_shipment.exists() else None
+        return ShipmentDetailTripSerializer(
+            obj.last_mile_trip_shipment.last().trip if obj.last_mile_trip_shipment.exists() else obj.trip).data
 
     def get_trip_belongs_to(self, obj):
         if obj.last_mile_trip_shipment.last():
