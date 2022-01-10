@@ -2533,6 +2533,11 @@ class OrderDetailForShipmentSerializer(serializers.ModelSerializer):
                   'shipping_address', 'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount',
                   'order_status', 'received_by', 'created_at', 'modified_at')
 
+class ShipmentDetailTripSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = ('id', 'trip_id', 'seller_shop', 'source_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy',
+                  'trip_status')
 
 class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
@@ -2541,6 +2546,10 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     order = OrderDetailForShipmentSerializer(read_only=True)
     shipment_crates_packaging = serializers.SerializerMethodField()
     total_shipment_crates = serializers.SerializerMethodField()
+    trip = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.trip) if obj.last_mile_trip_shipment else None
 
     def get_shipment_status(self, obj):
         return obj.get_shipment_status_display()
@@ -2567,7 +2576,7 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('id', 'invoice_no', 'shipment_status', 'invoice_amount', 'order', 'payment_mode', 'shipment_address',
-                  'shop_owner_name', 'shop_owner_number', 'shipment_crates_packaging', 'total_shipment_crates')
+                  'shop_owner_name', 'shop_owner_number', 'shipment_crates_packaging', 'total_shipment_crates', 'trip')
 
 
 class ShipmentPackageSerializer(serializers.ModelSerializer):
