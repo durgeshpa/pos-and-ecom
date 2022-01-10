@@ -108,6 +108,7 @@ class ProductTable(tables.Table):
     damaged_weight = tables.Column()
     expired_weight = tables.Column()
     missing_weight = tables.Column()
+    purchase_value = tables.Column()
 
 
 class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
@@ -123,12 +124,20 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
     def get_queryset(self):
         return None
 
+    def get_purchase_value_by_product(self, product_id):
+        if GRNOrderProductMapping.objects.filter(product_id=product_id).exists():
+            return GRNOrderProductMapping.objects.filter(product_id=product_id).last().product_invoice_price
+        return 0
+
     def get_table_data(self, **kwargs):
         self.shop = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         product_list = {}
         today = datetime.datetime.today()
         inventory_state_total_available = InventoryState.objects.filter(inventory_state="total_available").last()
         inventory_type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        has_purchase_report_permission = False
+        if self.request.user.groups.filter(name='Purchase Report').exists():
+            has_purchase_report_permission = True
         products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
                                                                                            'inventory_state',
                                                                                            'sku__product_pro_price',
@@ -245,6 +254,8 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'visibility': False,
                     'audit_blocked': audit_blocked,
                 }
+                if has_purchase_report_permission:
+                    product_temp['purchase_value'] = self.get_purchase_value_by_product(myproduct.sku.pk)
             else:
                 product_temp = product_list[myproduct.sku.product_sku]
             if myproduct.inventory_state.inventory_state == 'total_available':
@@ -261,7 +272,6 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
                 if myproduct.inventory_state.inventory_state == 'reserved':
                     product_temp[myproduct.inventory_type.inventory_type+'_reserved'] = myproduct.quantity
-
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []
