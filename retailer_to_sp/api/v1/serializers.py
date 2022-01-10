@@ -1505,6 +1505,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
     shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
+    is_fully_delivered = serializers.SerializerMethodField()
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -1512,7 +1513,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'is_fully_delivered')
 
     def validate(self, data):
 
@@ -1755,6 +1756,9 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_product_type(obj):
         return obj.get_product_type_display()
+
+    def get_is_fully_delivered(self, obj):
+        return True if obj.shipped_qty == obj.delivered_qty else False
 
 
 class ShipmentProductSerializer(serializers.ModelSerializer):
@@ -2549,7 +2553,8 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     trip = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.trip) if obj.last_mile_trip_shipment else None
+        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.last().trip) \
+                                                        if obj.last_mile_trip_shipment else None
 
     def get_shipment_status(self, obj):
         return obj.get_shipment_status_display()
