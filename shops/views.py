@@ -291,7 +291,7 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
             return qs
         shop_type = self.forwarded.get('shop_type', None)
         if shop_type:
-            dt = {'r': 'sp', 'sp': 'gf', 'f': 'sp'}
+            dt = {'r': 'sp', 'sp': 'gf', 'f': 'sp', 'dc': 'sp'}
             qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
         else:
             qs = Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp'])

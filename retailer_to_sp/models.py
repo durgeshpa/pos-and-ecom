@@ -1641,11 +1641,11 @@ class OrderedProduct(models.Model):  # Shipment
         if dispatch_trip and last_mile_trip:
             if dispatch_trip.created_at > last_mile_trip.created_at:
                 return dispatch_trip.trip.source_shop.pk
-            return last_mile_trip.trip.seller_shop.pk
+            return last_mile_trip.trip.source_shop.pk
         elif dispatch_trip:
             return dispatch_trip.trip.source_shop.pk
         elif last_mile_trip:
-            return last_mile_trip.trip.seller_shop.pk
+            return last_mile_trip.trip.source_shop.pk
         return None
 
     @property
