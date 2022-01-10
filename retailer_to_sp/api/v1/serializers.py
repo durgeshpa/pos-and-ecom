@@ -2525,7 +2525,8 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     trip = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.trip) if obj.last_mile_trip_shipment else None
+        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.last().trip) \
+                                                        if obj.last_mile_trip_shipment.last() else None
 
     def get_shipment_status(self, obj):
         return obj.get_shipment_status_display()
