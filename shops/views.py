@@ -5,6 +5,7 @@ import logging
 from distutils.util import strtobool
 from dal_admin_filters import AutocompleteFilter
 from django.shortcuts import render
+from django.utils.safestring import mark_safe
 from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
@@ -75,8 +76,6 @@ class ProductFilter(django_filters.FilterSet):
 
 
 class ProductTable(tables.Table):
-    class Meta:
-        template_name = "django_tables2/semantic.html"
 
     filterset_class = ProductFilter
     parent_id = tables.Column()
@@ -110,6 +109,14 @@ class ProductTable(tables.Table):
     missing_weight = tables.Column()
     purchase_value = tables.Column()
 
+    class Meta:
+        template_name = "django_tables2/semantic.html"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not any(x for x in kwargs['data'] if 'purchase_value' in x):
+            self.exclude = ('purchase_value',)
+
 
 class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
     template_name = "admin/shop/change_list1.html"
@@ -138,19 +145,14 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         has_purchase_report_permission = False
         if self.request.user.groups.filter(name='Purchase Report').exists():
             has_purchase_report_permission = True
-        products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
-                                                                                           'inventory_state',
-                                                                                           'sku__product_pro_price',
-                                                                                           'sku__product_pro_price__price_slabs',
-                                                                                           'sku__rt_product_sku',
-                                                                                           'sku__parent_product',
-                                                                                           'sku__child_product_pro_image',
-                                                                                           'sku__parent_product__parent_product_pro_image',
-                                                                                           'sku__product_pro_price__seller_shop',
-                                                                                           'sku__rt_audit_sku',
-                                                                                           'sku__parent_product__parent_product_pro_category',
-                                                                                           'sku__parent_product__parent_product_pro_category__category',
-                                                                                           'sku__parent_product__parent_brand')
+        products = WarehouseInventory.objects.filter(warehouse=self.shop).\
+            prefetch_related('sku', 'inventory_type', 'inventory_state', 'sku__product_pro_price',
+                             'sku__product_pro_price__price_slabs', 'sku__rt_product_sku', 'sku__parent_product',
+                             'sku__child_product_pro_image', 'sku__parent_product__parent_product_pro_image',
+                             'sku__product_pro_price__seller_shop', 'sku__rt_audit_sku',
+                             'sku__parent_product__parent_product_pro_category',
+                             'sku__parent_product__parent_product_pro_category__category',
+                             'sku__parent_product__parent_brand')
         filter = self.request.GET.copy()
         filter['visible'] = ''
         self.filter = ProductFilter(filter, queryset=products)
