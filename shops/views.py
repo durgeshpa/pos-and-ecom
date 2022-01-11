@@ -5,7 +5,6 @@ import logging
 from distutils.util import strtobool
 from dal_admin_filters import AutocompleteFilter
 from django.shortcuts import render
-from django.utils.safestring import mark_safe
 from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
