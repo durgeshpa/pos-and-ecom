@@ -220,7 +220,7 @@ class UploadMasterData(object):
                               f" + {str(e)}")
 
     @classmethod
-    def update_parent_data(cls, csv_file_data_list, user):
+    def update_parent_data(cls, csv_file_data_list, user, category):
         try:
             count = 0
             row_num = 1
@@ -233,10 +233,11 @@ class UploadMasterData(object):
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
-                              'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
-                              'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
-                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
+                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
+                              'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id',
+                              'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type', 'brand_case_size',
+                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
+                              'discounted_life_percent']
 
                     available_fields = []
                     for col in fields:
@@ -251,6 +252,11 @@ class UploadMasterData(object):
 
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+
+                        if col == 'sub_category_id' and row['sub_category_id']:
+                            parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last(),
+                                                                              category__id=category)
+                            parent_cat.update(category=Category.objects.filter(id=row['sub_category_id']).last())
 
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
