@@ -170,7 +170,14 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
+    PENDING = "pending"
+    APPROVED = "approved"
+    PAYMENT_STATUS = (
+        (PENDING, "pending"),
+        (APPROVED, "approved")
+    )
     type = models.CharField(max_length=20, unique=True)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,)
     enabled = models.BooleanField(default=True)
     app = models.CharField(choices=(('pos', 'POS'), ('ecom', 'ECOM'), ('both', 'Both')), default='pos', max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)

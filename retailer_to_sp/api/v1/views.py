@@ -2859,7 +2859,7 @@ class OrderCentral(APIView):
         if app_type == '1':
             return self.post_retail_order()
         elif app_type == '2':
-            return self.post_basic_order(request, *args, **kwargs)
+            return self.post_pos_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.post_ecom_order(request, *args, **kwargs)
         else:
@@ -2991,7 +2991,7 @@ class OrderCentral(APIView):
 
     @check_pos_shop
     @pos_check_permission_delivery_person
-    def post_basic_order(self, request, *args, **kwargs):
+    def post_pos_order(self, request, *args, **kwargs):
         """
             Place Order
             For basic cart
