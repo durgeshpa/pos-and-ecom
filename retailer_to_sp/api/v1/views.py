@@ -3094,7 +3094,7 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address)
+            order = self.create_basic_order(cart, shop, address, payment_id)
             payments = [
                 {
                     "payment_type": payment_id,
@@ -3384,14 +3384,19 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop, address=None):
+    def create_basic_order(self, cart, shop, address=None, payment_id=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
-        order.order_status = Order.ORDERED
+        if cart.cart_type == 'ECOM':
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() not \
+                    in ['cash', 'cash on delivery', 'cash on delivery', 'cash on delivery']:
+                order.order_status = Order.PAYMENT_PENDING
+        else:
+            order.order_status = Order.ORDERED
         order.save()
 
         if address:

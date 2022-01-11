@@ -870,6 +870,7 @@ class Order(models.Model):
     PENDING = 'pending'
     DELETED = 'deleted'
     ORDERED = 'ordered'
+    PAYMENT_PENDING = 'PAYMENT_PENDING'
     PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
     OPDP = 'opdp'
     DISPATCHED = 'dispatched'
@@ -904,6 +905,7 @@ class Order(models.Model):
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
         (DISPATCHED, "Dispatched"),
+        (PAYMENT_PENDING, "Payment Pending"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
