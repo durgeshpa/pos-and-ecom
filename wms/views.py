@@ -994,14 +994,18 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
     try:
         order_ins = Order.objects.get(id=order_id)
         if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
-            dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_ins.pincode).last()
-            if dispatch_center_map:
-                order_ins.dispatch_center = dispatch_center_map.dispatch_center
-                order_ins.dispatch_delivery = True
-                order_ins.save()
-                info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+            order_pincode = order_ins.shipping_address.pincode_link if order_ins.shipping_address else None
+            if order_pincode:
+                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_pincode).last()
+                if dispatch_center_map:
+                    order_ins.dispatch_center = dispatch_center_map.dispatch_center
+                    order_ins.dispatch_delivery = True
+                    order_ins.save()
+                    info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+                else:
+                    info_logger.info("No Dispatch center found mapped with pincode " + str(order_pincode.pincode))
             else:
-                info_logger.info("No Dispatch center found mapped with pincode " + str(order_ins.pincode))
+                info_logger.info("No pincode for order " + str(order_ins))
         else:
             info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
     except Exception as ex:
