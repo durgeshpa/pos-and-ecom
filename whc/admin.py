@@ -78,7 +78,9 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
                             if order_product.cart_product != product.product:
                                 continue
                             tax_percentage = product.product.product_gst
-                            total_amount = (product.delivered_qty * product.po_product_price)
+                            product_qty = product.delivered_qty if product.delivered_qty else 0
+                            po_product_price = product.po_product_price if product.po_product_price else 0
+                            total_amount = (product_qty * po_product_price)
                             counter += 1
                             if product.product.product_sku in data_dict:
                                 data_dict_item = data_dict[grn_object.grn_id + product.product.product_sku]

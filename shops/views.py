@@ -708,6 +708,9 @@ class BeatUserMappingCsvView(FormView):
                             executive.status = False
                             # save the data
                             executive.save()
+                        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan__in=executive_beat_plan,
+                                                                       next_plan_date__gt=datetime.date.today())
+                        day_beat_plan.update(status=False)
                     # beat plan created for sales executive
                     beat_plan_object = BeatPlanning.objects.get_or_create(executive=executive_id[0],
                                                                           status=True, manager=request.user)

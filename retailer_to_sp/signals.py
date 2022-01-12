@@ -1,13 +1,21 @@
+
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from django.utils.crypto import get_random_string
+
 from django.db.models import Sum
+import logging
 
 from shops.models import ParentRetailerMapping
 from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart, Trip
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
 
+logger = logging.getLogger(__name__)
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 # @receiver(post_save, sender=OrderedProduct)
 # def update_picking_status(sender, instance=None, created=False, **kwargs):
@@ -70,7 +78,7 @@ class ReservedOrder(object):
 			return self.mapped_with_sp()
 		if self.seller_shop.shop_type.shop_type == 'gf':
 			return self.mapped_with_gf()
-	
+
 	def sp_ordered_product_details(self, product):
 		ordered_product_details = self.sp_gram_ordered_product_mapping.\
 			get_product_availability(
@@ -205,4 +213,3 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
 	if instance.trip_status == Trip.STARTED:
 		send_sms_on_trip_start(instance)
-

@@ -232,7 +232,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status']
+              'approval_status', ]
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -345,7 +345,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted',
                                   'warehouse_code', 'created_by', 'dynamic_beat']
         elif request.user.has_perm('shops.hide_related_users'):
-            return self.fields
+            return self.fields + ['shop_location', 'latitude', 'longitude',]
         return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                               'created_by', 'dynamic_beat']
 
@@ -370,7 +370,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             for obj in data:
                 writer.writerow(list(obj))
         return response
-
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
@@ -630,7 +629,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
                                  address.pincode,
                                  plan_obj.shop_category,
                                  plan_obj.beat_plan_date.strftime("%d/%m/%y"),
-                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
+                                 'Active' if plan_obj.status is True else 'Inactive'])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

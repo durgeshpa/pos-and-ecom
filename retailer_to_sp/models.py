@@ -182,7 +182,8 @@ class Cart(models.Model):
 
     class Meta:
         verbose_name = 'Order Items Detail'
-
+        permissions = [("can_approve_bulk_type", "Can approve Bulk type orders")]
+    
     def __str__(self):
         return "{}".format(self.id)
 

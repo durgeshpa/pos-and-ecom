@@ -146,6 +146,7 @@ INSTALLED_APPS = [
     'ecom',
     'cms',
     'drf_yasg',
+    'report',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -593,13 +594,14 @@ LOGGING = {
 }
 SWAGGER_SETTINGS = {
    'USE_SESSION_AUTH': True,
-    'SECURITY_DEFINITIONS': {
-            'api_key': {
-                'type': 'apiKey',
-                'in': 'header',
-                'name': 'Authorization'
-            }
-        },
+    # 'SECURITY_DEFINITIONS': {
+    #         'api_key': {
+    #             'type': 'apiKey',
+    #             'in': 'header',
+    #             'name': 'Authorization'
+    #         }
+    #     },
+
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -616,3 +618,8 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
+
+LOGIN_URL = 'rest_framework:login'
+LOGOUT_URL = 'rest_framework:logout'
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

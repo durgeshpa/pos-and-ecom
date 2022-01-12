@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 import datetime
 import calendar
@@ -5,15 +6,21 @@ import re
 import math
 
 from django.db.models.functions import Cast
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.db.models import Q, Sum, F, Func, Value, CharField, FloatField, Count, Case, When
 from django.db import transaction, models
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 
 from addresses.models import Pincode
+from pos.bulk_product_creation import bulk_create_update_validated_products
+from pos.common_bulk_validators import bulk_product_validation
 from pos.models import RetailerProduct, RetailerProductImage, Vendor, PosCart, PosCartProductMapping, PosGRNOrder, \
-    PosGRNOrderProductMapping, Payment, PaymentType, Document, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder, PosReturnItems
+    PosGRNOrderProductMapping, Payment, PaymentType, Document, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder, \
+    PosReturnItems, BulkRetailerProduct
 from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_return_creation, genrate_debit_note_pdf
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
@@ -23,13 +30,19 @@ from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, isBlankRow
 from shops.models import Shop, PosShopUserMapping
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
 from ecom.models import Address
 from ecom.api.v1.serializers import EcomOrderAddressSerializer
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -58,8 +71,9 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
-    online_enabled = serializers.BooleanField(default = True)
-    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
+    online_enabled = serializers.BooleanField(default=True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01,
+                                            allow_null=True)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
     measurement_category = serializers.CharField(required=False, default=None)
@@ -88,7 +102,11 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
-        if 'online_price' in attrs and attrs['online_price'] > mrp:
+        if 'online_enabled' in attrs and attrs['online_enabled']:
+            if 'online_price' not in attrs or not attrs['online_price']:
+                raise serializers.ValidationError("Online Price may not be empty")
+        if 'online_price' in attrs and attrs['online_price']\
+                is not None and attrs['online_price'] > mrp:
             raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
         image_count = 0
@@ -127,6 +145,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             attrs['purchase_pack_size'] = 1
         else:
             attrs['stock_qty'] = int(attrs['stock_qty'])
+
 
         return attrs
 
@@ -184,8 +203,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
-    online_enabled = serializers.BooleanField(default = True)
-    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01)
+    online_enabled = serializers.BooleanField(default=True)
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
+                                            min_value=0.01, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
@@ -215,8 +235,13 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
-        if 'online_price' in attrs and attrs['online_price'] > mrp:
-            raise serializers.ValidationError("Online Price should be less than or equal to mrp")
+        if 'online_enabled' in attrs and attrs['online_enabled']:
+            if 'online_price' not in attrs or not attrs['online_price']:
+                raise serializers.ValidationError("Online Price may not be empty")
+
+        if 'online_price' in attrs and attrs['online_price'] \
+                is not None and attrs['online_price'] > mrp:
+            raise serializers.ValidationError("Online Price should be equal to OR less than MRP")
 
         image_count = 0
         if 'images' in attrs and attrs['images']:
@@ -346,7 +371,8 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
-                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock', 'product_ean_code')
+                  'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
+                  'product_ean_code')
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -630,6 +656,12 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = ('payment_type', 'transaction_id', 'amount')
 
 
+class OrderReturnSerializerID(serializers.ModelSerializer):
+    class Meta:
+        model = OrderReturn
+        fields = ('id', 'return_reason', 'refund_amount', 'refund_points', 'status')
+
+
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
@@ -643,6 +675,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
+    ordered_product = serializers.SerializerMethodField()
+    rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -654,6 +688,16 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     def get_invoice_amount(self, obj):
         ordered_product = obj.rt_order_order_product.last()
         return round((ordered_product.invoice_amount_final), 2) if ordered_product else(obj.order_amount)
+
+    def get_ordered_product(self, obj):
+        """
+            Get ordered product id
+        """
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
+            ordered_product.id
+            return ordered_product
+        return None
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
@@ -673,8 +717,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at', 'payment', 'invoice_amount',
-                  'delivery_persons')
+        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -768,7 +812,7 @@ class ReturnItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', 'status', 'qty_unit')
+        fields = ('id', 'return_qty', 'status', 'qty_unit')
 
 
 class OrderReturnSerializer(serializers.ModelSerializer):
@@ -843,7 +887,8 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ('retailer_product', 'selling_price', 'qty', 'qty_unit', 'product_subtotal', 'rt_return_ordered_product')
+        fields = ('ordered_product', 'retailer_product', 'selling_price', 'qty', 'qty_unit', 'product_subtotal',
+                  'rt_return_ordered_product')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -1621,7 +1666,7 @@ class ReturnItemsGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('product_id', 'product_name', 'selling_price', 'return_qty', 'qty_unit', 'return_value')
+        fields = ('id', 'product_id', 'product_name', 'selling_price', 'return_qty', 'qty_unit', 'return_value')
 
 
 class OrderReturnGetSerializer(serializers.ModelSerializer):
@@ -1693,6 +1738,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     creation_date = serializers.SerializerMethodField()
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
+    rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
 
     @staticmethod
     def get_creation_date(obj):
@@ -1724,6 +1770,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
             'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+
         return return_summary
 
     def get_items(self, obj):
@@ -1819,7 +1866,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display','payment')
+                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -3057,6 +3104,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
+    ordered_product = serializers.SerializerMethodField()
 
     @staticmethod
     def get_order_update(obj):
@@ -3066,7 +3114,6 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
-
 
     def get_order_cancel_reson(self,obj):
         if obj.order_status == "CANCELLED":
@@ -3247,12 +3294,22 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
             return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
+    def get_ordered_product(self, obj):
+        """
+            Get ordered product id
+        """
+        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
+            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last(). \
+                ordered_product.id
+            return ordered_product
+        return None
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary',
-                  'invoice_amount', 'address', 'order_update', 'ecom_estimated_delivery_time', 'delivery_person',
-                  'order_status_display','order_cancel_reson', 'payment')
+                  'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
+                  'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
+                  'payment')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
@@ -3516,3 +3573,56 @@ class PRNOrderSerializer(serializers.ModelSerializer):
         if representation['modified_at']:
             representation['modified_at'] = instance.modified_at.strftime("%b %d %Y %I:%M%p")
         return representation
+
+
+class BulkProductUploadSerializers(serializers.ModelSerializer):
+    """
+      Bulk Product Price Creation
+    """
+    products_csv = serializers.FileField(label='Upload Product')
+
+    class Meta:
+        model = BulkRetailerProduct
+        fields = ('products_csv',)
+
+    def validate(self, data):
+        if not data['products_csv'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ return product """
+        try:
+            bulk_product_obj = BulkRetailerProduct.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        data = self.pos_save_file(bulk_product_obj)
+        return data
+
+    def pos_save_file(self, bulk_product_obj):
+        if bulk_product_obj.products_csv:
+            error_dict, validated_rows = bulk_product_validation(bulk_product_obj.products_csv,
+                                                                 bulk_product_obj.seller_shop.pk)
+            bulk_create_update_validated_products(bulk_product_obj.uploaded_by, bulk_product_obj.seller_shop.pk,
+                                                  validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                return False, mark_safe(f"{self.uploaded_product_list_status(bulk_product_obj, error_dict)}")
+        return True, None
+
+    def uploaded_product_list_status(self, bulk_product_obj, error_dict):
+        product_upload_status_info = []
+        info_logger.info(f"[pos:BulkRetailerProduct]-uploaded_product_list_status function called")
+        error_dict[str('bulk_no')] = str(bulk_product_obj.bulk_no)
+        product_upload_status_info.extend([error_dict])
+
+        url = f"""%s""" % \
+              (
+                  reverse(
+                      'products-list-status',
+                      args=(product_upload_status_info)
+                  )
+              )
+        return url

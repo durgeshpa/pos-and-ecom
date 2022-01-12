@@ -115,6 +115,7 @@ ERROR_MESSAGES = {
     "4017": "Feedback Submission is allowed only for the Current Date.",
     "4018": "Request Param value is not correct, Please re-verify at your end.",
     "4019": "{} is not available for order at the moment, please try after some time.",
+    "4020": "executive_id key is missing in params",
     "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "1002": "Selected file status is QC pending, you can't download this file.",
     "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"

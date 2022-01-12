@@ -2732,7 +2732,7 @@ class OrderCentral(APIView):
                 order.delivery_person = delivery_person
                 ###### trip me save created
                 order.save()
-                shipment = OrderedProduct.objects.get(order=order)
+                shipment = OrderedProduct.objects.filter(order=order).last()
                 shipment.shipment_status = OrderedProduct.READY_TO_SHIP
                 shipment.save()
                 shipment.shipment_status = 'OUT_FOR_DELIVERY'
@@ -2767,7 +2767,7 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                shipment = OrderedProduct.objects.get(order=order)
+                shipment = OrderedProduct.objects.filter(order=order).last()
                 shipment.shipment_status = order_status
                 shipment.save()
                 shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
@@ -3927,7 +3927,8 @@ class OrderListCentral(GenericAPIView):
         order_status = self.request.GET.get('order_status')
         order_type = self.request.GET.get('order_type', 'pos')
         if order_type == 'pos':
-            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='BASIC')
+            qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type='BASIC')
             if order_status:
                 order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
                 qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
@@ -5353,6 +5354,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
+                "product_ean_code": m.retailer_product.product_ean_code,
                 "mrp": m.retailer_product.mrp if product_pack_type == 'packet' else str(m.retailer_product.mrp) + '/' + default_unit,
                 "qty": int(m.shipped_qty) if product_pack_type == 'packet' else str(m.shipped_qty) + ' ' + default_unit,
                 "rate": float(product_pro_price_ptr) if product_pack_type == 'packet' else str(product_pro_price_ptr) + '/' + default_unit,
