@@ -4030,11 +4030,11 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         if DispatchTripShipmentPackages.objects.filter(trip_shipment__trip=trip, shipment_packaging=package).exists():
             trip_shipment_map = DispatchTripShipmentPackages.objects.filter(
                 trip_shipment__trip=trip, shipment_packaging=package).last()
+            if trip_shipment_map.is_return_verified:
+                return serializers.ValidationError("This package is already verified.")
             if trip_shipment_map.package_status != DispatchTripShipmentPackages.UNLOADED:
                 return serializers.ValidationError(f"Package is in {trip_shipment_map.package_status} state, "
                                                    f"cannot verify at the moment")
-            if trip_shipment_map.is_return_verified:
-                return serializers.ValidationError("This package is already verified.")
         else:
             return serializers.ValidationError("Invalid package to the Trip")
 
