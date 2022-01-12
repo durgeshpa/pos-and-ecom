@@ -9021,27 +9021,6 @@ class MarkDispatchTripVerifiedView(generics.GenericAPIView):
     serializer_class = MarkDispatchTripVerifiedSerializer
     queryset = DispatchTrip.objects.all()
 
-    def get(self, request):
-        """ GET API for Dispatch Trip """
-        info_logger.info("Dispatch Trip GET api called.")
-        if request.GET.get('trip_id'):
-            """ Get Dispatch Trip for specific ID """
-            dispatch_trip_total_count = self.queryset.count()
-            id_validation = validate_id(self.queryset, int(request.GET.get('trip_id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            dispatch_trips_data = id_validation['data']
-        else:
-            """ GET Dispatch Trip List """
-            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
-            self.queryset = self.search_filter_dispatch_trips_data()
-            dispatch_trip_total_count = self.queryset.count()
-            dispatch_trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(dispatch_trips_data, many=True)
-        msg = f"total count {dispatch_trip_total_count}" if dispatch_trips_data else "no dispatch_trip found"
-        return get_response(msg, serializer.data, True)
-
     def put(self, request):
         """ PUT API to mark shipment package verify """
 
@@ -9065,46 +9044,6 @@ class MarkDispatchTripVerifiedView(generics.GenericAPIView):
             info_logger.info("Package verified successfully.")
             return get_response('Package verified!', serializer.data)
         return get_response(serializer_error(serializer), False)
-
-    def search_filter_dispatch_trips_data(self):
-        search_text = self.request.GET.get('search_text')
-        seller_shop = self.request.GET.get('seller_shop')
-        source_shop = self.request.GET.get('source_shop')
-        destination_shop = self.request.GET.get('destination_shop')
-        delivery_boy = self.request.GET.get('delivery_boy')
-        dispatch_no = self.request.GET.get('dispatch_no')
-        vehicle_no = self.request.GET.get('vehicle_no')
-        trip_status = self.request.GET.get('trip_status')
-
-        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
-        if search_text:
-            self.queryset = dispatch_trip_search(self.queryset, search_text)
-
-        '''
-            Filters using seller_shop, source_shop, destination_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
-        '''
-        if seller_shop:
-            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
-
-        if source_shop:
-            self.queryset = self.queryset.filter(source_shop__id=source_shop)
-
-        if destination_shop:
-            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
-
-        if delivery_boy:
-            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
-
-        if dispatch_no:
-            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
-
-        if vehicle_no:
-            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
-
-        if trip_status:
-            self.queryset = self.queryset.filter(trip_status=trip_status)
-
-        return self.queryset.distinct('id')
 
 
 class ShipmentPackageProductsView(generics.GenericAPIView):
