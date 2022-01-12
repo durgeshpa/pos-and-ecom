@@ -135,7 +135,7 @@ class PosProductView(GenericAPIView):
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
             name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type= data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
+                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'] if 'online_enabled' in data else None, data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
             measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
@@ -157,8 +157,9 @@ class PosProductView(GenericAPIView):
                     product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
-                product.online_enabled = online_enabled
-                product.online_price = online_price if online_price else product.online_price 
+                if online_enabled is not None:
+                    product.online_enabled = online_enabled
+                    product.online_price = online_price if online_price else product.online_price
 
                 product.product_pack_type = product_pack_type
                 product.measurement_category_id = measurement_category_id
