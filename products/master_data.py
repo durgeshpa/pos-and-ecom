@@ -245,6 +245,7 @@ class UploadMasterData(object):
                             if row[col] != '':
                                 available_fields.append(col)
 
+                    parent_product_list = []
                     for col in available_fields:
                         if col == 'brand_id':
                             if 'sub_brand_id' not in available_fields or not row['sub_brand_id']:
@@ -253,10 +254,21 @@ class UploadMasterData(object):
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
+                        parent_product_id = parent_product.last().id
+                        if parent_product_id not in parent_product_list:
+                            parent_product_list.append(parent_product_id)
+                            parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
+                            if parent_cat.exists():
+                                parent_cat.delete()
+
                         if col == 'sub_category_id' and row['sub_category_id']:
-                            parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last(),
-                                                                              category__id=category)
-                            parent_cat.update(category=Category.objects.filter(id=row['sub_category_id']).last())
+                            sub_category = Category.objects.get(id=int(row['sub_category_id']))
+                            ParentProductCategory.objects.create(
+                                parent_product=parent_product.last(), category=sub_category)
+
+                        else:
+                            ParentProductCategory.objects.create(
+                                parent_product=parent_product.last(), category=category)
 
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
