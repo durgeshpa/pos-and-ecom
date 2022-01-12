@@ -1941,7 +1941,9 @@ class CartCheckout(APIView):
             RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            print(data)
             data.update({'default_address': address})
+            data.update({'seving':round(data['total_mrp']-data['amount_payable'],2)})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
