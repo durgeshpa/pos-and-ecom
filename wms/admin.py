@@ -24,16 +24,16 @@ from .common_functions import get_expiry_date
 from .filters import ExpiryDateFilter, PickupStatusFilter
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm, ZoneForm, WarehouseAssortmentForm, QCAreaForm,
-                    ZonePickerUserAssignmentMappingForm)
+                    ZonePickerUserAssignmentMappingForm, CrateForm, QCDeskQCAreaAssignmentMappingForm, QCDeskForm)
 from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping)
+                     ZonePutawayUserAssignmentMapping, Crate, PickupCrate, QCDesk, QCDeskQCAreaAssignmentMapping)
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
-    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView
+    IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -260,6 +260,18 @@ class QCAreaFilter(AutocompleteFilter):
     title = 'QC Area'
     field_name = 'qc_area'
     autocomplete_url = 'qc-area-autocomplete'
+
+
+class QCExecutiveAutocomplete(AutocompleteFilter):
+    title = 'QC Executive'
+    field_name = 'qc_executive'
+    autocomplete_url = 'qc-executive-autocomplete'
+
+
+class QCDeskAutocomplete(AutocompleteFilter):
+    title = 'QC Desk'
+    field_name = 'qc_desk'
+    autocomplete_url = 'qc-desk-autocomplete'
 
 
 class UserFilter(AutocompleteFilter):
@@ -1164,6 +1176,135 @@ class ZonePickerUserAssignmentMappingAdmin(admin.ModelAdmin):
         pass
 
 
+class CrateFilter(AutocompleteFilter):
+    title = 'Crate'
+    field_name = 'crate'
+    autocomplete_url = 'crate-autocomplete'
+
+
+class CrateAdmin(admin.ModelAdmin):
+    form = CrateForm
+    list_display = ('crate_id', 'warehouse', 'zone', 'crate_type', 'crate_barcode_txt', 'download_crate_barcode')
+    search_fields = ('crate_id', 'crate_barcode_txt')
+    list_filter = [Warehouse, ZoneFilter, ('crate_type', DropdownFilter)]
+    list_per_page = 50
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(CrateAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        js = ('admin/js/picker.js',)
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(CrateAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^bulk-crate-creation/$',
+                       self.admin_site.admin_view(bulk_crate_creation),
+                       name="bulk-crate-creation"
+                   )
+               ] + urls
+        return urls
+
+    def download_crate_barcode(self, obj):
+        id = getattr(obj, "id")
+        return format_html("<a href= '%s' >Download Barcode</a>" % (reverse('crate_barcode', args=[id])))
+
+    download_crate_barcode.short_description = 'Download Crate Barcode'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class PickupCrateAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Crate Admin has been called.")
+    list_display = ('warehouse', 'order_number', 'pickup_type', 'crate', 'sku', 'quantity', 'is_in_use',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('crate', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    search_fields = ('crate__warehouse__id', 'crate__warehouse__shop_name', 'crate__zone__zone_number',
+                     'crate__zone__name', 'crate__crate_id', 'crate__crate_type')
+    list_filter = ['is_in_use', CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    def warehouse(self, obj):
+        return obj.crate.warehouse
+
+    def order_number(self, obj):
+        return obj.pickup.pickup_type_id
+
+    def pickup_type(self, obj):
+        return obj.pickup.pickup_type
+
+    def sku(self, obj):
+        return obj.pickup.sku
+
+    class Media:
+        pass
+
+    order_number.short_description = 'Order / Repackaging Number'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class QCDeskAdmin(admin.ModelAdmin):
+    form = QCDeskForm
+    list_display = ('desk_number', 'name', 'warehouse', 'qc_executive', 'desk_enabled', 'alternate_desk',
+                    'created_at', 'updated_at', 'created_by', 'updated_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
+    list_filter = [Warehouse, QCExecutiveAutocomplete, ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    search_fields = ('desk_number', 'name')
+    list_per_page = 50
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super(QCDeskAdmin, self).save_model(request, obj, form, change)
+
+    class Media:
+        pass
+
+
+class QCDeskQCAreaAssignmentMappingAdmin(admin.ModelAdmin):
+    form = QCDeskQCAreaAssignmentMappingForm
+    list_display = ('qc_desk', 'qc_area', 'token_id', 'qc_done', 'last_assigned_at',
+                    'desk_enabled', 'area_enabled', 'alternate_area')
+    list_filter = [QCDeskAutocomplete, QCAreaAutocomplete]
+    list_per_page = 50
+    ordering = ('-qc_desk',)
+    readonly_fields = ('qc_desk', 'qc_area', 'token_id', 'qc_done', 'last_assigned_at',)
+
+    def desk_enabled(self, obj):
+        if obj.qc_desk:
+            return obj.qc_desk.desk_enabled
+        return True
+
+    desk_enabled.boolean = True
+    desk_enabled.short_description = 'Desk Enabled'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 # admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -1187,3 +1328,7 @@ admin.site.register(Zone, ZoneAdmin)
 admin.site.register(QCArea, QCAreaAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
+admin.site.register(Crate, CrateAdmin)
+admin.site.register(PickupCrate, PickupCrateAdmin)
+admin.site.register(QCDesk, QCDeskAdmin)
+admin.site.register(QCDeskQCAreaAssignmentMapping, QCDeskQCAreaAssignmentMappingAdmin)
