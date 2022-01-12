@@ -75,8 +75,6 @@ class ProductFilter(django_filters.FilterSet):
 
 
 class ProductTable(tables.Table):
-    class Meta:
-        template_name = "django_tables2/semantic.html"
 
     filterset_class = ProductFilter
     parent_id = tables.Column()
@@ -108,6 +106,15 @@ class ProductTable(tables.Table):
     damaged_weight = tables.Column()
     expired_weight = tables.Column()
     missing_weight = tables.Column()
+    purchase_value = tables.Column()
+
+    class Meta:
+        template_name = "django_tables2/semantic.html"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not any(x for x in kwargs['data'] if 'purchase_value' in x):
+            self.exclude = ('purchase_value',)
 
 
 class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
@@ -123,25 +130,28 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
     def get_queryset(self):
         return None
 
+    def get_purchase_value_by_product(self, product_id):
+        if GRNOrderProductMapping.objects.filter(product_id=product_id).exists():
+            return GRNOrderProductMapping.objects.filter(product_id=product_id).last().product_invoice_price
+        return 0
+
     def get_table_data(self, **kwargs):
         self.shop = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         product_list = {}
         today = datetime.datetime.today()
         inventory_state_total_available = InventoryState.objects.filter(inventory_state="total_available").last()
         inventory_type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-        products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
-                                                                                           'inventory_state',
-                                                                                           'sku__product_pro_price',
-                                                                                           'sku__product_pro_price__price_slabs',
-                                                                                           'sku__rt_product_sku',
-                                                                                           'sku__parent_product',
-                                                                                           'sku__child_product_pro_image',
-                                                                                           'sku__parent_product__parent_product_pro_image',
-                                                                                           'sku__product_pro_price__seller_shop',
-                                                                                           'sku__rt_audit_sku',
-                                                                                           'sku__parent_product__parent_product_pro_category',
-                                                                                           'sku__parent_product__parent_product_pro_category__category',
-                                                                                           'sku__parent_product__parent_brand')
+        has_purchase_report_permission = False
+        if self.request.user.groups.filter(name='Purchase Report').exists():
+            has_purchase_report_permission = True
+        products = WarehouseInventory.objects.filter(warehouse=self.shop).\
+            prefetch_related('sku', 'inventory_type', 'inventory_state', 'sku__product_pro_price',
+                             'sku__product_pro_price__price_slabs', 'sku__rt_product_sku', 'sku__parent_product',
+                             'sku__child_product_pro_image', 'sku__parent_product__parent_product_pro_image',
+                             'sku__product_pro_price__seller_shop', 'sku__rt_audit_sku',
+                             'sku__parent_product__parent_product_pro_category',
+                             'sku__parent_product__parent_product_pro_category__category',
+                             'sku__parent_product__parent_brand')
         filter = self.request.GET.copy()
         filter['visible'] = ''
         self.filter = ProductFilter(filter, queryset=products)
@@ -245,6 +255,8 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'visibility': False,
                     'audit_blocked': audit_blocked,
                 }
+                if has_purchase_report_permission:
+                    product_temp['purchase_value'] = self.get_purchase_value_by_product(myproduct.sku.pk)
             else:
                 product_temp = product_list[myproduct.sku.product_sku]
             if myproduct.inventory_state.inventory_state == 'total_available':
@@ -261,7 +273,6 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
                 if myproduct.inventory_state.inventory_state == 'reserved':
                     product_temp[myproduct.inventory_type.inventory_type+'_reserved'] = myproduct.quantity
-
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []
