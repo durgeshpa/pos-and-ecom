@@ -262,6 +262,12 @@ class QCAreaFilter(AutocompleteFilter):
     autocomplete_url = 'qc-area-autocomplete'
 
 
+class QCAreaAutocomplete(AutocompleteFilter):
+    title = 'QC Area'
+    field_name = 'qc_area'
+    autocomplete_url = 'qc-area-autocomplete'
+
+
 class QCExecutiveAutocomplete(AutocompleteFilter):
     title = 'QC Executive'
     field_name = 'qc_executive'
