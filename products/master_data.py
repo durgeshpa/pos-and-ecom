@@ -247,6 +247,13 @@ class UploadMasterData(object):
                             # if row[col] != '':
                             available_fields.append(col)
 
+                    parent_product_id = parent_product.last().id
+                    if parent_product_id not in parent_product_categorys:
+                        parent_product_categorys[parent_product_id] = []
+                        parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
+                        if parent_cat.exists():
+                            parent_cat.delete()
+
                     for col in available_fields:
                         if col == 'brand_id':
                             if 'sub_brand_id' not in available_fields or not row['sub_brand_id']:
@@ -255,29 +262,22 @@ class UploadMasterData(object):
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
-                        parent_product_id = parent_product.last().id
-                        if parent_product_id not in parent_product_categorys:
-                            parent_product_categorys[parent_product_id] = []
-                            parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
-                            if parent_cat.exists():
-                                parent_cat.delete()
-
                         if col == 'sub_category_id':
                             if row['sub_category_id']:
-                                if int(row['sub_category_id']) not in parent_product_categorys[parent_product.last().id]:
+                                if int(row['sub_category_id']) not in parent_product_categorys[parent_product_id]:
                                     sub_category = Category.objects.get(id=int(row['sub_category_id']))
                                     parent_cat_obj = ParentProductCategory.objects.create(
                                         parent_product=parent_product.last(), category=sub_category)
 
                                     if parent_cat_obj.id not in parent_product_categorys[parent_product_id]:
-                                        parent_product_categorys[parent_product_id].append(parent_cat_obj.id)
+                                        parent_product_categorys[parent_product_id].append(int(row['sub_category_id']))
                             else:
-                                if category not in parent_product_categorys[parent_product.last().id]:
+                                if category not in parent_product_categorys[parent_product_id]:
                                     parent_cat_obj = ParentProductCategory.objects.create(
                                         parent_product=parent_product.last(), category_id=category)
 
-                                    if parent_cat_obj.id not in parent_product_categorys[parent_product.last().id]:
-                                        parent_product_categorys[parent_product.last().id].append(category)
+                                    if parent_cat_obj.id not in parent_product_categorys[parent_product_id]:
+                                        parent_product_categorys[parent_product_id].append(category)
 
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
