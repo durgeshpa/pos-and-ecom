@@ -3503,7 +3503,6 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
     shipment = models.ForeignKey(OrderedProduct, related_name='trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
-    is_return_verified = models.BooleanField(default=False)
 
 
 class DispatchTripShipmentPackages(BaseTimestampUserModel):
@@ -3525,6 +3524,8 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+    is_return_verified = models.BooleanField(default=False)
+
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
 PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))

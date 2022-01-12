@@ -115,11 +115,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
-                          MarkShipmentVerifiedSerializer, ShipmentPackageProductsSerializer
+                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label
+    validate_trip, validate_shipment_label, validate_trip_shipment_package
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -8946,19 +8946,33 @@ class PackagesUnderTripView(generics.GenericAPIView):
         return self.queryset
 
 
-class MarkShipmentVerifiedView(generics.GenericAPIView):
+class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
     """
        View to verify and unload packages from a trip.
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    serializer_class = MarkShipmentVerifiedSerializer
-    queryset = DispatchTripShipmentMapping.objects.all()
+    serializer_class = MarkShipmentPackageVerifiedSerializer
+    queryset = DispatchTripShipmentPackages.objects.all()
+
+    def get(self, request):
+        '''
+        API to get shipment package detail
+        '''
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory")
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        self.queryset = self.filter_package_data()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no packaging found"
+        return get_response(msg, serializer.data, True)
 
     def put(self, request):
-        """ PUT API to mark shipment verify """
+        """ PUT API to mark shipment package verify """
 
-        info_logger.info("Mark Shipment Verify PUT api called.")
+        info_logger.info("Mark Shipment Package Verify PUT api called.")
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
@@ -8968,12 +8982,7 @@ class MarkShipmentVerifiedView(generics.GenericAPIView):
         if 'trip_id' not in modified_data:
             return get_response("'trip_id' | This is required.", False)
 
-        validated_shipment = get_shipment_by_shipment_label(request.GET.get('package_id'))
-        if 'error' in validated_shipment:
-            return get_response(validated_shipment['error'])
-        shipment_id = validated_shipment['data']
-
-        validated_data = validate_trip_shipment(request.GET.get('trip_id'), shipment_id)
+        validated_data = validate_trip_shipment_package(request.GET.get('trip_id'), request.GET.get('package_id'))
         if 'error' in validated_data:
             return get_response(validated_data['error'])
         trip_shipment_data = validated_data['data']
@@ -8981,9 +8990,25 @@ class MarkShipmentVerifiedView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=trip_shipment_data, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("shipment verified successfully.")
-            return get_response('shipment verified!', serializer.data)
+            info_logger.info("Package verified successfully.")
+            return get_response('Package verified!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+    def filter_package_data(self):
+        trip_id = self.request.GET.get('trip_id')
+        package_id = self.request.GET.get('package_id')
+        package_status = self.request.GET.get('package_status')
+
+        if trip_id:
+            self.queryset = self.queryset.filter(trip_shipment__trip_id=trip_id)
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
+
+        if package_status:
+            self.queryset = self.queryset.filter(status=package_status)
+
+        return self.queryset
 
 
 class ShipmentPackageProductsView(generics.GenericAPIView):
