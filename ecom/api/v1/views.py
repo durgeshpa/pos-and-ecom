@@ -21,6 +21,7 @@ from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, U
                           AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer,
                           ShopInfoSerializer)
 
+from pos.api.v1.serializers import ContectUs
 
 class AccountView(APIView):
     serializer_class = AccountSerializer
@@ -252,3 +253,10 @@ class UserShopView(APIView):
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
 
+class Contect_Us(APIView):
+    authentication_classes = (TokenAuthentication,)
+    def get(self, request, format=None):
+        data = {'phone_number':"7777777777",'email' :'papertap@gmail.com'}
+        serializer = ContectUs(data=data)
+        if serializer.is_valid():
+            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)

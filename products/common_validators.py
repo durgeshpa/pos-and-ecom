@@ -498,7 +498,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if ele not in header_list:
                 raise ValidationError(f"{mandatory_columns} are mandatory columns for Update Parent Product")
         product_name_list = []
-        parent_id_list = []
+        # parent_id_list = []
         for row in uploaded_data_list:
             row_num += 1
             if 'parent_id' not in row.keys() or row['parent_id'] == '':
@@ -507,10 +507,10 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'parent_name' not in row.keys() or row['parent_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'parent_name' is a mandatory, can't be empty")
 
-            if row['parent_id'].strip() in parent_id_list:
-                raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
-                                      f"'parent_id' getting repeated in csv file")
-            parent_id_list.append(row['parent_id'].strip())
+            # if row['parent_id'].strip() in parent_id_list:
+            #     raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
+            #                           f"'parent_id' getting repeated in csv file")
+            # parent_id_list.append(row['parent_id'].strip())
 
             # if ParentProduct.objects.filter(name__iexact=row['parent_name'].strip(), status=True).exclude(
             #         parent_id=row['parent_id']).exists():

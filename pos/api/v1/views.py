@@ -47,7 +47,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,ContectUs)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -135,7 +135,7 @@ class PosProductView(GenericAPIView):
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
             name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type= data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
+                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'] if 'online_enabled' in data else None, data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
             measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
@@ -157,8 +157,9 @@ class PosProductView(GenericAPIView):
                     product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
-                product.online_enabled = online_enabled
-                product.online_price = online_price if online_price else product.online_price 
+                if online_enabled is not None:
+                    product.online_enabled = online_enabled
+                    product.online_price = online_price if online_price else product.online_price
 
                 product.product_pack_type = product_pack_type
                 product.measurement_category_id = measurement_category_id
@@ -1553,3 +1554,12 @@ class UpdateInventoryStockView(GenericAPIView):
             info_logger.info("Stock updated successfully")
             return api_response("Stock updated successfully", None, status.HTTP_200_OK, True)
         return api_response(serializer_error(form), False)
+
+
+class Contect_Us(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    def get(self, request, format=None):
+        data = {'phone_number':"9999999999",'email' :'papertap@gmail.com'}
+        serializer = ContectUs(data=data)
+        if serializer.is_valid():
+            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)

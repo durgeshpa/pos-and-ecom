@@ -203,7 +203,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None,
                                                 min_value=0.01)
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
-    online_enabled = serializers.BooleanField(default=True)
+    online_enabled = serializers.BooleanField(required=False)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
                                             min_value=0.01, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
@@ -238,6 +238,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if 'online_enabled' in attrs and attrs['online_enabled']:
             if 'online_price' not in attrs or not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
+            attrs['online_enabled'] = attrs['online_enabled']
 
         if 'online_price' in attrs and attrs['online_price'] \
                 is not None and attrs['online_price'] > mrp:
@@ -3105,6 +3106,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+    def __init__(self, *args, **kwargs):
+        super(PosEcomOrderDetailSerializer,self).__init__( *args, **kwargs)
+        self.total_mrp = 0.0
 
     @staticmethod
     def get_order_update(obj):
@@ -3149,10 +3153,12 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         redeem_points_value = self.get_redeem_points_value(obj)
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
-            'amount_paid'] = order_value, discount, redeem_points_value, obj.order_amount
+            'amount_paid'] = order_value, discount, redeem_points_value, int(obj.order_amount)
         payment_obj = obj.rt_payment_retailer_order.all().last()
         order_summary['payment_type'] = payment_obj.payment_type.type
         order_summary['transaction_id'] = payment_obj.transaction_id
+        order_summary['saving'] = round((float(self.total_mrp)-float(order_summary['amount_paid'])),2)
+
         return order_summary
 
     def get_invoice_summary(self, obj):
@@ -3230,6 +3236,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                 free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product, free_picked_map)
                 if free_prod_info:
                     product.update(free_prod_info)
+            mrp = product['retailer_product']['mrp']
+            qty = float(float(product['qty']))-float(product['returned_qty'] if product['returned_qty'] else 0)
+            self.total_mrp += float(mrp)*float(qty)
 
         if cart_free_product:
             cart_free_product['picked_qty'] = 0
@@ -3626,3 +3635,7 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
                   )
               )
         return url
+
+class ContectUs(serializers.Serializer):
+    phone_number = serializers.CharField()
+    email = serializers.EmailField()

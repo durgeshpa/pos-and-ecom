@@ -1,5 +1,6 @@
 import decimal
 from copy import deepcopy
+from datetime import datetime
 
 from django.db import transaction
 from django.apps import apps
@@ -48,9 +49,13 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
             if not row['offer_start_date']:
                 row['offer_start_date'] = None
+            else:
+                row['offer_start_date'] = datetime.strptime(row['offer_start_date'], "%d-%m-%Y")
 
             if not row['offer_end_date']:
                 row['offer_end_date'] = None
+            else:
+                row['offer_end_date'] = datetime.strptime(row['offer_end_date'], "%d-%m-%Y")
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
             online_enabled, online_price, is_visible, product_pack_type, initial_purchase_value = row.get('product_name'), row.get('product_ean_code'), \
@@ -163,12 +168,12 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
 
                     if row['offer_start_date'] and row['offer_price']:
-                        product.offer_start_date = row['offer_start_date']
+                        product.offer_start_date = datetime.strptime(row['offer_start_date'], "%d-%m-%Y")
                     else:
                         product.offer_start_date = None
 
                     if row['offer_end_date'] and row['offer_price']:
-                        product.offer_end_date = row['offer_end_date']
+                        product.offer_end_date = datetime.strptime(row['offer_end_date'], "%d-%m-%Y")
                     else:
                         product.offer_end_date = None
 

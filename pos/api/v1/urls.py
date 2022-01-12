@@ -4,11 +4,12 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
-                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView)
+                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
     url(r'^product/measurement-category/', MeasurementCategoryView.as_view(), name='pos-measurement-category'),
+    url(r'contct_us_details/', Contect_Us.as_view(), name='contect_us'),
 
     url(r'^offers/', CouponOfferCreation.as_view(), name='offers'),
 
