@@ -56,7 +56,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
+                                  pos_check_user_permission)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -1021,7 +1022,7 @@ class CartCentral(GenericAPIView):
             return api_response('Please provide a valid app_type')
 
     @check_pos_shop
-    @pos_check_permission_delivery_person
+    @pos_check_user_permission
     def delete(self, request, *args, **kwargs):
         """
             Update Cart Status To deleted For Basic Cart

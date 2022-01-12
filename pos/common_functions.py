@@ -727,6 +727,17 @@ def pos_check_permission_delivery_person(view_func):
     return _wrapped_view_func
 
 
+def pos_check_user_permission(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type__in=['manager', 'store_manager']).exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
