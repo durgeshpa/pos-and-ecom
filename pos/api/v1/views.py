@@ -47,7 +47,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,ContectUs)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -1553,3 +1553,12 @@ class UpdateInventoryStockView(GenericAPIView):
             info_logger.info("Stock updated successfully")
             return api_response("Stock updated successfully", None, status.HTTP_200_OK, True)
         return api_response(serializer_error(form), False)
+
+
+class Contect_Us(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    def get(self, request, format=None):
+        data = {'phone_number':"9999999999",'email' :'papertap@gmail.com'}
+        serializer = ContectUs(data=data)
+        if serializer.is_valid():
+            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)

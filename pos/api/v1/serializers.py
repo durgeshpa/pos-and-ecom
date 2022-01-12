@@ -3634,3 +3634,7 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
                   )
               )
         return url
+
+class ContectUs(serializers.Serializer):
+    phone_number = serializers.CharField()
+    email = serializers.EmailField()
