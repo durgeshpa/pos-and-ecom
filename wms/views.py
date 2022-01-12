@@ -53,7 +53,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -64,7 +64,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
-    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm
+    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm, BulkCrateForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -3093,3 +3093,13 @@ def bulk_crate_creation(request):
     return render(request, 'admin/wms/bulk-crate-creation.html', {'form': form})
 
 
+class CrateBarcodeGenerator(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        crate = Crate.objects.filter(pk=self.kwargs.get('id')).last()
+        crate_barcode_txt = crate.crate_barcode_txt
+        if crate and crate.crate_barcode_txt is None:
+            crate_barcode_txt = '4' + str(crate.id).zfill(11)
+        crate_data = {crate_barcode_txt: {"qty": 1, "data": {"Crate": crate.crate_id}}}
+        return merged_barcode_gen(crate_data)
