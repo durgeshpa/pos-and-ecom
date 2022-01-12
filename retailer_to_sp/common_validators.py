@@ -91,6 +91,7 @@ def validate_trip_user(trip_id, user):
         return {"data": DispatchTrip.objects.get(id=trip_id, source_shop=user.shop_employee.last().shop)}
     return {"error": "Invalid trip"}
 
+
 def get_shipment_by_shipment_label(shipment_label_id):
     obj = ShipmentPackaging.objects.filter(id=shipment_label_id).last()
     if not obj:
@@ -118,3 +119,10 @@ def validate_trip(trip_id):
     if DispatchTrip.objects.filter(id=trip_id).exists():
         return {"data": DispatchTrip.objects.filter(id=trip_id).last()}
     return {"error": 'Invalid Trip'}
+
+
+def validate_shipment_label(shipment_label_id):
+    obj = ShipmentPackaging.objects.filter(id=shipment_label_id).last()
+    if not obj:
+        return {'error': 'please provide a valid shipment_label_id'}
+    return {'data': obj}

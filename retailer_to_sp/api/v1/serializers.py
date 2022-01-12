@@ -4018,3 +4018,17 @@ class MarkShipmentVerifiedSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return trip_shipment_mapping
+
+
+class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField(read_only=True)
+    quantity = serializers.IntegerField(read_only=True)
+    return_qty = serializers.IntegerField(read_only=True)
+    is_verified = serializers.BooleanField(read_only=True)
+
+    def get_product(self, obj):
+        return ProductSerializer(obj.ordered_product.product).data
+
+    class Meta:
+        model = ShipmentPackagingMapping
+        fields = ('id', 'product', 'quantity', 'return_qty', 'is_verified')

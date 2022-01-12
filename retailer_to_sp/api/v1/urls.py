@@ -22,7 +22,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
                     CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView, UnloadVerifyCrateView,
-                    LoadInvoiceView, PackagesUnderTripView, MarkShipmentVerifiedView
+                    LoadInvoiceView, PackagesUnderTripView, MarkShipmentVerifiedView, ShipmentPackageProductsView
                     )
 
 router = routers.DefaultRouter()
@@ -140,6 +140,7 @@ urlpatterns = [
     url('last-mile-status-choice/', LastMileTripStatusList.as_view()),
     url('packages-under-trip/', PackagesUnderTripView.as_view(), name='packages_under_trip'),
     url('mark-shipment-verified/', MarkShipmentVerifiedView.as_view(), name='mark_shipment_verified'),
+    url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
 ]
 
 urlpatterns += router.urls

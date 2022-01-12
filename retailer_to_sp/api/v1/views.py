@@ -80,7 +80,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
-                                   DispatchTripCrateMapping)
+                                   DispatchTripCrateMapping, ShipmentPackagingMapping)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -115,11 +115,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
-                          MarkShipmentVerifiedSerializer
+                          MarkShipmentVerifiedSerializer, ShipmentPackageProductsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip
+    validate_trip, validate_shipment_label
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -8984,3 +8984,44 @@ class MarkShipmentVerifiedView(generics.GenericAPIView):
             info_logger.info("shipment verified successfully.")
             return get_response('shipment verified!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class ShipmentPackageProductsView(generics.GenericAPIView):
+    """
+       View to GET package products.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentPackageProductsSerializer
+    queryset = ShipmentPackagingMapping.objects.all()
+
+    def get(self, request):
+        """
+            API to get all the products for a package
+        """
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory")
+        validated_shipment_label = validate_shipment_label(request.GET.get('package_id'))
+        if 'error' in validated_shipment_label:
+            return get_response(validated_shipment_label['error'])
+        self.queryset = self.filter_shipment_products()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no product found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_shipment_products(self):
+        package_id = self.request.GET.get('package_id')
+        product_id = self.request.GET.get('product_id')
+        is_verified = self.request.GET.get('is_verified')
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
+
+        if product_id:
+            self.queryset = self.queryset.filter(ordered_product__product_id=product_id)
+
+        if is_verified:
+            self.queryset = self.queryset.filter(is_verified=is_verified)
+
+        return self.queryset
