@@ -114,7 +114,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
-                          DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer
+                          DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
+                          MarkShipmentVerifiedSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -8943,3 +8944,43 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=package_status)
 
         return self.queryset
+
+
+class MarkShipmentVerifiedView(generics.GenericAPIView):
+    """
+       View to verify and unload packages from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = MarkShipmentVerifiedSerializer
+    queryset = DispatchTripShipmentMapping.objects.all()
+
+    def put(self, request):
+        """ PUT API to mark shipment verify """
+
+        info_logger.info("Mark Shipment Verify PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+
+        validated_shipment = get_shipment_by_shipment_label(request.GET.get('package_id'))
+        if 'error' in validated_shipment:
+            return get_response(validated_shipment['error'])
+        shipment_id = validated_shipment['data']
+
+        validated_data = validate_trip_shipment(request.GET.get('trip_id'), shipment_id)
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
+        trip_shipment_data = validated_data['data']
+
+        serializer = self.serializer_class(instance=trip_shipment_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment verified successfully.")
+            return get_response('shipment verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
