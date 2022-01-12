@@ -616,7 +616,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
                 total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
         return total_amount
 
-    def get_total_mrp(sel,obj):
+    def get_total_mrp(self,obj):
         total=0
         for cart_pro in obj.rt_cart_list.all():
             total  +=(cart_pro.retailer_product.mrp * cart_pro.qty)
