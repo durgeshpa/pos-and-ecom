@@ -467,7 +467,7 @@ class TripForm(forms.ModelForm):
 
     class Meta:
         model = Trip
-        fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
+        fields = ['seller_shop', 'source_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
                   'e_way_bill_no', 'search_by_area', 'search_by_pincode',
                   'Invoice_No', 'selected_id', 'unselected_id', 'trip_weight',
                   'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets',
@@ -493,8 +493,10 @@ class TripForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         if user.is_superuser:
             self.fields['seller_shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
+            self.fields['source_shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf', 'dc'])
         else:
             self.fields['seller_shop'].queryset = Shop.objects.filter(related_users=user)
+            self.fields['source_shop'].queryset = Shop.objects.filter(related_users=user)
         self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
         self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
@@ -531,6 +533,7 @@ class TripForm(forms.ModelForm):
             elif trip_status == Trip.COMPLETED:
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
+                self.fields['source_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
                 self.fields['trip_status'].choices = Trip.TRIP_STATUS[3:5]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
@@ -545,6 +548,7 @@ class TripForm(forms.ModelForm):
                 self.fields['e_way_bill_no'].disabled = True
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
+                self.fields['source_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
                 self.fields['trip_status'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
