@@ -2,7 +2,6 @@ from django.conf.urls import include, url
 
 
 import wms
-from .admin import CrateFilter
 from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, \
     MergeBarcode, QCAreaBarcodeGenerator, PutawayUserAutcomplete, PickerUserAutcomplete, PickerUsersCompleteAutcomplete, \
@@ -10,7 +9,7 @@ from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMov
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
     SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
     PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter, QCDeskFilter, QCExecutiveFilter, \
-    QCExecutiveNonMappedFilter, AlternateDeskFilter, QCAreaNonMappedFilter
+    QCExecutiveNonMappedFilter, AlternateDeskFilter, QCAreaNonMappedFilter, CrateFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
