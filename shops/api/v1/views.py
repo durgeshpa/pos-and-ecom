@@ -35,7 +35,8 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           FavouriteProductSerializer, AddFavouriteProductSerializer, ListFavouriteProductSerializer,
                           DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
                           PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer)
-from ...common_validators import validate_id
+from ...common_validators import validate_id, get_logged_user_wise_query_set_to_filter_warehouse, \
+    get_logged_user_wise_query_set_for_seller_shop
 
 User = get_user_model()
 
@@ -1212,6 +1213,7 @@ class SellerShopFilterView(generics.GenericAPIView):
             shops_data = id_validation['data']
         else:
             """ GET Shop List """
+            self.queryset = get_logged_user_wise_query_set_for_seller_shop(request.user, self.queryset)
             self.queryset = self.search_filter_shops_data()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -1272,6 +1274,7 @@ class DispatchCenterFilterView(generics.GenericAPIView):
             shops_data = id_validation['data']
         else:
             """ GET Shop List """
+            self.queryset = get_logged_user_wise_query_set_to_filter_warehouse(request.user, self.queryset)
             self.queryset = self.search_filter_shops_data()
             shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
