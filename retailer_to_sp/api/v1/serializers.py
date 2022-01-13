@@ -2164,11 +2164,6 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
-            data['vehicle_no'] = self.initial_data['vehicle_no']
-        else:
-            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
-
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
             try:
                 seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
@@ -2224,6 +2219,19 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                     id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
                     destination_shop=destination_shop).exists():
                 raise serializers.ValidationError("Seller, Source & Destination shops updation are not allowed.")
+            dispatch_trip = DispatchTrip.objects.filter(
+                    id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
+                    destination_shop=destination_shop).last()
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if dispatch_trip.trip_status != DispatchTrip.NEW:
+                    raise serializers.ValidationError(f"vehicle no updation not allowed at trip status "
+                                                      f"{dispatch_trip.trip_status}")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+        else:
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+            else:
+                raise serializers.ValidationError("'vehicle_no' | This is mandatory")
 
         return data
 
