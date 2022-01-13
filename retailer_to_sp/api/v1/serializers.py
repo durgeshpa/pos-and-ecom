@@ -2315,17 +2315,19 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         if 'trip_status' in self.initial_data and self.initial_data['trip_status']:
             trip_status = self.initial_data['trip_status']
             if trip_status not in [DispatchTrip.NEW, DispatchTrip.STARTED, DispatchTrip.COMPLETED,
-                                   DispatchTrip.UNLOADING, DispatchTrip.CLOSED, DispatchTrip.CANCELLED]:
+                                   DispatchTrip.UNLOADING, DispatchTrip.CLOSED, DispatchTrip.VERIFIED,
+                                   DispatchTrip.CANCELLED]:
                 raise serializers.ValidationError("'trip_status' | Invalid status for the selected trip.")
             if dispatch_trip.trip_status == trip_status:
                 raise serializers.ValidationError(f"Trip status is already {str(trip_status)}.")
-            if dispatch_trip.trip_status in [DispatchTrip.CLOSED, DispatchTrip.CANCELLED]:
+            if dispatch_trip.trip_status in [DispatchTrip.VERIFIED, DispatchTrip.CANCELLED]:
                 raise serializers.ValidationError(f"Trip status can't update, already {str(dispatch_trip.trip_status)}")
             if (dispatch_trip.trip_status == DispatchTrip.NEW and
                 trip_status not in [DispatchTrip.STARTED, DispatchTrip.CANCELLED]) or \
                     (dispatch_trip.trip_status == DispatchTrip.STARTED and trip_status != DispatchTrip.COMPLETED) or \
                     (dispatch_trip.trip_status == DispatchTrip.COMPLETED and trip_status != DispatchTrip.UNLOADING) or \
-                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and trip_status != DispatchTrip.CLOSED):
+                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and trip_status != DispatchTrip.CLOSED) or \
+                    (dispatch_trip.trip_status == DispatchTrip.CLOSED and trip_status != DispatchTrip.VERIFIED):
                 raise serializers.ValidationError(
                     f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
@@ -2362,6 +2364,15 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                         shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).exists():
                     raise serializers.ValidationError(
                         "The trip can not complete until and unless all shipments get unloaded.")
+
+            if trip_status == DispatchTrip.VERIFIED:
+                if DispatchTripShipmentPackages.objects.filter(
+                        trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
+                        is_return_verified=False).exists():
+                    return serializers.ValidationError(
+                        "The trip can not verify until and unless all unloaded packages get verified.")
+
+            data['trip_status'] = trip_status
         else:
             raise serializers.ValidationError("'trip_status' | This is mandatory")
 
@@ -3765,16 +3776,12 @@ class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_all_returned_crates_validated(obj):
-        if obj.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_COMPLETED,
-                                   OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
-                                   OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
-                                   OrderedProduct.RESCHEDULED]:
-            if not obj.shipment_packaging.filter(
-                    ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
-                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                    packaging_type=ShipmentPackaging.CRATE).exists():
-                return True
+        if not obj.shipment_packaging.filter(
+                ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                packaging_type=ShipmentPackaging.CRATE).exists():
+            return True
         return False
 
     class Meta:
@@ -4064,87 +4071,6 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return trip_shipment_package
-
-
-class MarkDispatchTripVerifiedSerializer(serializers.ModelSerializer):
-    seller_shop = ShopSerializer(read_only=True)
-    source_shop = ShopSerializer(read_only=True)
-    destination_shop = ShopSerializer(read_only=True)
-    delivery_boy = UserSerializers(read_only=True)
-    created_by = UserSerializers(read_only=True)
-    updated_by = UserSerializers(read_only=True)
-    shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
-
-    class Meta:
-        model = DispatchTrip
-        fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
-                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
-                  'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'shipments_details', 'created_at', 'updated_at', 'created_by', 'updated_by')
-
-    def validate(self, data):
-
-        if 'id' in self.initial_data and self.initial_data['id']:
-            if not DispatchTrip.objects.filter(id=self.initial_data['id']).exists():
-                raise serializers.ValidationError("Only status updation is allowed.")
-            dispatch_trip = DispatchTrip.objects.filter(id=self.initial_data['id']).last()
-        else:
-            raise serializers.ValidationError("'id' | This is mandatory")
-
-        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
-            try:
-                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
-                if dispatch_trip.seller_shop != seller_shop:
-                    raise Exception("'seller_shop' | Invalid seller_shop for selected trip.")
-            except:
-                raise serializers.ValidationError("'seller_shop' | Invalid seller shop")
-
-        if 'source_shop' in self.initial_data and self.initial_data['source_shop']:
-            try:
-                source_shop = Shop.objects.get(id=self.initial_data['source_shop'],
-                                               shop_type__shop_type__in=['sp', 'dc'])
-                if dispatch_trip.source_shop != source_shop:
-                    raise Exception("'source_shop' | Invalid source_shop for selected trip.")
-            except:
-                raise serializers.ValidationError("'source_shop' | Invalid source shop")
-
-        if 'destination_shop' in self.initial_data and self.initial_data['destination_shop']:
-            try:
-                destination_shop = Shop.objects.get(id=self.initial_data['destination_shop'],
-                                                    shop_type__shop_type__in=['sp', 'dc'])
-                if dispatch_trip.destination_shop != destination_shop:
-                    raise Exception("'destination_shop' | Invalid destination_shop for selected trip.")
-            except:
-                raise serializers.ValidationError("'destination_shop' | Invalid destination shop")
-
-        if 'delivery_boy' in self.initial_data and self.initial_data['delivery_boy']:
-            try:
-                delivery_boy = User.objects.filter(id=self.initial_data['delivery_boy'],
-                                                   shop_employee__shop=seller_shop).last()
-                if dispatch_trip.delivery_boy != delivery_boy:
-                    raise Exception("'delivery_boy' | Invalid delivery_boy for selected trip.")
-            except:
-                raise serializers.ValidationError("'delivery_boy' | Invalid delivery boy")
-
-        if DispatchTripShipmentPackages.objects.filter(
-                trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
-                is_return_verified=False).exists():
-            return serializers.ValidationError(f"Please verify all packages to verify trip.")
-
-        # to be discussed about the field where to store
-        data['is_return_verified'] = True
-
-        return data
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        """update Dispatch Trip """
-        try:
-            dispatch_trip_instance = super().update(instance, validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        return dispatch_trip_instance
 
 
 class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
