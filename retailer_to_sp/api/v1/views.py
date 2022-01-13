@@ -115,8 +115,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
-                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
-                          MarkDispatchTripVerifiedSerializer
+                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -7531,6 +7530,8 @@ class DispatchTripStatusChangeView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         dispatch_trip_instance = id_validation['data'].last()
+        if 'vehicle_no' not in modified_data:
+            modified_data['vehicle_no'] = dispatch_trip_instance.vehicle_no
 
         serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
         if serializer.is_valid():
@@ -9010,40 +9011,6 @@ class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=package_status)
 
         return self.queryset
-
-
-class MarkDispatchTripVerifiedView(generics.GenericAPIView):
-    """
-       View to mark dispatch trip verify
-    """
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    serializer_class = MarkDispatchTripVerifiedSerializer
-    queryset = DispatchTrip.objects.all()
-
-    def put(self, request):
-        """ PUT API to mark shipment package verify """
-
-        info_logger.info("Mark Shipment Package Verify PUT api called.")
-        modified_data = validate_data_format(self.request)
-        if 'error' in modified_data:
-            return get_response(modified_data['error'])
-
-        if 'id' not in modified_data:
-            return get_response("'id' | This is required.", False)
-
-        validated_data = validate_id(self.queryset, int(modified_data['id']))
-        if 'error' in validated_data:
-            return get_response(validated_data['error'])
-        dispatch_trip_instance = validated_data['data'].last()
-        modified_data['vehicle_no'] = dispatch_trip_instance.vehicle_no
-
-        serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
-            info_logger.info("Package verified successfully.")
-            return get_response('Package verified!', serializer.data)
-        return get_response(serializer_error(serializer), False)
 
 
 class ShipmentPackageProductsView(generics.GenericAPIView):
