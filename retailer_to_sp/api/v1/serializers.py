@@ -1847,7 +1847,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 if status == shipment_status:
                     raise serializers.ValidationError(f'Shipment already in {status}')
                 elif status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
-                    if shipment_status != OrderedProduct.OUT_FOR_DELIVERY:
+                    if shipment_status != OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
                         raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
                     if shipment_status == OrderedProduct.RESCHEDULED:
                         if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
@@ -2164,11 +2164,6 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
-            data['vehicle_no'] = self.initial_data['vehicle_no']
-        else:
-            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
-
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
             try:
                 seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
@@ -2224,6 +2219,20 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                     id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
                     destination_shop=destination_shop).exists():
                 raise serializers.ValidationError("Seller, Source & Destination shops updation are not allowed.")
+            dispatch_trip = DispatchTrip.objects.filter(
+                    id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
+                    destination_shop=destination_shop).last()
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if dispatch_trip.trip_status != DispatchTrip.NEW and \
+                        dispatch_trip.vehicle_no != self.initial_data['vehicle_no']:
+                    raise serializers.ValidationError(f"vehicle no updation not allowed at trip status "
+                                                      f"{dispatch_trip.trip_status}")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+        else:
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+            else:
+                raise serializers.ValidationError("'vehicle_no' | This is mandatory")
 
         return data
 
