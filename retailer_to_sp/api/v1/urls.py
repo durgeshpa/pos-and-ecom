@@ -22,7 +22,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
                     CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView, UnloadVerifyCrateView,
-                    LoadInvoiceView, PackagesUnderTripView, MarkShipmentPackageVerifiedView, ShipmentPackageProductsView
+                    LoadInvoiceView, PackagesUnderTripView, MarkShipmentPackageVerifiedView,
+                    ShipmentPackageProductsView
                     )
 
 router = routers.DefaultRouter()

@@ -7530,6 +7530,8 @@ class DispatchTripStatusChangeView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         dispatch_trip_instance = id_validation['data'].last()
+        if 'vehicle_no' not in modified_data:
+            modified_data['vehicle_no'] = dispatch_trip_instance.vehicle_no
 
         serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
         if serializer.is_valid():
@@ -8948,7 +8950,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
 
 class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
     """
-       View to verify and unload packages from a trip.
+       View to mark shipment package verify
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -8982,7 +8984,7 @@ class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
         if 'trip_id' not in modified_data:
             return get_response("'trip_id' | This is required.", False)
 
-        validated_data = validate_trip_shipment_package(request.GET.get('trip_id'), request.GET.get('package_id'))
+        validated_data = validate_trip_shipment_package(modified_data['trip_id'], modified_data['package_id'])
         if 'error' in validated_data:
             return get_response(validated_data['error'])
         trip_shipment_data = validated_data['data']

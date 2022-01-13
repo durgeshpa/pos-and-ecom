@@ -2315,17 +2315,19 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         if 'trip_status' in self.initial_data and self.initial_data['trip_status']:
             trip_status = self.initial_data['trip_status']
             if trip_status not in [DispatchTrip.NEW, DispatchTrip.STARTED, DispatchTrip.COMPLETED,
-                                   DispatchTrip.UNLOADING, DispatchTrip.CLOSED, DispatchTrip.CANCELLED]:
+                                   DispatchTrip.UNLOADING, DispatchTrip.CLOSED, DispatchTrip.VERIFIED,
+                                   DispatchTrip.CANCELLED]:
                 raise serializers.ValidationError("'trip_status' | Invalid status for the selected trip.")
             if dispatch_trip.trip_status == trip_status:
                 raise serializers.ValidationError(f"Trip status is already {str(trip_status)}.")
-            if dispatch_trip.trip_status in [DispatchTrip.CLOSED, DispatchTrip.CANCELLED]:
+            if dispatch_trip.trip_status in [DispatchTrip.VERIFIED, DispatchTrip.CANCELLED]:
                 raise serializers.ValidationError(f"Trip status can't update, already {str(dispatch_trip.trip_status)}")
             if (dispatch_trip.trip_status == DispatchTrip.NEW and
                 trip_status not in [DispatchTrip.STARTED, DispatchTrip.CANCELLED]) or \
                     (dispatch_trip.trip_status == DispatchTrip.STARTED and trip_status != DispatchTrip.COMPLETED) or \
                     (dispatch_trip.trip_status == DispatchTrip.COMPLETED and trip_status != DispatchTrip.UNLOADING) or \
-                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and trip_status != DispatchTrip.CLOSED):
+                    (dispatch_trip.trip_status == DispatchTrip.UNLOADING and trip_status != DispatchTrip.CLOSED) or \
+                    (dispatch_trip.trip_status == DispatchTrip.CLOSED and trip_status != DispatchTrip.VERIFIED):
                 raise serializers.ValidationError(
                     f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
@@ -2362,6 +2364,15 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                         shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).exists():
                     raise serializers.ValidationError(
                         "The trip can not complete until and unless all shipments get unloaded.")
+
+            if trip_status == DispatchTrip.VERIFIED:
+                if DispatchTripShipmentPackages.objects.filter(
+                        trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
+                        is_return_verified=False).exists():
+                    return serializers.ValidationError(
+                        "The trip can not verify until and unless all unloaded packages get verified.")
+
+            data['trip_status'] = trip_status
         else:
             raise serializers.ValidationError("'trip_status' | This is mandatory")
 
@@ -3444,7 +3455,14 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
             data['trip_status'] = Trip.READY
         return data
 
-    def shipments_added_to_trip(self, last_mile_trip):
+    def mark_shipments_as_out_for_delivery_on_trip_start(self, last_mile_trip):
+        shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
+        for shipment_detail in shipment_details:
+            if shipment_detail.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                shipment_detail.shipment.shipment_status = OrderedProduct.OUT_FOR_DELIVERY
+                shipment_detail.shipment.save()
+
+    def mark_shipments_as_fully_delivered_and_completed_on_trip_complete(self, last_mile_trip):
         shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
         for shipment_detail in shipment_details:
             if shipment_detail.shipment.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
@@ -3482,7 +3500,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         if validated_data['trip_status'] == Trip.STARTED:
-            self.shipments_added_to_trip(trip_instance)
+            self.mark_shipments_as_out_for_delivery_on_trip_start(trip_instance)
+
+        if validated_data['trip_status'] == Trip.COMPLETED:
+            self.mark_shipments_as_fully_delivered_and_completed_on_trip_complete(trip_instance)
 
         if validated_data['trip_status'] == Trip.CANCELLED:
             self.cancel_added_shipments_to_trip(trip_instance)
@@ -3755,18 +3776,13 @@ class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_all_returned_crates_validated(obj):
-        if obj.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_COMPLETED,
-                                   OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
-                                   OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
-                                   OrderedProduct.RESCHEDULED]:
-            if not obj.shipment_packaging.filter(
-                    ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
-                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                                   ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                    packaging_type=ShipmentPackaging.CRATE).exists():
-                return True
-            return False
-        return None
+        if not obj.shipment_packaging.filter(
+                ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
+                packaging_type=ShipmentPackaging.CRATE).exists():
+            return True
+        return False
 
     class Meta:
         model = OrderedProduct
