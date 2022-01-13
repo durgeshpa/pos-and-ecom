@@ -56,7 +56,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
-                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty)
+                                  pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
+                                  pos_check_user_permission)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -1021,7 +1022,7 @@ class CartCentral(GenericAPIView):
             return api_response('Please provide a valid app_type')
 
     @check_pos_shop
-    @pos_check_permission_delivery_person
+    @pos_check_user_permission
     def delete(self, request, *args, **kwargs):
         """
             Update Cart Status To deleted For Basic Cart
@@ -1942,6 +1943,7 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
+            data.update({'saving':round(data['total_mrp']-data['amount_payable'],2)})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
@@ -2663,6 +2665,18 @@ class OrderCentral(APIView):
                 return api_response("Please Provide A Valid Status To Update Order")
             # CANCEL ORDER
             if order_status == Order.CANCELLED:
+                user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                    last().user_type
+                flag = False
+                if user_type == 'manager':
+                    flag = True
+                elif user_type == 'store_manager':
+                    flag = True
+                # elif user_type == 'cashier':
+                #     flag = True
+                if not flag:
+                    return api_response('You are not authorised to make this change!')
+
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
                     # Unprocessed orders can be cancelled
@@ -2680,17 +2694,6 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
-                    user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
-                                   last().user_type
-                    flag = False
-                    if user_type == 'manager':
-                        flag = True
-                    elif user_type  == 'store_manager':
-                        flag = True
-                    elif user_type == 'cashier':
-                        flag = True
-                    if not flag:
-                        return api_response('Only MANAGER ,STORE MANAGER and CASHIER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
@@ -5338,6 +5341,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # Total invoice qty
         sum_qty = 0
         # Total Ordered Amount
+        total_mrp = 0
         total = 0
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
@@ -5361,6 +5365,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "product_sub_total": round(float(m.shipped_qty) * float(product_pro_price_ptr), 2)
             }
             total += ordered_p['product_sub_total']
+            total_mrp += m.shipped_qty * m.retailer_product.mrp
             product_listing.append(ordered_p)
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
@@ -5374,6 +5379,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
+        total_discount = round((total_mrp - total_amount_int),2)
         # Shop Details
         nick_name = '-'
         address_line1 = '-'
@@ -5412,7 +5418,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
-                "state": state,
+                "state": state, "total_discount":total_discount,
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,"payment_type":ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
@@ -5420,7 +5426,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "footer-center": "[page]/[topage]","page-height": 300, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("/home/amit/env/test5/qa4/bil.pdf", "wb") as f:
+        # with open("/home/amit/env/test5/qa4/heelo.pdf", "wb") as f:
         #     f.write(response.rendered_content)
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:

@@ -220,28 +220,31 @@ class UploadMasterData(object):
                               f" + {str(e)}")
 
     @classmethod
-    def update_parent_data(cls, csv_file_data_list, user):
+    def update_parent_data(cls, csv_file_data_list, user, category):
         try:
             count = 0
             row_num = 1
             parent_data = []
             info_logger.info("Method Start to set the data for Parent SKU")
             parent_pro = ParentProduct.objects.all()
+            parent_product_categorys = {}
             for row in csv_file_data_list:
                 row_num += 1
                 count += 1
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status', 'tax_3(surcharge)',
-                              'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id', 'category_id',
-                              'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
-                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
+                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
+                              'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id',
+                              'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type', 'brand_case_size',
+                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
+                              'discounted_life_percent']
 
                     available_fields = []
+
                     for col in fields:
                         if col in row.keys():
-                            if row[col] != '':
+                            if col == 'sub_category_id' or row[col] != '':
                                 available_fields.append(col)
 
                     for col in available_fields:
@@ -251,6 +254,30 @@ class UploadMasterData(object):
 
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+
+                        if col == 'sub_category_id':
+                            parent_product_id = parent_product.last().id
+                            if parent_product_id not in parent_product_categorys:
+                                parent_product_categorys[parent_product_id] = []
+                                parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
+                                if parent_cat.exists():
+                                    parent_cat.delete()
+
+                            if row['sub_category_id']:
+                                if int(row['sub_category_id']) not in parent_product_categorys[parent_product_id]:
+                                    sub_category = Category.objects.get(id=int(row['sub_category_id']))
+                                    parent_cat_obj = ParentProductCategory.objects.create(
+                                        parent_product=parent_product.last(), category=sub_category)
+
+                                    if parent_cat_obj.id not in parent_product_categorys[parent_product_id]:
+                                        parent_product_categorys[parent_product_id].append(int(row['sub_category_id']))
+                            else:
+                                if category not in parent_product_categorys[parent_product_id]:
+                                    parent_cat_obj = ParentProductCategory.objects.create(
+                                        parent_product=parent_product.last(), category_id=category)
+
+                                    if parent_cat_obj.id not in parent_product_categorys[parent_product_id]:
+                                        parent_product_categorys[parent_product_id].append(category)
 
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
