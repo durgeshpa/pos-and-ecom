@@ -2664,6 +2664,18 @@ class OrderCentral(APIView):
                 return api_response("Please Provide A Valid Status To Update Order")
             # CANCEL ORDER
             if order_status == Order.CANCELLED:
+                user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
+                    last().user_type
+                flag = False
+                if user_type == 'manager':
+                    flag = True
+                elif user_type == 'store_manager':
+                    flag = True
+                # elif user_type == 'cashier':
+                #     flag = True
+                if not flag:
+                    return api_response('Only MANAGER ,STORE and MANAGER can Cancel the order!')
+
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
                     # Unprocessed orders can be cancelled
@@ -2681,17 +2693,6 @@ class OrderCentral(APIView):
                                                         PosInventoryState.AVAILABLE, cp.qty, self.request.user,
                                                         order.order_no, PosInventoryChange.CANCELLED)
                 else:
-                    user_type = PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user). \
-                                   last().user_type
-                    flag = False
-                    if user_type == 'manager':
-                        flag = True
-                    elif user_type  == 'store_manager':
-                        flag = True
-                    elif user_type == 'cashier':
-                        flag = True
-                    if not flag:
-                        return api_response('Only MANAGER ,STORE MANAGER and CASHIER can Cancel the order!')
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
                         return api_response('This order cannot be cancelled!')
