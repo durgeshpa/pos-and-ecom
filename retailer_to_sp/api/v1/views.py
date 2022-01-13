@@ -1943,7 +1943,7 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
-            data.update({'seving':round(data['total_mrp']-data['amount_payable'],2)})
+            data.update({'saving':round(data['total_mrp']-data['amount_payable'],2)})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
