@@ -58,7 +58,7 @@ urlpatterns = [
 
     url('seller-shops-list/', SellerShopFilterView.as_view(), name='seller-shops-list'),
     url('dispatch-centers-list/', DispatchCenterFilterView.as_view(), name='dispatch-centers-list'),
-    url('retailer-shops-list/', RetailerShopFilterView.as_view(), name='dispatch-centers-list'),
+    url('retailer-shops-list/', RetailerShopFilterView.as_view(), name='retailer-shops-list'),
 
 ]
 
