@@ -10,8 +10,7 @@ from django.dispatch import receiver
 from accounts.models import User
 from common.common_utils import barcode_gen
 from retailer_to_sp.models import PickerDashboard
-from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
-
+from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -69,3 +68,32 @@ def create_qc_area_barcode(sender, instance=None, created=False, update_fields=N
         instance.area_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.area_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
         instance.save()
+
+
+@receiver(post_save, sender=Crate)
+def create_crate_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """ Generates barcode_txt and bar_code image for QCArea"""
+    if created:
+        instance.crate_barcode_txt = '04' + str(instance.id).zfill(10)
+        image = barcode_gen(str(instance.crate_barcode_txt))
+        instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
+                                                 sys.getsizeof(image), None)
+        instance.save()
+
+
+@receiver(post_save, sender=QCDesk)
+def create_qc_desk_number(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """
+        QCDesk number on creation / updation
+    """
+    if not instance.desk_number:
+        desk_count = QCDesk.objects.filter(warehouse=instance.warehouse, desk_number__isnull=False).count()
+        instance.desk_number = "W" + str(instance.warehouse.id).zfill(6) + "D" + str(desk_count + 1).zfill(2)
+        instance.save()
+    if instance and not instance.desk_enabled and instance.alternate_desk:
+        instance.alternate_desk.qc_areas.add(*list(instance.qc_areas.values_list('pk', flat=True)))
+    if instance and instance.desk_enabled:
+        area_in_another_desk = QCDesk.objects.filter(
+            qc_areas__in=instance.qc_areas.all()).exclude(pk=instance.pk).distinct()
+        for desk in area_in_another_desk:
+            desk.qc_areas.remove(*list(instance.qc_areas.values_list('pk', flat=True)))

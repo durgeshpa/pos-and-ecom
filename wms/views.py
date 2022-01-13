@@ -53,7 +53,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     get_expiry_date_db, get_visibility_changes, get_stock, update_visibility, get_manufacturing_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway, WarehouseAssortment, \
-    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
+    ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -64,7 +64,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm, \
-    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm
+    WarehouseAssortmentCsvViewForm, IncorrectProductBinMappingForm, InOutLedgerForm, BulkCrateForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
@@ -3062,3 +3062,44 @@ class IncorrectProductBinMappingFormView(View):
             'admin/services/incorrect-product-bin-mapping.html',
             {'form': form}
         )
+
+
+
+def bulk_crate_creation(request):
+    if request.method == 'POST':
+        info_logger.info("POST request while bulk create for Crate generation.")
+        form = BulkCrateForm(request.POST)
+        if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                warehouse = form.cleaned_data['warehouse']
+                zone = form.cleaned_data['zone']
+                crate_type = form.cleaned_data['crate_type']
+                quantity = form.cleaned_data['quantity']
+                with transaction.atomic():
+                    for qty_render in range(0, quantity):
+                        Crate.objects.create(warehouse=warehouse, zone=zone, crate_type=crate_type,
+                                             created_by=request.user, updated_by=request.user)
+                        info_logger.info("Crate created for warehouse" + str(warehouse) + ", zone" + str(zone) +
+                                         ", crate_type" + str(crate_type) + ", Count no" + str(qty_render + 1))
+                return redirect('/admin/wms/crate/')
+
+            except Exception as e:
+                error_logger.error(e)
+        else:
+            return render(request, 'admin/wms/bulk-crate-creation.html', {'form': form})
+    else:
+        form = BulkCrateForm()
+    return render(request, 'admin/wms/bulk-crate-creation.html', {'form': form})
+
+
+class CrateBarcodeGenerator(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        crate = Crate.objects.filter(pk=self.kwargs.get('id')).last()
+        crate_barcode_txt = crate.crate_barcode_txt
+        if crate and crate.crate_barcode_txt is None:
+            crate_barcode_txt = '4' + str(crate.id).zfill(11)
+        crate_data = {crate_barcode_txt: {"qty": 1, "data": {"Crate": crate.crate_id}}}
+        return merged_barcode_gen(crate_data)

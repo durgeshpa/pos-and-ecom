@@ -5,10 +5,11 @@ import wms
 from .api.v2.views import ProductSkuAutocomplete
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, \
     MergeBarcode, QCAreaBarcodeGenerator, PutawayUserAutcomplete, PickerUserAutcomplete, PickerUsersCompleteAutcomplete, \
-    PutawayUsersCompleteAutcomplete
+    PutawayUsersCompleteAutcomplete, CrateBarcodeGenerator
 from .filters import WarehousesAutocomplete, InventoryTypeFilter, InventoryStateFilter, PutawayUserFilter, \
     SupervisorFilter, CoordinatorFilter, ParentProductFilter, ZoneFilter, CoordinatorAvailableFilter, \
-    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter
+    PutawayUserAutcomplete, PickerUserAutcomplete, UserFilter, QCAreaFilter, QCDeskFilter, QCExecutiveFilter, \
+    QCExecutiveNonMappedFilter, AlternateDeskFilter, QCAreaNonMappedFilter, CrateFilter
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -48,4 +49,14 @@ urlpatterns = [
     url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
     url(r'^product-sku-autocomplete/$', ProductSkuAutocomplete.as_view(), name='product-sku-autocomplete'),
     url(r'^qc_barcode/(?P<id>[\w-]+)/$', QCAreaBarcodeGenerator.as_view(), name='qc_barcode'),
+    url(r'^crate-barcode/(?P<id>[\w-]+)/$', CrateBarcodeGenerator.as_view(), name='crate_barcode'),
+    url(r'^crate-autocomplete/$', CrateFilter.as_view(), name='crate-autocomplete'),
+    url(r'^non-mapped-qc-area-autocomplete/$', QCAreaNonMappedFilter.as_view(), name='non-mapped-qc-area-autocomplete'),
+    url(r'^qc-desk-autocomplete/$', QCDeskFilter.as_view(), name='qc-desk-autocomplete'),
+    url(r'^qc-executive-autocomplete/$', QCExecutiveFilter.as_view(), name='qc-executive-autocomplete'),
+    url(r'^non-mapped-qc-executive-autocomplete/$', QCExecutiveNonMappedFilter.as_view(),
+        name='non-mapped-qc-executive-autocomplete'),
+    url(r'^alternate-desk-autocomplete/$', AlternateDeskFilter.as_view(), name='alternate-desk-autocomplete'),
+    url(r'^users-autocomplete/$', UserFilter.as_view(), name='users-autocomplete'),
+
 ]

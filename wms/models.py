@@ -716,3 +716,98 @@ class QCArea(BaseTimestampUserModel):
     @property
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.area_id, self.area_barcode.url))
+
+
+class Crate(BaseTimestampUserModel):
+    STORAGE, PICKING, DISPATCH = 'SR', 'PK', 'DP'
+    CRATE_TYPE_CHOICES = Choices((DISPATCH, 'Dispatch'), (PICKING, 'Picking'), (STORAGE, 'Storage'))
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    zone = models.ForeignKey(Zone, null=True, blank=True, on_delete=models.DO_NOTHING)
+    crate_id = models.CharField(max_length=16, null=True, blank=True)
+    crate_type = models.CharField(max_length=50, choices=CRATE_TYPE_CHOICES)
+    crate_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
+    crate_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
+
+    def __str__(self):
+        return self.crate_id
+
+    def save(self, *args, **kwargs):
+
+        if not self.id:
+            last_crate = Crate.objects.filter(
+                crate_type=self.crate_type, warehouse=self.warehouse, zone=self.zone).last()
+            if not last_crate:
+                current_number = 0
+            else:
+                current_number = int(last_crate.crate_id[11:])
+            current_number += 1
+            self.crate_id = self.crate_type + str(self.warehouse.pk).zfill(6) + (str(
+                self.zone.pk).zfill(3) if self.zone else '000') + str(current_number).zfill(4)
+        super(Crate, self).save(*args, **kwargs)
+
+    @property
+    def barcode_image(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.crate_id, self.crate_barcode.url))
+
+
+class PickupCrate(BaseTimestampUserModel):
+    pickup = models.ForeignKey(Pickup, related_name='pickup_crates', on_delete=models.DO_NOTHING)
+    crate = models.ForeignKey(Crate, related_name='crates_pickup', on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()
+    is_in_use = models.BooleanField(default=True)
+
+
+
+class QCDesk(BaseTimestampUserModel):
+    """
+        Mapping model of Warehouse, QC Executive and QC Areas
+    """
+    desk_number = models.CharField(max_length=20, null=True, blank=True, editable=False)
+    name = models.CharField(max_length=30, null=True)
+    warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
+    qc_executive = models.ForeignKey(get_user_model(), related_name='qc_executive_desk_user', on_delete=models.CASCADE)
+    qc_areas = models.ManyToManyField(QCArea, related_name='qc_desk_areas')
+    desk_enabled = models.BooleanField(default=True)
+    alternate_desk = models.ForeignKey('self', null=True, blank=True, related_name='alternate_desk_list',
+                                       on_delete=models.DO_NOTHING, limit_choices_to={'desk_enabled': True}, )
+
+    class Meta:
+        permissions = (
+            ("can_have_qc_executive_permission", "Can have QC Executive Permission"),
+        )
+
+    def __str__(self):
+        return str(self.desk_number) + " - " + str(self.name)
+
+    class Meta:
+        verbose_name = "QC Desk"
+
+
+class QCDeskQCAreaAssignmentMapping(BaseTimestampUserModel):
+    """
+        Mapping model of QC Desk and QC Area where we maintain the last assigned QC Area for next assignment
+    """
+    qc_desk = models.ForeignKey(QCDesk, related_name="qc_desk_assigned_areas", on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, related_name='qc_area_assigned_desks', on_delete=models.DO_NOTHING)
+    token_id = models.CharField(max_length=30, null=True, blank=True)
+    area_enabled = models.BooleanField(default=True)
+    qc_done = models.BooleanField(default=True)
+    alternate_area = models.ForeignKey(QCArea, null=True, blank=True, on_delete=models.DO_NOTHING)
+    last_assigned_at = models.DateTimeField(verbose_name="Last Assigned At", null=True)
+
+    def __str__(self):
+        return str(self.qc_desk) + " - " + str(self.qc_area)
+
+    class Meta:
+        verbose_name = "QC Desk to Area Assignment Mapping"
+
+
+class QCDeskQCAreaAssignmentMappingTransactionLog(BaseTimestampUserModel):
+    """
+        Transaction logs where we maintain the history for the
+        QCDeskQCAreaAssignmentMapping model
+    """
+    qc_desk = models.ForeignKey(QCDesk, on_delete=models.DO_NOTHING)
+    qc_area = models.ForeignKey(QCArea, on_delete=models.DO_NOTHING)
+    token_id = models.CharField(max_length=30, null=True, blank=True)
+    qc_done = models.BooleanField(default=False)
