@@ -25,7 +25,7 @@ from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, 
                         PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
-                                  pos_check_permission, check_return_status)
+                                  pos_check_permission, check_return_status, pos_check_user_permission)
 
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
@@ -118,6 +118,7 @@ class PosProductView(GenericAPIView):
 
     @check_pos_shop
     @pos_check_permission_delivery_person
+    @pos_check_user_permission
     def put(self, request, *args, **kwargs):
         """
             Update product
@@ -126,6 +127,7 @@ class PosProductView(GenericAPIView):
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
+
         if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id', 'reason_for_update']):
             pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
             if 'error' in pos_shop_user_obj:
@@ -134,7 +136,7 @@ class PosProductView(GenericAPIView):
         if serializer.is_valid():
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
-            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type= data['product_name'], data['product_ean_code'], data[
+            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type = data['product_name'], data['product_ean_code'], data[
                 'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'] if 'online_enabled' in data else None, data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
             measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']

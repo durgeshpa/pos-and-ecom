@@ -2674,7 +2674,7 @@ class OrderCentral(APIView):
                 # elif user_type == 'cashier':
                 #     flag = True
                 if not flag:
-                    return api_response('Only MANAGER ,STORE and MANAGER can Cancel the order!')
+                    return api_response('You are not authorised to make this change!')
 
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
