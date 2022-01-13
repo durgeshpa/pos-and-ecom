@@ -3106,6 +3106,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+
     def __init__(self, *args, **kwargs):
         super(PosEcomOrderDetailSerializer,self).__init__( *args, **kwargs)
         self.total_mrp = 0.0

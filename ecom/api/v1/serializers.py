@@ -172,7 +172,6 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
 
-
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
             return 'Processing'
