@@ -1,4 +1,5 @@
 ### Django ###
+dump.rdb
 *.log
 *.pot
 *.pyc

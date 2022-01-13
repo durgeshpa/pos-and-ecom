@@ -20,7 +20,7 @@ from coupon.models import Coupon, Discount
 from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
-
+from tinymce.models import HTMLField
 SIZE_UNIT_CHOICES = (
     ('mm', 'Millimeter'),
     ('cm', 'Centimeter'),
@@ -165,7 +165,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         related_name='parent_product_updated_by',
         on_delete=models.DO_NOTHING
     )
-
+    product_discription = HTMLField(blank=True)
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:

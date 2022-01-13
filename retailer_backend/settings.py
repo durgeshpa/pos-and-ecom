@@ -147,6 +147,7 @@ INSTALLED_APPS = [
     'cms',
     'drf_yasg',
     'report',
+    'tinymce',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
