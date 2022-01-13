@@ -7298,6 +7298,9 @@ class DeliverBoysList(generics.GenericAPIView):
         warehouse = self.request.GET.get('warehouse')
         if warehouse:
             self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        id = self.request.GET.get('id')
+        if id:
+            self.queryset = self.queryset.filter(id=id)
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = self.user_search(self.queryset, search_text)
@@ -7432,6 +7435,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         dispatch_no = self.request.GET.get('dispatch_no')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
+        date = self.request.GET.get('date')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
         if search_text:
@@ -7460,6 +7464,9 @@ class DispatchTripsCrudView(generics.GenericAPIView):
 
         if trip_status:
             self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
 
         return self.queryset.distinct('id')
 
