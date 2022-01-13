@@ -1,6 +1,7 @@
 import math
 import datetime
 
+from django.db import transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -1427,3 +1428,97 @@ class ShipmentReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('id', 'return_reason')
+
+
+class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer()
+    buyer_shop = ShopSerializer()
+    dispatch_center = ShopSerializer()
+    shipping_address = AddressSerializer()
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'shipping_address',
+                  'order_status', 'received_by', 'created_at', 'modified_at')
+
+    def validate(self, data):
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if Order.objects.filter(id=self.initial_data['id']).exists():
+                order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+            else:
+                raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory")
+
+        if 'order_no' in self.initial_data and self.initial_data['order_no']:
+            order_no = self.initial_data['order_no']
+            if order_instance.order_no != order_no:
+                raise Exception("'order_no' | Invalid order_no for selected order.")
+
+        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
+            try:
+                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
+                if order_instance.seller_shop != seller_shop:
+                    raise Exception("'seller_shop' | Invalid seller_shop for selected order.")
+            except:
+                raise serializers.ValidationError("'seller_shop' | Invalid seller shop")
+
+        if 'buyer' in self.initial_data and self.initial_data['buyer']:
+            try:
+                buyer = User.objects.filter(
+                    id=self.initial_data['buyer']).last()
+                if order_instance.buyer != buyer:
+                    raise Exception("'buyer' | Invalid buyer for selected order.")
+            except:
+                raise serializers.ValidationError("Invalid buyer | User not found for " + str(self.initial_data['buyer']))
+
+        if 'order_status' not in self.initial_data and not self.initial_data['order_status']:
+            raise serializers.ValidationError("'order_status' | This is mandatory.")
+        order_status = self.initial_data['order_status']
+
+        if order_instance.order_status != Order.PAYMENT_PENDING or order_instance.order_status == order_status:
+            raise serializers.ValidationError(f"Order status can't update, already {str(order_instance.order_status)}")
+        if order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status not in [Order.PAYMENT_FAILED, 'PAYMENT_APPROVED', 'COD']:
+            raise serializers.ValidationError(
+                f"'order_status' | Order status can't be {str(order_status)} at the moment.")
+
+        if order_status == Order.PAYMENT_FAILED:
+            data['order_status'] = Order.PAYMENT_FAILED
+        elif order_status == 'COD':
+            data['order_status'] = Order.ORDERED
+        elif order_status == 'PAYMENT_APPROVED':
+            if 'payment_id' in self.initial_data and self.initial_data['payment_id']:
+                if Payment.objects.filter(id=self.initial_data['payment_id']).exists():
+                    payment_instance = Order.objects.filter(id=self.initial_data['id']).last()
+                else:
+                    raise serializers.ValidationError(f"Payment not found for Id {self.initial_data['id']}.")
+            else:
+                raise serializers.ValidationError("'payment_id' | This is mandatory")
+            data['order_status'] = Order.ORDERED
+
+        return data
+
+    def mark_payment_cod(self, order_instance):
+        pass
+
+    def mark_payment_payment_approved(self, order_instance):
+        pass
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update Order"""
+        try:
+            order_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        if self.initial_data['order_status'] == 'COD':
+            self.mark_payment_cod(order_instance)
+
+        if self.initial_data['order_status'] == 'PAYMENT_APPROVED':
+            self.mark_payment_payment_approved(order_instance)
+
+        return order_instance

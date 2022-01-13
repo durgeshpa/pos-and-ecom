@@ -81,6 +81,7 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from wms.common_validators import validate_data_format, validate_id
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.views import shipment_not_attempt_inventory_change
 from wms.views import shipment_reschedule_inventory_change
@@ -91,7 +92,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer)
+                          ShopSerializer, OrderPaymentStatusChangeSerializers)
 from .serializers import (ShipmentNotAttemptSerializer
                           )
 import math
@@ -6819,3 +6820,34 @@ class EcomPaymentFailureView(APIView):
 
     def post(self, request, *args, **kwags):
         return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})
+
+
+class OrderPaymentStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Order.objects.order_by('-id')
+    serializer_class = OrderPaymentStatusChangeSerializers
+
+    def put(self, request):
+        """ PUT API for Order Updation """
+
+        info_logger.info("Order PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return api_response(id_validation['error'])
+        order_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=order_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
