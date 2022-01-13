@@ -2223,7 +2223,8 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                     id=self.initial_data['id'], seller_shop=seller_shop, source_shop=source_shop,
                     destination_shop=destination_shop).last()
             if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
-                if dispatch_trip.trip_status != DispatchTrip.NEW:
+                if dispatch_trip.trip_status != DispatchTrip.NEW and \
+                        dispatch_trip.vehicle_no != self.initial_data['vehicle_no']:
                     raise serializers.ValidationError(f"vehicle no updation not allowed at trip status "
                                                       f"{dispatch_trip.trip_status}")
                 data['vehicle_no'] = self.initial_data['vehicle_no']
