@@ -10,8 +10,7 @@ from django.dispatch import receiver
 from accounts.models import User
 from common.common_utils import barcode_gen
 from retailer_to_sp.models import PickerDashboard
-from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping
-
+from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -67,5 +66,16 @@ def create_qc_area_barcode(sender, instance=None, created=False, update_fields=N
         instance.area_barcode_txt = '30' + str(instance.id).zfill(10)
         image = barcode_gen(str(instance.area_barcode_txt))
         instance.area_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.area_id, 'image/jpeg',
+                                                 sys.getsizeof(image), None)
+        instance.save()
+
+
+@receiver(post_save, sender=Crate)
+def create_crate_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """ Generates barcode_txt and bar_code image for QCArea"""
+    if created:
+        instance.crate_barcode_txt = '04' + str(instance.id).zfill(10)
+        image = barcode_gen(str(instance.crate_barcode_txt))
+        instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
         instance.save()
