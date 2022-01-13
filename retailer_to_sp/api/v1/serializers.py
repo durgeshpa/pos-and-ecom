@@ -1847,7 +1847,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 if status == shipment_status:
                     raise serializers.ValidationError(f'Shipment already in {status}')
                 elif status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
-                    if shipment_status != OrderedProduct.OUT_FOR_DELIVERY:
+                    if shipment_status != OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
                         raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
                     if shipment_status == OrderedProduct.RESCHEDULED:
                         if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
