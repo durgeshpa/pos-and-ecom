@@ -592,6 +592,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     amount_payable = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
     reward_detail = serializers.SerializerMethodField()
+    total_mrp = serializers.SerializerMethodField()
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -616,6 +617,16 @@ class CheckoutSerializer(serializers.ModelSerializer):
                 total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
         return total_amount
 
+    def get_total_mrp(self,obj):
+        total=0
+        for cart_pro in obj.rt_cart_list.all():
+            total  +=(cart_pro.retailer_product.mrp * cart_pro.qty)
+
+        return total
+
+
+
+
     def get_total_discount(self, obj):
         """
             Discounts applied on cart
@@ -639,7 +650,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
+        fields = ('id', 'total_mrp','total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
                   'reward_detail')
 
 
