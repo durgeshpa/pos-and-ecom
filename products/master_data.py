@@ -244,15 +244,8 @@ class UploadMasterData(object):
 
                     for col in fields:
                         if col in row.keys():
-                            # if row[col] != '':
-                            available_fields.append(col)
-
-                    parent_product_id = parent_product.last().id
-                    if parent_product_id not in parent_product_categorys:
-                        parent_product_categorys[parent_product_id] = []
-                        parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
-                        if parent_cat.exists():
-                            parent_cat.delete()
+                            if col == 'sub_category_id' or row[col] != '':
+                                available_fields.append(col)
 
                     for col in available_fields:
                         if col == 'brand_id':
@@ -263,6 +256,13 @@ class UploadMasterData(object):
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
 
                         if col == 'sub_category_id':
+                            parent_product_id = parent_product.last().id
+                            if parent_product_id not in parent_product_categorys:
+                                parent_product_categorys[parent_product_id] = []
+                                parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product.last())
+                                if parent_cat.exists():
+                                    parent_cat.delete()
+
                             if row['sub_category_id']:
                                 if int(row['sub_category_id']) not in parent_product_categorys[parent_product_id]:
                                     sub_category = Category.objects.get(id=int(row['sub_category_id']))
