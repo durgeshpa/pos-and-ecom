@@ -170,14 +170,7 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
-    PENDING = "pending"
-    APPROVED = "approved"
-    PAYMENT_STATUS = (
-        (PENDING, "pending"),
-        (APPROVED, "approved")
-    )
     type = models.CharField(max_length=20, unique=True)
-    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,)
     enabled = models.BooleanField(default=True)
     app = models.CharField(choices=(('pos', 'POS'), ('ecom', 'ECOM'), ('both', 'Both')), default='pos', max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -192,10 +185,19 @@ class PaymentType(models.Model):
 
 
 class Payment(models.Model):
+    PENDING = "pending"
+    APPROVED = "approved"
+    PAYMENT_STATUS = (
+        (PENDING, "pending"),
+        (APPROVED, "approved")
+    )
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
-    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment', on_delete=models.DO_NOTHING)
-    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True, help_text="Transaction ID for Non Cash Payments.")
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment',
+                                     on_delete=models.DO_NOTHING)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS, )
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
+                                      help_text="Transaction ID for Non Cash Payments.")
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,

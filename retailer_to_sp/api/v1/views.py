@@ -2607,6 +2607,44 @@ class ReservedOrder(generics.ListAPIView):
     #     pass
 
 
+class OrderPaymentStatus(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    """
+        allowed updates to order status
+    """
+    def put(self, request, *args, **kwargs):
+        """
+            allowed updates to order status
+        """
+        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
+        if app_type == '3':
+            return self.put_ecom_payment_status(request, *args, **kwargs)
+        else:
+            return api_response('Provide a valid app_type')
+
+    @check_pos_shop
+    def put_ecom_payment_status(self, request, *args, **kwargs):
+        """
+            Update ecom order status
+        """
+        with transaction.atomic():
+            # Check if order exists
+            try:
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'],
+                                                              seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type__in=['ECOM'])
+            except ObjectDoesNotExist:
+                return api_response('Order Not Found!')
+
+            payment_status = self.request.data.get('payment_status')
+            if payment_status not in [0, 1]:
+                return api_response("Please Provide A Valid Status To Update Order")
+
+            if order.order_status == Order.PAYMENT_PENDING:
+                pass
+
+
 class OrderCentral(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -3053,6 +3091,13 @@ class OrderCentral(APIView):
         except:
             return api_response("Invalid Payment Method")
 
+        if not payment_id == 1:
+            if not self.request.data.get('payment_status'):
+                return api_response("Please provide online payment status")
+
+            elif not self.request.data.get('payment_status') in ['pending', 'approved']:
+                return api_response("Please provide valid online payment status")
+
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         if order_config.value is not None:
@@ -3100,7 +3145,8 @@ class OrderCentral(APIView):
                 {
                     "payment_type": payment_id,
                     "amount": order.order_amount,
-                    "transaction_id": ""
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status')
                 }
             ]
             self.auto_process_order(order, payments, 'ecom')
@@ -3392,12 +3438,12 @@ class OrderCentral(APIView):
         order.seller_shop = shop
         order.received_by = cart.buyer
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
+        order.order_status = Order.ORDERED
         if cart.cart_type == 'ECOM':
             if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() not \
                     in ['cash', 'cash on delivery', 'cash on delivery', 'cash on delivery']:
-                order.order_status = Order.PAYMENT_PENDING
-        else:
-            order.order_status = Order.ORDERED
+                if self.request.data.get('payment_status') == 'pending':
+                    order.order_status = Order.PAYMENT_PENDING
         order.save()
 
         if address:
@@ -3591,7 +3637,8 @@ class OrderCentral(APIView):
                 transaction_id=payment['transaction_id'],
                 paid_by=order.buyer,
                 processed_by=self.request.user,
-                amount=payment['amount']
+                amount=payment['amount'],
+                payment_status=payment['payment_status'],
             )
 
     def auto_process_pos_order(self, order):
