@@ -490,8 +490,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
                            | Q(retailer_product__name__icontains=search_text)
                            | Q(retailer_product__product_ean_code__icontains=search_text))
 
-        if self.context.get('request'):
-            qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
+        # if self.context.get('request'):
+        #     qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
 
         # Order Cart In Purchased And Free Products
         cart_products = BasicCartProductMappingSerializer(qs, many=True, context=self.context).data
