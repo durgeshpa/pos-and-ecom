@@ -3309,7 +3309,7 @@ class ShipmentPackagingBatch(BaseTimestampUserModel):
 
 class DispatchTrip(BaseTimestampUserModel):
     NEW, STARTED, COMPLETED = 'NEW', 'STARTED', 'COMPLETED'
-    UNLOADING, CLOSED, CANCELLED = 'UNLOADING', 'CLOSED', 'CANCELLED'
+    UNLOADING, CLOSED, VERIFIED, CANCELLED = 'UNLOADING', 'CLOSED', 'VERIFIED', 'CANCELLED'
 
     DISPATCH_TRIP_STATUS = (
         (NEW, 'New'),
@@ -3317,6 +3317,7 @@ class DispatchTrip(BaseTimestampUserModel):
         (COMPLETED, 'Completed'),
         (UNLOADING, 'Unloading'),
         (CLOSED, 'Closed'),
+        (VERIFIED, 'Verified'),
         (CANCELLED, 'Cancelled'),
     )
 
