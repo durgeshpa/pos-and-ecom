@@ -3444,7 +3444,14 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
             data['trip_status'] = Trip.READY
         return data
 
-    def shipments_added_to_trip(self, last_mile_trip):
+    def mark_shipments_as_out_for_delivery_on_trip_start(self, last_mile_trip):
+        shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
+        for shipment_detail in shipment_details:
+            if shipment_detail.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                shipment_detail.shipment.shipment_status = OrderedProduct.OUT_FOR_DELIVERY
+                shipment_detail.shipment.save()
+
+    def mark_shipments_as_fully_delivered_and_completed_on_trip_complete(self, last_mile_trip):
         shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
         for shipment_detail in shipment_details:
             if shipment_detail.shipment.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
@@ -3482,7 +3489,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         if validated_data['trip_status'] == Trip.STARTED:
-            self.shipments_added_to_trip(trip_instance)
+            self.mark_shipments_as_out_for_delivery_on_trip_start(trip_instance)
+
+        if validated_data['trip_status'] == Trip.COMPLETED:
+            self.mark_shipments_as_fully_delivered_and_completed_on_trip_complete(trip_instance)
 
         if validated_data['trip_status'] == Trip.CANCELLED:
             self.cancel_added_shipments_to_trip(trip_instance)
@@ -3765,8 +3775,7 @@ class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
                     packaging_type=ShipmentPackaging.CRATE).exists():
                 return True
-            return False
-        return None
+        return False
 
     class Meta:
         model = OrderedProduct
