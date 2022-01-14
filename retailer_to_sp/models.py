@@ -872,6 +872,8 @@ class Order(models.Model):
     ORDERED = 'ordered'
     PAYMENT_PENDING = 'PAYMENT_PENDING'
     PAYMENT_FAILED = 'PAYMENT_FAILED'
+    PAYMENT_APPROVED = 'PAYMENT_APPROVED'
+    PAYMENT_COD = 'PAYMENT_COD'
     PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
     OPDP = 'opdp'
     DISPATCHED = 'dispatched'
@@ -908,6 +910,8 @@ class Order(models.Model):
         (DISPATCHED, "Dispatched"),
         (PAYMENT_PENDING, "Payment Pending"),
         (PAYMENT_FAILED, "Payment Failed"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_COD, "Payment COD"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),

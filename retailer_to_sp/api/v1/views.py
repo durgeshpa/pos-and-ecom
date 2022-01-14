@@ -3449,9 +3449,8 @@ class OrderCentral(APIView):
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         if cart.cart_type == 'ECOM':
-            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() not \
-                    in ['cash', 'cash on delivery', 'cash on delivery', 'cash on delivery']:
-                if self.request.data.get('payment_status') == 'pending':
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
+                if self.request.data.get('payment_status') == 'payment_pending':
                     order.order_status = Order.PAYMENT_PENDING
         order.save()
 
@@ -6837,7 +6836,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
     queryset = Order.objects.order_by('-id')
     serializer_class = OrderPaymentStatusChangeSerializers
 
-    def put(self, request):
+    def put(self, request, *args, **kwargs):
         """
             allowed updates to order status
         """
@@ -6854,7 +6853,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         """
             Update ecom order
         """
-
+        shop = kwargs['shop']
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -6863,7 +6862,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             return api_response('please provide id to update order')
 
         try:
-            order = Order.objects.select_for_update().get(pk=int(modified_data['id']), ordered_cart__cart_type='ECOM',
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM',
                                                           buyer=self.request.user)
         except ObjectDoesNotExist:
             return api_response('Order Not Found!')
