@@ -2230,6 +2230,12 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                 data['vehicle_no'] = self.initial_data['vehicle_no']
         else:
             if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if (DispatchTrip.objects.filter(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED],
+                                                vehicle_no=self.initial_data['vehicle_no']).exists() or
+                        Trip.objects.filter(trip_status__in=[Trip.READY, Trip.STARTED],
+                                            vehicle_no=self.initial_data['vehicle_no']).exists()):
+                    raise serializers.ValidationError(f"This vehicle {self.initial_data['vehicle_no']} is already "
+                                                      f"in use for another trip ")
                 data['vehicle_no'] = self.initial_data['vehicle_no']
             else:
                 raise serializers.ValidationError("'vehicle_no' | This is mandatory")
@@ -3363,11 +3369,6 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
-            data['vehicle_no'] = self.initial_data['vehicle_no']
-        else:
-            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
-
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
             try:
                 seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
@@ -3460,7 +3461,25 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                             "The trip can not return verified until and unless all shipments get verified.")
             else:
                 raise serializers.ValidationError("'trip_status' | This is mandatory")
+
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if trip_instance.trip_status != Trip.READY and \
+                        trip_instance.vehicle_no != self.initial_data['vehicle_no']:
+                    raise serializers.ValidationError(f"vehicle no updation not allowed at trip status "
+                                                      f"{trip_instance.trip_status}")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
         else:
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if (DispatchTrip.objects.filter(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED],
+                                                vehicle_no=self.initial_data['vehicle_no']).exists() or
+                        Trip.objects.filter(trip_status__in=[Trip.READY, Trip.STARTED],
+                                            vehicle_no=self.initial_data['vehicle_no']).exists()):
+                    raise serializers.ValidationError(f"This vehicle {self.initial_data['vehicle_no']} is already "
+                                                      f"in use for another trip ")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+            else:
+                raise serializers.ValidationError("'vehicle_no' | This is mandatory")
+
             data['trip_status'] = Trip.READY
         return data
 
