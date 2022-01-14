@@ -1434,19 +1434,16 @@ class ShipmentReturnSerializer(serializers.ModelSerializer):
 
 class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer()
-    buyer_shop = ShopSerializer()
-    dispatch_center = ShopSerializer()
-    shipping_address = AddressSerializer()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'shipping_address',
-                  'order_status', 'received_by', 'created_at', 'modified_at')
+        fields = ('id', 'order_no', 'seller_shop', 'order_status', 'received_by', 'created_at', 'modified_at')
 
     def validate(self, data):
 
         if 'id' in self.initial_data and self.initial_data['id']:
-            if Order.objects.filter(id=self.initial_data['id']).exists():
+            if Order.objects.filter(id=self.initial_data['id'],
+                                    ordered_cart__cart_type='ECOM').exists():
                 order_instance = Order.objects.filter(id=self.initial_data['id']).last()
             else:
                 raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
@@ -1458,33 +1455,18 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
             if order_instance.order_no != order_no:
                 raise Exception("'order_no' | Invalid order_no for selected order.")
 
-        if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
-            try:
-                seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
-                if order_instance.seller_shop != seller_shop:
-                    raise Exception("'seller_shop' | Invalid seller_shop for selected order.")
-            except:
-                raise serializers.ValidationError("'seller_shop' | Invalid seller shop")
-
-        if 'buyer' in self.initial_data and self.initial_data['buyer']:
-            try:
-                buyer = User.objects.filter(
-                    id=self.initial_data['buyer']).last()
-                if order_instance.buyer != buyer:
-                    raise Exception("'buyer' | Invalid buyer for selected order.")
-            except:
-                raise serializers.ValidationError("Invalid buyer | User not found for " + str(self.initial_data['buyer']))
-
         if 'order_status' not in self.initial_data and not self.initial_data['order_status']:
             raise serializers.ValidationError("'order_status' | This is mandatory.")
         order_status = self.initial_data['order_status']
 
-        if order_instance.order_status != Order.PAYMENT_PENDING or order_instance.order_status == order_status:
-            raise serializers.ValidationError(f"Order status can't update, already {str(order_instance.order_status)}")
+        if order_instance.order_status not in [Order.PAYMENT_PENDING, Order.PAYMENT_FAILED] or \
+                order_instance.order_status == order_status:
+            raise serializers.ValidationError(f"Order status can't update")
+
         if order_instance.order_status == Order.PAYMENT_PENDING and \
                 order_status not in [Order.PAYMENT_FAILED, 'PAYMENT_APPROVED', 'COD']:
             raise serializers.ValidationError(
-                f"'order_status' | Order status can't be {str(order_status)} at the moment.")
+                f"Please Provide valid Payment status")
 
         if PosPayment.objects.filter(id=self.initial_data['payment_id']).exists():
             payment_instance = PosPayment.objects.filter(id=self.initial_data['payment_id']).last()

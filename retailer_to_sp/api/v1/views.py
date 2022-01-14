@@ -6833,14 +6833,28 @@ class EcomPaymentFailureView(APIView):
 
 class OrderPaymentStatusChangeView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
     queryset = Order.objects.order_by('-id')
     serializer_class = OrderPaymentStatusChangeSerializers
 
     def put(self, request):
-        """ PUT API for Order Updation """
-
+        """
+            allowed updates to order status
+        """
         info_logger.info("Order PUT api called.")
+        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
+
+        if app_type == '3':
+            return self.put_ecom_order_status(request, *args, **kwargs)
+        else:
+            return api_response('Provide a valid app_type')
+
+    @check_pos_shop
+    def put_ecom_order_status(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -6848,13 +6862,13 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         if 'id' not in modified_data:
             return api_response('please provide id to update order')
 
-        # validations for input id
-        id_validation = validate_id(self.queryset, int(modified_data['id']))
-        if 'error' in id_validation:
-            return api_response(id_validation['error'])
-        order_instance = id_validation['data'].last()
+        try:
+            order = Order.objects.select_for_update().get(pk=int(modified_data['id']), ordered_cart__cart_type='ECOM',
+                                                          buyer=self.request.user)
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order_instance, data=modified_data)
+        serializer = self.serializer_class(instance=order, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
