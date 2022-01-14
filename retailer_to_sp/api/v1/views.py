@@ -3088,16 +3088,19 @@ class OrderCentral(APIView):
             return api_response("Please add items to proceed to order")
 
         try:
-            payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
+            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
         except:
             return api_response("Invalid Payment Method")
 
-        if not payment_id == 1:
-            if not self.request.data.get('payment_status'):
-                return api_response("Please provide online payment status")
+        if not payment_type_id == 4:
+            if not self.request.data.get('payment_status') or not self.request.data.get('payment_mode'):
+                return api_response("Please provide online payment status and mode.")
 
-            elif not self.request.data.get('payment_status') in ['pending', 'approved']:
+            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
                 return api_response("Please provide valid online payment status")
+
+            if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
+                return api_response("Please provide valid online payment mode")
 
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
@@ -3141,13 +3144,14 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_id)
+            order = self.create_basic_order(cart, shop, address, payment_type_id)
             payments = [
                 {
-                    "payment_type": payment_id,
+                    "payment_type": payment_type_id,
                     "amount": order.order_amount,
                     "transaction_id": "",
-                    "payment_status": self.request.data.get('payment_status')
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
                 }
             ]
             self.auto_process_order(order, payments, 'ecom')
@@ -3299,6 +3303,10 @@ class OrderCentral(APIView):
                 return {'error': "Invalid Payment Amount"}
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
+            if "payment_status" not in payment_method:
+                payment_method['payment_status'] = None
+            if "payment_mode" not in payment_method:
+                payment_method['payment_mode'] = None
         if not cash_only:
             if round(math.floor(amount), 2) != math.floor(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -3640,6 +3648,7 @@ class OrderCentral(APIView):
                 processed_by=self.request.user,
                 amount=payment['amount'],
                 payment_status=payment['payment_status'],
+                payment_mode=payment['payment_mode']
             )
 
     def auto_process_pos_order(self, order):

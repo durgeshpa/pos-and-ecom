@@ -10,6 +10,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import UserWithName
+from pos.models import PaymentType
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
@@ -19,6 +20,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
                                      Payment as GramMappedPayment)
+from pos.models import Payment as PosPayment
 from coupon.models import Coupon
 from sp_to_gram.models import OrderedProductMapping
 from gram_to_brand.models import GRNOrderProductMapping
@@ -1484,41 +1486,79 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"'order_status' | Order status can't be {str(order_status)} at the moment.")
 
+        if PosPayment.objects.filter(id=self.initial_data['payment_id']).exists():
+            payment_instance = PosPayment.objects.filter(id=self.initial_data['payment_id']).last()
+        else:
+            raise serializers.ValidationError(f"Payment not found for Id {self.initial_data['id']}.")
+
+        if payment_instance.order != order_instance:
+            raise serializers.ValidationError(f"Invalid payment {payment_instance} for the order {order_instance}")
+
+        if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
+            raise serializers.ValidationError("'payment_type_id' | This is mandatory")
+        payment_type_instance = PaymentType.objects.filter(id=int(self.initial_data['payment_type_id'])).last()
+        if not payment_type_instance:
+            raise serializers.ValidationError(f"'payment_type_id' | "
+                                              f"{self.initial_data['payment_type_id']} not found.")
+
+        if order_instance.order_app_type == Order.POS_WALKIN:
+            if payment_type_instance.app != 'pos':
+                raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                  f"{self.initial_data['payment_type_id']}.")
+        if order_instance.order_app_type == Order.POS_ECOMM:
+            if payment_type_instance.app != 'ecom':
+                raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                  f"{self.initial_data['payment_type_id']}.")
+
+        transaction_id = ""
+        if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
+            transaction_id = self.initial_data['transaction_id']
+
+        payment_status = None
+        payment_mode = None
         if order_status == Order.PAYMENT_FAILED:
+            payment_status = PosPayment.PAYMENT_FAILED
             data['order_status'] = Order.PAYMENT_FAILED
         elif order_status == 'COD':
             data['order_status'] = Order.ORDERED
         elif order_status == 'PAYMENT_APPROVED':
-            if 'payment_id' in self.initial_data and self.initial_data['payment_id']:
-                if Payment.objects.filter(id=self.initial_data['payment_id']).exists():
-                    payment_instance = Order.objects.filter(id=self.initial_data['id']).last()
-                else:
-                    raise serializers.ValidationError(f"Payment not found for Id {self.initial_data['id']}.")
-            else:
-                raise serializers.ValidationError("'payment_id' | This is mandatory")
+            if payment_type_instance.type == 'online':
+                if 'payment_mode' not in self.initial_data or not self.initial_data['payment_mode']:
+                    raise serializers.ValidationError("'payment_mode' | This is mandatory")
+                if not any(self.initial_data['payment_mode'] in i for i in PosPayment.MODE_CHOICES):
+                    raise serializers.ValidationError(f"'payment_mode' | Invalid choice "
+                                                      f"{self.initial_data['payment_mode']}.")
+                payment_mode = self.initial_data['payment_mode']
+            payment_status = PosPayment.PAYMENT_APPROVED
             data['order_status'] = Order.ORDERED
 
+        data['payment_instance'] = payment_instance
+        data['payment'] = {}
+        data['payment']['order'] = order_instance
+        data['payment']['payment_type'] = payment_type_instance
+        data['payment']['payment_status'] = payment_status
+        data['payment']['payment_mode'] = payment_mode
+        data['payment']['transaction_id'] = transaction_id
+
         return data
-
-    def mark_payment_cod(self, order_instance):
-        pass
-
-    def mark_payment_payment_approved(self, order_instance):
-        pass
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Order"""
+        payment_instance = validated_data.pop("payment_instance", None)
+        payment_obj = validated_data.pop("payment", None)
         try:
             order_instance = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if self.initial_data['order_status'] == 'COD':
-            self.mark_payment_cod(order_instance)
-
-        if self.initial_data['order_status'] == 'PAYMENT_APPROVED':
-            self.mark_payment_payment_approved(order_instance)
+        if payment_instance:
+            payment_instance.order = payment_obj['order']
+            payment_instance.payment_type = payment_obj['payment_type']
+            payment_instance.payment_status = payment_obj['payment_status']
+            payment_instance.payment_mode = payment_obj['payment_mode']
+            payment_instance.transaction_id = payment_obj['transaction_id']
+            payment_instance.save()
 
         return order_instance

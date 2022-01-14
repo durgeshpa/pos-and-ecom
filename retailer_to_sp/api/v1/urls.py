@@ -9,7 +9,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, NotAttemptReason
+                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, NotAttemptReason,
+                    OrderPaymentStatusChangeView
                     )
 
 router = routers.DefaultRouter()
@@ -81,7 +82,8 @@ urlpatterns = [
         DownloadCreditNoteDiscounted.as_view(),
         name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
-    url(r'^ordered-product/$', OrderedProductViewSet.as_view())
+    url(r'^ordered-product/$', OrderedProductViewSet.as_view()),
+    url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
 ]
 
 urlpatterns += router.urls
