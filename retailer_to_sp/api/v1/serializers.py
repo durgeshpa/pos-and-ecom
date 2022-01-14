@@ -2258,6 +2258,12 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                 data['vehicle_no'] = self.initial_data['vehicle_no']
         else:
             if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if (DispatchTrip.objects.filter(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED],
+                                                vehicle_no=self.initial_data['vehicle_no']).exists() or
+                        Trip.objects.filter(trip_status__in=[Trip.READY, Trip.STARTED],
+                                            vehicle_no=self.initial_data['vehicle_no']).exists()):
+                    raise serializers.ValidationError(f"This vehicle {self.initial_data['vehicle_no']} is already "
+                                                      f"in use for another trip ")
                 data['vehicle_no'] = self.initial_data['vehicle_no']
             else:
                 raise serializers.ValidationError("'vehicle_no' | This is mandatory")
@@ -2730,18 +2736,13 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
 class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
     packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
-    trip_packaging_details = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
     status = ChoicesSerializer(choices=ShipmentPackaging.DISPATCH_STATUS_CHOICES, required=True)
     crate = CrateSerializer(read_only=True)
     packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
-    shipment = DispatchShipmentSerializers(read_only=True)
-    created_by = UserSerializers(read_only=True)
-    updated_by = UserSerializers(read_only=True)
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'return_remark', 'reason_for_rejection',
-                  'packaging_details', 'trip_packaging_details', 'created_by', 'updated_by',)
+        fields = ('id', 'packaging_type', 'crate', 'status', 'return_remark', 'reason_for_rejection','packaging_details')
 
     def validate(self, data):
 
@@ -2764,6 +2765,15 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
             data['shipment'] = shipment
         else:
             raise serializers.ValidationError("'shipment_id' | This is mandatory")
+
+        if 'trip_id' in self.initial_data and self.initial_data['trip_id']:
+            if not Trip.objects.filter(id=self.initial_data['trip_id'],  trip_status=Trip.COMPLETED).exists():
+                raise serializers.ValidationError("'Trip' | Invalid trip.")
+            trip = Trip.objects.filter(id=self.initial_data['trip_id'],  trip_status=Trip.COMPLETED).last()
+            if not LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=shipment).exists():
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected trip")
+        else:
+            raise serializers.ValidationError("'trip_id' | This is mandatory")
 
         if 'status' in self.initial_data and self.initial_data['status']:
             if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.OK:
@@ -2827,7 +2837,9 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
     created_date = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return DispatchTripSerializers(obj.trip_shipment.last().trip).data if obj.trip_shipment.exists() else None
+        return DispatchTripSerializers(obj.trip_shipment.last().trip).data \
+                if obj.trip_shipment.filter(shipment_status__in=[
+                                                 DispatchTripShipmentMapping.LOADED_FOR_DC]).exists() else None
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
@@ -3391,11 +3403,6 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
-            data['vehicle_no'] = self.initial_data['vehicle_no']
-        else:
-            raise serializers.ValidationError("'vehicle_no' | This is mandatory")
-
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
             try:
                 seller_shop = Shop.objects.get(id=self.initial_data['seller_shop'], shop_type__shop_type='sp')
@@ -3488,7 +3495,25 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                             "The trip can not return verified until and unless all shipments get verified.")
             else:
                 raise serializers.ValidationError("'trip_status' | This is mandatory")
+
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if trip_instance.trip_status != Trip.READY and \
+                        trip_instance.vehicle_no != self.initial_data['vehicle_no']:
+                    raise serializers.ValidationError(f"vehicle no updation not allowed at trip status "
+                                                      f"{trip_instance.trip_status}")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
         else:
+            if 'vehicle_no' in self.initial_data and self.initial_data['vehicle_no']:
+                if (DispatchTrip.objects.filter(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED],
+                                                vehicle_no=self.initial_data['vehicle_no']).exists() or
+                        Trip.objects.filter(trip_status__in=[Trip.READY, Trip.STARTED],
+                                            vehicle_no=self.initial_data['vehicle_no']).exists()):
+                    raise serializers.ValidationError(f"This vehicle {self.initial_data['vehicle_no']} is already "
+                                                      f"in use for another trip ")
+                data['vehicle_no'] = self.initial_data['vehicle_no']
+            else:
+                raise serializers.ValidationError("'vehicle_no' | This is mandatory")
+
             data['trip_status'] = Trip.READY
         return data
 
@@ -3990,15 +4015,10 @@ class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
 
 class PackagesUnderTripSerializer(serializers.ModelSerializer):
     packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
-    status = serializers.SerializerMethodField()
+    status = ChoicesSerializer(choices=ShipmentPackaging.DISPATCH_STATUS_CHOICES)
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
     shipment = ShipmentSerializerForDispatch(read_only=True)
-
-    @staticmethod
-    def get_status(obj):
-        return obj.get_status_display()
-
 
     @staticmethod
     def get_reason_for_rejection(obj):
@@ -4006,7 +4026,7 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details')
 
 
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):

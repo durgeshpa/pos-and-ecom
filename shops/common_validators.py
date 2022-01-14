@@ -891,3 +891,39 @@ def get_psu_mapping(user, shop):
         return {'error': 'Shop User mapping already exist with the provided shop and user.'}
     else:
         return {'data': "No mapping found"}
+
+
+def get_logged_user_wise_query_set_to_filter_warehouse(user, queryset):
+    '''
+        GET Logged-in user wise queryset for dispatch center based on criteria that matches
+    '''
+    warehouse = None
+    shop = user.shop_employee.all().last().shop
+    if shop and shop.shop_type.shop_type == 'sp':
+        warehouse = shop
+    elif shop and shop.retiler_mapping.last().parent.shop_type.shop_type == 'sp':
+        warehouse = shop.retiler_mapping.last().parent
+    if warehouse and (user.has_perm('wms.can_have_zone_warehouse_permission') or
+                      user.groups.filter(name='Dispatch Executive')):
+        queryset = queryset.filter(retiler_mapping__parent=warehouse)
+    else:
+        queryset = queryset.none()
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_seller_shop(user, queryset):
+    '''
+        GET Logged-in user wise queryset for dispatch center based on criteria that matches
+    '''
+    warehouse = None
+    shop = user.shop_employee.all().last().shop
+    if shop and shop.shop_type.shop_type == 'sp':
+        warehouse = shop
+    elif shop and shop.retiler_mapping.last().parent.shop_type.shop_type == 'sp':
+        warehouse = shop.retiler_mapping.last().parent
+    if warehouse and (user.has_perm('wms.can_have_zone_warehouse_permission') or
+                      user.groups.filter(name='Dispatch Executive')):
+        queryset = queryset.filter(id=warehouse.id)
+    else:
+        queryset = queryset.none()
+    return queryset
