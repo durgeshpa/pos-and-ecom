@@ -3223,8 +3223,8 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid Package ID")
 
         # Check for package status
-        if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED:
-            raise serializers.ValidationError(f"Package is in {package.status} state, Can't be unloaded")
+        # if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED:
+        #     raise serializers.ValidationError(f"Package is in {package.status} state, Can't be unloaded")
 
         # Check if invoice loading already completed
         if DispatchTripShipmentMapping.objects.filter(
@@ -3304,10 +3304,8 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             Update shipment_health to OKAY/FULLY_DAMAGED/FULLY_MISSING accordingly
         """
         shipment = trip_shipment.shipment
-        if trip_shipment.trip_shipment_mapped_packages.filter(package_status__in=[
-            DispatchTripShipmentPackages.UNLOADED, DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING,
-            DispatchTripShipmentPackages.MISSING_AT_UNLOADING]).count() == shipment.shipment_packaging\
-                .filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED).count():
+        if not trip_shipment.trip_shipment_mapped_packages.filter(
+                package_status=DispatchTripShipmentPackages.LOADED).exists():
             trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
 
             # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly

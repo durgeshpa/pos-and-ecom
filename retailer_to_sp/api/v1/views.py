@@ -8380,10 +8380,7 @@ class UnloadVerifyPackageView(generics.GenericAPIView):
         trip_shipment_package = shipment_validation['data']
 
         serializer = self.serializer_class(instance=trip_shipment_package, data=modified_data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
 
-        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Package unloaded Successfully.")
