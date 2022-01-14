@@ -1242,12 +1242,14 @@ class ProductVendorMappingExportAsCSVSerializers(serializers.ModelSerializer):
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
+        ref_name = 'Shop City v1'
         fields = ('id', 'city_name',)
 
 
 class PinCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
+        ref_name = 'Pin Code Serializer v1'
         fields = ('id', 'pincode',)
 
 

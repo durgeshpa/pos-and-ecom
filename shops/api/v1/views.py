@@ -227,19 +227,26 @@ class ShopDocumentView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        user_shops = Shop.objects.filter(shop_owner=self.request.user)
-        queryset = ShopDocument.objects.filter(shop_name__in=user_shops)
+        user_shops = Shop.objects.filter(shop_owner=self.request.user).values_list('id', flat=True)
+        queryset = ShopDocument.objects.filter(shop_name__id__in=list(user_shops))
         shop_id = self.request.query_params.get('shop_id', None)
         if shop_id is not None:
             queryset = queryset.filter(shop_name=shop_id)
         return queryset
 
     def create(self, request, *args, **kwargs):
+        validated_data = self.check_validate_data(request.data)
+        if validated_data is None:
+            msg = {'is_success': True,
+                   'message': ["Documents uploaded successfully"],
+                   'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True,
-                   'message': ["Images uploaded successfully"],
+                   'message': ["Documents uploaded successfully"],
                    'response_data': None}
             return Response(msg,
                             status=status.HTTP_200_OK)
@@ -266,6 +273,17 @@ class ShopDocumentView(generics.ListCreateAPIView):
                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+    def check_validate_data(self, data):
+
+        if 'shop_document_type' in data and (data['shop_document_type'] == ShopDocument.UIDAI or \
+                data['shop_document_type'] == ShopDocument.PASSPORT or data['shop_document_type'] == ShopDocument.DL \
+                or data['shop_document_type'] == ShopDocument.EC):
+            if 'shop_document_number' not in data or not data['shop_document_number']:
+                data = None
+        elif 'shop_document_type' not in data:
+            data = None
+        return data
 
 
 class ShopView(generics.ListCreateAPIView):
@@ -607,8 +625,9 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values(
-            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').order_by('shop__shop_name')
+        shop_list = list(shop_user_obj.values(
+            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').distinct('shop'))
+        shop_list = sorted(shop_list, key=lambda a: a['shop__shop_name'])
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -987,10 +1006,19 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :param kwargs: keyword argument
         :return: Beat Plan for Sales executive otherwise error message
         """
+        if self.request.user.user_type == 7:
+            try:
+                if self.request.GET['executive_id']:
+                    executive = User.objects.filter(id = int(self.request.GET['executive_id'])).last()
+            except Exception as e:
+                return Response({"detail": messages.ERROR_MESSAGES["4020"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+        else:
+            executive = self.request.user
         try:
             if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
-                beat_user = self.queryset.filter(executive=self.request.user,
-                                                 executive__user_type=self.request.user.user_type,
+                beat_user = self.queryset.filter(executive=executive,
+                                                 executive__user_type=executive.user_type,
                                                  executive__is_active=True)
                 if beat_user.exists():
                     try:
@@ -1023,11 +1051,13 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                     status=status.HTTP_200_OK)
             else:
                 try:
-                    queryset = BeatPlanning.objects.filter(status=True)
-                    beat_user = queryset.filter(executive=self.request.user,
-                                                executive__user_type=self.request.user.user_type,
+                    queryset = self.queryset
+                    if self.request.user.user_type == 6:
+                        queryset = BeatPlanning.objects.filter(status=True)
+                    beat_user = queryset.filter(executive=executive,
+                                                executive__user_type=executive.user_type,
                                                 executive__is_active=True)
-                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan__in=beat_user,
                                                                    next_plan_date=self.request.GET[
                                                                        'next_plan_date'])
                 except Exception as error:
@@ -1121,7 +1151,7 @@ def set_shop_map_cron():
         for beat in beat_plan:
             next_plan_date = datetime.today()
             day_beat_plan = DayBeatPlanning.objects.filter(
-                beat_plan=beat, next_plan_date=next_plan_date)
+                beat_plan=beat, next_plan_date=next_plan_date,status=True)
             for day_beat in day_beat_plan:
                 ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
     except Exception as error:
@@ -1185,3 +1215,35 @@ class PosShopUserMappingView(generics.GenericAPIView):
             serializer.update(kwargs['pk'], serializer.data)
             return get_response('User Mapping Updated Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
+
+
+class UserDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop User Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.UIDAI, "Aadhaar Card"), (ShopDocument.PASSPORT, "Passport"),
+                                               (ShopDocument.DL, "Driving Licence"), (ShopDocument.EC, "Election Card")]]
+        msg = [""]
+        return get_response(msg, data, True)
+
+
+class ShopDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
+                                               (ShopDocument.DRUG_L, 'Drug License'),
+                                               (ShopDocument.ELE_BILL, "Shop Electricity Bill"),
+                                               (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
+                                               # (ShopDocument.SLN, "Shop License No"),
+                                               (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
+        msg = [""]
+        return get_response(msg, data, True)

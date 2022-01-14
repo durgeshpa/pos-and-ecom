@@ -1,3 +1,5 @@
+import codecs
+import csv
 import datetime
 import json
 import logging
@@ -20,7 +22,7 @@ from rest_framework.views import APIView
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
 from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
-                        PaymentType, MeasurementCategory, PosReturnGRNOrder)
+                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status)
@@ -45,8 +47,10 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,)
 from global_config.views import get_config
+from ...forms import RetailerProductsStockUpdateForm
+from ...views import stock_update
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1498,3 +1502,52 @@ class StockUpdateReasonListView(GenericAPIView):
         data = [dict(zip(fields, d)) for d in PosInventoryChange.REMARKS_CHOICES]
         return api_response("", data, status.HTTP_200_OK, True)
 
+
+class CreateBulkProductView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = BulkRetailerProduct.objects.all()
+    serializer_class = BulkProductUploadSerializers
+
+    @check_pos_shop
+    def post(self, request, *args,  **kwargs):
+        """ POST API for Create/update Bulk Product """
+        shop = kwargs['shop']
+        info_logger.info("BulkSlabProductPriceView POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            success, data = serializer.save(uploaded_by=request.user, seller_shop_id=shop.pk)
+            if success:
+                data = "Product Uploaded Successfully"
+                info_logger.info("CreateBulkProductView upload successfully")
+            return api_response(data, success=success)
+        return api_response(serializer_error(serializer), False)
+
+
+class UpdateInventoryStockView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    @check_pos_shop
+    def post(self, request, *args,  **kwargs):
+        """ POST API for Create/update Bulk Product """
+        shop = kwargs['shop']
+        info_logger.info("UpdateInventoryStockView POST api called.")
+        updated_request = request.POST.copy()
+        updated_request.update({'shop': shop.id})
+        form = RetailerProductsStockUpdateForm(updated_request, request.FILES, shop_id=str(shop.id))
+        if form.is_valid():
+            reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
+            header = next(reader, None)
+            uploaded_data_list = []
+            csv_dict = {}
+            count = 0
+            for id, row in enumerate(reader):
+                for ele in row:
+                    csv_dict[header[count]] = ele
+                    count += 1
+                uploaded_data_list.append(csv_dict)
+                csv_dict = {}
+                count = 0
+            stock_update(request, uploaded_data_list)
+            info_logger.info("Stock updated successfully")
+            return api_response("Stock updated successfully", success=True)
+        return api_response(serializer_error(form), False)

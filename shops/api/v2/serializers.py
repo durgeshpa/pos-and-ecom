@@ -253,6 +253,7 @@ class StateAddressSerializer(serializers.ModelSerializer):
 class PincodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
+        ref_name = 'Pin Code Serializer v2'
         fields = '__all__'
 
 
@@ -307,6 +308,7 @@ class AddressSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = 'User Serializer v2'
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -315,6 +317,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v2'
         fields = ('id', 'shop_name', 'shop_owner')
 
     def get_shop_repr(self, obj):
@@ -374,6 +377,7 @@ class PincodeDataSerializers(serializers.ModelSerializer):
 
 class ShopDocumentDataSerializers(serializers.ModelSerializer):
     shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)
+
     class Meta:
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo')
@@ -480,8 +484,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_name_documents'] = shop_documents['data']
-        else:
-            raise serializers.ValidationError("atleast one shop document is required")
+        # else:
+        #     raise serializers.ValidationError("atleast one shop document is required")
 
         if 'shop_name_address_mapping' in self.initial_data and self.initial_data['shop_name_address_mapping']:
             addresses = get_validate_shop_address(self.initial_data['shop_name_address_mapping'])
@@ -887,6 +891,7 @@ class StateSerializer(serializers.ModelSerializer):
 
 
 class CitySerializer(serializers.ModelSerializer):
+    ref_name = 'Shop City v2'
     state = StateSerializer()
 
     class Meta:

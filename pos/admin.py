@@ -28,20 +28,21 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, \
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerReturnReportFormView, \
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
-    RetailerPurchaseReportFormView
+    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import create_order_data_excel, create_order_return_excel, generate_prn_csv_report, generate_csv_payment_report
+from .utils import (create_order_data_excel, create_order_return_excel, \
+    generate_prn_csv_report, generate_csv_payment_report, download_grn_cvs)
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
 
@@ -150,7 +151,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-
     def get_urls(self):
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
@@ -184,7 +184,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
                       self.admin_site.admin_view(RetailerPurchaseReportFormView.as_view()),
                       name="retailer-purchase-value-form"
                    ),
-
+                   url(
+                       r'^products-list-status/(?P<product_status_info>(.*))/$',
+                       self.admin_site.admin_view(products_list_status),
+                       name='products-list-status'
+                   ),
                ] + urls
         return urls
 
@@ -501,6 +505,17 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
                        r'^retailer-order-report-form/$',
                        self.admin_site.admin_view(RetailerOrderedReportFormView.as_view()),
                        name="retailer-order-report-form"
+                   ),
+                    url(
+                       r'^retailer-return-report/$',
+                       self.admin_site.admin_view(RetailerReturnReportView.as_view()),
+                       name="retailer-return-report"
+                   ),
+                   
+                   url(
+                       r'^retailer-return-report-form/$',
+                       self.admin_site.admin_view(RetailerReturnReportFormView.as_view()),
+                       name="retailer-return-report-form"
                    ),
                    url(
                        r'^retailer-order-invoice/(?P<pk>\d+)/$',
@@ -905,7 +920,7 @@ class PosCartAdmin(admin.ModelAdmin):
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
                          'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value'])
+                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value', 'linked_product_sku'])
 
         for obj in queryset:
             for p in obj.po_products.all():
@@ -914,7 +929,8 @@ class PosCartAdmin(admin.ModelAdmin):
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price, purchase_value])
+                                 brand, sub_brand, p.qty, p.price, purchase_value,
+                                 p.product.linked_product.product_sku if p.product.linked_product else ''])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -970,62 +986,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         return False
 
     def download_grns(self, request, queryset):
-        f = StringIO()
-        writer = csv.writer(f)
-        writer.writerow(['GRN Id','GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount' ,'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
-                         'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.','Store Id', 'Store Name', 'Shop User',
-                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'GST Tax','Cess_Tax','Surcharge_Tax',
-                         'Total Tax','Unit Price', 'Total Tax value',
-                         'Recieved Quantity'])
-        rows = []
-
-        for obj in queryset:
-
-
-
-            for p in obj.po_grn_products.all():
-                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                gst_tax, cess_tax, surcharge_tax = '', '', ''
-                total_tax =0
-                original_amount = 0
-
-                if p.product.linked_product:
-                    if p.product.linked_product.product_pro_tax is not None:
-                        for tax in p.product.linked_product.product_pro_tax.all():
-                            if tax.tax.tax_type == 'gst':
-                                gst_tax = tax.tax.tax_percentage
-                                total_tax += tax.tax.tax_percentage
-                            elif tax.tax.tax_type == 'cess':
-                                cess_tax = tax.tax.tax_percentage
-                                total_tax += tax.tax.tax_percentage
-                            elif tax.tax.tax_type == 'surcharge':
-                                surcharge_tax = tax.tax.tax_percentage
-                                total_tax += tax.tax.tax_percentage
-                    if total_tax:
-                        divisor = (1 + (total_tax / 100))
-                        original_amount = round(float(p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price()) / float(divisor),3)
-
-                writer.writerow([obj.grn_id, p.grn_order.created_at.strftime('%d-%m-%y  %I:%M %p'), obj.order.ordered_cart.po_no, obj.order.ordered_cart.created_at.strftime('%d-%m-%y  %I:%M %p'),
-                                 obj.order.ordered_cart.status,
-                                 p.received_qty*p.product.product_price ,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().total_price(),
-                                 obj.invoice_no, obj.invoice_date,
-                                 obj.invoice_amount,  obj.created_at,
-                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.vendor.address, obj.order.ordered_cart.vendor.state,
-                                 obj.order.ordered_cart.vendor.gst_number,
-                                 obj.order.ordered_cart.retailer_shop.id,
-                                 obj.order.ordered_cart.retailer_shop.shop_name,
-                                 obj.order.ordered_cart.retailer_shop.shop_owner,
-                                 p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand,p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().qty, gst_tax,
-                                 cess_tax, surcharge_tax, total_tax if total_tax else '',
-                                 p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().price,
-                                 round(((float(original_amount)*total_tax)/100), 3) if total_tax else '',
-                                 p.received_qty])
-
-        f.seek(0)
-        response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
-        return response
+        return download_grn_cvs(queryset)
 
 
 @admin.register(PaymentType)
@@ -1128,6 +1089,25 @@ class PosReturnGRNOrderAdmin(admin.ModelAdmin):
         return generate_prn_csv_report(queryset)
 
 
+class BulkRetailerProductAdmin(admin.ModelAdmin):
+    list_display = ('id', 'products_csv', 'seller_shop', 'uploaded_by', 'created_at', 'modified_at')
+
+    def get_queryset(self, request):
+        qs = super(BulkRetailerProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.none()
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
@@ -1138,3 +1118,4 @@ admin.site.register(RetailerCoupon, RetailerCouponAdmin)
 admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
 admin.site.register(RetailerCart, RetailerCartAdmin)
 admin.site.register(RetailerOrderedProduct, RetailerOrderProductAdmin)
+admin.site.register(BulkRetailerProduct, BulkRetailerProductAdmin)

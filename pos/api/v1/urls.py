@@ -4,7 +4,7 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
-                    PRNwithoutGRNView)
+                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -40,6 +40,9 @@ urlpatterns = [
     url(r'^return-status-choice/$', ReturnStatusListView.as_view()),
 
     url(r'^shop-specification/$', ShopSpecificationView.as_view()),
-    url(r'^stock-update-reason-list/$', StockUpdateReasonListView.as_view())
+    url(r'^stock-update-reason-list/$', StockUpdateReasonListView.as_view()),
+
+    url(r'^upload/catalogue-bulk-product/', CreateBulkProductView.as_view(), name='catalogue-bulk-product'),
+    url(r'^upload/update-inventory/', UpdateInventoryStockView.as_view(), name='update-inventory'),
 
 ]

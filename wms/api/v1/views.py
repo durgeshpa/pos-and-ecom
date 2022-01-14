@@ -775,7 +775,7 @@ class PickupDetail(APIView):
                     total_to_be_picked = i['total_to_be_picked_qty']
                     info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
                                      .format(j, pickup_quantity, bin_id))
-                    if total_to_be_picked != picking_details.last().quantity :
+                    if total_to_be_picked != picking_details.last().quantity:
                         return Response({'is_success': False,
                                          'message': "To be Picked qty has changed, please revise your input for "
                                                     "Picked qty",
