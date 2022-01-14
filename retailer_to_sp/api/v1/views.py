@@ -8015,8 +8015,8 @@ class TripSummaryView(generics.GenericAPIView):
         dispatch_trip_qs = get_logged_user_wise_query_set_for_dispatch_trip(request.user, dispatch_trip_qs)
         dispatch_trip_qs = self.filter_trip_summary_data(dispatch_trip_qs)
         resp_data = dispatch_trip_qs.aggregate(
-            no_of_trips=Count('id'), no_of_crates=Sum('no_of_crates'), no_of_packets=Sum('no_of_packets'),
-            no_of_sacks=Sum('no_of_sacks'), weight=Sum('weight'), no_of_invoices=Count('shipments_details__shipment'))
+            no_of_crates=Sum('no_of_crates'), no_of_packets=Sum('no_of_packets'), no_of_sacks=Sum('no_of_sacks'),
+            weight=Sum('weight'), no_of_invoices=Count('shipments_details__shipment'))
         trip_summary_data = {
             'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
@@ -8042,12 +8042,9 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging.\
-                aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1),
-                                                  default=Value('0'), output_field=models.IntegerField(),)),
-                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1),
-                                                   default=Value('0'), output_field=models.IntegerField(),)),
-                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1),
-                                                 default=Value('0'), output_field=models.IntegerField(),))
+                aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
                           )
             if smt_pack_data:
                 resp_data['no_of_crates'] += smt_pack_data['no_of_crates'] if smt_pack_data['no_of_crates'] else 0
@@ -8073,7 +8070,7 @@ class TripSummaryView(generics.GenericAPIView):
         data_days = self.request.GET.get('data_days')
 
         '''Filters using id, seller_shop, source_shop, destination_shop, delivery_boy, created_at'''
-        if id:
+        if trip_id:
             queryset = queryset.filter(id=trip_id)
 
         if dispatch_center:
