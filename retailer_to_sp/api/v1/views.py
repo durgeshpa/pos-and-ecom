@@ -8127,10 +8127,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = DispatchInvoiceSerializer
-    queryset = OrderedProduct.objects.filter(~Q(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED,
-                                                                     OrderedProduct.QC_STARTED,
-                                                                     OrderedProduct.QC_REJECTED,
-                                                                     OrderedProduct.READY_TO_SHIP])).\
+    queryset = OrderedProduct.objects.\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
@@ -8216,16 +8213,23 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
 
         if availability:
-            try:
-                availability = int(availability)
-                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id)
-                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(trip_shipment__isnull=True)
-                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                    self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id)|Q(trip_shipment__isnull=True))
-            except:
-                pass
+            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id,
+                                                     trip_shipment__shipment_status=
+                                                     DispatchTripShipmentMapping.LOADED_FOR_DC)
+            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True) |
+                                                     Q(trip_shipment__shipment_status=
+                                                     DispatchTripShipmentMapping.LOADING_FOR_DC),
+                                                     shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
+            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id,
+                                                       trip_shipment__shipment_status__in=[
+                                                       DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                       DispatchTripShipmentMapping.LOADING_FOR_DC])|
+                                                     Q(trip_shipment__isnull=True),
+                                                     shipment_status__in=[OrderedProduct.MOVED_TO_DISPATCH,
+                                                                          OrderedProduct.READY_TO_DISPATCH])
 
         return self.queryset.distinct('id')
 
@@ -9059,3 +9063,4 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(is_verified=is_verified)
 
         return self.queryset
+
