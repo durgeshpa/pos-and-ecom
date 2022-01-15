@@ -3446,12 +3446,15 @@ class OrderCentral(APIView):
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
+        order.order_app_type = Order.POS_ECOMM if cart.cart_type == 'ECOM' else Order.POS_WALKIN
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         if cart.cart_type == 'ECOM':
             if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
                 if self.request.data.get('payment_status') == 'payment_pending':
                     order.order_status = Order.PAYMENT_PENDING
+                elif self.request.data.get('payment_status') == 'payment_failed':
+                    order.order_status = Order.PAYMENT_FAILED
         order.save()
 
         if address:
