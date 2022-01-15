@@ -1577,3 +1577,29 @@ class PaymentStatusList(GenericAPIView):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Payment.PAYMENT_STATUS]
         return api_response('', data, status.HTTP_200_OK, True)
+
+
+class PosPaymentTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get pos payment type list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in PaymentType.POS_PAYMENT_TYPE_CHOICES]
+        return api_response('', data, status.HTTP_200_OK, True)
+
+
+class EcomPaymentTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get pos payment type list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in PaymentType.ECOM_PAYMENT_TYPE_CHOICES]
+        return api_response('', data, status.HTTP_200_OK, True)

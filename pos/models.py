@@ -170,18 +170,16 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
-    PAYMENT_TYPE_CHOICES = (
-        ("POS_WALKIN", (
-            ('cash', 'Cash'),
-            ('online', 'Online'),
-            ('credit', 'Credit')
-        )),
-        ("POS_ECOMM", (
-            ('cod', 'Cash on Delivery'),
-            ('cod_upi', 'UPI on Cash on Delivery'),
-            ('online', 'Online'),
-            ('credit', 'Credit')
-        ))
+    POS_PAYMENT_TYPE_CHOICES = (
+        ('cash', 'Cash'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
+    )
+    ECOM_PAYMENT_TYPE_CHOICES = (
+        ('cod', 'Cash on Delivery'),
+        ('cod_upi', 'UPI on Cash on Delivery'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
     )
     TYPE_CHOICES = (
             ('cash', 'Cash'),

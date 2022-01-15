@@ -4,7 +4,8 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
-                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList)
+                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
+                    EcomPaymentTypeList, PosPaymentTypeList)
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -47,4 +48,6 @@ urlpatterns = [
     url(r'^upload/update-inventory/', UpdateInventoryStockView.as_view(), name='update-inventory'),
 
     url(r'^payment-status-choice/$', PaymentStatusList.as_view()),
+    url(r'^pos-payment-type-choice/$', PosPaymentTypeList.as_view(), name='pos_payment_type_choice'),
+    url(r'^ecom-payment-type-choice/$', EcomPaymentTypeList.as_view(), name='ecom_payment_type_choice'),
 ]
