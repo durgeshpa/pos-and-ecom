@@ -1701,15 +1701,6 @@ def populate_order_amount(sender, instance=None, created=False, **kwargs):
         instance.order_amount = instance.total_final_amount
 
 
-@receiver(post_save, sender=Order)
-def populate_order_app_type(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.ordered_cart.cart_type == BASIC:
-            instance.order_app_type = Order.POS_WALKIN
-        if instance.ordered_cart.cart_type == ECOM:
-            instance.order_app_type = Order.POS_ECOMM
-
-
 class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
