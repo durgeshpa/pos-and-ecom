@@ -81,6 +81,7 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from wms.common_validators import validate_data_format, validate_id
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
 from wms.views import shipment_not_attempt_inventory_change
 from wms.views import shipment_reschedule_inventory_change
@@ -91,7 +92,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer)
+                          ShopSerializer, OrderPaymentStatusChangeSerializers)
 from .serializers import (ShipmentNotAttemptSerializer
                           )
 import math
@@ -2608,6 +2609,44 @@ class ReservedOrder(generics.ListAPIView):
     #     pass
 
 
+class OrderPaymentStatus(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    """
+        allowed updates to order status
+    """
+    def put(self, request, *args, **kwargs):
+        """
+            allowed updates to order status
+        """
+        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
+        if app_type == '3':
+            return self.put_ecom_payment_status(request, *args, **kwargs)
+        else:
+            return api_response('Provide a valid app_type')
+
+    @check_pos_shop
+    def put_ecom_payment_status(self, request, *args, **kwargs):
+        """
+            Update ecom order status
+        """
+        with transaction.atomic():
+            # Check if order exists
+            try:
+                order = Order.objects.select_for_update().get(pk=kwargs['pk'],
+                                                              seller_shop=kwargs['shop'],
+                                                              ordered_cart__cart_type__in=['ECOM'])
+            except ObjectDoesNotExist:
+                return api_response('Order Not Found!')
+
+            payment_status = self.request.data.get('payment_status')
+            if payment_status not in [0, 1]:
+                return api_response("Please Provide A Valid Status To Update Order")
+
+            if order.order_status == Order.PAYMENT_PENDING:
+                pass
+
+
 class OrderCentral(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -2862,7 +2901,7 @@ class OrderCentral(APIView):
         if app_type == '1':
             return self.post_retail_order()
         elif app_type == '2':
-            return self.post_basic_order(request, *args, **kwargs)
+            return self.post_pos_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.post_ecom_order(request, *args, **kwargs)
         else:
@@ -2994,7 +3033,7 @@ class OrderCentral(APIView):
 
     @check_pos_shop
     @pos_check_permission_delivery_person
-    def post_basic_order(self, request, *args, **kwargs):
+    def post_pos_order(self, request, *args, **kwargs):
         """
             Place Order
             For basic cart
@@ -3051,9 +3090,19 @@ class OrderCentral(APIView):
             return api_response("Please add items to proceed to order")
 
         try:
-            payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
+            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
         except:
             return api_response("Invalid Payment Method")
+
+        if not payment_type_id == 4:
+            if not self.request.data.get('payment_status') or not self.request.data.get('payment_mode'):
+                return api_response("Please provide online payment status and mode.")
+
+            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
+                return api_response("Please provide valid online payment status")
+
+            if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
+                return api_response("Please provide valid online payment mode")
 
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
@@ -3097,12 +3146,14 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address)
+            order = self.create_basic_order(cart, shop, address, payment_type_id)
             payments = [
                 {
-                    "payment_type": payment_id,
+                    "payment_type": payment_type_id,
                     "amount": order.order_amount,
-                    "transaction_id": ""
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
                 }
             ]
             self.auto_process_order(order, payments, 'ecom')
@@ -3254,6 +3305,10 @@ class OrderCentral(APIView):
                 return {'error': "Invalid Payment Amount"}
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
+            if "payment_status" not in payment_method:
+                payment_method['payment_status'] = None
+            if "payment_mode" not in payment_method:
+                payment_method['payment_mode'] = None
         if not cash_only:
             if round(math.floor(amount), 2) != math.floor(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -3387,7 +3442,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop, address=None):
+    def create_basic_order(self, cart, shop, address=None, payment_id=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3395,6 +3450,10 @@ class OrderCentral(APIView):
         order.received_by = cart.buyer
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
+        if cart.cart_type == 'ECOM':
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
+                if self.request.data.get('payment_status') == 'payment_pending':
+                    order.order_status = Order.PAYMENT_PENDING
         order.save()
 
         if address:
@@ -3588,7 +3647,9 @@ class OrderCentral(APIView):
                 transaction_id=payment['transaction_id'],
                 paid_by=order.buyer,
                 processed_by=self.request.user,
-                amount=payment['amount']
+                amount=payment['amount'],
+                payment_status=payment['payment_status'],
+                payment_mode=payment['payment_mode']
             )
 
     def auto_process_pos_order(self, order):
@@ -6769,3 +6830,48 @@ class EcomPaymentFailureView(APIView):
 
     def post(self, request, *args, **kwags):
         return render(request, "ecom/payment_failed.html", {'media_url': AWS_MEDIA_URL})
+
+
+class OrderPaymentStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = Order.objects.order_by('-id')
+    serializer_class = OrderPaymentStatusChangeSerializers
+
+    def put(self, request, *args, **kwargs):
+        """
+            allowed updates to order status
+        """
+        info_logger.info("Order PUT api called.")
+        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
+
+        if app_type == '3':
+            return self.put_ecom_order_status(request, *args, **kwargs)
+        else:
+            return api_response('Provide a valid app_type')
+
+    @check_pos_shop
+    def put_ecom_order_status(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        try:
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM',
+                                                          buyer=self.request.user)
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
