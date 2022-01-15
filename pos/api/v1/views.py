@@ -1206,6 +1206,19 @@ class PaymentTypeDetailView(GenericAPIView):
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
 
 
+class EcomPaymentTypeDetailView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = PaymentType.objects.filter(app='ecom')
+    serializer_class = PaymentTypeSerializer
+
+    def get(self, request):
+        """ GET Payment Type List """
+        payment_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(payment_type, many=True)
+        msg = "" if payment_type else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
 class IncentiveView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
@@ -1576,30 +1589,4 @@ class PaymentStatusList(GenericAPIView):
         '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Payment.PAYMENT_STATUS]
-        return api_response('', data, status.HTTP_200_OK, True)
-
-
-class PosPaymentTypeList(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-
-    def get(self, request):
-        '''
-        API to get pos payment type list
-        '''
-        fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in PaymentType.POS_PAYMENT_TYPE_CHOICES]
-        return api_response('', data, status.HTTP_200_OK, True)
-
-
-class EcomPaymentTypeList(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-
-    def get(self, request):
-        '''
-        API to get pos payment type list
-        '''
-        fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in PaymentType.ECOM_PAYMENT_TYPE_CHOICES]
         return api_response('', data, status.HTTP_200_OK, True)
