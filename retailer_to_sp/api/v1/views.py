@@ -8407,7 +8407,7 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
             return get_response("'trip_id' | This is required.", False)
 
         # validations for input
-        shipment_validation = self.validate_trip_invoice(self.queryset, int(modified_data['shipment_id']),
+        shipment_validation = self.validate_trip_invoice(int(modified_data['shipment_id']),
                                                    int(modified_data['trip_id']))
         if 'error' in shipment_validation:
             return get_response(shipment_validation['error'])

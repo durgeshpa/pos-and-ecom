@@ -3326,10 +3326,15 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
 
 
 class TripShipmentMappingSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+    trip_shipment_mapped_packages = DispatchTripShipmentPackagesSerializers(read_only=True, many=True)
+    shipment_status = serializers.CharField(read_only=True)
+    shipment_health = serializers.CharField(read_only=True)
 
     class Meta:
         model = DispatchTripShipmentMapping
-        fields = '__all__'
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages',)
 
     def validate(self, data):
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -3367,11 +3372,11 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
     def post_shipment_remove_change(self, trip_shipment_mapping):
         DispatchTripShipmentPackages.objects.filter(trip_shipment=trip_shipment_mapping)\
             .update(package_status=DispatchTripShipmentPackages.CANCELLED)
-        trip_shipment_mapping.trip.trip_weight = trip_shipment_mapping.trip.get_trip_weight()
+        trip_shipment_mapping.trip.weight = trip_shipment_mapping.trip.get_trip_weight()
         package_data = trip_shipment_mapping.trip.get_package_data()
-        trip_shipment_mapping.trip.no_of_crates = package_data['crates']
-        trip_shipment_mapping.trip.no_of_packates = package_data['box']
-        trip_shipment_mapping.trip.no_of_sacks = package_data['sacks']
+        trip_shipment_mapping.trip.no_of_crates = package_data['no_of_crates']
+        trip_shipment_mapping.trip.no_of_packates = package_data['no_of_packs']
+        trip_shipment_mapping.trip.no_of_sacks = package_data['no_of_sacks']
         trip_shipment_mapping.trip.save()
 
 
