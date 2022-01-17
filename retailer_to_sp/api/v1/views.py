@@ -6798,7 +6798,7 @@ class ShipmentProductView(generics.GenericAPIView):
                          'rt_order_product_order_product_mapping__rt_ordered_product_mapping')
     serializer_class = ShipmentProductSerializer
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+
     def get(self, request):
         """ GET API for Shipment Product """
         info_logger.info("Shipment Product GET api called.")
