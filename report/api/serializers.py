@@ -19,6 +19,17 @@ class AsyncReportModelSerializer(serializers.ModelSerializer):
                     errors['frequency'] = 'Frequency is required for scheduling reports.'
             else:
                 pass
+            if data.get('source') == 'HT':
+                params = data.get('input_params')
+                # data['input_params'] = {
+                #     'id__in': params.get('id_list'),
+
+                # }
+                print(params)
+                pass
+            else:
+                
+                pass
         else:
             pass
         if errors:
@@ -28,7 +39,7 @@ class AsyncReportModelSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = AsyncReport
-        fields = ('id', 'input_params',
+        fields = ('id', 'input_params', 'source',
                   'report_name', 'report_type',
                   'status', 'report', 'user',
                   'emails', 'frequency', 'schedule_time')
@@ -48,11 +59,11 @@ class AsyncReportListSerializer(serializers.ModelSerializer):
     }
     REPORT_TYPE = {
         item[0] : item[1]
-        for item in AsyncReport.REPORT_TYPE
+        for item in AsyncReport.REPORT_TYPES
     }
     REPORT_CHOICE = {
         item[0] : item[1]
-        for item in AsyncReport.REPORT_CHOICE
+        for item in AsyncReport.REPORT_CHOICES
     }
     emails = serializers.ListField(child=serializers.EmailField(max_length=100,
                                                                 allow_blank=False),

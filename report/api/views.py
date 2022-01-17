@@ -18,6 +18,7 @@ from report.api.serializers import (AsyncReportListSerializer,
                                     AsyncReportModelSerializer)
 from retailer_backend.utils import SmallOffsetPagination
 from report.models import AsyncReport
+from report.decorators import resolve_headers
 
 class AsyncReportListRetrieveView(DataWrapperListRetrieveViewSet):
     
