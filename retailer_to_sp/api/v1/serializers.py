@@ -3565,8 +3565,9 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
     last_modified_by = UserSerializer(read_only=True)
-    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
+    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True, source='return_pkg')
     is_fully_delivered = serializers.SerializerMethodField()
+
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -3743,8 +3744,8 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             process_shipments_instance = product_batch_instance.update(**validated_data)
             # To create putaway for Last mile trip
             # Validate: Seller shop is same as Source shop
-            if product_batch_instance.ordered_product_mapping.ordered_product.packaged_at == \
-                    product_batch_instance.ordered_product_mapping.ordered_product.order.seller_shop:
+            shipment = product_batch_instance.last().ordered_product_mapping.ordered_product
+            if shipment.packaged_at == shipment.order.seller_shop:
                 product_batch_instance.last().save()
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
@@ -3753,7 +3754,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Ordered Product Mapping"""
-        ordered_product_batches = validated_data['rt_ordered_product_mapping']
+        ordered_product_batches = validated_data.pop('rt_ordered_product_mapping')
         packaging = validated_data.pop("packaging", None)
 
         try:
