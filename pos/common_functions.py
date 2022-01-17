@@ -36,7 +36,7 @@ ORDER_STATUS_MAP = {
 }
 
 ONLINE_ORDER_STATUS_MAP = {
-    1: [Order.ORDERED],
+    1: [Order.ORDERED, Order.PAYMENT_PENDING],
     2: [Order.OUT_FOR_DELIVERY, Order.PICKUP_CREATED],
     3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED, Order.CANCELLED],
     4: [Order.CANCELLED],
@@ -721,6 +721,17 @@ def pos_check_permission_delivery_person(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
                                                  user_type__in=['manager', 'cashier', 'store_manager']).exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
+def pos_check_user_permission(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type__in=['manager', 'store_manager']).exists():
             return api_response("You are not authorised to make this change!")
         return view_func(self, request, *args, **kwargs)
 

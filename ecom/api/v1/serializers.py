@@ -160,7 +160,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_type', 'transaction_id', 'amount')
 
 
 class EcomOrderListSerializer(serializers.ModelSerializer):
@@ -171,7 +171,6 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
-
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:

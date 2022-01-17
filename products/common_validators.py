@@ -507,6 +507,12 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'parent_name' not in row.keys() or row['parent_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'parent_name' is a mandatory, can't be empty")
 
+            if 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
+                sub_cat = Category.objects.filter(id=int(row['sub_category_id'])).last()
+                if not sub_cat:
+                    raise ValidationError(f"Row {row_num} | select a valid sub category")
+                if sub_cat != category and sub_cat.category_parent != category:
+                    raise ValidationError(f"Row {row_num} | 'sub_category_id' not belongs to the selected category.")
             # if row['parent_id'].strip() in parent_id_list:
             #     raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
             #                           f"'parent_id' getting repeated in csv file")
@@ -910,7 +916,7 @@ def validate_row(uploaded_data_list, header_list, category):
                     'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row[
                 'parent_category_id'] != '':
                 if row['category_id'] == row['parent_category_id']:
-                    raise ValidationError(f"Row {row_num} | {row['brand_id']} | "
+                    raise ValidationError(f"Row {row_num} | {row['category_id']} | "
                                           f"'Category and Parent Category cannot be same'")
 
             if 'brand_name' in header_list and 'brand_name' in row.keys() and row['brand_name'] != '':
