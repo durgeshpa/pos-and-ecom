@@ -18,7 +18,7 @@ from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, chec
                         get_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer,
+                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
                           ShopInfoSerializer)
 
 from pos.api.v1.serializers import ContectUs
@@ -260,3 +260,13 @@ class Contect_Us(APIView):
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+
+class ParentProductDetails(APIView):
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = Parent_Product_Serilizer
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        shop = kwargs['shop']
+        serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
+        serializer = self.serializer_class(serializer, many=True)
+        return api_response('products information',serializer.data,status.HTTP_200_OK, True)

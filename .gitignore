@@ -33,6 +33,9 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.test.patch.swp
+pos/.test.patch.swp
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

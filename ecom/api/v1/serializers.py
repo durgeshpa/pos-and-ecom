@@ -464,3 +464,49 @@ class ShopInfoSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['address'] = instance.shipping_address
         return data
+
+
+class Parent_Product_Serilizer(serializers.ModelSerializer):
+    parent_product_discription = serializers.SerializerMethodField()
+    online_price= serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+
+
+
+
+    def get_parent_product_discription(self, obj):
+        if obj.linked_product:
+            return obj.linked_product.parent_product.product_discription
+
+
+    def get_online_price(self, obj):
+        if obj.online_price:
+            return obj.online_price
+        else:
+            return obj.selling_price
+
+
+    def get_image(self, obj):
+        retailer_object = obj.retailer_product_image.last()
+        image = None
+        if retailer_object is None:
+            linked_product = obj.linked_product
+            if linked_product:
+                linked_product_image = linked_product.product_pro_image.all()
+                if linked_product_image:
+                    image = linked_product_image[0].image.url
+                else:
+                    parent_product = obj.linked_product.parent_product
+                    if parent_product:
+                        parent_product_image = parent_product.parent_product_pro_image.all()
+                        if parent_product_image:
+                            image = parent_product_image[0].image.url
+        else:
+            image = retailer_object.image.url
+        return image
+
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name','parent_product_discription' ,'mrp', 'online_price', 'image')
