@@ -8,9 +8,9 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from products.models import *
 from num2words import num2words
-from barCodeGenerator import barcodeGen
+from barCodeGenerator import barcodeGen, merged_barcode_gen
 from django.core.files.base import ContentFile
-from django.forms import formset_factory, modelformset_factory, BaseFormSet, ValidationError
+from django.forms import formset_factory, modelformset_factory, BaseFormSet
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q, F
 from django.db import transaction
@@ -30,15 +30,15 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
-                                   check_franchise_inventory_update, ShipmentNotAttempt)
+
+                                   Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
+                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     TripForm, DispatchForm, AssignPickerForm, )
 from django.views.generic import TemplateView
 from django.contrib import messages
-from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp, ParentRetailerMapping
 from retailer_to_sp.api.v1.serializers import (
@@ -55,14 +55,53 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
-from wms.common_functions import cancel_order, cancel_order_with_pick
-from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, \
-    shipment_not_attempt_inventory_change
+from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel, \
+    get_response
+from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 
 logger = logging.getLogger('django')
+info_logger = logging.getLogger('file-info')
+
+
+class ShipmentMergedBarcode(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        shipment_id_list = {}
+        pk = self.kwargs.get('pk')
+        shipment = OrderedProduct.objects.filter(pk=pk).last()
+        if not shipment:
+            return get_response("Shipment not found for pk: " + str(pk) + ".")
+        shipment_packagings = shipment.shipment_packaging.all()
+        pack_cnt = shipment_packagings.count()
+        for cnt, packaging in enumerate(shipment_packagings):
+            barcode_id = str("05" + str(packaging.id).zfill(10))
+            if packaging.crate:
+                pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+            else:
+                pck_type_r_id = str(packaging.packaging_type)
+            customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
+            route = "N/A"
+            shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
+            if not packaging.crate and packaging.packaging_details.exists():
+                quantity = str(packaging.packaging_details.last().quantity)
+                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                if product_name and len(product_name) > 32:
+                    product_name = product_name[:32] + "..."
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        product_name: quantity,
+                        "route ": route}
+            else:
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        "route ": route,
+                        "blank_row": ""}
+            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
+        return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -562,7 +601,7 @@ def trip_planning(request):
 TRIP_SHIPMENT_STATUS_MAP = {
     'READY': 'READY_TO_DISPATCH',
     'STARTED': "OUT_FOR_DELIVERY",
-    'CANCELLED': "READY_TO_SHIP",
+    'CANCELLED': "MOVED_TO_DISPATCH",
     'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED",
     'CLOSED': "FULLY_DELIVERED_AND_VERIFIED"
 }
@@ -627,6 +666,7 @@ def trip_planning_change(request, pk):
                         else:
                             trip_instance.rt_invoice_trip.all().update(
                                 shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                            update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if trip_status == Trip.READY:
@@ -635,17 +675,18 @@ def trip_planning_change(request, pk):
                         for shipment in trip_shipments:
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
-                        trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
+                        trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
+                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
-
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if current_trip_status == Trip.RETURN_VERIFIED:
@@ -673,7 +714,7 @@ def trip_planning_change(request, pk):
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
                             selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
                                                       trip=trip_instance)
-
+                            update_packages_on_shipment_status_change(selected_shipments)
                         # updating order status for shipments with respect to trip status
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
@@ -723,7 +764,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status='READY_TO_SHIP') |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=Dispatch.RESCHEDULED) |
                 Q(shipment_status=Dispatch.NOT_ATTEMPT) |
                 Q(trip=trip_id), order__seller_shop=seller_shop
@@ -731,7 +772,7 @@ class LoadDispatches(APIView):
 
         elif seller_shop and trip_id:
             dispatches = Dispatch.objects.filter(
-                Q(shipment_status='READY_TO_SHIP') |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=Dispatch.RESCHEDULED) |
                 Q(shipment_status=Dispatch.NOT_ATTEMPT) |
                 Q(trip=trip_id), order__seller_shop=seller_shop)
@@ -743,7 +784,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED) |
                 Q(shipment_status=OrderedProduct.NOT_ATTEMPT),
                 order__seller_shop=seller_shop
@@ -753,7 +794,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.select_related(
                 'order', 'order__shipping_address', 'order__ordered_cart'
             ).filter(
-                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED) |
                 Q(shipment_status=OrderedProduct.NOT_ATTEMPT),
                 order__seller_shop=seller_shop
@@ -762,7 +803,7 @@ class LoadDispatches(APIView):
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
-            ).filter(Q(shipment_status='READY_TO_SHIP') |
+            ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                      Q(shipment_status=OrderedProduct.RESCHEDULED) |
                      Q(shipment_status=OrderedProduct.NOT_ATTEMPT) |
                      Q(trip=trip_id)).order_by('-rank')
@@ -827,19 +868,19 @@ def load_dispatches(request):
     if seller_shop and area and trip_id:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(Q(shipment_status='READY_TO_SHIP') |
+        ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                  Q(trip=trip_id), order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop and trip_id:
-        dispatches = Dispatch.objects.filter(Q(shipment_status='READY_TO_SHIP') |
+        dispatches = Dispatch.objects.filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                                              Q(trip=trip_id), order__seller_shop=seller_shop)
     elif seller_shop and area:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
+        ).filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH, order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop:
-        dispatches = Dispatch.objects.select_related('order').filter(shipment_status='READY_TO_SHIP',
+        dispatches = Dispatch.objects.select_related('order').filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH,
                                                                      order__seller_shop=seller_shop)
         # serializer = DispatchSerializer(dispatches, many=True)
         # msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
@@ -852,7 +893,7 @@ def load_dispatches(request):
     elif area and trip_id:
         dispatches = Dispatch.objects.annotate(
             rank=SearchRank(vector, query) + similarity
-        ).filter(Q(shipment_status='READY_TO_SHIP') |
+        ).filter(Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                  Q(trip=trip_id)).order_by('-rank')
 
     elif area:
@@ -1646,7 +1687,7 @@ class OrderCancellation(object):
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
             elif (self.last_shipment_status in
-                  ['READY_TO_SHIP', OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
@@ -1692,6 +1733,7 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
             cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
+        release_qc_area_on_order_cancel(instance.order_no)
 
 
 @receiver(post_save, sender=Order)
@@ -1877,3 +1919,61 @@ def create_franchise_po(request, pk):
     except:
         return JsonResponse(
             {'response': "<div class='create-po-resp'><span style='color:crimson;'>Some Error Occurred</span></div>"})
+
+
+@receiver(post_save, sender=Order)
+def create_shipment(sender, instance=None, created=False, **kwargs):
+	if instance.order_status == Order.MOVED_TO_QC:
+		create_order_shipment(instance)
+
+@transaction.atomic
+def create_order_shipment(order_instance):
+    info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
+    if OrderedProduct.objects.filter(order=order_instance).exists():
+        info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
+        return
+    shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
+    shipment.save()
+    products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
+        .prefetch_related('sku', 'bin_inventory','bin_inventory__bin__bin')
+    for p in products_picked:
+        ordered_product_mapping = OrderedProductMapping.objects.create(ordered_product=shipment,
+                                                                       product_id=p.sku.id, shipped_qty=p.pickup_quantity,
+                                                                       picked_pieces=p.pickup_quantity)
+
+        for i in p.bin_inventory.all():
+            shipment_product_batch = OrderedProductBatch.objects.create(
+                batch_id=i.batch_id,
+                bin_ids=i.bin.bin.bin_id,
+                pickup_inventory=i,
+                ordered_product_mapping=ordered_product_mapping,
+                pickup=i.pickup,
+                bin=i.bin,  # redundant
+                quantity=i.pickup_quantity,
+                pickup_quantity=i.pickup_quantity,
+                expiry_date=get_expiry_date(i.batch_id),
+                delivered_qty=ordered_product_mapping.delivered_qty,
+                ordered_pieces=i.quantity
+            )
+            i.shipment_batch = shipment_product_batch
+            i.save()
+    info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
+
+
+def update_shipment_package_status(shipment_instance):
+    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
+    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
+    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
+                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+
+
+def update_packages_on_shipment_status_change(shipments):
+    for instance in shipments:
+        update_shipment_package_status(instance)

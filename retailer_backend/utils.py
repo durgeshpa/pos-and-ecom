@@ -18,7 +18,6 @@ class OffsetPaginationDefault50(LimitOffsetPagination):
     default_limit = 50
     max_limit = 100
 
-
 class CustomOffsetPaginationDefault25(LimitOffsetPagination):
     """
     Custom LimitOffset
