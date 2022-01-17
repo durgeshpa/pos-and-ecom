@@ -1456,7 +1456,7 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductBatch
-        fields = ('id', 'batch_id', 'quantity', 'ordered_pieces', 'delivered_qty', 'already_shipped_qty',
+        fields = ('id', 'batch_id', 'quantity', 'ordered_pieces', 'delivered_qty',
                   'expiry_date', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'pickup_quantity', 'expired_qty',
                   'missing_qty', 'rejected_qty', 'reason_for_rejection', 'is_crate_used_in_picking',
                   'created_at', 'modified_at')
@@ -3653,13 +3653,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
                 if batch_returned_qty < 0 or batch_returned_damage_qty < 0 or \
-                        float(product_batch_instance.already_shipped_qty) < (
+                        float(product_batch_instance.quantity) < (
                         float(batch_returned_qty + batch_returned_damage_qty)):
                     raise serializers.ValidationError("Sorry Quantity mismatch!! Sum of Delivered, Returned & Damaged "
                                                       "Quantity should be equals to Already Shipped Quantity")
                 product_batch['returned_qty'] = batch_returned_qty
                 product_batch['returned_damage_qty'] = batch_returned_damage_qty
-                product_batch['delivered_qty'] = product_batch_instance.already_shipped_qty - (
+                product_batch['delivered_qty'] = product_batch_instance.quantity - (
                         batch_returned_qty + batch_returned_damage_qty)
                 rt_ordered_product_mapping.append(product_batch)
             else:
