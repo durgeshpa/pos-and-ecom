@@ -6743,7 +6743,7 @@ class ProcessShipmentView(generics.GenericAPIView):
         all()
     serializer_class = RetailerOrderedProductMappingSerializer
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+
     def get(self, request):
         """ GET API for Process Shipment """
         info_logger.info("Process Shipment GET api called.")
