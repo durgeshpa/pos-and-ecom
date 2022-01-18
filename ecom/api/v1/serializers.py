@@ -467,20 +467,21 @@ class ShopInfoSerializer(serializers.ModelSerializer):
 
 
 class Parent_Product_Serilizer(serializers.ModelSerializer):
+    """
+    Serializer to get product with parent product descriptions  ...
+    """
     parent_product_discription = serializers.SerializerMethodField()
     online_price= serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
-
-
-
-
     def get_parent_product_discription(self, obj):
+        """Return Parent product discription ...."""
         if obj.linked_product:
             return obj.linked_product.parent_product.product_discription
 
 
     def get_online_price(self, obj):
+        """Return retailer product online price ...."""
         if obj.online_price:
             return obj.online_price
         else:
@@ -488,20 +489,16 @@ class Parent_Product_Serilizer(serializers.ModelSerializer):
 
 
     def get_image(self, obj):
+        """Return retailer image if retailer image not found then return linked product image...."""
         retailer_object = obj.retailer_product_image.last()
         image = None
         if retailer_object is None:
-            linked_product = obj.linked_product
-            if linked_product:
-                linked_product_image = linked_product.product_pro_image.all()
-                if linked_product_image:
-                    image = linked_product_image[0].image.url
-                else:
-                    parent_product = obj.linked_product.parent_product
-                    if parent_product:
-                        parent_product_image = parent_product.parent_product_pro_image.all()
-                        if parent_product_image:
-                            image = parent_product_image[0].image.url
+            image = obj.linked_product.product_pro_image.all().first().image.url if obj.linked_product and \
+            obj.linked_product.product_pro_image.all().first() else None
+            image = obj.linked_product.parent_product.parent_product_pro_image.all().first().image.url\
+            if not image  and obj.linked_product and obj.linked_product.parent_product \
+            and obj.linked_product.parent_product.parent_product_pro_image.all().first() else image
+
         else:
             image = retailer_object.image.url
         return image

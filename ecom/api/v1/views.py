@@ -262,10 +262,15 @@ class Contect_Us(APIView):
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
 
 class ParentProductDetails(APIView):
+    """
+    retailer product details with parent product discriptions .....
+    """
+
     authentication_classes = (TokenAuthentication,)
     serializer_class = Parent_Product_Serilizer
     @check_ecom_user_shop
     def get(self, request, pk, *args, **kwargs):
+        '''get retailer product details ....'''
         shop = kwargs['shop']
         serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
         serializer = self.serializer_class(serializer, many=True)

@@ -425,11 +425,7 @@ class ParentProductForm(forms.ModelForm):
     """
     Parent Product Form
     """
-    # def __init__(self, *args, **kwargs):
-    #     # first call parent's constructor
-    #     super(ThatForm, self).__init__(*args, **kwargs)
-    #     # there's a `fields` property now
-    #     self.fields['product_discription'].required = False
+
     product_hsn = forms.ModelChoiceField(queryset=hsn_choices,
                                          widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete', ))
 
