@@ -565,7 +565,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_category', 'product_hsn',
         'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
         'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
     ]
@@ -578,6 +578,12 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
+
+    @staticmethod
+    def parent_product_discriptions(obj):
+        """convert text string to html formate for display on admin pannel..."""
+        return format_html('{}'.format(obj.product_discription))
+
 
     def product_gst(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
