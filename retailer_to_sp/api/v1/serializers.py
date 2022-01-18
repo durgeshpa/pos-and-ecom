@@ -1805,7 +1805,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
 
     def get_qc_desk(self, obj):
-        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data
+        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data if obj.qc_area else None
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")

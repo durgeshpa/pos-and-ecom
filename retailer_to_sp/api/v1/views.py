@@ -6904,7 +6904,6 @@ class ShipmentQCView(generics.GenericAPIView):
                          When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
                               then=Value(OrderedProduct.SHIPMENT_CREATED)),
                          default=F('shipment_status'))).\
-        filter(qc_area__isnull=False).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
