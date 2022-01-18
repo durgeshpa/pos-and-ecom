@@ -1942,19 +1942,46 @@ def create_order_shipment(order_instance):
                                                                        picked_pieces=p.pickup_quantity)
 
         for i in p.bin_inventory.all():
-            shipment_product_batch = OrderedProductBatch.objects.create(
-                batch_id=i.batch_id,
-                bin_ids=i.bin.bin.bin_id,
-                pickup_inventory=i,
-                ordered_product_mapping=ordered_product_mapping,
-                pickup=i.pickup,
-                bin=i.bin,  # redundant
-                quantity=i.pickup_quantity,
-                pickup_quantity=i.pickup_quantity,
-                expiry_date=get_expiry_date(i.batch_id),
-                delivered_qty=ordered_product_mapping.delivered_qty,
-                ordered_pieces=i.quantity
-            )
+            # shipment_product_batch = OrderedProductBatch.objects.create(
+            #     batch_id=i.batch_id,
+            #     bin_ids=i.bin.bin.bin_id,
+            #     pickup_inventory=i,
+            #     ordered_product_mapping=ordered_product_mapping,
+            #     pickup=i.pickup,
+            #     bin=i.bin,  # redundant
+            #     quantity=i.pickup_quantity,
+            #     pickup_quantity=i.pickup_quantity,
+            #     expiry_date=get_expiry_date(i.batch_id),
+            #     delivered_qty=ordered_product_mapping.delivered_qty,
+            #     ordered_pieces=i.quantity
+            # )
+            # i.shipment_batch = shipment_product_batch
+            # i.save()
+            i_pickup_quantity = 0 if i.pickup_quantity is None else i.pickup_quantity
+            if OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                  ordered_product_mapping=ordered_product_mapping).exists():
+                shipment_product_batch = OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                                            ordered_product_mapping=ordered_product_mapping).last()
+                quantity = shipment_product_batch.quantity + i_pickup_quantity
+                ordered_pieces = int(shipment_product_batch.ordered_pieces) + i.quantity
+                shipment_product_batch.quantity = quantity
+                shipment_product_batch.pickup_quantity = quantity
+                shipment_product_batch.ordered_pieces = ordered_pieces
+                shipment_product_batch.save()
+            else:
+                shipment_product_batch = OrderedProductBatch.objects.create(
+                    batch_id=i.batch_id,
+                    bin_ids=i.bin.bin.bin_id,
+                    pickup_inventory=i,
+                    ordered_product_mapping=ordered_product_mapping,
+                    pickup=i.pickup,
+                    bin=i.bin,  # redundant
+                    quantity=i_pickup_quantity,
+                    pickup_quantity=i_pickup_quantity,
+                    expiry_date=get_expiry_date(i.batch_id),
+                    delivered_qty=ordered_product_mapping.delivered_qty,
+                    ordered_pieces=i.quantity
+                )
             i.shipment_batch = shipment_product_batch
             i.save()
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
