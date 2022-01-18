@@ -568,7 +568,7 @@ class BinIDList(APIView):
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__in=zones, quantity__gt=0) \
+                                                           pickup__zone__in=zones) \
                                                    .exclude(pickup__status='picking_cancelled')\
                                                    .prefetch_related('bin__bin')\
                                                    .order_by('bin__bin__bin_id')
