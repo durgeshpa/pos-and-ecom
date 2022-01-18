@@ -1916,6 +1916,7 @@ class ZoneWisePickerSummaryView(generics.GenericAPIView):
         info_logger.info("Order Status Summary GET api called.")
         """ GET Order Status Summary List """
 
+        return get_response('', None, False)
         validated_data = validate_data_days_date_request(self.request)
         if 'error' in validated_data:
             return get_response(validated_data['error'])
