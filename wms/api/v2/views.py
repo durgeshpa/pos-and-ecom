@@ -1724,6 +1724,8 @@ class OrderStatusSummaryView(generics.GenericAPIView):
         info_logger.info("Order Status Summary GET api called.")
         """ GET Order Status Summary List """
 
+        return get_response('', None, False)
+
         self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
         self.queryset = self.filter_picker_summary_data()
         order_summary_data = {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}
