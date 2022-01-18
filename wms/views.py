@@ -3125,7 +3125,7 @@ def auto_qc_area_assignment_to_order(order_no=None):
             info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
             least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
                 qc_desk__warehouse_id=order.seller_shop, qc_desk__desk_enabled=True, area_enabled=True,
-                qc_area__area_type='OA', qc_done=True).filter(
+                qc_done=True).filter(
                 Q(qc_area__area_pickings__isnull=True) |
                 Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False)).\
                 distinct('qc_desk', 'last_assigned_at__date').order_by('-last_assigned_at__date')
@@ -3138,7 +3138,7 @@ def auto_qc_area_assignment_to_order(order_no=None):
                 qc_desk = least_used_desk.last().qc_desk
             area_mapping = QCDeskQCAreaAssignmentMapping.objects.filter(
                 qc_desk=qc_desk, qc_desk__desk_enabled=True, area_enabled=True,
-                qc_area__area_type='OA', qc_done=True).filter(
+                qc_done=True).filter(
                 Q(qc_area__area_pickings__isnull=True) |
                 Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False))
             if area_mapping:
