@@ -50,12 +50,12 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
             if not row['offer_start_date']:
                 row['offer_start_date'] = None
             else:
-                row['offer_start_date'] = datetime.strptime(row['offer_start_date'], "%d-%m-%Y")
+                row['offer_start_date'] = datetime.strptime(row['offer_start_date'], "%Y-%m-%d")
 
             if not row['offer_end_date']:
                 row['offer_end_date'] = None
             else:
-                row['offer_end_date'] = datetime.strptime(row['offer_end_date'], "%d-%m-%Y")
+                row['offer_end_date'] = datetime.strptime(row['offer_end_date'], "%Y-%m-%d")
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
             online_enabled, online_price, is_visible, product_pack_type, initial_purchase_value = row.get('product_name'), row.get('product_ean_code'), \
